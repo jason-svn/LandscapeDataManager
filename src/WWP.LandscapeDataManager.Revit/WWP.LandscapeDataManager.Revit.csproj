@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>WWP.LandscapeDataManager.Revit</AssemblyName>
+    <RootNamespace>WWP.LandscapeDataManager.Revit</RootNamespace>
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2025</RevitVersion>
+    <RevitInstallDir>C:\Program Files\Autodesk\Revit $(RevitVersion)</RevitInstallDir>
+    <OutputPath>$(MSBuildProjectDirectory)\..\..\artifacts\Revit$(RevitVersion)\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WWP.LandscapeDataManager.Contracts\WWP.LandscapeDataManager.Contracts.csproj" />
+    <Reference Include="RevitAPI">
+      <HintPath>$(RevitInstallDir)\RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(RevitInstallDir)\RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ValidateRevitInstallation" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(RevitInstallDir)\RevitAPI.dll')"
+           Text="Revit $(RevitVersion) was not found at $(RevitInstallDir). Supported values are 2025 and newer." />
+    <Error Condition="$([MSBuild]::VersionLessThan('$(RevitVersion)', '2025'))"
+           Text="Revit 2024 and older are intentionally unsupported. Use RevitVersion=2025 or newer." />
+  </Target>
+</Project>
