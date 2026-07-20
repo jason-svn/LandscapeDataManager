@@ -31,14 +31,24 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <StackPanel Spacing="2">
-                    <TextBlock Text="WWP Landscape Data Manager"
-                               Foreground="White"
-                               FontSize="24"
-                               FontWeight="SemiBold" />
-                    <TextBlock Text="Airtable synchronization, model review, calculations and quality control"
-                               Foreground="#CCDDE8EE"
-                               FontSize="13" />
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <Border Width="60"
+                            Height="60"
+                            Padding="5"
+                            Background="White"
+                            CornerRadius="10">
+                        <Image Source="ms-appx:///Assets/LIM-logo.png"
+                               Stretch="Uniform" />
+                    </Border>
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="LIM- LANDSCAPE DATA"
+                                   Foreground="White"
+                                   FontSize="24"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="Landscape data synchronization, model review, calculations and quality control"
+                                   Foreground="#CCDDE8EE"
+                                   FontSize="13" />
+                    </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" HorizontalAlignment="Right" Spacing="2">
                     <TextBlock x:Name="RevitConnectionText"
@@ -70,22 +80,45 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0" ColumnSpacing="12">
+                    <Grid Grid.Row="0" ColumnSpacing="12" RowSpacing="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="2*" />
-                            <ColumnDefinition Width="2*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="210" />
+                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBox x:Name="BaseIdBox"
-                                 Header="Airtable base ID"
-                                 PlaceholderText="app…" />
-                        <TextBox x:Name="TableNameBox"
+                        <ComboBox x:Name="DataSourceBox"
+                                  Header="Data source"
+                                  SelectedIndex="0"
+                                  SelectionChanged="DataSourceBox_SelectionChanged"
+                                  HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="Airtable shared link" />
+                            <ComboBoxItem Content="Excel workbook" />
+                        </ComboBox>
+                        <TextBox x:Name="SharedLinkBox"
                                  Grid.Column="1"
-                                 Header="Table"
-                                 Text="Dataset" />
+                                 Header="Airtable public share link"
+                                 PlaceholderText="https://airtable.com/app.../shr..." />
+                        <Grid x:Name="ExcelSourcePanel"
+                              Grid.Column="1"
+                              ColumnSpacing="8"
+                              Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="ExcelPathBox"
+                                     Header="Excel workbook"
+                                     PlaceholderText="Select or paste the path to an .xlsx or .xlsm file" />
+                            <Button Grid.Column="1"
+                                    Content="Browse..."
+                                    Click="BrowseExcel_Click"
+                                    VerticalAlignment="Bottom"
+                                    Padding="16,9" />
+                        </Grid>
                         <ToggleSwitch x:Name="PrimaryOptionsToggle"
                                       Grid.Column="2"
                                       Header="Design options"
@@ -93,21 +126,24 @@
                                       OffContent="All"
                                       IsOn="True"
                                       VerticalAlignment="Bottom" />
-                        <Button Grid.Column="3"
+                        <StackPanel Grid.Row="1"
+                                    Grid.ColumnSpan="3"
+                                    Orientation="Horizontal"
+                                    Spacing="10"
+                                    HorizontalAlignment="Right">
+                        <Button
                                 Content="Test connection"
                                 Click="TestConnection_Click"
-                                VerticalAlignment="Bottom"
                                 Padding="16,9" />
-                        <Button Grid.Column="4"
+                        <Button
                                 Content="Scan Revit"
                                 Click="ScanRevit_Click"
-                                VerticalAlignment="Bottom"
                                 Padding="16,9" />
-                        <Button Grid.Column="5"
+                        <Button
                                 Content="Sync &amp; scan"
                                 Click="SyncAndScan_Click"
-                                Style="{StaticResource PrimaryButtonStyle}"
-                                VerticalAlignment="Bottom" />
+                                Style="{StaticResource PrimaryButtonStyle}" />
+                        </StackPanel>
                     </Grid>
 
                     <Grid Grid.Row="1" Margin="0,18,0,16" ColumnSpacing="12">
@@ -203,14 +239,13 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="3">
-                            <TextBlock Text="Airtable → Revit parameter mapping"
+                            <TextBlock Text="Source data → Revit parameter mapping"
                                        FontSize="22"
                                        FontWeight="SemiBold" />
                             <TextBlock x:Name="MapperStatusText"
-                                       Text="Load the Airtable headers and active-model parameters to begin."
+                                       Text="Load the source headers and active-model parameters to begin."
                                        Opacity="0.7" />
                         </StackPanel>
                         <Button Grid.Column="1"
@@ -219,16 +254,11 @@
                                 Padding="16,9"
                                 VerticalAlignment="Center" />
                         <Button Grid.Column="2"
-                                Content="Auto-map WWP"
+                                Content="Auto-map all columns"
                                 Click="AutoMap_Click"
                                 Padding="16,9"
                                 VerticalAlignment="Center" />
                         <Button Grid.Column="3"
-                                Content="Add mapping"
-                                Click="AddMapping_Click"
-                                Padding="16,9"
-                                VerticalAlignment="Center" />
-                        <Button Grid.Column="4"
                                 Content="Save mappings"
                                 Click="SaveMappings_Click"
                                 Style="{StaticResource PrimaryButtonStyle}"
@@ -240,21 +270,22 @@
                              IsOpen="True"
                              IsClosable="False"
                              Severity="Informational"
-                             Title="Mapping only"
-                             Message="Mappings are stored locally and do not modify the Revit model. Read-only parameters are excluded." />
+                             Title="Mapping setup"
+                             Message="Every imported column is listed below. Auto-map fills safe matches; choose a Revit target for any column marked Needs mapping, or leave it disabled to ignore it." />
 
                     <Grid Grid.Row="2" Padding="12,8" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="70" />
                             <ColumnDefinition Width="1.2*" />
                             <ColumnDefinition Width="1.5*" />
-                            <ColumnDefinition Width="220" />
-                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="210" />
+                            <ColumnDefinition Width="110" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="USE" FontSize="11" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="1" Text="AIRTABLE COLUMN" FontSize="11" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="SOURCE COLUMN" FontSize="11" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="2" Text="REVIT PARAMETER / SCOPE / STORAGE" FontSize="11" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="3" Text="CONVERSION" FontSize="11" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="4" Text="STATUS" FontSize="11" FontWeight="SemiBold" />
                     </Grid>
 
                     <ListView Grid.Row="3"
@@ -267,15 +298,14 @@
                                         <ColumnDefinition Width="60" />
                                         <ColumnDefinition Width="1.2*" />
                                         <ColumnDefinition Width="1.5*" />
-                                        <ColumnDefinition Width="220" />
-                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="210" />
+                                        <ColumnDefinition Width="110" />
                                     </Grid.ColumnDefinitions>
                                     <ToggleSwitch IsOn="{x:Bind Enabled, Mode=TwoWay}" />
-                                    <ComboBox Grid.Column="1"
-                                              ItemsSource="{x:Bind SourceOptions}"
-                                              SelectedItem="{x:Bind SelectedAirtableField, Mode=TwoWay}"
-                                              PlaceholderText="Select Airtable column"
-                                              HorizontalAlignment="Stretch" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{x:Bind SelectedAirtableField}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
                                     <ComboBox Grid.Column="2"
                                               ItemsSource="{x:Bind TargetOptions}"
                                               SelectedItem="{x:Bind SelectedTarget, Mode=TwoWay}"
@@ -286,11 +316,106 @@
                                               ItemsSource="{x:Bind ConversionOptions}"
                                               SelectedItem="{x:Bind SelectedConversion, Mode=TwoWay}"
                                               HorizontalAlignment="Stretch" />
-                                    <Button Grid.Column="4"
-                                            Content="Remove"
-                                            Tag="{x:Bind}"
-                                            Click="RemoveMapping_Click"
-                                            HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="4"
+                                               Text="{x:Bind MappingStatus, Mode=OneWay}"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </TabViewItem>
+
+            <TabViewItem Header="Apply to Revit" IsClosable="False">
+                <Grid Padding="4,12,4,4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="Write source values to Revit"
+                                       FontSize="22"
+                                       FontWeight="SemiBold" />
+                            <TextBlock x:Name="SyncStatusText"
+                                       Text="Save mappings, then build a parameter-write preview."
+                                       Opacity="0.7" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="Preview changes"
+                                Click="PreviewParameterWrites_Click"
+                                Padding="16,9"
+                                VerticalAlignment="Center" />
+                        <Button x:Name="ApplyParameterWritesButton"
+                                Grid.Column="2"
+                                Content="Apply to Revit"
+                                Click="ApplyParameterWrites_Click"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                IsEnabled="False"
+                                VerticalAlignment="Center" />
+                    </Grid>
+
+                    <InfoBar Grid.Row="1"
+                             Margin="0,12,0,12"
+                             IsOpen="True"
+                             IsClosable="False"
+                             Severity="Warning"
+                             Title="Explicit model change"
+                             Message="Preview validates current and proposed values. Apply writes only Ready rows in one Revit transaction; Invalid, Missing, Duplicate and No change rows are skipped." />
+
+                    <Grid Grid.Row="2" Padding="10,8" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="190" />
+                            <ColumnDefinition Width="70" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="65" />
+                            <ColumnDefinition Width="190" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="STATUS" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="REVIT TYPE" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="PARAMETER" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="3" Text="SCOPE" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="4" Text="CURRENT" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="5" Text="PROPOSED" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="6" Text="TARGETS" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="7" Text="MESSAGE" FontSize="10" FontWeight="SemiBold" />
+                    </Grid>
+
+                    <ListView Grid.Row="3"
+                              ItemsSource="{x:Bind SyncPreviewItems}"
+                              SelectionMode="None">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SyncPreviewRow">
+                                <Grid Padding="10,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="65" />
+                                        <ColumnDefinition Width="190" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{x:Bind Status}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind TypeName}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind Parameter}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind Scope}" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind CurrentValue}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="5" Text="{x:Bind ProposedValue}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="6" Text="{x:Bind Targets}" />
+                                    <TextBlock Grid.Column="7" Text="{x:Bind Message}" TextTrimming="CharacterEllipsis" />
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>
@@ -299,17 +424,144 @@
             </TabViewItem>
 
             <TabViewItem Header="Calculations" IsClosable="False">
-                <Grid Padding="28">
-                    <StackPanel MaxWidth="620" HorizontalAlignment="Left" Spacing="12">
-                        <TextBlock Text="Environmental calculations" FontSize="22" FontWeight="SemiBold" />
-                        <TextBlock TextWrapping="Wrap"
-                                   Text="This area will calculate CO₂ sequestration, oxygen, retained water, pollutants, maintenance cost and cost savings after the Airtable-to-Revit parameter map has been approved." />
-                        <InfoBar IsOpen="True"
-                                 IsClosable="False"
-                                 Severity="Informational"
-                                 Title="Read-only foundation"
-                                 Message="No model parameters are written by this build." />
-                    </StackPanel>
+                <Grid Padding="4,12,4,4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="Environmental and financial calculations"
+                                       FontSize="22"
+                                       FontWeight="SemiBold" />
+                            <TextBlock x:Name="CalculationStatusText"
+                                       Text="Load the selected source and Revit model to calculate a preview."
+                                       Opacity="0.7" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="Calculate preview"
+                                Click="Calculate_Click"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                VerticalAlignment="Center" />
+                    </Grid>
+
+                    <InfoBar Grid.Row="1"
+                             Margin="0,12,0,12"
+                             IsOpen="True"
+                             IsClosable="False"
+                             Severity="Informational"
+                             Title="Dynamo calculation rules"
+                             Message="Trees use coefficient × instance count. Floors and planting surfaces use coefficient × area. This preview does not write Revit parameters." />
+
+                    <Grid Grid.Row="2" ColumnSpacing="10" RowSpacing="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="CARBON" FontSize="11" FontWeight="SemiBold" Opacity="0.65" />
+                                <TextBlock x:Name="CarbonTotalText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="1" Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="OXYGEN" FontSize="11" FontWeight="SemiBold" Opacity="0.65" />
+                                <TextBlock x:Name="OxygenTotalText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="RUNOFF" FontSize="11" FontWeight="SemiBold" Opacity="0.65" />
+                                <TextBlock x:Name="RunoffTotalText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="1" Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="POLLUTANTS REMOVED" FontSize="11" FontWeight="SemiBold" Opacity="0.65" />
+                                <TextBlock x:Name="PollutantsTotalText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="MAINTENANCE COST" FontSize="11" FontWeight="SemiBold" Opacity="0.65" />
+                                <TextBlock x:Name="MaintenanceTotalText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="COST SAVINGS" FontSize="11" FontWeight="SemiBold" Opacity="0.65" />
+                                <TextBlock x:Name="SavingsTotalText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Grid Grid.Row="3" Margin="0,12,0,0" Padding="10,8" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="100" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="STATUS" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="REVIT TYPE" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="BASIS" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="3" Text="CARBON" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="4" Text="OXYGEN" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="5" Text="RUNOFF" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="6" Text="POLLUTANTS" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="7" Text="MAINTENANCE" FontSize="10" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="8" Text="SAVINGS" FontSize="10" FontWeight="SemiBold" />
+                    </Grid>
+
+                    <ListView Grid.Row="4"
+                              ItemsSource="{x:Bind CalculationItems}"
+                              SelectionMode="None">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:CalculationRow">
+                                <Grid Padding="10,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="100" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="100" />
+                                        <ColumnDefinition Width="100" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{x:Bind Status}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind TypeName}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind Basis}" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind Carbon}" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind Oxygen}" />
+                                    <TextBlock Grid.Column="5" Text="{x:Bind Runoff}" />
+                                    <TextBlock Grid.Column="6" Text="{x:Bind Pollutants}" />
+                                    <TextBlock Grid.Column="7" Text="{x:Bind MaintenanceCost}" />
+                                    <TextBlock Grid.Column="8" Text="{x:Bind CostSavings}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
                 </Grid>
             </TabViewItem>
 
@@ -318,13 +570,133 @@
                     <StackPanel MaxWidth="680" HorizontalAlignment="Left" Spacing="14">
                         <TextBlock Text="Synchronization quality" FontSize="22" FontWeight="SemiBold" />
                         <TextBlock Text="Matched" FontWeight="SemiBold" />
-                        <TextBlock Text="The normalized Revit type name exists in the Airtable dataset." Opacity="0.75" />
+                        <TextBlock Text="The normalized Revit type name exists in the selected source dataset." Opacity="0.75" />
                         <TextBlock Text="Missing" FontWeight="SemiBold" />
-                        <TextBlock Text="No Airtable record matches the Revit type; review an alias or database entry." Opacity="0.75" />
+                        <TextBlock Text="No source record matches the Revit type; review an alias or source entry." Opacity="0.75" />
                         <TextBlock Text="Not checked" FontWeight="SemiBold" />
-                        <TextBlock Text="The model was scanned without downloading Airtable records." Opacity="0.75" />
+                        <TextBlock Text="The model was scanned without loading source records." Opacity="0.75" />
                     </StackPanel>
                 </Grid>
+            </TabViewItem>
+
+            <TabViewItem Header="Instructions" IsClosable="False">
+                <ScrollViewer Padding="12,8,20,20"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel MaxWidth="900"
+                                HorizontalAlignment="Left"
+                                Spacing="18">
+                        <StackPanel Spacing="5">
+                            <TextBlock Text="How to use LIM- LANDSCAPE DATA"
+                                       FontSize="24"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="Use this workflow to compare landscape source data with Revit and calculate a read-only project preview."
+                                       TextWrapping="Wrap"
+                                       Opacity="0.75" />
+                        </StackPanel>
+
+                        <InfoBar IsOpen="True"
+                                 IsClosable="False"
+                                 Severity="Informational"
+                                 Title="Current safety mode"
+                                 Message="Scanning, mapping and calculations do not modify Revit. Only the explicit Apply to Revit workflow writes validated values after confirmation. Saved mappings are stored only for the current Windows user." />
+
+                        <Border Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="1. Prepare Revit"
+                                           FontSize="18"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="Open a Revit project before launching the tool. The current scanner supports Planting and Floors. Keep Primary only enabled unless secondary design options must be included."
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="Type names are used to match source records. Shared project parameters should be type-bound to the applicable categories when values are later synchronized."
+                                           TextWrapping="Wrap"
+                                           Opacity="0.75" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="2. Choose the source"
+                                           FontSize="18"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="Airtable: paste a public shared-view link, then select Test connection. No Airtable token is required."
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="Excel: select an .xlsx or .xlsm workbook. The first non-empty worksheet is used and its first populated row must contain unique, non-empty column headers."
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="3. Compare the source with Revit"
+                                           FontSize="18"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="On Sync &amp; Review, select Scan Revit to inspect the model without source data, or Sync &amp; scan to load the source and compare type names."
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="Matched means a normalized Revit type name exists in the source. Missing means no source record was found. Not checked means the source was not loaded."
+                                           TextWrapping="Wrap"
+                                           Opacity="0.75" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="4. Configure parameter mappings"
+                                           FontSize="18"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="Open Parameter Mapper and select Load catalogs. Choose Auto-map all to match exact names and known WWP aliases, or Map manually. Every imported column remains visible; map the ones you need and leave unused columns disabled."
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="Only writable parameters found on Planting and Floor instances/types are shown. Saving mappings alone does not apply values to the model."
+                                           TextWrapping="Wrap"
+                                           Opacity="0.75" />
+                                <TextBlock Text="After saving, open Apply to Revit, select Preview changes, review every row, and then select Apply to Revit."
+                                           TextWrapping="Wrap"
+                                           Opacity="0.75" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="5. Calculate the project preview"
+                                           FontSize="18"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="Open Calculations and select Calculate preview. Trees use each source coefficient multiplied by Revit instance count. Floors and planting surfaces use each coefficient multiplied by Revit area in square metres."
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="The preview reports carbon, oxygen, avoided runoff, pollutants removed, maintenance cost and cost savings. Net savings equals cost savings minus maintenance cost."
+                                           TextWrapping="Wrap"
+                                           Opacity="0.75" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="6. Resolve calculation warnings"
+                                           FontSize="18"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="Missing source: add or rename the source record. Duplicate source: make the matching type/species name unique. Invalid: correct the named source column so it contains a number."
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="Tree matching checks Types, Species names, species and type. Surface matching checks Planting type, Types and type. Matching ignores case, spaces, punctuation and most accents."
+                                           TextWrapping="Wrap"
+                                           Opacity="0.75" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SummaryCardStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Expected calculation columns"
+                                           FontSize="18"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth) or WWP_Total_GWP"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="Oxygen levels O2 kg/yr (16/18 girth)"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="Avoided runoff m3/yr (16/18 girth)"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="WWP_Pollutants_Removed, Maintenance Costs and COST_SAVED"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
             </TabViewItem>
 
             <TabViewItem Header="Settings" IsClosable="False">
@@ -332,13 +704,22 @@
                     <StackPanel MaxWidth="680" HorizontalAlignment="Left" Spacing="12">
                         <TextBlock Text="Security and deployment" FontSize="22" FontWeight="SemiBold" />
                         <TextBlock TextWrapping="Wrap"
-                                   Text="The Airtable token is never stored in the source code or UI settings. Set WWP_AIRTABLE_TOKEN as a Windows user environment variable, then restart Revit." />
+                                   Text="Choose a public Airtable share link or an Excel workbook on the Sync &amp; Review tab. No Airtable token, account or administrator installation is required." />
                         <TextBlock TextWrapping="Wrap"
-                                   Text="Optionally set WWP_AIRTABLE_BASE_ID to prefill the base ID. The table defaults to Dataset." />
+                                   Text="The selected source is saved only for the current Windows user. Excel files must use the first row for column headers; the first non-empty worksheet is loaded." />
                     </StackPanel>
                 </Grid>
             </TabViewItem>
         </TabView>
+
+        <WebView2 x:Name="AirtableWebView"
+                  Grid.RowSpan="3"
+                  Width="1"
+                  Height="1"
+                  Opacity="0.01"
+                  IsHitTestVisible="False"
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Bottom" />
 
         <ProgressRing x:Name="BusyIndicator"
                       Grid.RowSpan="3"

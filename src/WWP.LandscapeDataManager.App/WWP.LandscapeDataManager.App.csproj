@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
@@ -16,10 +16,16 @@
     <OutputPath>$(MSBuildProjectDirectory)\..\..\artifacts\App\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <Configurations>Debug;Release;Debug 2025;Debug 2026</Configurations>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\WWP.LandscapeDataManager.Contracts\WWP.LandscapeDataManager.Contracts.csproj" />
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260710003" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\Assets\LIM-logo-256.png" Link="Assets\LIM-logo.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

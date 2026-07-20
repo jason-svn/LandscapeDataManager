@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Windows.Media.Imaging;
 using Autodesk.Revit.UI;
 using WWP.LandscapeDataManager.Revit.Commands;
 using WWP.LandscapeDataManager.Revit.Infrastructure;
@@ -20,15 +21,17 @@ public sealed class App : IExternalApplication
 
         var panel = GetOrCreatePanel(application);
         var buttonData = new PushButtonData(
-            "WWP.ShowLandscapeData",
-            "Landscape\nData",
+            "LIMShowLandscapeData",
+            "LIM\nDATA",
             Assembly.GetExecutingAssembly().Location,
             typeof(ShowAppCommand).FullName);
 
         if (panel.AddItem(buttonData) is PushButton button)
         {
-            button.ToolTip = "Open the WinUI 3 landscape data manager.";
-            button.LongDescription = "Scan Revit planting and floor types, compare Airtable records, and preview synchronization results.";
+            button.ToolTip = "Open LIM- LANDSCAPE DATA.";
+            button.LongDescription = "Scan Revit planting and floor types, compare Airtable or Excel records, and preview synchronization results.";
+            button.Image = LoadEmbeddedImage("LIM.LandscapeData.Logo16.png");
+            button.LargeImage = LoadEmbeddedImage("LIM.LandscapeData.Logo32.png");
         }
 
         return Result.Succeeded;
@@ -49,7 +52,7 @@ public sealed class App : IExternalApplication
     private static RibbonPanel GetOrCreatePanel(UIControlledApplication application)
     {
         const string tabName = "EGIS";
-        const string panelName = "Landscape Data";
+        const string panelName = "LIM- LANDSCAPE DATA";
 
         try
         {
@@ -63,5 +66,18 @@ public sealed class App : IExternalApplication
         return application.GetRibbonPanels(tabName)
                    .FirstOrDefault(panel => panel.Name == panelName)
                ?? application.CreateRibbonPanel(tabName, panelName);
+    }
+
+    private static BitmapImage LoadEmbeddedImage(string resourceName)
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+                           ?? throw new InvalidOperationException($"The embedded ribbon image '{resourceName}' is missing.");
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        return image;
     }
 }

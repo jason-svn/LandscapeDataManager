@@ -1,4 +1,4 @@
-# WWP Landscape Data Manager
+# LIM- LANDSCAPE DATA
 
 A `.NET 8` Revit 2025+ connector with a separate WinUI 3 interface for replacing the Dynamo-based landscape data workflows.
 
@@ -14,27 +14,26 @@ WinUI 3 cannot be inserted directly into a Revit dockable pane because Revit req
 
 ## Current functionality
 
-- Adds **EGIS > Landscape Data** to the Revit ribbon.
+- Adds **EGIS > LIM- LANDSCAPE DATA** to the Revit ribbon with the LIM logo.
 - Opens a `.NET 8` WinUI 3 application with Mica styling.
 - Reports the connected Revit version and active document.
 - Scans Planting and Floor instances, optionally limiting results to primary design options.
 - Groups model elements by Revit type and reports counts, floor area and `WWP_LDS_CalculationType`.
-- Downloads all Airtable pages and compares normalized Revit type names against the current Dynamo field conventions.
-- Provides a Parameter Mapper that pairs live Airtable columns with writable Revit instance/type parameters.
+- Loads records from either a public Airtable shared link or a selected Excel `.xlsx`/`.xlsm` workbook.
+- Compares normalized Revit type names against the selected source using the current Dynamo field conventions.
+- Provides a Parameter Mapper that pairs live source columns with writable Revit instance/type parameters.
 - Captures a conversion policy for every mapping and can suggest the known WWP environmental mappings.
 - Saves mappings to `%LocalAppData%\EGIS\WWP.LandscapeDataManager\parameter-mappings.json`.
 - Keeps all Revit operations read-only. Parameter writes are intentionally not enabled yet.
 
-## Security configuration
+## Data-source configuration
 
-The Airtable token is not stored in this repository. Define these user environment variables before starting Revit:
+No Airtable token is required. On **Sync & Review**, choose one of these sources:
 
-```powershell
-[Environment]::SetEnvironmentVariable('WWP_AIRTABLE_TOKEN', 'YOUR_NEW_TOKEN', 'User')
-[Environment]::SetEnvironmentVariable('WWP_AIRTABLE_BASE_ID', 'YOUR_BASE_ID', 'User')
-```
+- **Airtable shared link**: paste a public base or view share URL. The view must allow CSV downloads.
+- **Excel workbook**: select an `.xlsx` or `.xlsm` file. The first populated row supplies the column headers, and the first non-empty worksheet is loaded.
 
-Rotate the token embedded in the existing Dynamo graphs before using this application.
+The selected source is saved per Windows user under `%LocalAppData%\EGIS\WWP.LandscapeDataManager\data-source-settings.json`.
 
 ## Build and install
 
@@ -69,5 +68,5 @@ Before enabling **Apply changes**, validate these rules with a representative Re
 1. Whether every environmental value belongs on the instance or type.
 2. Whether `Max_Height`/`Max_Width` or `Maxi_Height`/`Maxi_Width` are authoritative.
 3. The Revit specs and source units for every numeric parameter.
-4. The approved aliases for Revit type names that do not exactly match Airtable.
+4. The approved aliases for Revit type names that do not exactly match the source dataset.
 5. Whether an apply operation must be atomic or may commit valid types while reporting invalid ones.

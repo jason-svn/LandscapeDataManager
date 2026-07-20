@@ -18,7 +18,7 @@ $connectorProject = Join-Path $PSScriptRoot 'src\WWP.LandscapeDataManager.Revit\
 $appProject = Join-Path $PSScriptRoot 'src\WWP.LandscapeDataManager.App\WWP.LandscapeDataManager.App.csproj'
 $publishedApp = Join-Path $PSScriptRoot 'artifacts\App\win-x64\publish'
 $packagesRoot = Join-Path $PSScriptRoot 'artifacts\Packages'
-$stagingRoot = Join-Path $packagesRoot 'WWP.LandscapeDataManager-2025plus'
+$stagingRoot = Join-Path $packagesRoot 'LIM-Landscape-Data-2025plus'
 $zipPath = "$stagingRoot.zip"
 
 & dotnet publish $appProject -c $Configuration -r win-x64 --self-contained false
@@ -63,7 +63,7 @@ foreach ($version in $RevitVersions) {
 
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Deployment\Deploy-BinaryPackage.ps1') -Destination $resolvedStagingRoot -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Deployment\README.txt') -Destination $resolvedStagingRoot -Force
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Manifest\WWP.LandscapeDataManager.addin.template') -Destination $resolvedStagingRoot -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Manifest\LIMLandscapeData.addin.template') -Destination $resolvedStagingRoot -Force
 
 Compress-Archive -Path (Join-Path $resolvedStagingRoot '*') -DestinationPath $zipPath -CompressionLevel Optimal
 

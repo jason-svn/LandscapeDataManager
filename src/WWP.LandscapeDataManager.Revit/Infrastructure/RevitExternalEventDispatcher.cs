@@ -29,7 +29,7 @@ internal sealed class RevitExternalEventDispatcher : IExternalEventHandler, IDis
         }
     }
 
-    public string GetName() => "WWP Landscape Data request dispatcher";
+    public string GetName() => "LIM Landscape Data request dispatcher";
 
     public void Dispose() => _externalEvent.Dispose();
 

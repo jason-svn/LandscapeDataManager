@@ -1,3 +1,4 @@
+using System.IO;
 using System.IO.Pipes;
 using System.Text.Json;
 using Autodesk.Revit.UI;
@@ -80,6 +81,8 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.GetStatus => await GetStatusAsync(request).ConfigureAwait(false),
                 PipeCommands.ScanModel => await ScanModelAsync(request).ConfigureAwait(false),
                 PipeCommands.GetParameterCatalog => await GetParameterCatalogAsync(request).ConfigureAwait(false),
+                PipeCommands.PreviewParameterWrites => await PreviewParameterWritesAsync(request).ConfigureAwait(false),
+                PipeCommands.ApplyParameterWrites => await ApplyParameterWritesAsync(request).ConfigureAwait(false),
                 _ => new PipeResponse(request.RequestId, false, Error: $"Unknown command: {request.Command}")
             };
         }
@@ -120,6 +123,24 @@ internal sealed class RevitPipeServer : IDisposable
         var result = await _dispatcher.RunAsync(application =>
             RevitModelScanner.GetParameterCatalog(application, options)).ConfigureAwait(false);
 
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> PreviewParameterWritesAsync(PipeRequest request)
+    {
+        var batch = request.Payload?.Deserialize<ParameterWriteBatch>(JsonDefaults.Options)
+                    ?? throw new InvalidDataException("The parameter-write preview was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            RevitParameterWriter.Preview(application, batch)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> ApplyParameterWritesAsync(PipeRequest request)
+    {
+        var batch = request.Payload?.Deserialize<ParameterWriteBatch>(JsonDefaults.Options)
+                    ?? throw new InvalidDataException("The parameter-write batch was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            RevitParameterWriter.Apply(application, batch)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "WWP.LandscapeDataManager.App": {
+      "commandName": "Project",
+      "commandLineArgs": "--pipe LIM-Debug-Probe"
+    }
+  }
+}

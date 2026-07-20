@@ -59,11 +59,17 @@ if (-not (Test-Path -LiteralPath $connectorPath)) {
     throw "The connector assembly was not produced at $connectorPath."
 }
 
-$templatePath = Join-Path $PSScriptRoot 'Manifest\WWP.LandscapeDataManager.addin.template'
-$manifestPath = Join-Path $addinRoot 'WWP.LandscapeDataManager.addin'
+$templatePath = Join-Path $PSScriptRoot 'Manifest\LIMLandscapeData.addin.template'
+$manifestPath = Join-Path $addinRoot 'LIMLandscapeData.addin'
+foreach ($legacyName in 'WWPLandscapeDataManager.addin', 'WWP.LandscapeDataManager.addin') {
+    $legacyManifestPath = Join-Path $addinRoot $legacyName
+    if (Test-Path -LiteralPath $legacyManifestPath) {
+        Remove-Item -LiteralPath $legacyManifestPath -Force
+    }
+}
 $escapedAssemblyPath = [Security.SecurityElement]::Escape($connectorPath)
 $manifest = (Get-Content -LiteralPath $templatePath -Raw).Replace('{{ASSEMBLY_PATH}}', $escapedAssemblyPath)
 [IO.File]::WriteAllText($manifestPath, $manifest, [Text.UTF8Encoding]::new($false))
 
-Write-Host "Installed WWP Landscape Data Manager for Revit $RevitVersion."
-Write-Host "Restart Revit, then use EGIS > Landscape Data."
+Write-Host "Installed LIM- LANDSCAPE DATA for Revit $RevitVersion."
+Write-Host "Restart Revit, then use EGIS > LIM- LANDSCAPE DATA."

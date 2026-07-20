@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <RevitAddIns>
   <AddIn Type="Application">
-    <Name>WWP Landscape Data Manager</Name>
+    <Name>LIM- LANDSCAPE DATA</Name>
     <Assembly>{{ASSEMBLY_PATH}}</Assembly>
     <AddInId>1F16DC04-667F-445E-85F4-25897F0FB47A</AddInId>
     <FullClassName>WWP.LandscapeDataManager.Revit.App</FullClassName>

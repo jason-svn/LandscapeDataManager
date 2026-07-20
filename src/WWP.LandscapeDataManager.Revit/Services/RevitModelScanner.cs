@@ -27,14 +27,22 @@ internal static class RevitModelScanner
 
         var items = elements
             .Select(element => CreateSourceRow(document, element))
-            .GroupBy(row => new { row.Category, row.TypeName, row.TypeId, row.CalculationType })
+            .GroupBy(row => new
+            {
+                row.Category,
+                row.TypeName,
+                row.TypeId,
+                row.CalculationType,
+                row.IsAreaBased
+            })
             .Select(group => new ModelScanItem(
                 group.Key.Category,
                 group.Key.TypeName,
                 group.Key.TypeId,
                 group.Count(),
                 Math.Round(group.Sum(row => row.AreaSquareMetres), 2),
-                group.Key.CalculationType))
+                group.Key.CalculationType,
+                group.Key.IsAreaBased))
             .OrderBy(item => item.Category)
             .ThenBy(item => item.TypeName)
             .ToList();
@@ -118,7 +126,8 @@ internal static class RevitModelScanner
             typeName,
             typeId,
             area,
-            calculationType);
+            calculationType,
+            element is Floor);
     }
 
     private static IEnumerable<Element> GetSupportedElements(
@@ -186,7 +195,8 @@ internal static class RevitModelScanner
         string TypeName,
         long TypeId,
         double AreaSquareMetres,
-        string? CalculationType);
+        string? CalculationType,
+        bool IsAreaBased);
 
     private sealed record ParameterSource(
         string Name,

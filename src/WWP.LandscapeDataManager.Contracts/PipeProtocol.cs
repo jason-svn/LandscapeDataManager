@@ -7,6 +7,8 @@ public static class PipeCommands
     public const string GetStatus = "get-status";
     public const string ScanModel = "scan-model";
     public const string GetParameterCatalog = "get-parameter-catalog";
+    public const string PreviewParameterWrites = "preview-parameter-writes";
+    public const string ApplyParameterWrites = "apply-parameter-writes";
 }
 
 public sealed record PipeRequest(string RequestId, string Command, JsonElement? Payload);
@@ -30,7 +32,8 @@ public sealed record ModelScanItem(
     long TypeId,
     int ElementCount,
     double AreaSquareMetres,
-    string? CalculationType);
+    string? CalculationType,
+    bool IsAreaBased = false);
 
 public sealed record ModelScanResult(
     string DocumentTitle,
@@ -54,6 +57,38 @@ public sealed record ParameterMappingDefinition(
     string Scope,
     string Conversion,
     bool Enabled = true);
+
+public sealed record ParameterWriteItem(
+    long TypeId,
+    string TypeName,
+    string SourceField,
+    string RevitParameter,
+    string Scope,
+    string Conversion,
+    string SourceValue);
+
+public sealed record ParameterWriteBatch(
+    ModelScanOptions Options,
+    IReadOnlyList<ParameterWriteItem> Items);
+
+public sealed record ParameterWritePreviewRow(
+    int ItemIndex,
+    string TypeName,
+    string RevitParameter,
+    string Scope,
+    string CurrentValue,
+    string ProposedValue,
+    int TargetCount,
+    string Status,
+    string? Message,
+    bool CanApply);
+
+public sealed record ParameterWriteResult(
+    string DocumentTitle,
+    IReadOnlyList<ParameterWritePreviewRow> Rows,
+    int ChangedParameterCount,
+    int ChangedElementCount,
+    bool Applied);
 
 public static class JsonDefaults
 {

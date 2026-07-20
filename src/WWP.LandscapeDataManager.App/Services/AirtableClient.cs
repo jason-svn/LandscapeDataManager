@@ -1,77 +1,314 @@
-using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.Web.WebView2.Core;
 
 namespace WWP.LandscapeDataManager.App.Services;
 
 internal sealed class AirtableClient
 {
-    private static readonly HttpClient HttpClient = new()
+    private static readonly TimeSpan PageLoadTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan DownloadTimeout = TimeSpan.FromSeconds(30);
+    private readonly WebView2 _webView;
+
+    public AirtableClient(WebView2 webView)
     {
-        Timeout = TimeSpan.FromSeconds(30)
-    };
+        _webView = webView;
+    }
 
     public async Task<IReadOnlyList<AirtableRecord>> GetRecordsAsync(
-        string baseId,
-        string tableName,
-        string token,
+        string sharedLink,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(baseId))
-        {
-            throw new ArgumentException("Enter the Airtable base ID.", nameof(baseId));
-        }
+        var sharedUri = ValidateSharedLink(sharedLink);
+        await _webView.EnsureCoreWebView2Async();
 
-        if (string.IsNullOrWhiteSpace(tableName))
-        {
-            throw new ArgumentException("Enter the Airtable table name.", nameof(tableName));
-        }
+        var core = _webView.CoreWebView2
+                   ?? throw new InvalidOperationException("The Airtable browser could not be initialized.");
+        core.Settings.AreDevToolsEnabled = false;
+        core.Settings.AreDefaultContextMenusEnabled = false;
+        core.Settings.IsStatusBarEnabled = false;
 
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            throw new InvalidOperationException(
-                "Set the WWP_AIRTABLE_TOKEN user environment variable before starting Revit.");
-        }
+        await NavigateAsync(core, sharedUri, cancellationToken);
+        await WaitForElementAsync(
+            "[data-tutorial-selector-id='viewTopBarMenu']",
+            PageLoadTimeout,
+            cancellationToken);
 
-        var records = new List<AirtableRecord>();
-        string? offset = null;
+        var csv = await DownloadCsvAsync(core, cancellationToken);
+        return ParseRecords(csv);
+    }
 
-        do
+    private async Task NavigateAsync(
+        CoreWebView2 core,
+        Uri uri,
+        CancellationToken cancellationToken)
+    {
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void NavigationCompleted(WebView2 sender, CoreWebView2NavigationCompletedEventArgs args)
         {
-            var url = $"https://api.airtable.com/v0/{Uri.EscapeDataString(baseId)}/{Uri.EscapeDataString(tableName)}";
-            if (!string.IsNullOrWhiteSpace(offset))
+            if (args.IsSuccess)
             {
-                url += $"?offset={Uri.EscapeDataString(offset)}";
+                completion.TrySetResult();
+            }
+            else
+            {
+                completion.TrySetException(
+                    new HttpRequestException($"Airtable navigation failed: {args.WebErrorStatus}."));
+            }
+        }
+
+        _webView.NavigationCompleted += NavigationCompleted;
+        try
+        {
+            core.Navigate(uri.AbsoluteUri);
+            await completion.Task.WaitAsync(PageLoadTimeout, cancellationToken);
+        }
+        finally
+        {
+            _webView.NavigationCompleted -= NavigationCompleted;
+        }
+    }
+
+    private async Task<string> DownloadCsvAsync(
+        CoreWebView2 core,
+        CancellationToken cancellationToken)
+    {
+        var temporaryFile = Path.Combine(
+            Path.GetTempPath(),
+            $"WWP-Landscape-{Guid.NewGuid():N}.csv");
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        CoreWebView2DownloadOperation? activeDownload = null;
+
+        void DownloadStateChanged(object? sender, object args)
+        {
+            if (activeDownload is null)
+            {
+                return;
             }
 
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            using var response = await HttpClient.SendAsync(request, cancellationToken);
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
+            if (activeDownload.State == CoreWebView2DownloadState.Completed)
             {
-                throw new HttpRequestException(
-                    $"Airtable returned {(int)response.StatusCode} {response.ReasonPhrase}.");
+                completion.TrySetResult();
+            }
+            else if (activeDownload.State == CoreWebView2DownloadState.Interrupted)
+            {
+                completion.TrySetException(
+                    new IOException($"Airtable CSV download was interrupted: {activeDownload.InterruptReason}."));
+            }
+        }
+
+        void DownloadStarting(object? sender, CoreWebView2DownloadStartingEventArgs args)
+        {
+            activeDownload = args.DownloadOperation;
+            activeDownload.StateChanged += DownloadStateChanged;
+            args.ResultFilePath = temporaryFile;
+            args.Handled = true;
+        }
+
+        core.DownloadStarting += DownloadStarting;
+        try
+        {
+            await _webView.ExecuteScriptAsync(
+                "document.querySelector(\"[data-tutorial-selector-id='viewTopBarMenu']\")?.click();");
+            await WaitForElementAsync(
+                "[data-tutorial-selector-id='viewMenuItem-viewExportCsv']",
+                TimeSpan.FromSeconds(5),
+                cancellationToken);
+            await _webView.ExecuteScriptAsync(
+                "document.querySelector(\"[data-tutorial-selector-id='viewMenuItem-viewExportCsv']\")?.click();");
+
+            await completion.Task.WaitAsync(DownloadTimeout, cancellationToken);
+            return await File.ReadAllTextAsync(temporaryFile, cancellationToken);
+        }
+        finally
+        {
+            core.DownloadStarting -= DownloadStarting;
+            if (activeDownload is not null)
+            {
+                activeDownload.StateChanged -= DownloadStateChanged;
             }
 
-            var page = JsonSerializer.Deserialize<AirtablePage>(json, JsonOptions)
-                       ?? throw new InvalidDataException("Airtable returned an empty response.");
-            records.AddRange(page.Records);
-            offset = page.Offset;
+            try
+            {
+                File.Delete(temporaryFile);
+            }
+            catch (IOException)
+            {
+                // The operating system will clean up an isolated temporary file if WebView2 still holds it.
+            }
         }
-        while (!string.IsNullOrWhiteSpace(offset));
+    }
+
+    private async Task WaitForElementAsync(
+        string selector,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        var deadline = DateTimeOffset.UtcNow + timeout;
+        var escapedSelector = JsonSerializer.Serialize(selector);
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = await _webView.ExecuteScriptAsync(
+                $"Boolean(document.querySelector({escapedSelector}))");
+            if (string.Equals(result, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            await Task.Delay(150, cancellationToken);
+        }
+
+        throw new InvalidOperationException(
+            "The Airtable shared view did not expose its CSV download. Confirm that the link is public and that copying data is allowed.");
+    }
+
+    private static Uri ValidateSharedLink(string sharedLink)
+    {
+        if (!Uri.TryCreate(sharedLink.Trim(), UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttps ||
+            !string.Equals(uri.Host, "airtable.com", StringComparison.OrdinalIgnoreCase) ||
+            !uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .Any(segment => segment.StartsWith("shr", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ArgumentException(
+                "Paste a public Airtable share link, for example https://airtable.com/app.../shr... .",
+                nameof(sharedLink));
+        }
+
+        return uri;
+    }
+
+    private static IReadOnlyList<AirtableRecord> ParseRecords(string csv)
+    {
+        var rows = ParseCsv(csv);
+        if (rows.Count == 0 || rows[0].Count == 0)
+        {
+            throw new InvalidDataException("Airtable returned an empty CSV file.");
+        }
+
+        var headers = rows[0]
+            .Select(header => header.TrimStart('\uFEFF').Trim())
+            .ToList();
+        if (headers.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new InvalidDataException("The Airtable view contains a column without a header.");
+        }
+
+        var duplicateHeader = headers
+            .GroupBy(header => header, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(group => group.Count() > 1);
+        if (duplicateHeader is not null)
+        {
+            throw new InvalidDataException(
+                $"The Airtable view contains the duplicate header '{duplicateHeader.Key}'.");
+        }
+
+        var records = new List<AirtableRecord>(Math.Max(0, rows.Count - 1));
+        for (var rowIndex = 1; rowIndex < rows.Count; rowIndex++)
+        {
+            var row = rows[rowIndex];
+            if (row.All(string.IsNullOrWhiteSpace))
+            {
+                continue;
+            }
+
+            var fields = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+            for (var columnIndex = 0; columnIndex < headers.Count; columnIndex++)
+            {
+                var value = columnIndex < row.Count ? row[columnIndex] : string.Empty;
+                fields[headers[columnIndex]] = JsonSerializer.SerializeToElement(value);
+            }
+
+            records.Add(new AirtableRecord($"shared-{rowIndex}", fields));
+        }
 
         return records;
     }
 
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static IReadOnlyList<IReadOnlyList<string>> ParseCsv(string csv)
+    {
+        var rows = new List<IReadOnlyList<string>>();
+        var row = new List<string>();
+        var field = new StringBuilder();
+        var insideQuotes = false;
 
-    private sealed record AirtablePage(
-        [property: JsonPropertyName("records")] List<AirtableRecord> Records,
-        [property: JsonPropertyName("offset")] string? Offset);
+        for (var index = 0; index < csv.Length; index++)
+        {
+            var character = csv[index];
+            if (insideQuotes)
+            {
+                if (character == '"')
+                {
+                    if (index + 1 < csv.Length && csv[index + 1] == '"')
+                    {
+                        field.Append('"');
+                        index++;
+                    }
+                    else
+                    {
+                        insideQuotes = false;
+                    }
+                }
+                else
+                {
+                    field.Append(character);
+                }
+
+                continue;
+            }
+
+            switch (character)
+            {
+                case '"':
+                    insideQuotes = true;
+                    break;
+                case ',':
+                    row.Add(field.ToString());
+                    field.Clear();
+                    break;
+                case '\r':
+                    if (index + 1 < csv.Length && csv[index + 1] == '\n')
+                    {
+                        index++;
+                    }
+
+                    CompleteRow();
+                    break;
+                case '\n':
+                    CompleteRow();
+                    break;
+                default:
+                    field.Append(character);
+                    break;
+            }
+        }
+
+        if (insideQuotes)
+        {
+            throw new InvalidDataException("Airtable returned malformed CSV data with an unterminated quoted field.");
+        }
+
+        if (field.Length > 0 || row.Count > 0)
+        {
+            CompleteRow();
+        }
+
+        return rows;
+
+        void CompleteRow()
+        {
+            row.Add(field.ToString());
+            field.Clear();
+            rows.Add(row);
+            row = [];
+        }
+    }
 }
 
 internal sealed record AirtableRecord(
-    [property: JsonPropertyName("id")] string Id,
-    [property: JsonPropertyName("fields")] Dictionary<string, JsonElement> Fields);
+    string Id,
+    Dictionary<string, JsonElement> Fields);

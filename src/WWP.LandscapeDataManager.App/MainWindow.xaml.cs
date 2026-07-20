@@ -10,9 +10,9 @@ public sealed partial class MainWindow : Window
     public MainWindow(string pipeName)
     {
         InitializeComponent();
-        MainContent.Initialize(pipeName);
 
         var windowHandle = WindowNative.GetWindowHandle(this);
+        MainContent.Initialize(pipeName, windowHandle);
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(windowHandle);
         var appWindow = AppWindow.GetFromWindowId(windowId);
         appWindow.Resize(new SizeInt32(1180, 780));

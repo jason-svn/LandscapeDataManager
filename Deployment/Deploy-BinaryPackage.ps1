@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 
 $connectorSource = Join-Path $PSScriptRoot "Connectors\Revit$RevitVersion"
 $appSource = Join-Path $PSScriptRoot 'App'
-$templatePath = Join-Path $PSScriptRoot 'WWP.LandscapeDataManager.addin.template'
+$templatePath = Join-Path $PSScriptRoot 'LIMLandscapeData.addin.template'
 
 if (-not (Test-Path -LiteralPath (Join-Path $connectorSource 'WWP.LandscapeDataManager.Revit.dll'))) {
     throw "This package does not contain a connector for Revit $RevitVersion."
@@ -30,8 +30,14 @@ Copy-Item -Path (Join-Path $appSource '*') -Destination $deployedApp -Recurse -F
 $connectorPath = Join-Path $deploymentRoot 'WWP.LandscapeDataManager.Revit.dll'
 $escapedAssemblyPath = [Security.SecurityElement]::Escape($connectorPath)
 $manifest = (Get-Content -LiteralPath $templatePath -Raw).Replace('{{ASSEMBLY_PATH}}', $escapedAssemblyPath)
-$manifestPath = Join-Path $addinRoot 'WWP.LandscapeDataManager.addin'
+$manifestPath = Join-Path $addinRoot 'LIMLandscapeData.addin'
+foreach ($legacyName in 'WWPLandscapeDataManager.addin', 'WWP.LandscapeDataManager.addin') {
+    $legacyManifestPath = Join-Path $addinRoot $legacyName
+    if (Test-Path -LiteralPath $legacyManifestPath) {
+        Remove-Item -LiteralPath $legacyManifestPath -Force
+    }
+}
 [IO.File]::WriteAllText($manifestPath, $manifest, [Text.UTF8Encoding]::new($false))
 
-Write-Host "Installed WWP Landscape Data Manager for Revit $RevitVersion."
-Write-Host 'Restart Revit, then open EGIS > Landscape Data.'
+Write-Host "Installed LIM- LANDSCAPE DATA for Revit $RevitVersion."
+Write-Host 'Restart Revit, then open EGIS > LIM- LANDSCAPE DATA.'
