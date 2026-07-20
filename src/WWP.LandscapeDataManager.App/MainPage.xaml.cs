@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Windows.Storage.Pickers;
 using WWP.LandscapeDataManager.App.Models;
 using WWP.LandscapeDataManager.App.Services;
@@ -344,6 +345,89 @@ public sealed partial class MainPage : Page
             mapped > 0
                 ? $"Mapped {mapped:N0} additional source columns. Review the remaining Needs mapping rows."
                 : "No additional safe name or WWP alias matches were found. Map the remaining columns manually.");
+    }
+
+    private void MapperColumnWidth_ValueChanged(
+        object sender,
+        Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e) =>
+        ApplyMapperColumnWidths();
+
+    private void ResetMapperColumnWidths_Click(object sender, RoutedEventArgs e)
+    {
+        MapperSourceWidthSlider.Value = 420;
+        MapperTargetWidthSlider.Value = 350;
+        MapperConversionWidthSlider.Value = 230;
+        ApplyMapperColumnWidths();
+    }
+
+    private void MappingRowGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is Grid grid)
+        {
+            ApplyMapperColumnWidths(grid);
+        }
+    }
+
+    private void ApplyMapperColumnWidths()
+    {
+        if (MapperSourceWidthSlider is null ||
+            MapperTargetWidthSlider is null ||
+            MapperConversionWidthSlider is null ||
+            MapperSourceHeaderColumn is null ||
+            MapperTargetHeaderColumn is null ||
+            MapperConversionHeaderColumn is null)
+        {
+            return;
+        }
+
+        MapperSourceHeaderColumn.Width = new GridLength(MapperSourceWidthSlider.Value);
+        MapperTargetHeaderColumn.Width = new GridLength(MapperTargetWidthSlider.Value);
+        MapperConversionHeaderColumn.Width = new GridLength(MapperConversionWidthSlider.Value);
+
+        if (MapperRowsListView is null)
+        {
+            return;
+        }
+
+        foreach (var grid in FindVisualChildren<Grid>(MapperRowsListView)
+                     .Where(grid => string.Equals(grid.Tag as string, "MapperRowGrid", StringComparison.Ordinal)))
+        {
+            ApplyMapperColumnWidths(grid);
+        }
+    }
+
+    private void ApplyMapperColumnWidths(Grid grid)
+    {
+        if (grid.ColumnDefinitions.Count < 5 ||
+            MapperSourceWidthSlider is null ||
+            MapperTargetWidthSlider is null ||
+            MapperConversionWidthSlider is null)
+        {
+            return;
+        }
+
+        grid.ColumnDefinitions[1].Width = new GridLength(MapperSourceWidthSlider.Value);
+        grid.ColumnDefinitions[2].Width = new GridLength(MapperTargetWidthSlider.Value);
+        grid.ColumnDefinitions[3].Width = new GridLength(MapperConversionWidthSlider.Value);
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject root)
+        where T : DependencyObject
+    {
+        var childCount = VisualTreeHelper.GetChildrenCount(root);
+        for (var index = 0; index < childCount; index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is T match)
+            {
+                yield return match;
+            }
+
+            foreach (var descendant in FindVisualChildren<T>(child))
+            {
+                yield return descendant;
+            }
+        }
     }
 
     private async void SaveMappings_Click(object sender, RoutedEventArgs e)
