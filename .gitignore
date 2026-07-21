@@ -1,6 +1,25 @@
 .vs/
+.vscode/
+.idea/
 artifacts/
 **/bin/
 **/obj/
+**/packages/
+**/TestResults/
 *.user
 *.suo
+
+# Keep Revit working models and temporary worksharing data out of the code repository.
+*.rvt
+*.rfa
+*.rte
+*.rws
+*_backup/
+**/*_backup/
+
+~$*
+*.tmp
+*.bak
+*.log
+Thumbs.db
+desktop.ini
