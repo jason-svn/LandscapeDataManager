@@ -15,6 +15,9 @@ public sealed partial class MainPage : Page
     private readonly ExcelClient _excelClient = new();
     private readonly DataSourceSettingsStore _dataSourceSettingsStore = new();
     private readonly ParameterMappingStore _mappingStore = new();
+    private readonly ITreeApiClient _iTreeApiClient = new();
+    private readonly ITreeExcelMergeService _iTreeExcelMergeService = new();
+    private readonly ITreeCredentialStore _iTreeCredentialStore = new();
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
     private IReadOnlyList<string> _airtableHeaders = [];
@@ -49,6 +52,7 @@ public sealed partial class MainPage : Page
             ExcelPathBox.Text = settings.ExcelPath;
             DataSourceBox.SelectedIndex = settings.Kind == DataSourceKind.Excel ? 1 : 0;
             UpdateDataSourceVisibility();
+            ITreeApiKeyBox.Password = _iTreeCredentialStore.Load();
             await RefreshRevitStatusAsync();
         });
     }
@@ -145,13 +149,19 @@ public sealed partial class MainPage : Page
             var recordsTask = LoadAirtableRecordsAsync();
             var options = new ModelScanOptions(PrimaryOptionsToggle.IsOn);
             var scanTask = GetClient().SendAsync<ModelScanResult>(PipeCommands.ScanModel, options);
-            await Task.WhenAll(recordsTask, scanTask);
+            var catalogTask = GetClient().SendAsync<ParameterCatalogResult>(
+                PipeCommands.GetParameterCatalog,
+                options);
+            await Task.WhenAll(recordsTask, scanTask, catalogTask);
+            var catalog = await catalogTask;
 
             var plan = ParameterSyncPlanBuilder.Build(
                 await recordsTask,
                 await scanTask,
                 mappings,
-                options);
+                options,
+                catalog.Parameters,
+                catalog.PreferredUnitSystem);
             foreach (var issue in plan.Issues)
             {
                 SyncPreviewItems.Add(SyncPreviewRow.FromIssue(issue));
@@ -185,13 +195,19 @@ public sealed partial class MainPage : Page
             var unchanged = preview.Rows.Count(row => row.Status == "No change");
             SyncStatusText.Text =
                 $"{applicableItems.Count:N0} ready · {unchanged:N0} unchanged · " +
-                $"{invalid:N0} invalid · {plan.Issues.Count:N0} skipped";
+                $"{invalid:N0} invalid · {plan.Issues.Count:N0} skipped · " +
+                $"{plan.UnitAdjustments.Count:N0} unit-aligned · {catalog.PreferredUnitSystem}";
+            var unitNote = catalog.UnitSystemWarning is null
+                ? $"Import values are aligned to {catalog.PreferredUnitSystem}, read from {catalog.PreferredUnitSystemSource}."
+                : catalog.UnitSystemWarning;
             ShowStatus(
-                applicableItems.Count > 0 ? InfoBarSeverity.Warning : InfoBarSeverity.Informational,
+                catalog.UnitSystemWarning is not null || applicableItems.Count > 0
+                    ? InfoBarSeverity.Warning
+                    : InfoBarSeverity.Informational,
                 "Parameter write preview ready",
                 applicableItems.Count > 0
-                    ? "Review the proposed values, then explicitly select Apply to Revit."
-                    : "No Revit values need to be changed.");
+                    ? $"Review the proposed values, then explicitly select Apply to Revit. {unitNote}"
+                    : $"No Revit values need to be changed. {unitNote}");
         });
     }
 
@@ -287,6 +303,137 @@ public sealed partial class MainPage : Page
             ExcelPathBox.Text = file.Path;
             DataSourceBox.SelectedIndex = 1;
         }
+    }
+
+    private async void BrowseExistingITreeWorkbook_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker
+        {
+            ViewMode = PickerViewMode.List,
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary
+        };
+        picker.FileTypeFilter.Add(".xlsx");
+        picker.FileTypeFilter.Add(".xlsm");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+
+        var file = await picker.PickSingleFileAsync();
+        if (file is not null)
+        {
+            ITreeExcelPathBox.Text = file.Path;
+        }
+    }
+
+    private async void ChooseNewITreeWorkbook_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = $"iTree Data {DateTime.Now:yyyy-MM-dd}"
+        };
+        picker.FileTypeChoices.Add("Excel workbook", [".xlsx"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+
+        var file = await picker.PickSaveFileAsync();
+        if (file is not null)
+        {
+            ITreeExcelPathBox.Text = file.Path;
+        }
+    }
+
+    private async void ExportITree_Click(object sender, RoutedEventArgs e)
+    {
+        await RunBusyAsync(async () =>
+        {
+            var apiKey = ITreeApiKeyBox.Password.Trim();
+            var catalogMode = ITreeScopeBox.SelectedIndex == 2;
+            var profile = new ITreeExportProfile(
+                ITreeMonetaryCheckBox.IsChecked == true,
+                ITreeCarbonCheckBox.IsChecked == true,
+                ITreeHydrologyCheckBox.IsChecked == true,
+                ITreeAirCheckBox.IsChecked == true,
+                ITreeMetadataCheckBox.IsChecked == true,
+                ITreeAnnualTimelineCheckBox.IsChecked == true,
+                ITreeCumulativeTimelineCheckBox.IsChecked == true,
+                ITreeFullResponseCheckBox.IsChecked == true);
+            if (!catalogMode && !profile.Monetary && !profile.Carbon && !profile.Hydrology &&
+                !profile.AirQuality && !profile.Metadata && !profile.FullResponse)
+            {
+                throw new InvalidOperationException("Select at least one i-Tree data group or the full response.");
+            }
+
+            ITreeInputScanResult? scan = null;
+            ITreeDownloadResult download;
+            if (catalogMode)
+            {
+                download = await _iTreeApiClient.DownloadSpeciesCatalogAsync(apiKey);
+            }
+            else
+            {
+                scan = await GetClient().SendAsync<ITreeInputScanResult>(
+                    PipeCommands.GetITreeInputs,
+                    new ITreeInputOptions(ITreeScopeBox.SelectedIndex == 1));
+                download = await _iTreeApiClient.DownloadAsync(scan.Items, apiKey, profile);
+            }
+            if (RememberITreeKeyCheckBox.IsChecked == true)
+            {
+                _iTreeCredentialStore.Save(apiKey);
+            }
+            else
+            {
+                _iTreeCredentialStore.Delete();
+            }
+
+            var headerRow = double.IsNaN(ITreeHeaderRowBox.Value)
+                ? 1
+                : (int)Math.Round(ITreeHeaderRowBox.Value);
+            var merge = await _iTreeExcelMergeService.MergeAsync(
+                download.Records,
+                new ITreeExcelMergeOptions(
+                    ITreeExcelPathBox.Text,
+                    ITreeWorksheetBox.Text,
+                    headerRow,
+                    ITreeAppendMissingCheckBox.IsChecked == true,
+                    ITreeBackupCheckBox.IsChecked == true));
+
+            var notes = new List<string>
+            {
+                $"Downloaded {download.Records.Count:N0} Species_Code records and {download.FieldCount:N0} selected fields.",
+                $"Updated {merge.UpdatedRows:N0} matching rows, appended {merge.AppendedRows:N0}, " +
+                $"preserved {merge.PreservedUnmatchedRows:N0} unmatched rows, and added {merge.AddedColumns:N0} columns."
+            };
+            if (scan is not null && scan.SkippedWithoutSpeciesCode > 0)
+            {
+                notes.Add($"Skipped {scan.SkippedWithoutSpeciesCode:N0} Revit planting types without Species_Code.");
+            }
+            var nonTwentyYearTypes = scan?.Items.Count(item => item.Years != 20) ?? 0;
+            if (nonTwentyYearTypes > 0)
+            {
+                notes.Add(
+                    $"Warning: {nonTwentyYearTypes:N0} types use Years other than 20; the legacy *_20yr columns contain their configured-period totals.");
+            }
+            if (download.DuplicateSpeciesCodes.Count > 0)
+            {
+                notes.Add(
+                    $"Used the first Revit type for {download.DuplicateSpeciesCodes.Count:N0} duplicate Species_Code values: " +
+                    string.Join(", ", download.DuplicateSpeciesCodes.Take(8)) +
+                    (download.DuplicateSpeciesCodes.Count > 8 ? "..." : string.Empty));
+            }
+            if (download.Errors.Count > 0)
+            {
+                notes.Add($"{download.Errors.Count:N0} API requests failed: {string.Join("; ", download.Errors.Take(3))}");
+            }
+            if (merge.BackupPath is not null)
+            {
+                notes.Add($"Backup: {merge.BackupPath}");
+            }
+
+            ITreeExportStatusText.Text = string.Join(Environment.NewLine, notes);
+            ShowStatus(
+                download.Errors.Count == 0 ? InfoBarSeverity.Success : InfoBarSeverity.Warning,
+                "i-Tree Excel export complete",
+                $"Saved {Path.GetFileName(merge.FilePath)}. {merge.UpdatedRows:N0} rows updated; " +
+                $"{merge.AppendedRows:N0} rows appended.");
+        });
     }
 
     private string GetSourceDescription() => DataSourceBox.SelectedIndex == 1

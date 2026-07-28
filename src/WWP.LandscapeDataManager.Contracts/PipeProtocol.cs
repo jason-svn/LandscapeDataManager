@@ -9,6 +9,7 @@ public static class PipeCommands
     public const string GetParameterCatalog = "get-parameter-catalog";
     public const string PreviewParameterWrites = "preview-parameter-writes";
     public const string ApplyParameterWrites = "apply-parameter-writes";
+    public const string GetITreeInputs = "get-itree-inputs";
 }
 
 public sealed record PipeRequest(string RequestId, string Command, JsonElement? Payload);
@@ -49,7 +50,10 @@ public sealed record RevitParameterDescriptor(
 
 public sealed record ParameterCatalogResult(
     string DocumentTitle,
-    IReadOnlyList<RevitParameterDescriptor> Parameters);
+    IReadOnlyList<RevitParameterDescriptor> Parameters,
+    string PreferredUnitSystem = "Metric",
+    string PreferredUnitSystemSource = "Default",
+    string? UnitSystemWarning = null);
 
 public sealed record ParameterMappingDefinition(
     string AirtableField,
@@ -65,7 +69,8 @@ public sealed record ParameterWriteItem(
     string RevitParameter,
     string Scope,
     string Conversion,
-    string SourceValue);
+    string SourceValue,
+    string? UnitMessage = null);
 
 public sealed record ParameterWriteBatch(
     ModelScanOptions Options,
@@ -89,6 +94,27 @@ public sealed record ParameterWriteResult(
     int ChangedParameterCount,
     int ChangedElementCount,
     bool Applied);
+
+public sealed record ITreeInputOptions(bool SelectedOnly = false);
+
+public sealed record ITreeRevitInput(
+    string SpeciesCode,
+    string CommonName,
+    string ScientificName,
+    string FamilyName,
+    string TypeName,
+    long TypeId,
+    string Condition,
+    double DiameterInches,
+    double Latitude,
+    double Longitude,
+    int Years,
+    int CrownExposure);
+
+public sealed record ITreeInputScanResult(
+    string DocumentTitle,
+    IReadOnlyList<ITreeRevitInput> Items,
+    int SkippedWithoutSpeciesCode);
 
 public static class JsonDefaults
 {

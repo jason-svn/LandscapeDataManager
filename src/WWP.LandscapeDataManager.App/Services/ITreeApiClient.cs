@@ -1,0 +1,560 @@
+using System.Collections.Concurrent;
+using System.Globalization;
+using System.Text.Json;
+using WWP.LandscapeDataManager.Contracts;
+
+namespace WWP.LandscapeDataManager.App.Services;
+
+internal sealed record ITreeExportProfile(
+    bool Monetary,
+    bool Carbon,
+    bool Hydrology,
+    bool AirQuality,
+    bool Metadata,
+    bool AnnualTimeline,
+    bool CumulativeTimeline,
+    bool FullResponse);
+
+internal sealed record ITreeExportRecord(
+    string SpeciesCode,
+    IReadOnlyDictionary<string, object?> Fields);
+
+internal sealed record ITreeDownloadResult(
+    IReadOnlyList<ITreeExportRecord> Records,
+    IReadOnlyList<string> Errors,
+    IReadOnlyList<string> DuplicateSpeciesCodes,
+    int FieldCount);
+
+internal sealed class ITreeApiClient
+{
+    private const string ApiUrl = "https://api.itreetools.org/v3/benefit/";
+    private const string SpeciesCatalogUrl = "https://dtbe-api.daveyinstitute.com/v2/getSpecies/";
+    private static readonly HttpClient HttpClient = new() { Timeout = TimeSpan.FromSeconds(90) };
+
+    public async Task<ITreeDownloadResult> DownloadAsync(
+        IReadOnlyList<ITreeRevitInput> inputs,
+        string apiKey,
+        ITreeExportProfile profile,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException("Enter an i-Tree API key before downloading data.");
+        }
+
+        var grouped = inputs
+            .GroupBy(item => NormalizeSpeciesCode(item.SpeciesCode), StringComparer.OrdinalIgnoreCase)
+            .Where(group => !string.IsNullOrWhiteSpace(group.Key))
+            .ToList();
+        if (grouped.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "No planting types with a non-empty Species_Code parameter were found in the selected scope.");
+        }
+
+        var duplicates = grouped
+            .Where(group => group.Count() > 1)
+            .Select(group => group.First().SpeciesCode)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var selectedInputs = grouped
+            .Select(group => group.OrderBy(item => item.FamilyName).ThenBy(item => item.TypeName).First())
+            .ToList();
+        var records = new ConcurrentBag<ITreeExportRecord>();
+        var errors = new ConcurrentBag<string>();
+        using var throttle = new SemaphoreSlim(3);
+
+        var tasks = selectedInputs.Select(async input =>
+        {
+            await throttle.WaitAsync(cancellationToken);
+            try
+            {
+                records.Add(await DownloadOneAsync(input, apiKey.Trim(), profile, cancellationToken));
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                errors.Add($"{input.SpeciesCode}: {exception.Message}");
+            }
+            finally
+            {
+                throttle.Release();
+            }
+        });
+        await Task.WhenAll(tasks);
+
+        var orderedRecords = records.OrderBy(record => record.SpeciesCode, StringComparer.OrdinalIgnoreCase).ToList();
+        if (orderedRecords.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "i-Tree did not return data for any Species_Code. " + string.Join("; ", errors.Take(3)));
+        }
+
+        var fieldCount = orderedRecords
+            .SelectMany(record => record.Fields.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        if (fieldCount > 16_384)
+        {
+            throw new InvalidOperationException(
+                $"The selected data would create {fieldCount:N0} columns, exceeding Excel's 16,384-column limit. " +
+                "Turn off the full response or one of the timeline options.");
+        }
+
+        return new ITreeDownloadResult(
+            orderedRecords,
+            errors.Order(StringComparer.OrdinalIgnoreCase).ToList(),
+            duplicates,
+            fieldCount);
+    }
+
+    public async Task<ITreeDownloadResult> DownloadSpeciesCatalogAsync(
+        string apiKey,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException("Enter an i-Tree API key before downloading the species catalog.");
+        }
+
+        var requestUrl = $"{SpeciesCatalogUrl}?key={Uri.EscapeDataString(apiKey.Trim())}&output=JSON";
+        using var response = await HttpClient.GetAsync(requestUrl, cancellationToken);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(
+                $"The species catalog returned HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).");
+        }
+
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        if (root.TryGetProperty("status", out var catalogStatus) &&
+            catalogStatus.ValueKind == JsonValueKind.Object &&
+            catalogStatus.TryGetProperty("errno", out var errorNumber) &&
+            errorNumber.ValueKind == JsonValueKind.Number &&
+            errorNumber.GetInt32() != 0)
+        {
+            var message = catalogStatus.TryGetProperty("error", out var error)
+                ? ReadScalarText(error)
+                : "The i-Tree species catalog returned an error.";
+            throw new InvalidOperationException(message);
+        }
+
+        if (!root.TryGetProperty("meta", out var meta) || meta.ValueKind != JsonValueKind.Array ||
+            !root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
+        {
+            throw new InvalidOperationException("The i-Tree species catalog response was not recognized.");
+        }
+
+        var headers = meta.EnumerateArray()
+            .Select(item => item.TryGetProperty("name", out var name) ? name.GetString() : null)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Cast<string>()
+            .ToList();
+        var codeIndex = headers.FindIndex(header =>
+            string.Equals(header, "Code", StringComparison.OrdinalIgnoreCase));
+        if (codeIndex < 0)
+        {
+            throw new InvalidOperationException("The i-Tree species catalog did not include its Code column.");
+        }
+
+        var records = new List<ITreeExportRecord>();
+        foreach (var row in data.EnumerateArray())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (row.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            var values = row.EnumerateArray().ToList();
+            if (codeIndex >= values.Count)
+            {
+                continue;
+            }
+
+            var speciesCode = ReadScalarText(values[codeIndex]).Trim();
+            if (string.IsNullOrWhiteSpace(speciesCode))
+            {
+                continue;
+            }
+
+            var fields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Species_Code"] = speciesCode
+            };
+            for (var index = 0; index < Math.Min(headers.Count, values.Count); index++)
+            {
+                var header = headers[index] switch
+                {
+                    "Code" => "Species_Code",
+                    "CommonName" => "Common_Name",
+                    "ScientificName" => "Scientific_Name",
+                    _ => headers[index]
+                };
+                fields[header] = ReadScalar(values[index]);
+            }
+            records.Add(new ITreeExportRecord(speciesCode, fields));
+        }
+
+        if (records.Count == 0)
+        {
+            throw new InvalidOperationException("The i-Tree species catalog returned no records.");
+        }
+
+        var duplicateCodes = records
+            .GroupBy(record => NormalizeSpeciesCode(record.SpeciesCode), StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.First().SpeciesCode)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return new ITreeDownloadResult(records, [], duplicateCodes, FieldCount: headers.Count);
+    }
+
+    private static async Task<ITreeExportRecord> DownloadOneAsync(
+        ITreeRevitInput input,
+        string apiKey,
+        ITreeExportProfile profile,
+        CancellationToken cancellationToken)
+    {
+        var payload = new Dictionary<string, string>
+        {
+            ["mortality-rate"] = "0",
+            ["report"] = "full",
+            ["timeline"] = "forwards",
+            ["years"] = input.Years.ToString(CultureInfo.InvariantCulture),
+            ["longitude"] = input.Longitude.ToString(CultureInfo.InvariantCulture),
+            ["latitude"] = input.Latitude.ToString(CultureInfo.InvariantCulture),
+            ["electric-rate"] = "-1",
+            ["natural-gas-rate"] = "-1",
+            ["distance"] = "3",
+            ["direction"] = "0",
+            ["vintage"] = "pre-1950",
+            ["heated"] = "1",
+            ["cooled"] = "1",
+            ["condition"] = input.Condition.ToLowerInvariant(),
+            ["crown-exposure"] = input.CrownExposure.ToString(CultureInfo.InvariantCulture),
+            ["crown-height"] = "-1",
+            ["crown-width"] = "-1",
+            ["diameter"] = (input.DiameterInches * 2.54d).ToString(CultureInfo.InvariantCulture),
+            ["height"] = "-1",
+            ["group-name"] = string.Empty,
+            ["planting-type"] = string.Empty,
+            ["species"] = input.SpeciesCode,
+            ["tree-count"] = "1",
+            ["trillion-trees"] = "false",
+            ["dieback"] = string.Empty,
+            ["transparency"] = string.Empty,
+            ["uuid"] = Guid.NewGuid().ToString(),
+            ["opt-in"] = "false",
+            ["key"] = apiKey,
+            ["url"] = "https://api.itreetools.org/",
+            ["api"] = "v3"
+        };
+
+        using var response = await HttpClient.PostAsync(
+            ApiUrl,
+            new FormUrlEncodedContent(payload),
+            cancellationToken);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(
+                $"HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).");
+        }
+
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        if (root.TryGetProperty("status", out var status) &&
+            !string.Equals(status.GetString(), "ok", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(ReadApiError(root));
+        }
+
+        if (!TryGetTree(root, out var tree))
+        {
+            throw new InvalidOperationException("The response did not contain tree benefit data.");
+        }
+
+        var fields = CreateBaseFields(input, profile.Metadata);
+        AddSummaryFields(tree, input.Years, profile, fields);
+        AddStandardFields(root, tree, profile, fields);
+        AddTimelineFields(tree, profile, fields);
+        if (profile.FullResponse)
+        {
+            Flatten(root, "Raw", fields, profile);
+        }
+
+        return new ITreeExportRecord(input.SpeciesCode, fields);
+    }
+
+    private static Dictionary<string, object?> CreateBaseFields(ITreeRevitInput input, bool includeMetadata)
+    {
+        var fields = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Species_Code"] = input.SpeciesCode,
+            ["Common_Name"] = input.CommonName,
+            ["Scientific_Name"] = input.ScientificName,
+            ["Tree_Condition"] = input.Condition,
+            ["Diameter_in"] = input.DiameterInches,
+            ["Latitude"] = input.Latitude,
+            ["Longitude"] = input.Longitude,
+            ["Years"] = input.Years,
+            ["CrownExposure"] = input.CrownExposure
+        };
+        if (includeMetadata)
+        {
+            fields["Revit_Family"] = input.FamilyName;
+            fields["Revit_Type"] = input.TypeName;
+            fields["Revit_TypeId"] = input.TypeId;
+        }
+        return fields;
+    }
+
+    private static void AddSummaryFields(
+        JsonElement tree,
+        int years,
+        ITreeExportProfile profile,
+        IDictionary<string, object?> fields)
+    {
+        if (!TryGetPath(tree, out var annualCategory, "benefits", "annual", "category") ||
+            annualCategory.ValueKind != JsonValueKind.Array ||
+            annualCategory.GetArrayLength() == 0)
+        {
+            return;
+        }
+
+        var annual = annualCategory.EnumerateArray().ToList();
+        var first = annual[0];
+        var last = annual[^1];
+
+        if (profile.Monetary)
+        {
+            fields["Annual_Benefit_USD"] =
+                ReadNumber(first, "pollution-avoided", "co2-worth") +
+                ReadNumber(first, "hydrology", "runoff-avoided-worth");
+            fields["Benefit_20yr_USD"] = annual.Sum(year =>
+                ReadNumber(year, "pollution-avoided", "co2-worth") +
+                ReadNumber(year, "hydrology", "runoff-avoided-worth"));
+        }
+
+        if (profile.Carbon)
+        {
+            fields["Annual_CarbonSequestered_lb"] = KgToPounds(ReadNumber(first, "carbon", "sequestration"));
+            fields["CarbonSequestered_20yr_lb"] = KgToPounds(
+                annual.Sum(year => ReadNumber(year, "carbon", "sequestration")));
+            fields["Annual_CO2eq_lb"] = KgToPounds(ReadNumber(first, "carbon", "storage") * 3.67d);
+            fields["CO2eq_20yr_lb"] = KgToPounds(ReadNumber(last, "carbon", "storage") * 3.67d);
+        }
+
+        if (profile.Hydrology)
+        {
+            fields["Annual_RunoffAvoided_gal"] = CubicMetresToGallons(
+                ReadNumber(first, "hydrology", "runoff-avoided"));
+            fields["RunoffAvoided_20yr_gal"] = CubicMetresToGallons(
+                annual.Sum(year => ReadNumber(year, "hydrology", "runoff-avoided")));
+            fields["Annual_RainfallIntercepted_gal"] = CubicMetresToGallons(
+                ReadNumber(first, "hydrology", "interception"));
+            fields["RainfallIntercepted_20yr_gal"] = CubicMetresToGallons(
+                annual.Sum(year => ReadNumber(year, "hydrology", "interception")));
+        }
+
+        if (profile.AirQuality)
+        {
+            fields["Annual_O3_oz"] = KilogramsToOunces(
+                ReadNumber(first, "pollution-removed", "o3"));
+            foreach (var pollutant in new[] { "o3", "co", "no2", "so2", "pm25" })
+            {
+                fields[$"{pollutant.ToUpperInvariant()}_20yr_oz"] = KilogramsToOunces(
+                    annual.Sum(year => ReadNumber(year, "pollution-removed", pollutant)));
+            }
+        }
+
+        if (profile.Metadata)
+        {
+            fields["Years"] = years;
+        }
+    }
+
+    private static void AddStandardFields(
+        JsonElement root,
+        JsonElement tree,
+        ITreeExportProfile profile,
+        IDictionary<string, object?> fields)
+    {
+        if (profile.Metadata)
+        {
+            AddTopLevelScalar(root, "status", "API_Status", fields);
+            AddTopLevelScalar(root, "api-version", "API_Version", fields);
+            AddTopLevelScalar(root, "engine-version", "Engine_Version", fields);
+            AddTopLevelScalar(root, "db-version", "Database_Version", fields);
+        }
+
+    }
+
+    private static void AddTimelineFields(
+        JsonElement tree,
+        ITreeExportProfile profile,
+        IDictionary<string, object?> fields)
+    {
+        if (profile.AnnualTimeline && TryGetPath(tree, out var annual, "benefits", "annual"))
+        {
+            Flatten(annual, "AnnualTimeline", fields, profile);
+        }
+
+        if (profile.CumulativeTimeline && TryGetPath(tree, out var cumulative, "benefits", "cumulative"))
+        {
+            Flatten(cumulative, "CumulativeTimeline", fields, profile);
+        }
+    }
+
+    private static void Flatten(
+        JsonElement element,
+        string path,
+        IDictionary<string, object?> fields,
+        ITreeExportProfile profile)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (var property in element.EnumerateObject())
+                {
+                    Flatten(property.Value, $"{path}.{property.Name}", fields, profile);
+                }
+                break;
+            case JsonValueKind.Array:
+                var index = 0;
+                foreach (var child in element.EnumerateArray())
+                {
+                    Flatten(child, $"{path}[{index++}]", fields, profile);
+                }
+                break;
+            case JsonValueKind.String:
+                if (ShouldInclude(path, profile)) fields[path] = element.GetString();
+                break;
+            case JsonValueKind.Number:
+                if (ShouldInclude(path, profile))
+                {
+                    fields[path] = element.TryGetInt64(out var integer) ? integer : element.GetDouble();
+                }
+                break;
+            case JsonValueKind.True:
+            case JsonValueKind.False:
+                if (ShouldInclude(path, profile)) fields[path] = element.GetBoolean();
+                break;
+            case JsonValueKind.Null:
+                if (ShouldInclude(path, profile)) fields[path] = null;
+                break;
+        }
+    }
+
+    private static bool ShouldInclude(string path, ITreeExportProfile profile)
+    {
+        if (profile.FullResponse)
+        {
+            return true;
+        }
+
+        var normalized = path.ToLowerInvariant();
+        var monetary = ContainsAny(normalized, "worth", "currency", "cost", "value", "benefit");
+        var carbon = ContainsAny(normalized, "carbon", "co2");
+        var hydrology = ContainsAny(normalized, "hydrology", "runoff", "interception", "water");
+        var air = ContainsAny(normalized, "pollution", ".o3", ".co", ".no2", ".so2", "pm25", "pm10", "voc");
+        var classified = monetary || carbon || hydrology || air;
+
+        return (profile.Monetary && monetary) ||
+               (profile.Carbon && carbon) ||
+               (profile.Hydrology && hydrology) ||
+               (profile.AirQuality && air) ||
+               (profile.Metadata && !classified);
+    }
+
+    private static bool ContainsAny(string value, params string[] terms) =>
+        terms.Any(value.Contains);
+
+    private static bool TryGetTree(JsonElement root, out JsonElement tree)
+    {
+        tree = default;
+        return TryGetPath(root, out var trees, "data", "trees") &&
+               trees.ValueKind == JsonValueKind.Object &&
+               (trees.TryGetProperty("1", out tree) || trees.EnumerateObject().Select(item => item.Value).FirstOrDefault() is var first &&
+                first.ValueKind != JsonValueKind.Undefined && Assign(first, out tree));
+    }
+
+    private static bool Assign(JsonElement value, out JsonElement result)
+    {
+        result = value;
+        return true;
+    }
+
+    private static bool TryGetPath(JsonElement element, out JsonElement value, params string[] path)
+    {
+        value = element;
+        foreach (var segment in path)
+        {
+            if (value.ValueKind != JsonValueKind.Object || !value.TryGetProperty(segment, out value))
+            {
+                value = default;
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static double ReadNumber(JsonElement element, params string[] path) =>
+        TryGetPath(element, out var value, path) && value.ValueKind == JsonValueKind.Number
+            ? value.GetDouble()
+            : 0d;
+
+    private static void AddTopLevelScalar(
+        JsonElement root,
+        string sourceName,
+        string targetName,
+        IDictionary<string, object?> fields)
+    {
+        if (!root.TryGetProperty(sourceName, out var value))
+        {
+            return;
+        }
+
+        fields[targetName] = value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString(),
+            JsonValueKind.Number => value.TryGetInt64(out var integer) ? integer : value.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => value.GetRawText()
+        };
+    }
+
+    private static string ReadApiError(JsonElement root)
+    {
+        foreach (var name in new[] { "message", "error", "status" })
+        {
+            if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
+            {
+                return value.GetString() ?? "The i-Tree API returned an error.";
+            }
+        }
+
+        return "The i-Tree API returned an error.";
+    }
+
+    private static object? ReadScalar(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString(),
+        JsonValueKind.Number => value.TryGetInt64(out var integer) ? integer : value.GetDouble(),
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Null => null,
+        _ => value.GetRawText()
+    };
+
+    private static string ReadScalarText(JsonElement value) =>
+        Convert.ToString(ReadScalar(value), CultureInfo.InvariantCulture) ?? string.Empty;
+
+    private static string NormalizeSpeciesCode(string value) => value.Trim().ToUpperInvariant();
+    private static double KgToPounds(double value) => Math.Round(value * 2.20462d, 6);
+    private static double CubicMetresToGallons(double value) => Math.Round(value * 264.172d, 6);
+    private static double KilogramsToOunces(double value) => Math.Round(value * 35.27396195d, 6);
+}

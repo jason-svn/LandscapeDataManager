@@ -632,6 +632,140 @@
                 </Grid>
             </TabViewItem>
 
+            <TabViewItem Header="i-Tree Excel" IsClosable="False">
+                <ScrollViewer>
+                    <Grid Padding="4,12,4,20" ColumnSpacing="24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Spacing="14">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="Download i-Tree data to Excel"
+                                           FontSize="22"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="Read planting type inputs from Revit, query i-Tree, then create or safely update a workbook."
+                                           TextWrapping="Wrap"
+                                           Opacity="0.7" />
+                            </StackPanel>
+
+                            <InfoBar IsOpen="True"
+                                     IsClosable="False"
+                                     Severity="Informational"
+                                     Title="Species_Code controls the merge"
+                                     Message="Matching rows are updated in place. Unmatched workbook rows and columns that are not supplied by i-Tree are preserved." />
+
+                            <ComboBox x:Name="ITreeScopeBox"
+                                      Header="Revit planting scope"
+                                      SelectedIndex="0"
+                                      HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="All planting types with Species_Code" />
+                                <ComboBoxItem Content="Current Revit selection only" />
+                                <ComboBoxItem Content="Entire i-Tree species catalog (no Revit data required)" />
+                            </ComboBox>
+
+                            <PasswordBox x:Name="ITreeApiKeyBox"
+                                         Header="i-Tree API key"
+                                         PlaceholderText="Enter the API key used by the Dynamo graph" />
+                            <CheckBox x:Name="RememberITreeKeyCheckBox"
+                                      Content="Remember securely for this Windows user"
+                                      IsChecked="True" />
+
+                            <TextBlock Text="Excel destination" FontSize="16" FontWeight="SemiBold" />
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="ITreeExcelPathBox"
+                                         Header="Workbook path"
+                                         PlaceholderText="Create a new .xlsx or select an existing .xlsx/.xlsm" />
+                                <Button Grid.Column="1"
+                                        Content="Existing..."
+                                        Click="BrowseExistingITreeWorkbook_Click"
+                                        VerticalAlignment="Bottom"
+                                        Padding="14,9" />
+                                <Button Grid.Column="2"
+                                        Content="New..."
+                                        Click="ChooseNewITreeWorkbook_Click"
+                                        VerticalAlignment="Bottom"
+                                        Padding="14,9" />
+                            </Grid>
+
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="170" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="ITreeWorksheetBox"
+                                         Header="Worksheet"
+                                         Text="iTree Data" />
+                                <NumberBox x:Name="ITreeHeaderRowBox"
+                                           Grid.Column="1"
+                                           Header="Header row"
+                                           Value="1"
+                                           Minimum="1"
+                                           Maximum="1048575"
+                                           SpinButtonPlacementMode="Inline" />
+                            </Grid>
+
+                            <CheckBox x:Name="ITreeAppendMissingCheckBox"
+                                      Content="Append exported Species_Code values not already in the worksheet"
+                                      IsChecked="True" />
+                            <CheckBox x:Name="ITreeBackupCheckBox"
+                                      Content="Create a timestamped backup before updating an existing workbook"
+                                      IsChecked="True" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Spacing="14">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="Data to download" FontSize="22" FontWeight="SemiBold" />
+                                <TextBlock Text="The established Revit/Dynamo input and output columns are created by default."
+                                           TextWrapping="Wrap"
+                                           Opacity="0.7" />
+                            </StackPanel>
+
+                            <Border Style="{StaticResource SummaryCardStyle}">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="Benefit groups" FontWeight="SemiBold" />
+                                    <CheckBox x:Name="ITreeMonetaryCheckBox" Content="Monetary benefits" IsChecked="True" />
+                                    <CheckBox x:Name="ITreeCarbonCheckBox" Content="Carbon storage and sequestration" IsChecked="True" />
+                                    <CheckBox x:Name="ITreeHydrologyCheckBox" Content="Hydrology and avoided runoff" IsChecked="True" />
+                                    <CheckBox x:Name="ITreeAirCheckBox" Content="Air quality and pollution removal" IsChecked="True" />
+                                    <CheckBox x:Name="ITreeMetadataCheckBox" Content="API versions and Revit trace metadata" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource SummaryCardStyle}">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="Detailed timelines" FontWeight="SemiBold" />
+                                    <CheckBox x:Name="ITreeAnnualTimelineCheckBox" Content="All annual timeline values" />
+                                    <CheckBox x:Name="ITreeCumulativeTimelineCheckBox" Content="All cumulative timeline values" />
+                                    <CheckBox x:Name="ITreeFullResponseCheckBox" Content="Entire raw API response" />
+                                </StackPanel>
+                            </Border>
+
+                            <InfoBar IsOpen="True"
+                                     IsClosable="False"
+                                     Severity="Warning"
+                                     Title="Full response can be very wide"
+                                     Message="A 20-year full response can add roughly 6,600 columns. Excel's maximum is 16,384 columns." />
+
+                            <Button Content="Download and update Excel"
+                                    Click="ExportITree_Click"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    HorizontalAlignment="Right" />
+                            <TextBlock x:Name="ITreeExportStatusText"
+                                       Text="Ready. No workbook has been changed."
+                                       TextWrapping="Wrap"
+                                       Opacity="0.75" />
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </TabViewItem>
+
             <TabViewItem Header="Quality Control" IsClosable="False">
                 <Grid Padding="28">
                     <StackPanel MaxWidth="680" HorizontalAlignment="Left" Spacing="14">

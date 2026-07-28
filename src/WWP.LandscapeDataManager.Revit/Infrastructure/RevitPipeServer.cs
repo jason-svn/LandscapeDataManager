@@ -83,6 +83,7 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.GetParameterCatalog => await GetParameterCatalogAsync(request).ConfigureAwait(false),
                 PipeCommands.PreviewParameterWrites => await PreviewParameterWritesAsync(request).ConfigureAwait(false),
                 PipeCommands.ApplyParameterWrites => await ApplyParameterWritesAsync(request).ConfigureAwait(false),
+                PipeCommands.GetITreeInputs => await GetITreeInputsAsync(request).ConfigureAwait(false),
                 _ => new PipeResponse(request.RequestId, false, Error: $"Unknown command: {request.Command}")
             };
         }
@@ -141,6 +142,15 @@ internal sealed class RevitPipeServer : IDisposable
                     ?? throw new InvalidDataException("The parameter-write batch was empty.");
         var result = await _dispatcher.RunAsync(application =>
             RevitParameterWriter.Apply(application, batch)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetITreeInputsAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<ITreeInputOptions>(JsonDefaults.Options)
+                      ?? new ITreeInputOptions();
+        var result = await _dispatcher.RunAsync(application =>
+            RevitModelScanner.GetITreeInputs(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

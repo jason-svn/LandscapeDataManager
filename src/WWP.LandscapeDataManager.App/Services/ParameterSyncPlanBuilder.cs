@@ -25,7 +25,9 @@ internal static class ParameterSyncPlanBuilder
         IReadOnlyList<AirtableRecord> records,
         ModelScanResult scan,
         IReadOnlyList<ParameterMappingDefinition> mappings,
-        ModelScanOptions options)
+        ModelScanOptions options,
+        IReadOnlyList<RevitParameterDescriptor> parameterCatalog,
+        string preferredUnitSystem)
     {
         var enabledMappings = mappings.Where(mapping => mapping.Enabled).ToList();
         if (enabledMappings.Count == 0)
@@ -38,6 +40,7 @@ internal static class ParameterSyncPlanBuilder
         var surfaceIndex = BuildIndex(records, SurfaceKeyFields);
         var writes = new List<ParameterWriteItem>();
         var issues = new List<ParameterSyncIssue>();
+        var unitAdjustments = new List<ParameterUnitAdjustment>();
 
         foreach (var item in scan.Items.DistinctBy(item => item.TypeId))
         {
@@ -73,6 +76,43 @@ internal static class ParameterSyncPlanBuilder
                     continue;
                 }
 
+                var target = parameterCatalog.FirstOrDefault(parameter =>
+                    string.Equals(parameter.Name, mapping.RevitParameter, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(parameter.Scope, mapping.Scope, StringComparison.OrdinalIgnoreCase));
+                if (target is null)
+                {
+                    issues.Add(new ParameterSyncIssue(
+                        item.TypeName,
+                        mapping.RevitParameter,
+                        "The mapped Revit parameter is no longer available in the active model."));
+                    continue;
+                }
+
+                var rawValue = ReadSourceValue(sourceValue);
+                var normalized = ImportUnitNormalizer.Normalize(
+                    rawValue,
+                    mapping.AirtableField,
+                    target,
+                    mapping.Conversion,
+                    preferredUnitSystem,
+                    ReadRecordUnitSystem(record));
+                if (!normalized.Success)
+                {
+                    issues.Add(new ParameterSyncIssue(
+                        item.TypeName,
+                        mapping.RevitParameter,
+                        normalized.Message ?? "The source unit could not be normalized."));
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(normalized.Message))
+                {
+                    unitAdjustments.Add(new ParameterUnitAdjustment(
+                        item.TypeName,
+                        mapping.RevitParameter,
+                        normalized.Message));
+                }
+
                 writes.Add(new ParameterWriteItem(
                     item.TypeId,
                     item.TypeName,
@@ -80,11 +120,15 @@ internal static class ParameterSyncPlanBuilder
                     mapping.RevitParameter,
                     mapping.Scope,
                     mapping.Conversion,
-                    ReadSourceValue(sourceValue)));
+                    normalized.Value,
+                    normalized.Message));
             }
         }
 
-        return new ParameterSyncPlan(new ParameterWriteBatch(options, writes), issues);
+        return new ParameterSyncPlan(
+            new ParameterWriteBatch(options, writes),
+            issues,
+            unitAdjustments);
     }
 
     private static Dictionary<string, List<AirtableRecord>> BuildIndex(
@@ -151,6 +195,42 @@ internal static class ParameterSyncPlanBuilder
         _ => value.GetRawText()
     };
 
+    private static string? ReadRecordUnitSystem(AirtableRecord record)
+    {
+        string[] candidates =
+        [
+            "Unit System",
+            "Unit_System",
+            "Measurement System",
+            "Measurement_System",
+            "Data Units",
+            "Units"
+        ];
+        foreach (var candidate in candidates)
+        {
+            if (!record.Fields.TryGetValue(candidate, out var value))
+            {
+                continue;
+            }
+
+            var text = ReadSourceValue(value).Trim();
+            if (string.Equals(text, "Metric", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(text, "SI", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Metric";
+            }
+
+            if (string.Equals(text, "Imperial", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(text, "US customary", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(text, "US", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Imperial";
+            }
+        }
+
+        return null;
+    }
+
     private static string Normalize(string value)
     {
         var builder = new StringBuilder(value.Length);
@@ -168,9 +248,15 @@ internal static class ParameterSyncPlanBuilder
 
 internal sealed record ParameterSyncPlan(
     ParameterWriteBatch Batch,
-    IReadOnlyList<ParameterSyncIssue> Issues);
+    IReadOnlyList<ParameterSyncIssue> Issues,
+    IReadOnlyList<ParameterUnitAdjustment> UnitAdjustments);
 
 internal sealed record ParameterSyncIssue(
+    string TypeName,
+    string Parameter,
+    string Message);
+
+internal sealed record ParameterUnitAdjustment(
     string TypeName,
     string Parameter,
     string Message);

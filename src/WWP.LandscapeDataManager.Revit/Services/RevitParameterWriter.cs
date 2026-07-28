@@ -138,7 +138,7 @@ internal static class RevitParameterWriter
                     FormatProposedValue(targets[0].Parameter, value),
                     targets.Count,
                     unchanged ? "No change" : "Ready",
-                    null,
+                    item.UnitMessage,
                     !unchanged);
                 prepared.Add(new PreparedWrite(row, targets, value));
             }
@@ -254,6 +254,11 @@ internal static class RevitParameterWriter
         if (dataType == SpecTypeId.Area)
         {
             return UnitUtils.ConvertToInternalUnits(value, UnitTypeId.SquareMeters);
+        }
+
+        if (dataType == SpecTypeId.Volume)
+        {
+            return UnitUtils.ConvertToInternalUnits(value, UnitTypeId.CubicMeters);
         }
 
         return value;

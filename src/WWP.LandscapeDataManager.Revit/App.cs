@@ -29,7 +29,7 @@ public sealed class App : IExternalApplication
         if (panel.AddItem(buttonData) is PushButton button)
         {
             button.ToolTip = "Open LIM- LANDSCAPE DATA.";
-            button.LongDescription = "Scan Revit planting and floor types, compare Airtable or Excel records, and preview synchronization results.";
+            button.LongDescription = "Scan Revit planting and floor types, compare Airtable or Excel records, calculate i-Tree data, and preview synchronization results.";
             button.Image = LoadEmbeddedImage("LIM.LandscapeData.Logo16.png");
             button.LargeImage = LoadEmbeddedImage("LIM.LandscapeData.Logo32.png");
         }

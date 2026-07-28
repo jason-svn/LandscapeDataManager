@@ -6,6 +6,9 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 
 internal static class RevitModelScanner
 {
+    private const string PreferredUnitSystemParameter =
+        "!_S_PLANTING_iTreeUnits_PreferredSystem_Text";
+
     private static readonly BuiltInCategory[] SupportedCategories =
     [
         BuiltInCategory.OST_Planting,
@@ -96,7 +99,82 @@ internal static class RevitModelScanner
             .ThenBy(item => item.Scope)
             .ToList();
 
-        return new ParameterCatalogResult(document.Title, parameters);
+        var unitPreference = GetPreferredUnitSystem(document);
+        return new ParameterCatalogResult(
+            document.Title,
+            parameters,
+            unitPreference.System,
+            unitPreference.Source,
+            unitPreference.Warning);
+    }
+
+    public static ITreeInputScanResult GetITreeInputs(
+        UIApplication application,
+        ITreeInputOptions options)
+    {
+        var uiDocument = application.ActiveUIDocument
+                         ?? throw new InvalidOperationException("Open a Revit project before exporting i-Tree data.");
+        var document = uiDocument.Document;
+
+        IEnumerable<ElementType> types;
+        if (options.SelectedOnly)
+        {
+            var selectedIds = uiDocument.Selection.GetElementIds();
+            if (selectedIds.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "Select one or more planting instances or types, or change the i-Tree scope to all planting types.");
+            }
+
+            types = selectedIds
+                .Select(document.GetElement)
+                .Where(element => element is not null)
+                .Select(element => element as ElementType ?? document.GetElement(element!.GetTypeId()) as ElementType)
+                .Where(elementType => elementType is not null &&
+                                      elementType.Category?.BuiltInCategory == BuiltInCategory.OST_Planting)
+                .Cast<ElementType>();
+        }
+        else
+        {
+            types = new FilteredElementCollector(document)
+                .OfCategory(BuiltInCategory.OST_Planting)
+                .WhereElementIsElementType()
+                .Cast<ElementType>();
+        }
+
+        var distinctTypes = types
+            .DistinctBy(elementType => elementType.Id.Value)
+            .OrderBy(GetFamilyName)
+            .ThenBy(elementType => elementType.Name)
+            .ToList();
+        var items = new List<ITreeRevitInput>();
+        var skipped = 0;
+
+        foreach (var elementType in distinctTypes)
+        {
+            var speciesCode = GetParameterText(elementType, "Species_Code")?.Trim();
+            if (string.IsNullOrWhiteSpace(speciesCode))
+            {
+                skipped++;
+                continue;
+            }
+
+            items.Add(new ITreeRevitInput(
+                speciesCode,
+                GetParameterText(elementType, "Common_Name")?.Trim() ?? string.Empty,
+                GetParameterText(elementType, "Scientific_Name")?.Trim() ?? string.Empty,
+                GetFamilyName(elementType),
+                elementType.Name,
+                elementType.Id.Value,
+                GetFirstParameterText(elementType, "Tree_Condition", "Condition")?.Trim() ?? "excellent",
+                GetParameterNumber(elementType, "Diameter_in", 10d),
+                GetParameterNumber(elementType, "Latitude", 51.4545d),
+                GetParameterNumber(elementType, "Longitude", -2.5879d),
+                Math.Max(1, (int)Math.Round(GetParameterNumber(elementType, "Years", 20d))),
+                Math.Max(0, (int)Math.Round(GetParameterNumber(elementType, "CrownExposure", 5d)))));
+        }
+
+        return new ITreeInputScanResult(document.Title, items, skipped);
     }
 
     private static SourceRow CreateSourceRow(Document document, Element element)
@@ -184,6 +262,92 @@ internal static class RevitModelScanner
             : null;
     }
 
+    private static string GetFamilyName(ElementType elementType) =>
+        elementType is FamilySymbol familySymbol
+            ? familySymbol.FamilyName
+            : elementType.FamilyName;
+
+    private static string? GetParameterText(Element element, string name)
+    {
+        var parameter = element.LookupParameter(name);
+        if (parameter is null || !parameter.HasValue)
+        {
+            return null;
+        }
+
+        return parameter.StorageType switch
+        {
+            StorageType.String => parameter.AsString(),
+            StorageType.Integer => parameter.AsInteger().ToString(System.Globalization.CultureInfo.InvariantCulture),
+            StorageType.Double => parameter.AsDouble().ToString(System.Globalization.CultureInfo.InvariantCulture),
+            _ => parameter.AsValueString()
+        };
+    }
+
+    private static string? GetFirstParameterText(Element element, params string[] names) =>
+        names.Select(name => GetParameterText(element, name))
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static double GetParameterNumber(Element element, string name, double fallback)
+    {
+        var parameter = element.LookupParameter(name);
+        if (parameter is null || !parameter.HasValue)
+        {
+            return fallback;
+        }
+
+        if (parameter.StorageType == StorageType.Double)
+        {
+            return parameter.AsDouble();
+        }
+
+        if (parameter.StorageType == StorageType.Integer)
+        {
+            return parameter.AsInteger();
+        }
+
+        return double.TryParse(
+            parameter.AsString(),
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var value)
+            ? value
+            : fallback;
+    }
+
+    private static UnitSystemPreference GetPreferredUnitSystem(Document document)
+    {
+        var parameter = document.ProjectInformation.LookupParameter(PreferredUnitSystemParameter);
+        var configuredValue = parameter?.StorageType == StorageType.String
+            ? parameter.AsString()?.Trim()
+            : null;
+        if (string.Equals(configuredValue, "Metric", StringComparison.OrdinalIgnoreCase))
+        {
+            return new UnitSystemPreference("Metric", "Project Information", null);
+        }
+
+        if (string.Equals(configuredValue, "Imperial", StringComparison.OrdinalIgnoreCase))
+        {
+            return new UnitSystemPreference("Imperial", "Project Information", null);
+        }
+
+        var displayUnit = document.GetUnits()
+            .GetFormatOptions(SpecTypeId.Length)
+            .GetUnitTypeId();
+        var fallback = displayUnit == UnitTypeId.Feet ||
+                       displayUnit == UnitTypeId.FeetFractionalInches ||
+                       displayUnit == UnitTypeId.FractionalInches ||
+                       displayUnit == UnitTypeId.Inches
+            ? "Imperial"
+            : "Metric";
+        var warning = parameter is null
+            ? $"Project Information parameter '{PreferredUnitSystemParameter}' is missing. " +
+              $"Using the Revit length display units ({fallback}) for this preview."
+            : $"Project Information parameter '{PreferredUnitSystemParameter}' must be Metric or Imperial. " +
+              $"Its current value is '{configuredValue ?? string.Empty}'; using the Revit length display units ({fallback}) for this preview.";
+        return new UnitSystemPreference(fallback, "Revit project units fallback", warning);
+    }
+
     private static bool IsInPrimaryDesignOption(Element element)
     {
         var designOption = element.DesignOption;
@@ -205,4 +369,9 @@ internal static class RevitModelScanner
         string DataTypeId,
         bool IsWritable,
         string Category);
+
+    private sealed record UnitSystemPreference(
+        string System,
+        string Source,
+        string? Warning);
 }

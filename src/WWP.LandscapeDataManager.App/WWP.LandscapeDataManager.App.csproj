@@ -28,4 +28,8 @@
   <ItemGroup>
     <Content Include="..\..\Assets\LIM-logo-256.png" Link="Assets\LIM-logo.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WWP.LandscapeDataManager.Tests" />
+  </ItemGroup>
 </Project>
