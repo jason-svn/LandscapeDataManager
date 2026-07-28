@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml;
 
-namespace WWP.LandscapeDataManager.App;
+namespace WWP.LandscapeDataManager.App.Parameters;
 
 public partial class App : Application
 {
@@ -15,18 +15,11 @@ public partial class App : Application
     {
         var arguments = Environment.GetCommandLineArgs();
         var pipeName = ReadRequiredArgument(arguments, "--pipe");
-        var workflow = ReadOptionalArgument(arguments, "--workflow") ?? "import";
-        _window = new MainWindow(pipeName, workflow);
+        _window = new MainWindow(pipeName);
         _window.Activate();
     }
 
     private static string ReadRequiredArgument(IReadOnlyList<string> arguments, string name)
-    {
-        return ReadOptionalArgument(arguments, name)
-               ?? throw new InvalidOperationException($"The required argument '{name}' was not provided.");
-    }
-
-    private static string? ReadOptionalArgument(IReadOnlyList<string> arguments, string name)
     {
         for (var index = 0; index < arguments.Count - 1; index++)
         {
@@ -36,6 +29,6 @@ public partial class App : Application
             }
         }
 
-        return null;
+        throw new InvalidOperationException($"The required argument '{name}' was not provided.");
     }
 }

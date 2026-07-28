@@ -1,10 +1,17 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
+using WWP.LandscapeDataManager.Shared.Models;
 
 namespace WWP.LandscapeDataManager.App.Services;
 
+/// <summary>
+/// Drives a WinUI WebView2 control. This stays in the exe project (not Shared) because the
+/// Windows App SDK build resolves WebView2's CsWinRT projection assembly, which is a different
+/// assembly identity than the plain Microsoft.Web.WebView2.Core.dll a non-WinUI class library
+/// would resolve — the two CoreWebView2 types are not interchangeable across that boundary.
+/// </summary>
 internal sealed class AirtableClient
 {
     private static readonly TimeSpan PageLoadTimeout = TimeSpan.FromSeconds(30);
@@ -22,7 +29,6 @@ internal sealed class AirtableClient
     {
         var sharedUri = ValidateSharedLink(sharedLink);
         await _webView.EnsureCoreWebView2Async();
-
         var core = _webView.CoreWebView2
                    ?? throw new InvalidOperationException("The Airtable browser could not be initialized.");
         core.Settings.AreDevToolsEnabled = false;
@@ -31,6 +37,7 @@ internal sealed class AirtableClient
 
         await NavigateAsync(core, sharedUri, cancellationToken);
         await WaitForElementAsync(
+            core,
             "[data-tutorial-selector-id='viewTopBarMenu']",
             PageLoadTimeout,
             cancellationToken);
@@ -46,7 +53,7 @@ internal sealed class AirtableClient
     {
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        void NavigationCompleted(WebView2 sender, CoreWebView2NavigationCompletedEventArgs args)
+        void NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs args)
         {
             if (args.IsSuccess)
             {
@@ -59,7 +66,7 @@ internal sealed class AirtableClient
             }
         }
 
-        _webView.NavigationCompleted += NavigationCompleted;
+        core.NavigationCompleted += NavigationCompleted;
         try
         {
             core.Navigate(uri.AbsoluteUri);
@@ -67,7 +74,7 @@ internal sealed class AirtableClient
         }
         finally
         {
-            _webView.NavigationCompleted -= NavigationCompleted;
+            core.NavigationCompleted -= NavigationCompleted;
         }
     }
 
@@ -110,13 +117,14 @@ internal sealed class AirtableClient
         core.DownloadStarting += DownloadStarting;
         try
         {
-            await _webView.ExecuteScriptAsync(
+            await core.ExecuteScriptAsync(
                 "document.querySelector(\"[data-tutorial-selector-id='viewTopBarMenu']\")?.click();");
             await WaitForElementAsync(
+                core,
                 "[data-tutorial-selector-id='viewMenuItem-viewExportCsv']",
                 TimeSpan.FromSeconds(5),
                 cancellationToken);
-            await _webView.ExecuteScriptAsync(
+            await core.ExecuteScriptAsync(
                 "document.querySelector(\"[data-tutorial-selector-id='viewMenuItem-viewExportCsv']\")?.click();");
 
             await completion.Task.WaitAsync(DownloadTimeout, cancellationToken);
@@ -141,7 +149,8 @@ internal sealed class AirtableClient
         }
     }
 
-    private async Task WaitForElementAsync(
+    private static async Task WaitForElementAsync(
+        CoreWebView2 core,
         string selector,
         TimeSpan timeout,
         CancellationToken cancellationToken)
@@ -152,7 +161,7 @@ internal sealed class AirtableClient
         while (DateTimeOffset.UtcNow < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var result = await _webView.ExecuteScriptAsync(
+            var result = await core.ExecuteScriptAsync(
                 $"Boolean(document.querySelector({escapedSelector}))");
             if (string.Equals(result, "true", StringComparison.OrdinalIgnoreCase))
             {
@@ -308,7 +317,3 @@ internal sealed class AirtableClient
         }
     }
 }
-
-internal sealed record AirtableRecord(
-    string Id,
-    Dictionary<string, JsonElement> Fields);

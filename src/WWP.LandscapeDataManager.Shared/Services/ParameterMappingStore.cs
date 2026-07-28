@@ -1,9 +1,9 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using WWP.LandscapeDataManager.Contracts;
 
-namespace WWP.LandscapeDataManager.App.Services;
+namespace WWP.LandscapeDataManager.Shared.Services;
 
-internal sealed class ParameterMappingStore
+public sealed class ParameterMappingStore
 {
     private readonly string _filePath;
 

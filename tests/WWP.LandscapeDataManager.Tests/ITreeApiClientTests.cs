@@ -1,4 +1,4 @@
-using WWP.LandscapeDataManager.App.Services;
+﻿using WWP.LandscapeDataManager.Shared.Services;
 using WWP.LandscapeDataManager.Contracts;
 using Xunit;
 

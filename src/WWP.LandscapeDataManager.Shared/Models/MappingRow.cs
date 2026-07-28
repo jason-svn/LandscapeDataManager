@@ -1,7 +1,7 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace WWP.LandscapeDataManager.App.Models;
+namespace WWP.LandscapeDataManager.Shared.Models;
 
 public sealed class MappingRow : INotifyPropertyChanged
 {
@@ -24,8 +24,8 @@ public sealed class MappingRow : INotifyPropertyChanged
         "Auto (Revit spec)",
         "Text",
         "Number (no conversion)",
-        "Metres → Revit length",
-        "Square metres → Revit area"
+        "Metres â†’ Revit length",
+        "Square metres â†’ Revit area"
     ];
 
     public event PropertyChangedEventHandler? PropertyChanged;

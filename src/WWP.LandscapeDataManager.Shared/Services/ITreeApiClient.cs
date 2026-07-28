@@ -1,11 +1,11 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json;
 using WWP.LandscapeDataManager.Contracts;
 
-namespace WWP.LandscapeDataManager.App.Services;
+namespace WWP.LandscapeDataManager.Shared.Services;
 
-internal sealed record ITreeExportProfile(
+public sealed record ITreeExportProfile(
     bool Monetary,
     bool Carbon,
     bool Hydrology,
@@ -15,17 +15,17 @@ internal sealed record ITreeExportProfile(
     bool CumulativeTimeline,
     bool FullResponse);
 
-internal sealed record ITreeExportRecord(
+public sealed record ITreeExportRecord(
     string SpeciesCode,
     IReadOnlyDictionary<string, object?> Fields);
 
-internal sealed record ITreeDownloadResult(
+public sealed record ITreeDownloadResult(
     IReadOnlyList<ITreeExportRecord> Records,
     IReadOnlyList<string> Errors,
     IReadOnlyList<string> DuplicateSpeciesCodes,
     int FieldCount);
 
-internal sealed class ITreeApiClient
+public sealed class ITreeApiClient
 {
     private const string ApiUrl = "https://api.itreetools.org/v3/benefit/";
     private const string SpeciesCatalogUrl = "https://dtbe-api.daveyinstitute.com/v2/getSpecies/";

@@ -20,19 +20,41 @@ public sealed class App : IExternalApplication
         PipeServer.Start();
 
         var panel = GetOrCreatePanel(application);
-        var buttonData = new PushButtonData(
-            "LIMShowLandscapeData",
-            "LIM\nDATA",
-            Assembly.GetExecutingAssembly().Location,
-            typeof(ShowAppCommand).FullName);
-
-        if (panel.AddItem(buttonData) is PushButton button)
-        {
-            button.ToolTip = "Open LIM- LANDSCAPE DATA.";
-            button.LongDescription = "Scan Revit planting and floor types, compare Airtable or Excel records, calculate i-Tree data, and preview synchronization results.";
-            button.Image = LoadEmbeddedImage("LIM.LandscapeData.Logo16.png");
-            button.LargeImage = LoadEmbeddedImage("LIM.LandscapeData.Logo32.png");
-        }
+        AddWorkflowButton<SetupParametersCommand>(
+            panel,
+            "LIMSetupPlantingParameters",
+            "Project\nSetup",
+            "PS",
+            "Shared Parameter Setup",
+            "Assign the shared parameter file, import the required planting and i-Tree parameters, and bind them to Project Information and Planting.");
+        AddWorkflowButton<ImportPlantingDataCommand>(
+            panel,
+            "LIMImportPlantingData",
+            "Excel\nImporter",
+            "EX",
+            "Planting Data Import",
+            "Import Excel or Airtable records, detect source units, preview changes, and write mapped Planting type and instance values.");
+        AddWorkflowButton<DownloadSpeciesScheduleCommand>(
+            panel,
+            "LIMDownloadITreeSpecies",
+            "i-Tree\nDownloader",
+            "IT",
+            "i-Tree Downloader",
+            "Download the i-Tree species catalog, including Species_Code, common name, scientific name, and species type, and update the planting key schedule.");
+        AddWorkflowButton<CalculateITreeCommand>(
+            panel,
+            "LIMCalculateITree",
+            "i-Tree\nCalculator",
+            "CAL",
+            "i-Tree Calculator",
+            "Validate tree inputs, calculate i-Tree benefits, write the WWP output parameters, and report elements with missing inputs.");
+        AddWorkflowButton<SyncLatestCommand>(
+            panel,
+            "LIMSyncLatestPlantingData",
+            "Refresh\nand Audit",
+            "RA",
+            "Refresh and Audit",
+            "Compare with the last pull, reapply changed data, report updates, and identify stale or incomplete planting elements.");
 
         return Result.Succeeded;
     }
@@ -66,6 +88,32 @@ public sealed class App : IExternalApplication
         return application.GetRibbonPanels(tabName)
                    .FirstOrDefault(panel => panel.Name == panelName)
                ?? application.CreateRibbonPanel(tabName, panelName);
+    }
+
+    private static void AddWorkflowButton<TCommand>(
+        RibbonPanel panel,
+        string internalName,
+        string displayText,
+        string iconCode,
+        string toolTip,
+        string longDescription)
+        where TCommand : IExternalCommand
+    {
+        var buttonData = new PushButtonData(
+            internalName,
+            displayText,
+            Assembly.GetExecutingAssembly().Location,
+            typeof(TCommand).FullName);
+
+        if (panel.AddItem(buttonData) is not PushButton button)
+        {
+            return;
+        }
+
+        button.ToolTip = toolTip;
+        button.LongDescription = longDescription;
+        button.Image = LoadEmbeddedImage($"LIM.LandscapeData.{iconCode}.16.png");
+        button.LargeImage = LoadEmbeddedImage($"LIM.LandscapeData.{iconCode}.32.png");
     }
 
     private static BitmapImage LoadEmbeddedImage(string resourceName)

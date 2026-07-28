@@ -1,4 +1,4 @@
-namespace WWP.LandscapeDataManager.App.Models;
+﻿namespace WWP.LandscapeDataManager.Shared.Models;
 
 public sealed class CalculationRow
 {

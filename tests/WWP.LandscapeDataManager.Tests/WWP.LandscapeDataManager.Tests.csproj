@@ -16,6 +16,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\WWP.LandscapeDataManager.App\WWP.LandscapeDataManager.App.csproj" />
+    <ProjectReference Include="..\..\src\WWP.LandscapeDataManager.Shared\WWP.LandscapeDataManager.Shared.csproj" />
   </ItemGroup>
 </Project>

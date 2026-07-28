@@ -1,9 +1,10 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using ClosedXML.Excel;
+using WWP.LandscapeDataManager.Shared.Models;
 
-namespace WWP.LandscapeDataManager.App.Services;
+namespace WWP.LandscapeDataManager.Shared.Services;
 
-internal sealed class ExcelClient
+public sealed class ExcelClient
 {
     public Task<IReadOnlyList<AirtableRecord>> GetRecordsAsync(
         string filePath,

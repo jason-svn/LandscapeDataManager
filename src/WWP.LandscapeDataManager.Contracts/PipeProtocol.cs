@@ -10,6 +10,7 @@ public static class PipeCommands
     public const string PreviewParameterWrites = "preview-parameter-writes";
     public const string ApplyParameterWrites = "apply-parameter-writes";
     public const string GetITreeInputs = "get-itree-inputs";
+    public const string EnsureSharedParameters = "ensure-shared-parameters";
 }
 
 public sealed record PipeRequest(string RequestId, string Command, JsonElement? Payload);
@@ -115,6 +116,26 @@ public sealed record ITreeInputScanResult(
     string DocumentTitle,
     IReadOnlyList<ITreeRevitInput> Items,
     int SkippedWithoutSpeciesCode);
+
+public sealed record EnsureSharedParametersRequest(string SharedParameterFilePath);
+
+/// <summary>
+/// One shared-parameter definition's binding outcome. Status is one of:
+/// "Created" (binding added), "Already valid" (binding matched expectations),
+/// "Conflict" (an existing name/GUID/scope mismatch was found and left untouched), or
+/// "Error" (the definition could not be read or bound).
+/// </summary>
+public sealed record SharedParameterSetupRow(
+    string Name,
+    string Guid,
+    string Scope,
+    string Category,
+    string Status,
+    string? Message);
+
+public sealed record SharedParameterSetupResult(
+    string DocumentTitle,
+    IReadOnlyList<SharedParameterSetupRow> Rows);
 
 public static class JsonDefaults
 {

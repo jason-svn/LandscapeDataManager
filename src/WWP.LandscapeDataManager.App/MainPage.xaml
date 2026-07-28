@@ -2,7 +2,7 @@
     x:Class="WWP.LandscapeDataManager.App.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:models="using:WWP.LandscapeDataManager.App.Models">
+    xmlns:models="using:WWP.LandscapeDataManager.Shared.Models">
 
     <Page.Resources>
         <Style x:Key="SummaryCardStyle" TargetType="Border">
@@ -70,7 +70,10 @@
                  IsOpen="False"
                  IsClosable="True" />
 
-        <TabView Grid.Row="2" Margin="20,12,20,20" IsAddTabButtonVisible="False">
+        <TabView x:Name="WorkflowTabs"
+                 Grid.Row="2"
+                 Margin="20,12,20,20"
+                 IsAddTabButtonVisible="False">
             <TabViewItem Header="Sync &amp; Review" IsClosable="False">
                 <Grid Padding="4,12,4,4">
                     <Grid.RowDefinitions>

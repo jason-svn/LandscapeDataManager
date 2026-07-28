@@ -1,12 +1,12 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using WWP.LandscapeDataManager.App.Models;
+using WWP.LandscapeDataManager.Shared.Models;
 using WWP.LandscapeDataManager.Contracts;
 
-namespace WWP.LandscapeDataManager.App.Services;
+namespace WWP.LandscapeDataManager.Shared.Services;
 
-internal static class LandscapeCalculationEngine
+public static class LandscapeCalculationEngine
 {
     private static readonly string[] TreeKeyFields =
     [
@@ -214,7 +214,7 @@ internal static class LandscapeCalculationEngine
             }
 
             var text = value.GetString()?.Trim();
-            if (string.IsNullOrWhiteSpace(text) || text is "-" or "—")
+            if (string.IsNullOrWhiteSpace(text) || text is "-" or "â€”")
             {
                 continue;
             }
@@ -257,7 +257,7 @@ internal static class LandscapeCalculationEngine
     private sealed record NumericValue(double Value, string? Error);
 }
 
-internal sealed record CalculationReport(
+public sealed record CalculationReport(
     IReadOnlyList<CalculationRow> Rows,
     CalculationTotals Totals,
     int CalculatedCount,
@@ -265,7 +265,7 @@ internal sealed record CalculationReport(
     int AmbiguousCount,
     int InvalidCount);
 
-internal sealed record CalculationTotals(
+public sealed record CalculationTotals(
     double Carbon = 0,
     double Oxygen = 0,
     double Runoff = 0,

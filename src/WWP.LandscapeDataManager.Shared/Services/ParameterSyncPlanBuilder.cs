@@ -1,10 +1,11 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using WWP.LandscapeDataManager.Contracts;
+using WWP.LandscapeDataManager.Shared.Models;
 
-namespace WWP.LandscapeDataManager.App.Services;
+namespace WWP.LandscapeDataManager.Shared.Services;
 
-internal static class ParameterSyncPlanBuilder
+public static class ParameterSyncPlanBuilder
 {
     private static readonly string[] TreeKeyFields =
     [
@@ -50,7 +51,7 @@ internal static class ParameterSyncPlanBuilder
             {
                 issues.Add(new ParameterSyncIssue(
                     item.TypeName,
-                    "—",
+                    "â€”",
                     "No source record matches this Revit type."));
                 continue;
             }
@@ -59,7 +60,7 @@ internal static class ParameterSyncPlanBuilder
             {
                 issues.Add(new ParameterSyncIssue(
                     item.TypeName,
-                    "—",
+                    "â€”",
                     "More than one source record matches this Revit type."));
                 continue;
             }
@@ -246,17 +247,17 @@ internal static class ParameterSyncPlanBuilder
     }
 }
 
-internal sealed record ParameterSyncPlan(
+public sealed record ParameterSyncPlan(
     ParameterWriteBatch Batch,
     IReadOnlyList<ParameterSyncIssue> Issues,
     IReadOnlyList<ParameterUnitAdjustment> UnitAdjustments);
 
-internal sealed record ParameterSyncIssue(
+public sealed record ParameterSyncIssue(
     string TypeName,
     string Parameter,
     string Message);
 
-internal sealed record ParameterUnitAdjustment(
+public sealed record ParameterUnitAdjustment(
     string TypeName,
     string Parameter,
     string Message);

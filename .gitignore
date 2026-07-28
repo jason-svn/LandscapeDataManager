@@ -6,6 +6,11 @@ artifacts/
 **/obj/
 **/packages/
 **/TestResults/
+/outputs/
+
+# Local Codex and agent state
+.codex/
+.agents/
 *.user
 *.suo
 

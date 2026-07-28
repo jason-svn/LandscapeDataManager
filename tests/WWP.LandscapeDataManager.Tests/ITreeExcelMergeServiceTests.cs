@@ -1,5 +1,5 @@
-using ClosedXML.Excel;
-using WWP.LandscapeDataManager.App.Services;
+﻿using ClosedXML.Excel;
+using WWP.LandscapeDataManager.Shared.Services;
 using Xunit;
 
 namespace WWP.LandscapeDataManager.Tests;

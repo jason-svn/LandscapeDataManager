@@ -62,8 +62,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\..\Assets\LIM-logo-16.png" LogicalName="LIM.LandscapeData.Logo16.png" />
-    <EmbeddedResource Include="..\..\Assets\LIM-logo-32.png" LogicalName="LIM.LandscapeData.Logo32.png" />
+    <EmbeddedResource Include="..\..\Assets\PS-16.png" LogicalName="LIM.LandscapeData.PS.16.png" />
+    <EmbeddedResource Include="..\..\Assets\PS-32.png" LogicalName="LIM.LandscapeData.PS.32.png" />
+    <EmbeddedResource Include="..\..\Assets\EX-16.png" LogicalName="LIM.LandscapeData.EX.16.png" />
+    <EmbeddedResource Include="..\..\Assets\EX-32.png" LogicalName="LIM.LandscapeData.EX.32.png" />
+    <EmbeddedResource Include="..\..\Assets\IT-16.png" LogicalName="LIM.LandscapeData.IT.16.png" />
+    <EmbeddedResource Include="..\..\Assets\IT-32.png" LogicalName="LIM.LandscapeData.IT.32.png" />
+    <EmbeddedResource Include="..\..\Assets\CAL-16.png" LogicalName="LIM.LandscapeData.CAL.16.png" />
+    <EmbeddedResource Include="..\..\Assets\CAL-32.png" LogicalName="LIM.LandscapeData.CAL.32.png" />
+    <EmbeddedResource Include="..\..\Assets\RA-16.png" LogicalName="LIM.LandscapeData.RA.16.png" />
+    <EmbeddedResource Include="..\..\Assets\RA-32.png" LogicalName="LIM.LandscapeData.RA.32.png" />
   </ItemGroup>
 
   <Target Name="ValidateRevitInstallation" BeforeTargets="ResolveReferences">

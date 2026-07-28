@@ -23,23 +23,52 @@ internal sealed class RevitPipeServer : IDisposable
 
     public void Start()
     {
-        _serverTask ??= Task.Run(() => ListenAsync(_cancellation.Token));
+        _serverTask ??= Task.Run(() => AcceptLoopAsync(_cancellation.Token));
     }
 
-    private async Task ListenAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Each of the 5 tool executables holds its own long-lived connection, so this must accept
+    /// many concurrent clients rather than one at a time. A new listening instance is created
+    /// immediately after each accepted connection, and every connected client is served on its
+    /// own task. Every client task still funnels Revit-API work through the single
+    /// <see cref="RevitExternalEventDispatcher"/>, so Revit-API access stays fully serialized
+    /// regardless of how many tool processes are connected.
+    /// </summary>
+    private async Task AcceptLoopAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
+            NamedPipeServerStream pipe;
             try
             {
-                await using var pipe = new NamedPipeServerStream(
+                pipe = new NamedPipeServerStream(
                     PipeName,
                     PipeDirection.InOut,
-                    1,
+                    NamedPipeServerStream.MaxAllowedServerInstances,
                     PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-
                 await pipe.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch
+            {
+                // Try again with a fresh listening instance.
+                continue;
+            }
+
+            _ = ServeClientAsync(pipe, cancellationToken);
+        }
+    }
+
+    private async Task ServeClientAsync(NamedPipeServerStream pipe, CancellationToken cancellationToken)
+    {
+        await using (pipe.ConfigureAwait(false))
+        {
+            try
+            {
                 using var reader = new StreamReader(pipe, leaveOpen: true);
                 await using var writer = new StreamWriter(pipe, leaveOpen: true) { AutoFlush = true };
 
@@ -58,11 +87,11 @@ internal sealed class RevitPipeServer : IDisposable
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                break;
+                // Server is shutting down.
             }
             catch
             {
-                // A new server instance is created after a disconnected or malformed client.
+                // This client disconnected or sent malformed input; other clients are unaffected.
             }
         }
     }
@@ -84,6 +113,7 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.PreviewParameterWrites => await PreviewParameterWritesAsync(request).ConfigureAwait(false),
                 PipeCommands.ApplyParameterWrites => await ApplyParameterWritesAsync(request).ConfigureAwait(false),
                 PipeCommands.GetITreeInputs => await GetITreeInputsAsync(request).ConfigureAwait(false),
+                PipeCommands.EnsureSharedParameters => await EnsureSharedParametersAsync(request).ConfigureAwait(false),
                 _ => new PipeResponse(request.RequestId, false, Error: $"Unknown command: {request.Command}")
             };
         }
@@ -151,6 +181,15 @@ internal sealed class RevitPipeServer : IDisposable
                       ?? new ITreeInputOptions();
         var result = await _dispatcher.RunAsync(application =>
             RevitModelScanner.GetITreeInputs(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> EnsureSharedParametersAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<EnsureSharedParametersRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The shared parameter file path was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            SharedParameterSetupService.EnsureParameters(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

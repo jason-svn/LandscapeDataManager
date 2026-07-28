@@ -3,14 +3,28 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.Storage.Pickers;
-using WWP.LandscapeDataManager.App.Models;
 using WWP.LandscapeDataManager.App.Services;
+using WWP.LandscapeDataManager.Shared.Models;
+using WWP.LandscapeDataManager.Shared.Services;
 using WWP.LandscapeDataManager.Contracts;
 
 namespace WWP.LandscapeDataManager.App;
 
 public sealed partial class MainPage : Page
 {
+    public void NavigateTo(string workflow)
+    {
+        WorkflowTabs.SelectedIndex = workflow.ToLowerInvariant() switch
+        {
+            "parameters" => 1,
+            "import" => 0,
+            "species" => 4,
+            "calculate" => 3,
+            "sync" => 2,
+            _ => 0
+        };
+    }
+
     private readonly AirtableClient _airtableClient;
     private readonly ExcelClient _excelClient = new();
     private readonly DataSourceSettingsStore _dataSourceSettingsStore = new();

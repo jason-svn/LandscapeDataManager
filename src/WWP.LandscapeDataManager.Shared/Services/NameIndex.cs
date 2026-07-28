@@ -1,9 +1,10 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
+using WWP.LandscapeDataManager.Shared.Models;
 
-namespace WWP.LandscapeDataManager.App.Services;
+namespace WWP.LandscapeDataManager.Shared.Services;
 
-internal sealed class NameIndex
+public sealed class NameIndex
 {
     private static readonly string[] CandidateFieldNames =
     [

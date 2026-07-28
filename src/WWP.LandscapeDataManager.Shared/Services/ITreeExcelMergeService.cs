@@ -1,16 +1,16 @@
-using System.Globalization;
+﻿using System.Globalization;
 using ClosedXML.Excel;
 
-namespace WWP.LandscapeDataManager.App.Services;
+namespace WWP.LandscapeDataManager.Shared.Services;
 
-internal sealed record ITreeExcelMergeOptions(
+public sealed record ITreeExcelMergeOptions(
     string FilePath,
     string WorksheetName,
     int HeaderRow,
     bool AppendMissingSpecies,
     bool CreateBackup);
 
-internal sealed record ITreeExcelMergeResult(
+public sealed record ITreeExcelMergeResult(
     string FilePath,
     string WorksheetName,
     int UpdatedRows,
@@ -19,7 +19,7 @@ internal sealed record ITreeExcelMergeResult(
     int AddedColumns,
     string? BackupPath);
 
-internal sealed class ITreeExcelMergeService
+public sealed class ITreeExcelMergeService
 {
     public Task<ITreeExcelMergeResult> MergeAsync(
         IReadOnlyList<ITreeExportRecord> records,

@@ -1,10 +1,10 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.RegularExpressions;
 using WWP.LandscapeDataManager.Contracts;
 
-namespace WWP.LandscapeDataManager.App.Services;
+namespace WWP.LandscapeDataManager.Shared.Services;
 
-internal static class ImportUnitNormalizer
+public static class ImportUnitNormalizer
 {
     private const string AutoConversion = "Auto (Revit spec)";
 
@@ -320,7 +320,7 @@ internal static class ImportUnitNormalizer
         IReadOnlyList<string> Aliases);
 }
 
-internal sealed record ImportUnitNormalizationResult(
+public sealed record ImportUnitNormalizationResult(
     bool Success,
     string Value,
     string? Message)

@@ -1,9 +1,9 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using WWP.LandscapeDataManager.Contracts;
 
-namespace WWP.LandscapeDataManager.App.Services;
+namespace WWP.LandscapeDataManager.Shared.Services;
 
-internal sealed class DataSourceSettingsStore
+public sealed class DataSourceSettingsStore
 {
     private readonly string _filePath;
 
@@ -45,13 +45,13 @@ internal sealed class DataSourceSettingsStore
     }
 }
 
-internal enum DataSourceKind
+public enum DataSourceKind
 {
     Airtable,
     Excel
 }
 
-internal sealed record DataSourceSettings(
+public sealed record DataSourceSettings(
     DataSourceKind Kind,
     string SharedLink,
     string ExcelPath);

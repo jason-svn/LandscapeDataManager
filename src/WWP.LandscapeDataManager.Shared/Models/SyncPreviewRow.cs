@@ -1,7 +1,7 @@
-using WWP.LandscapeDataManager.Contracts;
-using WWP.LandscapeDataManager.App.Services;
+﻿using WWP.LandscapeDataManager.Contracts;
+using WWP.LandscapeDataManager.Shared.Services;
 
-namespace WWP.LandscapeDataManager.App.Models;
+namespace WWP.LandscapeDataManager.Shared.Models;
 
 public sealed class SyncPreviewRow
 {
@@ -34,7 +34,7 @@ public sealed class SyncPreviewRow
     public string Targets { get; }
     public string Message { get; }
 
-    internal static SyncPreviewRow FromRevit(ParameterWritePreviewRow row) =>
+    public static SyncPreviewRow FromRevit(ParameterWritePreviewRow row) =>
         new(
             row.Status,
             row.TypeName,
@@ -45,14 +45,14 @@ public sealed class SyncPreviewRow
             row.TargetCount.ToString("N0"),
             row.Message ?? string.Empty);
 
-    internal static SyncPreviewRow FromIssue(ParameterSyncIssue issue) =>
+    public static SyncPreviewRow FromIssue(ParameterSyncIssue issue) =>
         new(
             "Skipped",
             issue.TypeName,
             issue.Parameter,
-            "—",
-            "—",
-            "—",
+            "â€”",
+            "â€”",
+            "â€”",
             "0",
             issue.Message);
 }

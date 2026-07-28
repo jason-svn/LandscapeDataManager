@@ -1,8 +1,8 @@
-using Windows.Security.Credentials;
+﻿using Windows.Security.Credentials;
 
-namespace WWP.LandscapeDataManager.App.Services;
+namespace WWP.LandscapeDataManager.Shared.Services;
 
-internal sealed class ITreeCredentialStore
+public sealed class ITreeCredentialStore
 {
     private const string ResourceName = "EGIS.WWP.LandscapeDataManager.iTree";
     private const string UserName = "iTreeApi";

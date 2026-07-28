@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>WWP.LandscapeDataManager.Shared</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Configurations>Debug;Release;Debug 2025;Debug 2026</Configurations>
+  </PropertyGroup>
+
+  <!--
+    Deliberately NOT a WinUI project (no UseWinUI, no XAML). Windows App SDK 1.8.x cannot
+    reliably host XAML pages/resource dictionaries in a class library targeting an unpackaged
+    app, so this project only holds plain services/models consumed by all 5 tool executables
+    (and by the Revit connector where useful). The Windows-flavored TFM above is only needed for
+    WinRT projections (Windows.Security.Credentials.PasswordVault).
+
+    AirtableClient deliberately does NOT live here: a WinUI/WindowsAppSDK consumer resolves
+    WebView2's CsWinRT projection assembly (Microsoft.Web.WebView2.Core.Projection.dll), while a
+    plain library like this one resolves the non-projected Microsoft.Web.WebView2.Core.dll. The
+    two CoreWebView2 types are different assembly identities and are not interchangeable, so
+    AirtableClient is linked-source per exe project instead (see each *.App.* project).
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\WWP.LandscapeDataManager.Contracts\WWP.LandscapeDataManager.Contracts.csproj" />
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WWP.LandscapeDataManager.Tests" />
+  </ItemGroup>
+</Project>

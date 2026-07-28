@@ -1,10 +1,10 @@
-using System.IO.Pipes;
+﻿using System.IO.Pipes;
 using System.Text.Json;
 using WWP.LandscapeDataManager.Contracts;
 
-namespace WWP.LandscapeDataManager.App.Services;
+namespace WWP.LandscapeDataManager.Shared.Services;
 
-internal sealed class RevitPipeClient(string pipeName) : IAsyncDisposable
+public sealed class RevitPipeClient(string pipeName) : IAsyncDisposable
 {
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private NamedPipeClientStream? _pipe;
