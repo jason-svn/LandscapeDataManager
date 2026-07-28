@@ -50,9 +50,9 @@ public sealed class SyncPreviewRow
             "Skipped",
             issue.TypeName,
             issue.Parameter,
-            "â€”",
-            "â€”",
-            "â€”",
+            "—",
+            "—",
+            "—",
             "0",
             issue.Message);
 }

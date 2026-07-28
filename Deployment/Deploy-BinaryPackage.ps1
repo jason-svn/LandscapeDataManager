@@ -14,18 +14,23 @@ if (-not (Test-Path -LiteralPath (Join-Path $connectorSource 'WWP.LandscapeDataM
     throw "This package does not contain a connector for Revit $RevitVersion."
 }
 
-if (-not (Test-Path -LiteralPath (Join-Path $appSource 'WWP.LandscapeDataManager.App.exe'))) {
-    throw 'The WinUI 3 application payload is missing.'
+# The package's App\ folder holds one subfolder per standalone tool executable (App, Parameters, ...).
+$toolSources = Get-ChildItem -LiteralPath $appSource -Directory
+if ($toolSources.Count -eq 0) {
+    throw 'The tool application payload is missing.'
 }
 
 $addinRoot = Join-Path $env:APPDATA "Autodesk\Revit\Addins\$RevitVersion"
 $deploymentRoot = Join-Path $addinRoot 'WWP.LandscapeDataManager'
-$deployedApp = Join-Path $deploymentRoot 'App'
 New-Item -ItemType Directory -Path $deploymentRoot -Force | Out-Null
-New-Item -ItemType Directory -Path $deployedApp -Force | Out-Null
 
 Copy-Item -Path (Join-Path $connectorSource '*') -Destination $deploymentRoot -Recurse -Force
-Copy-Item -Path (Join-Path $appSource '*') -Destination $deployedApp -Recurse -Force
+
+foreach ($toolSource in $toolSources) {
+    $deployedTool = Join-Path $deploymentRoot $toolSource.Name
+    New-Item -ItemType Directory -Path $deployedTool -Force | Out-Null
+    Copy-Item -Path (Join-Path $toolSource.FullName '*') -Destination $deployedTool -Recurse -Force
+}
 
 $connectorPath = Join-Path $deploymentRoot 'WWP.LandscapeDataManager.Revit.dll'
 $escapedAssemblyPath = [Security.SecurityElement]::Escape($connectorPath)

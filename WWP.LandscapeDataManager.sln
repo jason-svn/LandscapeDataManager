@@ -10,6 +10,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.Ap
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.Shared", "src\WWP.LandscapeDataManager.Shared\WWP.LandscapeDataManager.Shared.csproj", "{B9C40BC0-EE9E-4327-B15F-540423E9723D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.Parameters", "src\WWP.LandscapeDataManager.App.Parameters\WWP.LandscapeDataManager.App.Parameters.csproj", "{6A0AB831-069F-41E3-A38A-9D1778384050}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.Importer", "src\WWP.LandscapeDataManager.App.Importer\WWP.LandscapeDataManager.App.Importer.csproj", "{6266B460-BA8F-4656-9DD6-17064FC12D38}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.ITreeDownloader", "src\WWP.LandscapeDataManager.App.ITreeDownloader\WWP.LandscapeDataManager.App.ITreeDownloader.csproj", "{63612A61-DCB3-4E5B-9DC7-409E8D64EB26}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug 2025|Any CPU = Debug 2025|Any CPU
@@ -50,6 +56,30 @@ Global
 		{B9C40BC0-EE9E-4327-B15F-540423E9723D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B9C40BC0-EE9E-4327-B15F-540423E9723D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B9C40BC0-EE9E-4327-B15F-540423E9723D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6A0AB831-069F-41E3-A38A-9D1778384050}.Debug 2025|Any CPU.ActiveCfg = Debug 2025|x64
+		{6A0AB831-069F-41E3-A38A-9D1778384050}.Debug 2025|Any CPU.Build.0 = Debug 2025|x64
+		{6A0AB831-069F-41E3-A38A-9D1778384050}.Debug 2026|Any CPU.ActiveCfg = Debug 2026|x64
+		{6A0AB831-069F-41E3-A38A-9D1778384050}.Debug 2026|Any CPU.Build.0 = Debug 2026|x64
+		{6A0AB831-069F-41E3-A38A-9D1778384050}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6A0AB831-069F-41E3-A38A-9D1778384050}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6A0AB831-069F-41E3-A38A-9D1778384050}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6A0AB831-069F-41E3-A38A-9D1778384050}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6266B460-BA8F-4656-9DD6-17064FC12D38}.Debug 2025|Any CPU.ActiveCfg = Debug 2025|x64
+		{6266B460-BA8F-4656-9DD6-17064FC12D38}.Debug 2025|Any CPU.Build.0 = Debug 2025|x64
+		{6266B460-BA8F-4656-9DD6-17064FC12D38}.Debug 2026|Any CPU.ActiveCfg = Debug 2026|x64
+		{6266B460-BA8F-4656-9DD6-17064FC12D38}.Debug 2026|Any CPU.Build.0 = Debug 2026|x64
+		{6266B460-BA8F-4656-9DD6-17064FC12D38}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6266B460-BA8F-4656-9DD6-17064FC12D38}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6266B460-BA8F-4656-9DD6-17064FC12D38}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6266B460-BA8F-4656-9DD6-17064FC12D38}.Release|Any CPU.Build.0 = Release|Any CPU
+		{63612A61-DCB3-4E5B-9DC7-409E8D64EB26}.Debug 2025|Any CPU.ActiveCfg = Debug 2025|x64
+		{63612A61-DCB3-4E5B-9DC7-409E8D64EB26}.Debug 2025|Any CPU.Build.0 = Debug 2025|x64
+		{63612A61-DCB3-4E5B-9DC7-409E8D64EB26}.Debug 2026|Any CPU.ActiveCfg = Debug 2026|x64
+		{63612A61-DCB3-4E5B-9DC7-409E8D64EB26}.Debug 2026|Any CPU.Build.0 = Debug 2026|x64
+		{63612A61-DCB3-4E5B-9DC7-409E8D64EB26}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{63612A61-DCB3-4E5B-9DC7-409E8D64EB26}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{63612A61-DCB3-4E5B-9DC7-409E8D64EB26}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{63612A61-DCB3-4E5B-9DC7-409E8D64EB26}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

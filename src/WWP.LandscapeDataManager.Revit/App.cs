@@ -1,3 +1,4 @@
+using System.IO;
 using System.Reflection;
 using System.Windows.Media.Imaging;
 using Autodesk.Revit.UI;
@@ -11,12 +12,24 @@ public sealed class App : IExternalApplication
     internal static RevitExternalEventDispatcher? Dispatcher { get; private set; }
     internal static RevitPipeServer? PipeServer { get; private set; }
     internal static CompanionLauncher? CompanionLauncher { get; private set; }
+    internal static ToolProcessLauncher? ParametersLauncher { get; private set; }
+    internal static ToolProcessLauncher? ImporterLauncher { get; private set; }
+    internal static ToolProcessLauncher? ITreeDownloaderLauncher { get; private set; }
 
     public Result OnStartup(UIControlledApplication application)
     {
         Dispatcher = new RevitExternalEventDispatcher();
         PipeServer = new RevitPipeServer(Dispatcher);
         CompanionLauncher = new CompanionLauncher(PipeServer.PipeName);
+        ParametersLauncher = new ToolProcessLauncher(
+            Path.Combine("Parameters", "WWP.LandscapeDataManager.Parameters.exe"),
+            PipeServer.PipeName);
+        ImporterLauncher = new ToolProcessLauncher(
+            Path.Combine("Importer", "WWP.LandscapeDataManager.Importer.exe"),
+            PipeServer.PipeName);
+        ITreeDownloaderLauncher = new ToolProcessLauncher(
+            Path.Combine("ITreeDownloader", "WWP.LandscapeDataManager.ITreeDownloader.exe"),
+            PipeServer.PipeName);
         PipeServer.Start();
 
         var panel = GetOrCreatePanel(application);
@@ -62,10 +75,16 @@ public sealed class App : IExternalApplication
     public Result OnShutdown(UIControlledApplication application)
     {
         CompanionLauncher?.Dispose();
+        ParametersLauncher?.Dispose();
+        ImporterLauncher?.Dispose();
+        ITreeDownloaderLauncher?.Dispose();
         PipeServer?.Dispose();
         Dispatcher?.Dispose();
 
         CompanionLauncher = null;
+        ParametersLauncher = null;
+        ImporterLauncher = null;
+        ITreeDownloaderLauncher = null;
         PipeServer = null;
         Dispatcher = null;
         return Result.Succeeded;

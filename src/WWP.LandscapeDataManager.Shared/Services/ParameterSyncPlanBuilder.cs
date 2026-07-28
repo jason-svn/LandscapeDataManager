@@ -51,7 +51,7 @@ public static class ParameterSyncPlanBuilder
             {
                 issues.Add(new ParameterSyncIssue(
                     item.TypeName,
-                    "â€”",
+                    "—",
                     "No source record matches this Revit type."));
                 continue;
             }
@@ -60,7 +60,7 @@ public static class ParameterSyncPlanBuilder
             {
                 issues.Add(new ParameterSyncIssue(
                     item.TypeName,
-                    "â€”",
+                    "—",
                     "More than one source record matches this Revit type."));
                 continue;
             }
@@ -185,7 +185,7 @@ public static class ParameterSyncPlanBuilder
         }
     }
 
-    private static string ReadSourceValue(JsonElement value) => value.ValueKind switch
+    public static string ReadSourceValue(JsonElement value) => value.ValueKind switch
     {
         JsonValueKind.String => value.GetString() ?? string.Empty,
         JsonValueKind.Number => value.GetRawText(),
@@ -196,7 +196,7 @@ public static class ParameterSyncPlanBuilder
         _ => value.GetRawText()
     };
 
-    private static string? ReadRecordUnitSystem(AirtableRecord record)
+    public static string? ReadRecordUnitSystem(AirtableRecord record)
     {
         string[] candidates =
         [

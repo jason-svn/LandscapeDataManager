@@ -114,6 +114,18 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.ApplyParameterWrites => await ApplyParameterWritesAsync(request).ConfigureAwait(false),
                 PipeCommands.GetITreeInputs => await GetITreeInputsAsync(request).ConfigureAwait(false),
                 PipeCommands.EnsureSharedParameters => await EnsureSharedParametersAsync(request).ConfigureAwait(false),
+                PipeCommands.ScanPlantingInstances => await ScanPlantingInstancesAsync(request).ConfigureAwait(false),
+                PipeCommands.PreviewInstanceParameterWrites => await PreviewInstanceParameterWritesAsync(request).ConfigureAwait(false),
+                PipeCommands.ApplyInstanceParameterWrites => await ApplyInstanceParameterWritesAsync(request).ConfigureAwait(false),
+                PipeCommands.PairSelectedInstance => await PairSelectedInstanceAsync(request).ConfigureAwait(false),
+                PipeCommands.UpdateSpeciesCatalogue => await UpdateSpeciesCatalogueAsync(request).ConfigureAwait(false),
+                PipeCommands.ValidatePlantingInstances => await ValidatePlantingInstancesAsync(request).ConfigureAwait(false),
+                PipeCommands.SelectElements => await SelectElementsAsync(request).ConfigureAwait(false),
+                PipeCommands.ZoomToElements => await ZoomToElementsAsync(request).ConfigureAwait(false),
+                PipeCommands.IsolateElements => await IsolateElementsAsync(request).ConfigureAwait(false),
+                PipeCommands.ResetIsolation => await ResetIsolationAsync(request).ConfigureAwait(false),
+                PipeCommands.ApplyStatusColourOverrides => await ApplyStatusColourOverridesAsync(request).ConfigureAwait(false),
+                PipeCommands.ResetColourOverrides => await ResetColourOverridesAsync(request).ConfigureAwait(false),
                 _ => new PipeResponse(request.RequestId, false, Error: $"Unknown command: {request.Command}")
             };
         }
@@ -190,6 +202,105 @@ internal sealed class RevitPipeServer : IDisposable
                       ?? throw new InvalidDataException("The shared parameter file path was empty.");
         var result = await _dispatcher.RunAsync(application =>
             SharedParameterSetupService.EnsureParameters(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> ScanPlantingInstancesAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(RevitModelScanner.ScanPlantingInstances).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> PreviewInstanceParameterWritesAsync(PipeRequest request)
+    {
+        var batch = request.Payload?.Deserialize<InstanceParameterWriteBatch>(JsonDefaults.Options)
+                    ?? throw new InvalidDataException("The instance parameter-write preview was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            InstanceParameterWriter.Preview(application, batch)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> ApplyInstanceParameterWritesAsync(PipeRequest request)
+    {
+        var batch = request.Payload?.Deserialize<InstanceParameterWriteBatch>(JsonDefaults.Options)
+                    ?? throw new InvalidDataException("The instance parameter-write batch was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            InstanceParameterWriter.Apply(application, batch)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> PairSelectedInstanceAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<PairSelectedInstanceRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The pairing request was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            InstancePairingService.PairSelected(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> UpdateSpeciesCatalogueAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<UpdateSpeciesCatalogueRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The species catalogue update request was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            SpeciesCatalogueWriter.Update(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> ValidatePlantingInstancesAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(PlantingInstanceValidationScanner.Scan).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> SelectElementsAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<ElementSelectionRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The selection request was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            RevitViewInteractionService.Select(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> ZoomToElementsAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<ElementSelectionRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The zoom request was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            RevitViewInteractionService.Zoom(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> IsolateElementsAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<ElementSelectionRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The isolate request was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            RevitViewInteractionService.Isolate(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> ResetIsolationAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(RevitViewInteractionService.ResetIsolation).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> ApplyStatusColourOverridesAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<StatusColourOverrideRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The colour override request was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            RevitViewInteractionService.ApplyColourOverrides(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> ResetColourOverridesAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<ElementSelectionRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The reset-overrides request was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            RevitViewInteractionService.ResetColourOverrides(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

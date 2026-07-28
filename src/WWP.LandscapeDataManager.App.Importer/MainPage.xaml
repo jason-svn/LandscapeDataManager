@@ -1,0 +1,231 @@
+<Page
+    x:Class="WWP.LandscapeDataManager.App.Importer.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:WWP.LandscapeDataManager.Shared.Models"
+    xmlns:local="using:WWP.LandscapeDataManager.App.Importer">
+
+    <ScrollViewer>
+        <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="{StaticResource LimPageMargin}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Spacing="4">
+                <TextBlock Text="Planting Data Sync" Style="{StaticResource LimPageTitleStyle}" />
+                <TextBlock
+                    Text="Connect a source, map its columns to Revit parameters, preview the changes, then apply. Types match by Family + Type; instances match only by a stable pairing — never by display name."
+                    Style="{StaticResource LimPageSubtitleStyle}" />
+            </StackPanel>
+
+            <!-- Step 1: Connect -->
+            <Border Grid.Row="1" Margin="0,20,0,0" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="STEP 1 — CONNECT A SOURCE" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <ComboBox x:Name="SourceKindBox" Header="Data source" SelectedIndex="0"
+                              SelectionChanged="SourceKindBox_SelectionChanged" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="Airtable (API token)" />
+                        <ComboBoxItem Content="Excel workbook" />
+                    </ComboBox>
+
+                    <Grid x:Name="AirtablePanel" ColumnSpacing="10" RowSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <PasswordBox x:Name="AirtableTokenBox" Header="Personal access token" />
+                        <TextBox Grid.Column="1" x:Name="AirtableBaseIdBox" Header="Base ID" PlaceholderText="appXXXXXXXXXXXXXX" />
+                        <TextBox Grid.Column="2" x:Name="AirtableTableBox" Header="Table name or ID" />
+                        <TextBox Grid.Row="1" Grid.ColumnSpan="2" x:Name="AirtableViewBox" Header="View (optional)" />
+                        <CheckBox Grid.Row="1" Grid.Column="2" x:Name="RememberAirtableTokenCheckBox"
+                                  Content="Remember token securely" IsChecked="True" VerticalAlignment="Bottom" />
+                    </Grid>
+
+                    <Grid x:Name="ExcelPanel" ColumnSpacing="8" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="ExcelPathBox" Header="Excel workbook" PlaceholderText="Select an .xlsx or .xlsm file" />
+                        <Button Grid.Column="1" Content="Browse..." Click="BrowseExcel_Click"
+                                VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    </Grid>
+
+                    <Button x:Name="ConnectButton" Content="Load source &amp; Revit catalogs" Click="Connect_Click"
+                            Style="{StaticResource LimPrimaryButtonStyle}" />
+                    <TextBlock x:Name="ConnectStatusText" Style="{StaticResource LimMutedTextStyle}"
+                               Text="Not connected yet." />
+                </StackPanel>
+            </Border>
+
+            <!-- Step 2: Map -->
+            <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="STEP 2 — MAP COLUMNS" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="Auto-map all" Click="AutoMap_Click"
+                                Style="{StaticResource LimSecondaryButtonStyle}" />
+                    </Grid>
+
+                    <TextBlock Text="Type mappings (growth ratios, max dimensions, species assignment — one value per Revit type)"
+                               Style="{StaticResource LimMutedTextStyle}" />
+                    <ListView x:Name="TypeMappingList" ItemsSource="{x:Bind TypeMappingRows}" SelectionMode="None" MaxHeight="220">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:MappingRow">
+                                <Grid Padding="6" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="60" />
+                                        <ColumnDefinition Width="260" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                        <ColumnDefinition Width="100" />
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleSwitch IsOn="{x:Bind Enabled, Mode=TwoWay}" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind SelectedAirtableField}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                    <ComboBox Grid.Column="2" ItemsSource="{x:Bind TargetOptions}" SelectedItem="{x:Bind SelectedTarget, Mode=TwoWay}"
+                                              DisplayMemberPath="DisplayName" PlaceholderText="Select Revit parameter" HorizontalAlignment="Stretch" />
+                                    <ComboBox Grid.Column="3" ItemsSource="{x:Bind ConversionOptions}" SelectedItem="{x:Bind SelectedConversion, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind MappingStatus, Mode=OneWay}" VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <TextBlock Text="Instance mappings (tree year, condition, crown exposure — can differ per instance)"
+                               Style="{StaticResource LimMutedTextStyle}" />
+                    <ListView x:Name="InstanceMappingList" ItemsSource="{x:Bind InstanceMappingRows}" SelectionMode="None" MaxHeight="220">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:MappingRow">
+                                <Grid Padding="6" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="60" />
+                                        <ColumnDefinition Width="260" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                        <ColumnDefinition Width="100" />
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleSwitch IsOn="{x:Bind Enabled, Mode=TwoWay}" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind SelectedAirtableField}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                    <ComboBox Grid.Column="2" ItemsSource="{x:Bind TargetOptions}" SelectedItem="{x:Bind SelectedTarget, Mode=TwoWay}"
+                                              DisplayMemberPath="DisplayName" PlaceholderText="Select Revit parameter" HorizontalAlignment="Stretch" />
+                                    <ComboBox Grid.Column="3" ItemsSource="{x:Bind ConversionOptions}" SelectedItem="{x:Bind SelectedConversion, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind MappingStatus, Mode=OneWay}" VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+
+            <!-- Step 3: Preview & Apply -->
+            <Border Grid.Row="3" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="STEP 3 — PREVIEW &amp; APPLY" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="Preview changes" Click="Preview_Click"
+                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,10,0" />
+                        <Button Grid.Column="2" x:Name="ApplyButton" Content="Apply to Revit" Click="Apply_Click"
+                                Style="{StaticResource LimPrimaryButtonStyle}" IsEnabled="False" />
+                    </Grid>
+                    <TextBlock x:Name="PreviewStatusText" Style="{StaticResource LimMutedTextStyle}"
+                               Text="Map at least one column, then select Preview changes." />
+
+                    <TextBlock Text="Type results" FontWeight="SemiBold" />
+                    <ListView x:Name="TypeResultsList" ItemsSource="{x:Bind TypeSyncRows}" SelectionMode="None" MaxHeight="200">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:TypeSyncRow">
+                                <Grid Padding="6" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="180" />
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="220" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{x:Bind Status}" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind TypeName}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind Parameter}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind CurrentValue}" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind ProposedValue}" />
+                                    <TextBlock Grid.Column="5" Text="{x:Bind Message}" Opacity="0.75" TextWrapping="Wrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <TextBlock Text="Instance results" FontWeight="SemiBold" />
+                    <ListView x:Name="InstanceResultsList" ItemsSource="{x:Bind InstanceSyncRows}" SelectionMode="None" MaxHeight="200">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:InstanceSyncRow">
+                                <Grid Padding="6" ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="180" />
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="220" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{x:Bind Status}" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind FamilyType}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind Parameter}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind CurrentValue}" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind ProposedValue}" />
+                                    <TextBlock Grid.Column="5" Text="{x:Bind Message}" Opacity="0.75" TextWrapping="Wrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+
+            <!-- Manual pairing -->
+            <Border Grid.Row="4" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="FIRST-SYNC PAIRING" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock
+                        Text="An instance with no prior sync has no stable link to a source row yet. Select it in Revit, then pair it explicitly — this tool never guesses a first match by name."
+                        Style="{StaticResource LimMutedTextStyle}" />
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="PairSourceRecordIdBox" Header="Source record ID to pair with the current Revit selection" />
+                        <Button Grid.Column="1" Content="Pair selected Revit element" Click="PairSelected_Click"
+                                VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    </Grid>
+                    <TextBlock x:Name="PairingStatusText" Style="{StaticResource LimMutedTextStyle}" Text="—" />
+                </StackPanel>
+            </Border>
+
+            <ProgressRing x:Name="BusyIndicator"
+                          Grid.RowSpan="5"
+                          Width="40"
+                          Height="40"
+                          IsActive="False"
+                          Visibility="Collapsed"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center" />
+        </Grid>
+    </ScrollViewer>
+</Page>

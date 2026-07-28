@@ -15,15 +15,23 @@ foreach ($version in $RevitVersions) {
 }
 
 $connectorProject = Join-Path $PSScriptRoot 'src\WWP.LandscapeDataManager.Revit\WWP.LandscapeDataManager.Revit.csproj'
-$appProject = Join-Path $PSScriptRoot 'src\WWP.LandscapeDataManager.App\WWP.LandscapeDataManager.App.csproj'
-$publishedApp = Join-Path $PSScriptRoot 'artifacts\App\win-x64\publish'
 $packagesRoot = Join-Path $PSScriptRoot 'artifacts\Packages'
 $stagingRoot = Join-Path $packagesRoot 'LIM-Landscape-Data-2025plus'
 $zipPath = "$stagingRoot.zip"
 
-& dotnet publish $appProject -c $Configuration -r win-x64 --self-contained false
-if ($LASTEXITCODE -ne 0) {
-    throw 'The WinUI 3 application publish failed.'
+# One entry per standalone tool executable; each publishes and stages into its own App\<Name>\ folder.
+$toolApps = @(
+    @{ Name = 'App'; Project = 'src\WWP.LandscapeDataManager.App\WWP.LandscapeDataManager.App.csproj' }
+    @{ Name = 'Parameters'; Project = 'src\WWP.LandscapeDataManager.App.Parameters\WWP.LandscapeDataManager.App.Parameters.csproj' }
+    @{ Name = 'Importer'; Project = 'src\WWP.LandscapeDataManager.App.Importer\WWP.LandscapeDataManager.App.Importer.csproj' }
+    @{ Name = 'ITreeDownloader'; Project = 'src\WWP.LandscapeDataManager.App.ITreeDownloader\WWP.LandscapeDataManager.App.ITreeDownloader.csproj' }
+)
+
+foreach ($toolApp in $toolApps) {
+    & dotnet publish (Join-Path $PSScriptRoot $toolApp.Project) -c $Configuration -r win-x64 --self-contained false
+    if ($LASTEXITCODE -ne 0) {
+        throw "The '$($toolApp.Name)' tool publish failed."
+    }
 }
 
 foreach ($version in $RevitVersions) {
@@ -47,10 +55,14 @@ if (Test-Path -LiteralPath $zipPath) {
 }
 
 New-Item -ItemType Directory -Path $resolvedStagingRoot -Force | Out-Null
-New-Item -ItemType Directory -Path (Join-Path $resolvedStagingRoot 'App') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $resolvedStagingRoot 'Connectors') -Force | Out-Null
 
-Copy-Item -Path (Join-Path $publishedApp '*') -Destination (Join-Path $resolvedStagingRoot 'App') -Recurse -Force
+foreach ($toolApp in $toolApps) {
+    $publishedTool = Join-Path $PSScriptRoot "artifacts\$($toolApp.Name)\win-x64\publish"
+    $stagedTool = Join-Path $resolvedStagingRoot "App\$($toolApp.Name)"
+    New-Item -ItemType Directory -Path $stagedTool -Force | Out-Null
+    Copy-Item -Path (Join-Path $publishedTool '*') -Destination $stagedTool -Recurse -Force
+}
 
 foreach ($version in $RevitVersions) {
     $source = Join-Path $PSScriptRoot "artifacts\Revit$version"

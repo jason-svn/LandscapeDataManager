@@ -8,7 +8,12 @@ param(
     [string] $ConnectorAssembly,
 
     [Parameter(Mandatory)]
-    [string] $AppAssembly
+    [string] $AppAssembly,
+
+    # Zero or more "ToolFolderName=PathToAssembly.dll" pairs, one per standalone tool exe
+    # (e.g. "Parameters=...\artifacts\Parameters\WWP.LandscapeDataManager.Parameters.dll").
+    # Each tool is deployed to its own App\<ToolFolderName>\ subfolder.
+    [string[]] $ToolAssembly = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,6 +46,30 @@ Get-ChildItem -LiteralPath $appOutputPath -Force |
         $_.Name -notlike '*.exe.WebView2'
     } |
     Copy-Item -Destination $deployedApp -Recurse -Force
+
+foreach ($pair in $ToolAssembly) {
+    $separatorIndex = $pair.IndexOf('=')
+    if ($separatorIndex -lt 1) {
+        throw "Invalid -ToolAssembly value '$pair'. Expected 'FolderName=PathToAssembly.dll'."
+    }
+
+    $toolName = $pair.Substring(0, $separatorIndex)
+    $toolAssemblyPath = [IO.Path]::GetFullPath($pair.Substring($separatorIndex + 1))
+    if (-not (Test-Path -LiteralPath $toolAssemblyPath)) {
+        throw "The '$toolName' tool was not found at $toolAssemblyPath."
+    }
+
+    $toolOutputPath = Split-Path -Parent $toolAssemblyPath
+    $deployedTool = Join-Path $deploymentRoot $toolName
+    New-Item -ItemType Directory -Path $deployedTool -Force | Out-Null
+    Get-ChildItem -LiteralPath $toolOutputPath -Force |
+        Where-Object {
+            $_.Name -ne 'win-x64' -and
+            $_.Name -notlike '*.exe.WebView2'
+        } |
+        Copy-Item -Destination $deployedTool -Recurse -Force
+    Write-Host "Deployed the '$toolName' tool to $deployedTool"
+}
 
 $deployedAssembly = Join-Path $deploymentRoot 'WWP.LandscapeDataManager.Revit.dll'
 $templatePath = Join-Path $PSScriptRoot '..\Manifest\LIMLandscapeData.addin.template'

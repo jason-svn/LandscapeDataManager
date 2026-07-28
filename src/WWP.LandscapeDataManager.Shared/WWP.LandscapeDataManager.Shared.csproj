@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\WWP.LandscapeDataManager.Contracts\WWP.LandscapeDataManager.Contracts.csproj" />
     <PackageReference Include="ClosedXML" Version="0.105.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
   </ItemGroup>
 
   <ItemGroup>

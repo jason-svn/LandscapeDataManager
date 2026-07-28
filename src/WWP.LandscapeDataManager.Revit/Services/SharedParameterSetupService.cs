@@ -165,60 +165,60 @@ internal static class SharedParameterSetupService
         string Name,
         string Scope,
         IReadOnlyList<BuiltInCategory> Categories,
-        BuiltInParameterGroup Group)
+        ForgeTypeId Group)
     {
-        private static ParameterOwnership PlantingType(string name, BuiltInParameterGroup group) =>
+        private static ParameterOwnership PlantingType(string name, ForgeTypeId group) =>
             new(name, "Type", [BuiltInCategory.OST_Planting], group);
 
-        private static ParameterOwnership PlantingInstance(string name, BuiltInParameterGroup group) =>
+        private static ParameterOwnership PlantingInstance(string name, ForgeTypeId group) =>
             new(name, "Instance", [BuiltInCategory.OST_Planting], group);
 
-        private static ParameterOwnership ProjectInfo(string name, BuiltInParameterGroup group) =>
+        private static ParameterOwnership ProjectInfo(string name, ForgeTypeId group) =>
             new(name, "Instance", [BuiltInCategory.OST_ProjectInformation], group);
 
         public static readonly IReadOnlyList<ParameterOwnership> All =
         [
-            PlantingType("!_S_PLANTING_GrowthRatio_HeightbyYear_Number", BuiltInParameterGroup.PG_CONSTRAINTS),
-            PlantingType("!_S_PLANTING_GrowthRatio_TrunkDiameterbyYear_Number", BuiltInParameterGroup.PG_CONSTRAINTS),
-            PlantingType("!_S_PLANTING_GrowthRatio_WidthbyYear_Number", BuiltInParameterGroup.PG_CONSTRAINTS),
-            PlantingType("!_S_PLANTING_DataSync_InputSignature_Text", BuiltInParameterGroup.PG_DATA),
-            PlantingType("!_S_PLANTING_DataSync_LastUpdated_Text", BuiltInParameterGroup.PG_DATA),
-            PlantingType("!_S_PLANTING_DataSync_Status_Text", BuiltInParameterGroup.PG_DATA),
-            PlantingType("!_S_PLANTING_DataSync_SourceName_Text", BuiltInParameterGroup.PG_IDENTITY_DATA),
-            PlantingType("!_S_PLANTING_DataSync_SourceRecordId_Text", BuiltInParameterGroup.PG_IDENTITY_DATA),
-            PlantingType("!_S_PLANTING_iTreeSpecies_Code_Text", BuiltInParameterGroup.PG_IDENTITY_DATA),
-            PlantingType("!_S_PLANTING_iTreeSpecies_CommonName_Text", BuiltInParameterGroup.PG_IDENTITY_DATA),
-            PlantingType("!_S_PLANTING_iTreeSpecies_ReplaceBy_Text", BuiltInParameterGroup.PG_IDENTITY_DATA),
-            PlantingType("!_S_PLANTING_iTreeSpecies_ScientificName_Text", BuiltInParameterGroup.PG_IDENTITY_DATA),
-            PlantingType("!_S_PLANTING_iTreeSpecies_Type_Text", BuiltInParameterGroup.PG_IDENTITY_DATA),
+            PlantingType("!_S_PLANTING_GrowthRatio_HeightbyYear_Number", GroupTypeId.Constraints),
+            PlantingType("!_S_PLANTING_GrowthRatio_TrunkDiameterbyYear_Number", GroupTypeId.Constraints),
+            PlantingType("!_S_PLANTING_GrowthRatio_WidthbyYear_Number", GroupTypeId.Constraints),
+            PlantingType("!_S_PLANTING_DataSync_InputSignature_Text", GroupTypeId.Data),
+            PlantingType("!_S_PLANTING_DataSync_LastUpdated_Text", GroupTypeId.Data),
+            PlantingType("!_S_PLANTING_DataSync_Status_Text", GroupTypeId.Data),
+            PlantingType("!_S_PLANTING_DataSync_SourceName_Text", GroupTypeId.IdentityData),
+            PlantingType("!_S_PLANTING_DataSync_SourceRecordId_Text", GroupTypeId.IdentityData),
+            PlantingType("!_S_PLANTING_iTreeSpecies_Code_Text", GroupTypeId.IdentityData),
+            PlantingType("!_S_PLANTING_iTreeSpecies_CommonName_Text", GroupTypeId.IdentityData),
+            PlantingType("!_S_PLANTING_iTreeSpecies_ReplaceBy_Text", GroupTypeId.IdentityData),
+            PlantingType("!_S_PLANTING_iTreeSpecies_ScientificName_Text", GroupTypeId.IdentityData),
+            PlantingType("!_S_PLANTING_iTreeSpecies_Type_Text", GroupTypeId.IdentityData),
 
-            PlantingInstance("!_S_PLANTING_TreeGrowth_Years_Number", BuiltInParameterGroup.PG_CONSTRAINTS),
-            PlantingInstance("!_S_PLANTING_iTreeInput_Condition_Text", BuiltInParameterGroup.PG_DATA),
-            PlantingInstance("!_S_PLANTING_iTreeInput_CrownExposure_Number", BuiltInParameterGroup.PG_DATA),
-            PlantingInstance("!_S_PLANTING_iTreeResult_Details_Text", BuiltInParameterGroup.PG_DATA),
-            PlantingInstance("!_S_PLANTING_iTreeResult_EngineVersion_Text", BuiltInParameterGroup.PG_DATA),
-            PlantingInstance("!_S_PLANTING_iTreeResult_InputSignature_Text", BuiltInParameterGroup.PG_DATA),
-            PlantingInstance("!_S_PLANTING_iTreeResult_LastUpdated_Text", BuiltInParameterGroup.PG_DATA),
-            PlantingInstance("!_S_PLANTING_iTreeResult_Status_Text", BuiltInParameterGroup.PG_DATA),
-            PlantingInstance("!_S_PLANTING_iTreeResult_UnitSystem_Text", BuiltInParameterGroup.PG_DATA),
-            PlantingInstance("!_S_PLANTING_TreeFoliage_Height", BuiltInParameterGroup.PG_GEOMETRY),
-            PlantingInstance("!_S_PLANTING_TreeFoliage_Width", BuiltInParameterGroup.PG_GEOMETRY),
-            PlantingInstance("!_S_PLANTING_TreeOverall_Height", BuiltInParameterGroup.PG_GEOMETRY),
-            PlantingInstance("!_S_PLANTING_TreeTrunk_DBH_Diameter", BuiltInParameterGroup.PG_GEOMETRY),
-            PlantingInstance("!_S_PLANTING_TreeTrunk_Diameter", BuiltInParameterGroup.PG_GEOMETRY),
-            PlantingInstance("!_S_PLANTING_TreeTrunk_Height", BuiltInParameterGroup.PG_GEOMETRY),
-            PlantingInstance("!_S_PLANTING_iTreeAir_CORemovedAnnual_Number", BuiltInParameterGroup.PG_GREEN_BUILDING),
-            PlantingInstance("!_S_PLANTING_iTreeAir_NO2RemovedAnnual_Number", BuiltInParameterGroup.PG_GREEN_BUILDING),
-            PlantingInstance("!_S_PLANTING_iTreeAir_O3RemovedAnnual_Number", BuiltInParameterGroup.PG_GREEN_BUILDING),
-            PlantingInstance("!_S_PLANTING_iTreeAir_PM25RemovedAnnual_Number", BuiltInParameterGroup.PG_GREEN_BUILDING),
-            PlantingInstance("!_S_PLANTING_iTreeAir_SO2RemovedAnnual_Number", BuiltInParameterGroup.PG_GREEN_BUILDING),
-            PlantingInstance("!_S_PLANTING_iTreeCarbon_CO2SequesteredAnnual_Number", BuiltInParameterGroup.PG_GREEN_BUILDING),
-            PlantingInstance("!_S_PLANTING_iTreeWater_RainfallInterceptedAnnual_Volume", BuiltInParameterGroup.PG_GREEN_BUILDING),
-            PlantingInstance("!_S_PLANTING_iTreeWater_RunoffAvoidedAnnual_Volume", BuiltInParameterGroup.PG_GREEN_BUILDING),
+            PlantingInstance("!_S_PLANTING_TreeGrowth_Years_Number", GroupTypeId.Constraints),
+            PlantingInstance("!_S_PLANTING_iTreeInput_Condition_Text", GroupTypeId.Data),
+            PlantingInstance("!_S_PLANTING_iTreeInput_CrownExposure_Number", GroupTypeId.Data),
+            PlantingInstance("!_S_PLANTING_iTreeResult_Details_Text", GroupTypeId.Data),
+            PlantingInstance("!_S_PLANTING_iTreeResult_EngineVersion_Text", GroupTypeId.Data),
+            PlantingInstance("!_S_PLANTING_iTreeResult_InputSignature_Text", GroupTypeId.Data),
+            PlantingInstance("!_S_PLANTING_iTreeResult_LastUpdated_Text", GroupTypeId.Data),
+            PlantingInstance("!_S_PLANTING_iTreeResult_Status_Text", GroupTypeId.Data),
+            PlantingInstance("!_S_PLANTING_iTreeResult_UnitSystem_Text", GroupTypeId.Data),
+            PlantingInstance("!_S_PLANTING_TreeFoliage_Height", GroupTypeId.Geometry),
+            PlantingInstance("!_S_PLANTING_TreeFoliage_Width", GroupTypeId.Geometry),
+            PlantingInstance("!_S_PLANTING_TreeOverall_Height", GroupTypeId.Geometry),
+            PlantingInstance("!_S_PLANTING_TreeTrunk_DBH_Diameter", GroupTypeId.Geometry),
+            PlantingInstance("!_S_PLANTING_TreeTrunk_Diameter", GroupTypeId.Geometry),
+            PlantingInstance("!_S_PLANTING_TreeTrunk_Height", GroupTypeId.Geometry),
+            PlantingInstance("!_S_PLANTING_iTreeAir_CORemovedAnnual_Number", GroupTypeId.GreenBuilding),
+            PlantingInstance("!_S_PLANTING_iTreeAir_NO2RemovedAnnual_Number", GroupTypeId.GreenBuilding),
+            PlantingInstance("!_S_PLANTING_iTreeAir_O3RemovedAnnual_Number", GroupTypeId.GreenBuilding),
+            PlantingInstance("!_S_PLANTING_iTreeAir_PM25RemovedAnnual_Number", GroupTypeId.GreenBuilding),
+            PlantingInstance("!_S_PLANTING_iTreeAir_SO2RemovedAnnual_Number", GroupTypeId.GreenBuilding),
+            PlantingInstance("!_S_PLANTING_iTreeCarbon_CO2SequesteredAnnual_Number", GroupTypeId.GreenBuilding),
+            PlantingInstance("!_S_PLANTING_iTreeWater_RainfallInterceptedAnnual_Volume", GroupTypeId.GreenBuilding),
+            PlantingInstance("!_S_PLANTING_iTreeWater_RunoffAvoidedAnnual_Volume", GroupTypeId.GreenBuilding),
 
-            ProjectInfo("!_S_PLANTING_iTreeLocation_Latitude_Number", BuiltInParameterGroup.PG_IDENTITY_DATA),
-            ProjectInfo("!_S_PLANTING_iTreeLocation_Longitude_Number", BuiltInParameterGroup.PG_IDENTITY_DATA),
-            ProjectInfo("!_S_PLANTING_iTreeUnits_PreferredSystem_Text", BuiltInParameterGroup.PG_IDENTITY_DATA)
+            ProjectInfo("!_S_PLANTING_iTreeLocation_Latitude_Number", GroupTypeId.IdentityData),
+            ProjectInfo("!_S_PLANTING_iTreeLocation_Longitude_Number", GroupTypeId.IdentityData),
+            ProjectInfo("!_S_PLANTING_iTreeUnits_PreferredSystem_Text", GroupTypeId.IdentityData)
         ];
     }
 }

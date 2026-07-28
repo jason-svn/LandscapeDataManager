@@ -1,0 +1,245 @@
+using System.Collections.ObjectModel;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Windows.Storage.Pickers;
+using WWP.LandscapeDataManager.Contracts;
+using WWP.LandscapeDataManager.Shared.Services;
+
+namespace WWP.LandscapeDataManager.App.ITreeDownloader;
+
+public sealed partial class MainPage : Page
+{
+    private readonly ITreeApiClient _iTreeApiClient = new();
+    private readonly ITreeCredentialStore _iTreeCredentialStore = new();
+    private readonly SpeciesCatalogueDatabase _database = new();
+    private readonly ITreeExcelMergeService _excelMergeService = new();
+
+    private RevitPipeClient? _revitClient;
+    private nint _windowHandle;
+
+    public MainPage()
+    {
+        InitializeComponent();
+    }
+
+    public ObservableCollection<SpeciesResultRow> ResultRows { get; } = [];
+
+    public void Initialize(string pipeName, nint windowHandle)
+    {
+        _revitClient = new RevitPipeClient(pipeName);
+        _windowHandle = windowHandle;
+        Loaded += Page_Loaded;
+    }
+
+    private async void Page_Loaded(object sender, RoutedEventArgs e)
+    {
+        ApiKeyBox.Password = _iTreeCredentialStore.Load();
+        var metadata = await _database.GetMetadataAsync();
+        if (metadata.Version is not null)
+        {
+            CatalogueVersionText.Text = $"Local catalogue last downloaded {metadata.DownloadedAtUtc} (version {metadata.Version[..8]}...).";
+        }
+
+        UpdateExcelPanelVisibility();
+    }
+
+    private void DestinationCheckBox_Changed(object sender, RoutedEventArgs e) => UpdateExcelPanelVisibility();
+
+    private void UpdateExcelPanelVisibility()
+    {
+        if (ExcelOptionsPanel is null)
+        {
+            return;
+        }
+
+        ExcelOptionsPanel.Visibility = ExportExcelCheckBox.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void BrowseExistingWorkbook_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
+        picker.FileTypeFilter.Add(".xlsx");
+        picker.FileTypeFilter.Add(".xlsm");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSingleFileAsync();
+        if (file is not null)
+        {
+            ExcelPathBox.Text = file.Path;
+        }
+    }
+
+    private async void ChooseNewWorkbook_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = $"Species Catalogue {DateTime.Now:yyyy-MM-dd}"
+        };
+        picker.FileTypeChoices.Add("Excel workbook", [".xlsx"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSaveFileAsync();
+        if (file is not null)
+        {
+            ExcelPathBox.Text = file.Path;
+        }
+    }
+
+    private async void Download_Click(object sender, RoutedEventArgs e)
+    {
+        var updateSchedule = UpdateScheduleCheckBox.IsChecked == true;
+        var exportExcel = ExportExcelCheckBox.IsChecked == true;
+        if (!updateSchedule && !exportExcel)
+        {
+            StatusText.Text = "Select at least one destination: the Revit key schedule, Excel, or both.";
+            return;
+        }
+
+        var apiKey = ApiKeyBox.Password.Trim();
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            StatusText.Text = "Enter your i-Tree API key first.";
+            return;
+        }
+
+        BusyIndicator.IsActive = true;
+        BusyIndicator.Visibility = Visibility.Visible;
+        try
+        {
+            if (RememberKeyCheckBox.IsChecked == true)
+            {
+                _iTreeCredentialStore.Save(apiKey);
+            }
+            else
+            {
+                _iTreeCredentialStore.Delete();
+            }
+
+            var download = await _iTreeApiClient.DownloadSpeciesCatalogAsync(apiKey);
+            var allRecords = download.Records.Select(ToSpeciesCatalogueRecord).ToList();
+            var catalogueVersion = ComputeVersionHash(allRecords);
+
+            var fullCatalogueScope = ScopeBox.SelectedIndex == 1;
+            var recordsForLocalCache = allRecords;
+            if (!fullCatalogueScope)
+            {
+                var usedCodes = await GetUsedSpeciesCodesAsync();
+                recordsForLocalCache = allRecords.Where(r => usedCodes.Contains(r.SpeciesCode)).ToList();
+            }
+
+            await _database.SaveAsync(recordsForLocalCache, catalogueVersion);
+            CatalogueVersionText.Text =
+                $"Downloaded {allRecords.Count:N0} species; cached {recordsForLocalCache.Count:N0} locally (version {catalogueVersion[..8]}...).";
+
+            var notes = new List<string>();
+
+            if (updateSchedule)
+            {
+                var result = await GetClient().SendAsync<UpdateSpeciesCatalogueResult>(
+                    PipeCommands.UpdateSpeciesCatalogue,
+                    new UpdateSpeciesCatalogueRequest(allRecords));
+
+                ResultRows.Clear();
+                foreach (var row in result.Rows)
+                {
+                    ResultRows.Add(new SpeciesResultRow(row));
+                }
+
+                AddedCountText.Text = result.Rows.Count(r => r.Status == "Added").ToString("N0");
+                ChangedCountText.Text = result.Rows.Count(r => r.Status == "Changed").ToString("N0");
+                DeprecatedCountText.Text = result.Rows.Count(r => r.Status == "Deprecated").ToString("N0");
+                UnchangedCountText.Text = result.Rows.Count(r => r.Status == "Unchanged").ToString("N0");
+                notes.Add(result.KeyScheduleCreated
+                    ? $"Created the Planting Key Schedule and updated {result.Rows.Count:N0} types ({result.SkippedNoMatchingType:N0} species not currently used were skipped)."
+                    : $"Updated {result.Rows.Count:N0} types ({result.SkippedNoMatchingType:N0} species not currently used were skipped).");
+            }
+
+            if (exportExcel)
+            {
+                var exportRecords = fullCatalogueScope ? allRecords : recordsForLocalCache;
+                var merge = await _excelMergeService.MergeAsync(
+                    exportRecords.Select(ToExportRecord).ToList(),
+                    new ITreeExcelMergeOptions(
+                        ExcelPathBox.Text.Trim(),
+                        WorksheetBox.Text.Trim(),
+                        1,
+                        AppendMissingCheckBox.IsChecked == true,
+                        true));
+                notes.Add(
+                    $"Excel: updated {merge.UpdatedRows:N0} rows, appended {merge.AppendedRows:N0}, " +
+                    $"preserved {merge.PreservedUnmatchedRows:N0} unmatched rows in {Path.GetFileName(merge.FilePath)}.");
+            }
+
+            StatusText.Text = string.Join(" ", notes);
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Failed: {exception.Message}";
+        }
+        finally
+        {
+            BusyIndicator.IsActive = false;
+            BusyIndicator.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private async Task<HashSet<string>> GetUsedSpeciesCodesAsync()
+    {
+        var scan = await GetClient().SendAsync<ITreeInputScanResult>(PipeCommands.GetITreeInputs, new ITreeInputOptions(false));
+        return scan.Items
+            .Select(item => item.SpeciesCode.Trim())
+            .Where(code => !string.IsNullOrEmpty(code))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static SpeciesCatalogueRecord ToSpeciesCatalogueRecord(ITreeExportRecord record)
+    {
+        string Get(string key) => record.Fields.TryGetValue(key, out var value) ? value?.ToString() ?? string.Empty : string.Empty;
+        var replaceBy = Get("ReplaceBy");
+        return new SpeciesCatalogueRecord(
+            record.SpeciesCode,
+            Get("Common_Name"),
+            Get("Scientific_Name"),
+            Get("SpeciesType"),
+            string.IsNullOrWhiteSpace(replaceBy) ? null : replaceBy);
+    }
+
+    private static ITreeExportRecord ToExportRecord(SpeciesCatalogueRecord record) => new(
+        record.SpeciesCode,
+        new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Species_Code"] = record.SpeciesCode,
+            ["Common_Name"] = record.CommonName,
+            ["Scientific_Name"] = record.ScientificName,
+            ["SpeciesType"] = record.SpeciesType,
+            ["ReplaceBy"] = record.ReplaceBy ?? string.Empty
+        });
+
+    private static string ComputeVersionHash(IReadOnlyList<SpeciesCatalogueRecord> records)
+    {
+        var builder = new StringBuilder();
+        foreach (var record in records.OrderBy(r => r.SpeciesCode, StringComparer.Ordinal))
+        {
+            builder.Append(record.SpeciesCode).Append('|')
+                .Append(record.CommonName).Append('|')
+                .Append(record.ScientificName).Append('|')
+                .Append(record.SpeciesType).Append('|')
+                .Append(record.ReplaceBy).Append('\n');
+        }
+
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString()));
+        return Convert.ToHexString(hash);
+    }
+
+    private RevitPipeClient GetClient() =>
+        _revitClient ?? throw new InvalidOperationException("The Revit connection has not been initialized.");
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_revitClient is not null)
+        {
+            await _revitClient.DisposeAsync();
+        }
+    }
+}

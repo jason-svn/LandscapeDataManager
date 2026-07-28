@@ -11,6 +11,18 @@ public static class PipeCommands
     public const string ApplyParameterWrites = "apply-parameter-writes";
     public const string GetITreeInputs = "get-itree-inputs";
     public const string EnsureSharedParameters = "ensure-shared-parameters";
+    public const string ScanPlantingInstances = "scan-planting-instances";
+    public const string PreviewInstanceParameterWrites = "preview-instance-parameter-writes";
+    public const string ApplyInstanceParameterWrites = "apply-instance-parameter-writes";
+    public const string PairSelectedInstance = "pair-selected-instance";
+    public const string UpdateSpeciesCatalogue = "update-species-catalogue";
+    public const string ValidatePlantingInstances = "validate-planting-instances";
+    public const string SelectElements = "select-elements";
+    public const string ZoomToElements = "zoom-to-elements";
+    public const string IsolateElements = "isolate-elements";
+    public const string ResetIsolation = "reset-isolation";
+    public const string ApplyStatusColourOverrides = "apply-status-colour-overrides";
+    public const string ResetColourOverrides = "reset-colour-overrides";
 }
 
 public sealed record PipeRequest(string RequestId, string Command, JsonElement? Payload);
@@ -35,7 +47,8 @@ public sealed record ModelScanItem(
     int ElementCount,
     double AreaSquareMetres,
     string? CalculationType,
-    bool IsAreaBased = false);
+    bool IsAreaBased = false,
+    string FamilyName = "");
 
 public sealed record ModelScanResult(
     string DocumentTitle,
@@ -136,6 +149,115 @@ public sealed record SharedParameterSetupRow(
 public sealed record SharedParameterSetupResult(
     string DocumentTitle,
     IReadOnlyList<SharedParameterSetupRow> Rows);
+
+/// <summary>
+/// One Planting instance's stable identity for source-data matching. <see cref="UniqueId"/> is
+/// Revit's own stable per-element identifier; <see cref="SourceRecordId"/> is whatever external
+/// record ID was written to it by a previous sync (empty until the first successful match).
+/// Neither is a display name, by design.
+/// </summary>
+public sealed record PlantingInstanceScanItem(
+    string UniqueId,
+    long ElementId,
+    string FamilyName,
+    string TypeName,
+    long TypeId,
+    string SourceRecordId);
+
+public sealed record PlantingInstanceScanResult(
+    string DocumentTitle,
+    IReadOnlyList<PlantingInstanceScanItem> Items);
+
+public sealed record InstanceParameterWriteItem(
+    string UniqueId,
+    string RevitParameter,
+    string Conversion,
+    string SourceValue,
+    string? UnitMessage = null);
+
+public sealed record InstanceParameterWriteBatch(IReadOnlyList<InstanceParameterWriteItem> Items);
+
+public sealed record InstanceParameterWritePreviewRow(
+    int ItemIndex,
+    string UniqueId,
+    string RevitParameter,
+    string CurrentValue,
+    string ProposedValue,
+    string Status,
+    string? Message,
+    bool CanApply);
+
+public sealed record InstanceParameterWriteResult(
+    string DocumentTitle,
+    IReadOnlyList<InstanceParameterWritePreviewRow> Rows,
+    int ChangedParameterCount,
+    int ChangedElementCount,
+    bool Applied);
+
+/// <summary>
+/// Pairs the single currently-selected Revit element with an external source record by writing
+/// its stable ID into <c>!_S_PLANTING_DataSync_SourceRecordId_Text</c> — the explicit,
+/// user-driven alternative to ever guessing a first-sync match by display name.
+/// </summary>
+public sealed record PairSelectedInstanceRequest(string SourceRecordId);
+
+public sealed record PairSelectedInstanceResult(bool Paired, string? UniqueId, string? Message);
+
+/// <summary>A single i-Tree species catalogue entry, in the shape the Revit side writes onto Planting types.</summary>
+public sealed record SpeciesCatalogueRecord(
+    string SpeciesCode,
+    string CommonName,
+    string ScientificName,
+    string SpeciesType,
+    string? ReplaceBy);
+
+public sealed record UpdateSpeciesCatalogueRequest(IReadOnlyList<SpeciesCatalogueRecord> Records);
+
+/// <summary>Status is one of: "Added", "Changed", "Deprecated", "Unchanged".</summary>
+public sealed record SpeciesCatalogueUpdateRow(
+    string SpeciesCode,
+    string TypeName,
+    string Status,
+    string? Message);
+
+public sealed record UpdateSpeciesCatalogueResult(
+    string DocumentTitle,
+    IReadOnlyList<SpeciesCatalogueUpdateRow> Rows,
+    bool KeyScheduleCreated,
+    int SkippedNoMatchingType);
+
+/// <summary>
+/// A single Planting instance's raw i-Tree inputs plus whatever tracking values were stored by
+/// the last calculation — read-only, no status classification (that's pure client-side logic,
+/// see Shared.Services.PlantingInstanceStatusEvaluator, so it stays unit-testable).
+/// </summary>
+public sealed record PlantingInstanceValidationItem(
+    string UniqueId,
+    long ElementId,
+    string FamilyName,
+    string TypeName,
+    string? SpeciesCode,
+    int? Years,
+    string? Condition,
+    int? CrownExposure,
+    double? DbhInches,
+    double? Latitude,
+    double? Longitude,
+    string StoredStatus,
+    string StoredDetails,
+    string StoredLastUpdatedUtc,
+    string StoredEngineVersion,
+    string StoredInputSignature);
+
+public sealed record ValidatePlantingInstancesResult(
+    string DocumentTitle,
+    IReadOnlyList<PlantingInstanceValidationItem> Items);
+
+public sealed record ElementSelectionRequest(IReadOnlyList<string> UniqueIds);
+
+public sealed record StatusColourOverrideRequest(IReadOnlyDictionary<string, string> StatusByUniqueId);
+
+public sealed record OperationResult(bool Success, string? Message = null);
 
 public static class JsonDefaults
 {

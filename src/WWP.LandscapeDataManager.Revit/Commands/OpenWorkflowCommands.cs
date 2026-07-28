@@ -1,9 +1,11 @@
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using WWP.LandscapeDataManager.Revit.Infrastructure;
 
 namespace WWP.LandscapeDataManager.Revit.Commands;
 
+/// <summary>Legacy path: still used by tools not yet migrated to their own standalone exe.</summary>
 public abstract class OpenWorkflowCommand : IExternalCommand
 {
     protected abstract string Workflow { get; }
@@ -26,22 +28,42 @@ public abstract class OpenWorkflowCommand : IExternalCommand
     }
 }
 
-[Transaction(TransactionMode.Manual)]
-public sealed class SetupParametersCommand : OpenWorkflowCommand
+/// <summary>Current path: one standalone tool executable, started/refocused via its own launcher.</summary>
+public abstract class LaunchToolCommand : IExternalCommand
 {
-    protected override string Workflow => "parameters";
+    protected abstract ToolProcessLauncher? Launcher { get; }
+
+    public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+    {
+        try
+        {
+            Launcher?.ShowOrStart();
+            return Result.Succeeded;
+        }
+        catch (Exception exception)
+        {
+            message = exception.Message;
+            return Result.Failed;
+        }
+    }
 }
 
 [Transaction(TransactionMode.Manual)]
-public sealed class ImportPlantingDataCommand : OpenWorkflowCommand
+public sealed class SetupParametersCommand : LaunchToolCommand
 {
-    protected override string Workflow => "import";
+    protected override ToolProcessLauncher? Launcher => App.ParametersLauncher;
 }
 
 [Transaction(TransactionMode.Manual)]
-public sealed class DownloadSpeciesScheduleCommand : OpenWorkflowCommand
+public sealed class ImportPlantingDataCommand : LaunchToolCommand
 {
-    protected override string Workflow => "species";
+    protected override ToolProcessLauncher? Launcher => App.ImporterLauncher;
+}
+
+[Transaction(TransactionMode.Manual)]
+public sealed class DownloadSpeciesScheduleCommand : LaunchToolCommand
+{
+    protected override ToolProcessLauncher? Launcher => App.ITreeDownloaderLauncher;
 }
 
 [Transaction(TransactionMode.Manual)]

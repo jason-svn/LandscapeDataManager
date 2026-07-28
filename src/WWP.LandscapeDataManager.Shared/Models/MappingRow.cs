@@ -24,8 +24,8 @@ public sealed class MappingRow : INotifyPropertyChanged
         "Auto (Revit spec)",
         "Text",
         "Number (no conversion)",
-        "Metres â†’ Revit length",
-        "Square metres â†’ Revit area"
+        "Metres → Revit length",
+        "Square metres → Revit area"
     ];
 
     public event PropertyChangedEventHandler? PropertyChanged;

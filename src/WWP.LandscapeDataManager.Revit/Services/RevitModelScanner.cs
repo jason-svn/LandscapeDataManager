@@ -36,7 +36,8 @@ internal static class RevitModelScanner
                 row.TypeName,
                 row.TypeId,
                 row.CalculationType,
-                row.IsAreaBased
+                row.IsAreaBased,
+                row.FamilyName
             })
             .Select(group => new ModelScanItem(
                 group.Key.Category,
@@ -45,7 +46,8 @@ internal static class RevitModelScanner
                 group.Count(),
                 Math.Round(group.Sum(row => row.AreaSquareMetres), 2),
                 group.Key.CalculationType,
-                group.Key.IsAreaBased))
+                group.Key.IsAreaBased,
+                group.Key.FamilyName))
             .OrderBy(item => item.Category)
             .ThenBy(item => item.TypeName)
             .ToList();
@@ -177,6 +179,40 @@ internal static class RevitModelScanner
         return new ITreeInputScanResult(document.Title, items, skipped);
     }
 
+    private const string SourceRecordIdParameter = "!_S_PLANTING_DataSync_SourceRecordId_Text";
+
+    /// <summary>
+    /// Scans Planting instances by stable identity only (Revit <see cref="Element.UniqueId"/> and
+    /// whatever external record ID a previous sync wrote back) — never by display name — so
+    /// callers can match source rows to Revit elements safely.
+    /// </summary>
+    public static PlantingInstanceScanResult ScanPlantingInstances(UIApplication application)
+    {
+        var document = application.ActiveUIDocument?.Document
+                       ?? throw new InvalidOperationException("Open a Revit project before scanning planting instances.");
+
+        var items = new FilteredElementCollector(document)
+            .OfCategory(BuiltInCategory.OST_Planting)
+            .WhereElementIsNotElementType()
+            .ToElements()
+            .Select(element =>
+            {
+                var elementType = document.GetElement(element.GetTypeId()) as ElementType;
+                return new PlantingInstanceScanItem(
+                    element.UniqueId,
+                    element.Id.Value,
+                    elementType is not null ? GetFamilyName(elementType) : string.Empty,
+                    elementType?.Name ?? element.Name,
+                    elementType?.Id.Value ?? element.GetTypeId().Value,
+                    GetParameterText(element, SourceRecordIdParameter)?.Trim() ?? string.Empty);
+            })
+            .OrderBy(item => item.FamilyName)
+            .ThenBy(item => item.TypeName)
+            .ToList();
+
+        return new PlantingInstanceScanResult(document.Title, items);
+    }
+
     private static SourceRow CreateSourceRow(Document document, Element element)
     {
         var elementType = document.GetElement(element.GetTypeId()) as ElementType;
@@ -205,7 +241,8 @@ internal static class RevitModelScanner
             typeId,
             area,
             calculationType,
-            element is Floor);
+            element is Floor,
+            elementType is not null ? GetFamilyName(elementType) : string.Empty);
     }
 
     private static IEnumerable<Element> GetSupportedElements(
@@ -360,7 +397,8 @@ internal static class RevitModelScanner
         long TypeId,
         double AreaSquareMetres,
         string? CalculationType,
-        bool IsAreaBased);
+        bool IsAreaBased,
+        string FamilyName);
 
     private sealed record ParameterSource(
         string Name,

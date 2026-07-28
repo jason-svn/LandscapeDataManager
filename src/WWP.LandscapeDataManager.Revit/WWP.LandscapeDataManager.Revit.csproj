@@ -51,6 +51,15 @@
     <ProjectReference Include="..\WWP.LandscapeDataManager.App\WWP.LandscapeDataManager.App.csproj"
                       ReferenceOutputAssembly="false"
                       SkipGetTargetFrameworkProperties="true" />
+    <ProjectReference Include="..\WWP.LandscapeDataManager.App.Parameters\WWP.LandscapeDataManager.App.Parameters.csproj"
+                      ReferenceOutputAssembly="false"
+                      SkipGetTargetFrameworkProperties="true" />
+    <ProjectReference Include="..\WWP.LandscapeDataManager.App.Importer\WWP.LandscapeDataManager.App.Importer.csproj"
+                      ReferenceOutputAssembly="false"
+                      SkipGetTargetFrameworkProperties="true" />
+    <ProjectReference Include="..\WWP.LandscapeDataManager.App.ITreeDownloader\WWP.LandscapeDataManager.App.ITreeDownloader.csproj"
+                      ReferenceOutputAssembly="false"
+                      SkipGetTargetFrameworkProperties="true" />
     <Reference Include="RevitAPI">
       <HintPath>$(RevitInstallDir)\RevitAPI.dll</HintPath>
       <Private>false</Private>
@@ -82,6 +91,6 @@
   <Target Name="DeployDebugConnector"
           AfterTargets="Build"
           Condition="('$(Configuration)' == 'Debug' Or '$(Configuration)' == 'Debug 2025' Or '$(Configuration)' == 'Debug 2026') And '$(DesignTimeBuild)' != 'true'">
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\Deployment\Deploy-DebugConnector.ps1&quot; -RevitVersion $(RevitVersion) -ConnectorAssembly &quot;$(TargetPath)&quot; -AppAssembly &quot;$(MSBuildProjectDirectory)\..\..\artifacts\App\WWP.LandscapeDataManager.App.dll&quot;" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\Deployment\Deploy-DebugConnector.ps1&quot; -RevitVersion $(RevitVersion) -ConnectorAssembly &quot;$(TargetPath)&quot; -AppAssembly &quot;$(MSBuildProjectDirectory)\..\..\artifacts\App\WWP.LandscapeDataManager.App.dll&quot; -ToolAssembly &quot;Parameters=$(MSBuildProjectDirectory)\..\..\artifacts\Parameters\WWP.LandscapeDataManager.Parameters.dll&quot; -ToolAssembly &quot;Importer=$(MSBuildProjectDirectory)\..\..\artifacts\Importer\WWP.LandscapeDataManager.Importer.dll&quot; -ToolAssembly &quot;ITreeDownloader=$(MSBuildProjectDirectory)\..\..\artifacts\ITreeDownloader\WWP.LandscapeDataManager.ITreeDownloader.dll&quot;" />
   </Target>
 </Project>

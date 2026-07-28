@@ -214,7 +214,7 @@ public static class LandscapeCalculationEngine
             }
 
             var text = value.GetString()?.Trim();
-            if (string.IsNullOrWhiteSpace(text) || text is "-" or "â€”")
+            if (string.IsNullOrWhiteSpace(text) || text is "-" or "—")
             {
                 continue;
             }

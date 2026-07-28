@@ -11,7 +11,7 @@ namespace WWP.LandscapeDataManager.Revit.Infrastructure;
 /// CompanionLauncher, there is no cross-tool navigation: each exe hosts exactly one tool, so
 /// "show or start" only ever means "start it" or "bring its one window to front."
 /// </summary>
-internal sealed class ToolProcessLauncher(string exeRelativePath, string pipeName) : IDisposable
+public sealed class ToolProcessLauncher(string exeRelativePath, string pipeName) : IDisposable
 {
     private Process? _process;
 
