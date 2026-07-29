@@ -10,11 +10,16 @@ param(
     [Parameter(Mandatory)]
     [string] $AppAssembly,
 
-    # Zero or more "ToolFolderName=PathToAssembly.dll" pairs, one per standalone tool exe
-    # (e.g. "Parameters=...\artifacts\Parameters\WWP.LandscapeDataManager.Parameters.dll").
+    # Semicolon-separated "ToolFolderName=PathToAssembly.dll" pairs, one per standalone tool exe
+    # (e.g. "Parameters=...\artifacts\Parameters\WWP.LandscapeDataManager.Parameters.dll;Importer=...").
+    # A single delimited string (not [string[]]) because this script is invoked via
+    # "powershell.exe -File", which does not reliably bind repeated/array command-line
+    # arguments the way an in-process PowerShell function call does.
     # Each tool is deployed to its own App\<ToolFolderName>\ subfolder.
-    [string[]] $ToolAssembly = @()
+    [string] $ToolAssembly = ''
 )
+
+$toolAssemblyPairs = $ToolAssembly -split ';' | Where-Object { $_ }
 
 $ErrorActionPreference = 'Stop'
 
@@ -47,7 +52,7 @@ Get-ChildItem -LiteralPath $appOutputPath -Force |
     } |
     Copy-Item -Destination $deployedApp -Recurse -Force
 
-foreach ($pair in $ToolAssembly) {
+foreach ($pair in $toolAssemblyPairs) {
     $separatorIndex = $pair.IndexOf('=')
     if ($separatorIndex -lt 1) {
         throw "Invalid -ToolAssembly value '$pair'. Expected 'FolderName=PathToAssembly.dll'."
