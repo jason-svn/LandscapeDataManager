@@ -15,6 +15,8 @@ public sealed class App : IExternalApplication
     internal static ToolProcessLauncher? ParametersLauncher { get; private set; }
     internal static ToolProcessLauncher? ImporterLauncher { get; private set; }
     internal static ToolProcessLauncher? ITreeDownloaderLauncher { get; private set; }
+    internal static ToolProcessLauncher? ITreeCalculatorLauncher { get; private set; }
+    internal static ToolProcessLauncher? SyncAuditLauncher { get; private set; }
 
     public Result OnStartup(UIControlledApplication application)
     {
@@ -29,6 +31,12 @@ public sealed class App : IExternalApplication
             PipeServer.PipeName);
         ITreeDownloaderLauncher = new ToolProcessLauncher(
             Path.Combine("ITreeDownloader", "WWP.LandscapeDataManager.ITreeDownloader.exe"),
+            PipeServer.PipeName);
+        ITreeCalculatorLauncher = new ToolProcessLauncher(
+            Path.Combine("ITreeCalculator", "WWP.LandscapeDataManager.ITreeCalculator.exe"),
+            PipeServer.PipeName);
+        SyncAuditLauncher = new ToolProcessLauncher(
+            Path.Combine("SyncAudit", "WWP.LandscapeDataManager.SyncAudit.exe"),
             PipeServer.PipeName);
         PipeServer.Start();
 
@@ -78,6 +86,8 @@ public sealed class App : IExternalApplication
         ParametersLauncher?.Dispose();
         ImporterLauncher?.Dispose();
         ITreeDownloaderLauncher?.Dispose();
+        ITreeCalculatorLauncher?.Dispose();
+        SyncAuditLauncher?.Dispose();
         PipeServer?.Dispose();
         Dispatcher?.Dispose();
 
@@ -85,6 +95,8 @@ public sealed class App : IExternalApplication
         ParametersLauncher = null;
         ImporterLauncher = null;
         ITreeDownloaderLauncher = null;
+        ITreeCalculatorLauncher = null;
+        SyncAuditLauncher = null;
         PipeServer = null;
         Dispatcher = null;
         return Result.Succeeded;

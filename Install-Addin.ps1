@@ -26,6 +26,8 @@ $toolApps = @(
     @{ Name = 'Parameters'; Project = 'src\WWP.LandscapeDataManager.App.Parameters\WWP.LandscapeDataManager.App.Parameters.csproj'; ExeName = 'WWP.LandscapeDataManager.Parameters.exe' }
     @{ Name = 'Importer'; Project = 'src\WWP.LandscapeDataManager.App.Importer\WWP.LandscapeDataManager.App.Importer.csproj'; ExeName = 'WWP.LandscapeDataManager.Importer.exe' }
     @{ Name = 'ITreeDownloader'; Project = 'src\WWP.LandscapeDataManager.App.ITreeDownloader\WWP.LandscapeDataManager.App.ITreeDownloader.csproj'; ExeName = 'WWP.LandscapeDataManager.ITreeDownloader.exe' }
+    @{ Name = 'ITreeCalculator'; Project = 'src\WWP.LandscapeDataManager.App.ITreeCalculator\WWP.LandscapeDataManager.App.ITreeCalculator.csproj'; ExeName = 'WWP.LandscapeDataManager.ITreeCalculator.exe' }
+    @{ Name = 'SyncAudit'; Project = 'src\WWP.LandscapeDataManager.App.SyncAudit\WWP.LandscapeDataManager.App.SyncAudit.csproj'; ExeName = 'WWP.LandscapeDataManager.SyncAudit.exe' }
 )
 
 & dotnet build $connectorProject -c $Configuration "-p:RevitVersion=$RevitVersion"

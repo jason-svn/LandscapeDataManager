@@ -181,11 +181,16 @@ internal static class SharedParameterSetupService
             PlantingType("!_S_PLANTING_GrowthRatio_HeightbyYear_Number", GroupTypeId.Constraints),
             PlantingType("!_S_PLANTING_GrowthRatio_TrunkDiameterbyYear_Number", GroupTypeId.Constraints),
             PlantingType("!_S_PLANTING_GrowthRatio_WidthbyYear_Number", GroupTypeId.Constraints),
-            PlantingType("!_S_PLANTING_DataSync_InputSignature_Text", GroupTypeId.Data),
-            PlantingType("!_S_PLANTING_DataSync_LastUpdated_Text", GroupTypeId.Data),
-            PlantingType("!_S_PLANTING_DataSync_Status_Text", GroupTypeId.Data),
+            // DataSync_InputSignature/LastUpdated/Status/SourceRecordId are bound Instance (not the
+            // legacy workbook's Type scope): Planting Data Sync matches and tracks each Revit
+            // instance individually by stable ID, so two instances of the same type can be synced
+            // from two different source rows. Only SourceName (which dataset, not which record)
+            // stays Type-level.
+            PlantingInstance("!_S_PLANTING_DataSync_InputSignature_Text", GroupTypeId.Data),
+            PlantingInstance("!_S_PLANTING_DataSync_LastUpdated_Text", GroupTypeId.Data),
+            PlantingInstance("!_S_PLANTING_DataSync_Status_Text", GroupTypeId.Data),
             PlantingType("!_S_PLANTING_DataSync_SourceName_Text", GroupTypeId.IdentityData),
-            PlantingType("!_S_PLANTING_DataSync_SourceRecordId_Text", GroupTypeId.IdentityData),
+            PlantingInstance("!_S_PLANTING_DataSync_SourceRecordId_Text", GroupTypeId.IdentityData),
             PlantingType("!_S_PLANTING_iTreeSpecies_Code_Text", GroupTypeId.IdentityData),
             PlantingType("!_S_PLANTING_iTreeSpecies_CommonName_Text", GroupTypeId.IdentityData),
             PlantingType("!_S_PLANTING_iTreeSpecies_ReplaceBy_Text", GroupTypeId.IdentityData),

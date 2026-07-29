@@ -1,0 +1,13 @@
+<Window
+    x:Class="WWP.LandscapeDataManager.App.SyncAudit.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WWP.LandscapeDataManager.App.SyncAudit"
+    Title="Refresh, Compare and Audit — LIM Landscape Data">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop Kind="BaseAlt" />
+    </Window.SystemBackdrop>
+
+    <local:MainPage x:Name="MainContent" />
+</Window>

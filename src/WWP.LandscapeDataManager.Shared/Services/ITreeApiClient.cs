@@ -19,6 +19,11 @@ public sealed record ITreeExportRecord(
     string SpeciesCode,
     IReadOnlyDictionary<string, object?> Fields);
 
+/// <summary>Either <see cref="Fields"/> (success) or <see cref="Error"/> (failure) is populated, never both.</summary>
+public sealed record ITreeInstanceCalculationOutcome(
+    IReadOnlyDictionary<string, object?>? Fields,
+    string? Error);
+
 public sealed record ITreeDownloadResult(
     IReadOnlyList<ITreeExportRecord> Records,
     IReadOnlyList<string> Errors,
@@ -105,6 +110,52 @@ public sealed class ITreeApiClient
             errors.Order(StringComparer.OrdinalIgnoreCase).ToList(),
             duplicates,
             fieldCount);
+    }
+
+    /// <summary>
+    /// One representative input per unique input signature is sent to the API — the per-instance
+    /// caching the Calculate &amp; QC tool relies on to avoid recomputing identical trees.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, ITreeInstanceCalculationOutcome>> CalculateForInstancesAsync(
+        IReadOnlyList<(string Signature, ITreeRevitInput Input)> signedInputs,
+        string apiKey,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException("Enter an i-Tree API key before calculating.");
+        }
+
+        var profile = new ITreeExportProfile(
+            Monetary: false, Carbon: true, Hydrology: true, AirQuality: true, Metadata: true,
+            AnnualTimeline: false, CumulativeTimeline: false, FullResponse: false);
+        var representatives = signedInputs
+            .GroupBy(pair => pair.Signature, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList();
+
+        var results = new ConcurrentDictionary<string, ITreeInstanceCalculationOutcome>(StringComparer.Ordinal);
+        using var throttle = new SemaphoreSlim(3);
+        var tasks = representatives.Select(async pair =>
+        {
+            await throttle.WaitAsync(cancellationToken);
+            try
+            {
+                var record = await DownloadOneAsync(pair.Input, apiKey.Trim(), profile, cancellationToken);
+                results[pair.Signature] = new ITreeInstanceCalculationOutcome(record.Fields, null);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                results[pair.Signature] = new ITreeInstanceCalculationOutcome(null, exception.Message);
+            }
+            finally
+            {
+                throttle.Release();
+            }
+        });
+        await Task.WhenAll(tasks);
+
+        return results;
     }
 
     public async Task<ITreeDownloadResult> DownloadSpeciesCatalogAsync(
@@ -360,10 +411,10 @@ public sealed class ITreeApiClient
 
         if (profile.AirQuality)
         {
-            fields["Annual_O3_oz"] = KilogramsToOunces(
-                ReadNumber(first, "pollution-removed", "o3"));
             foreach (var pollutant in new[] { "o3", "co", "no2", "so2", "pm25" })
             {
+                fields[$"Annual_{pollutant.ToUpperInvariant()}_oz"] = KilogramsToOunces(
+                    ReadNumber(first, "pollution-removed", pollutant));
                 fields[$"{pollutant.ToUpperInvariant()}_20yr_oz"] = KilogramsToOunces(
                     annual.Sum(year => ReadNumber(year, "pollution-removed", pollutant)));
             }

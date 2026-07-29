@@ -20,6 +20,7 @@ public sealed partial class MainPage : Page
     private readonly AirtableCredentialStore _airtableCredentialStore = new();
     private readonly ParameterMappingStore _mappingStore = new();
     private readonly TypeAliasStore _typeAliasStore = new();
+    private readonly SyncedValueHistoryStore _historyStore = new();
 
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
@@ -395,11 +396,18 @@ public sealed partial class MainPage : Page
             {
                 var result = await GetClient().SendAsync<ParameterWriteResult>(PipeCommands.ApplyParameterWrites, _pendingTypeBatch);
                 TypeSyncRows.Clear();
+                var history = new List<SyncedValueRecord>();
                 foreach (var row in result.Rows)
                 {
                     TypeSyncRows.Add(TypeSyncRow.FromWrite(row));
+                    if (row.Status == "Applied")
+                    {
+                        var typeId = _pendingTypeBatch.Items[row.ItemIndex].TypeId;
+                        history.Add(new SyncedValueRecord(SyncedValueHistoryStore.TypeKey(typeId), row.RevitParameter, row.ProposedValue));
+                    }
                 }
 
+                await _historyStore.RecordAsync(history);
                 appliedParameters += result.ChangedParameterCount;
                 appliedElements += result.ChangedElementCount;
             }
@@ -409,11 +417,17 @@ public sealed partial class MainPage : Page
                 var result = await GetClient().SendAsync<InstanceParameterWriteResult>(PipeCommands.ApplyInstanceParameterWrites, _pendingInstanceBatch);
                 var familyTypeByUniqueId = (_instanceScan?.Items ?? []).ToDictionary(i => i.UniqueId, i => $"{i.FamilyName} : {i.TypeName}");
                 InstanceSyncRows.Clear();
+                var history = new List<SyncedValueRecord>();
                 foreach (var row in result.Rows)
                 {
                     InstanceSyncRows.Add(InstanceSyncRow.FromWrite(row, familyTypeByUniqueId.GetValueOrDefault(row.UniqueId, row.UniqueId)));
+                    if (row.Status == "Applied")
+                    {
+                        history.Add(new SyncedValueRecord(SyncedValueHistoryStore.InstanceKey(row.UniqueId), row.RevitParameter, row.ProposedValue));
+                    }
                 }
 
+                await _historyStore.RecordAsync(history);
                 appliedParameters += result.ChangedParameterCount;
                 appliedElements += result.ChangedElementCount;
             }

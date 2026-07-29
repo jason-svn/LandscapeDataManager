@@ -67,13 +67,13 @@ public sealed class DownloadSpeciesScheduleCommand : LaunchToolCommand
 }
 
 [Transaction(TransactionMode.Manual)]
-public sealed class CalculateITreeCommand : OpenWorkflowCommand
+public sealed class CalculateITreeCommand : LaunchToolCommand
 {
-    protected override string Workflow => "calculate";
+    protected override ToolProcessLauncher? Launcher => App.ITreeCalculatorLauncher;
 }
 
 [Transaction(TransactionMode.Manual)]
-public sealed class SyncLatestCommand : OpenWorkflowCommand
+public sealed class SyncLatestCommand : LaunchToolCommand
 {
-    protected override string Workflow => "sync";
+    protected override ToolProcessLauncher? Launcher => App.SyncAuditLauncher;
 }

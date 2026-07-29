@@ -1,0 +1,164 @@
+<Page
+    x:Class="WWP.LandscapeDataManager.App.SyncAudit.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WWP.LandscapeDataManager.App.SyncAudit">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="{StaticResource LimPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Spacing="4">
+            <TextBlock Text="Refresh, Compare and Audit" Style="{StaticResource LimPageTitleStyle}" />
+            <TextBlock
+                Text="Compares current Revit values against the latest source data, i-Tree calculation staleness, and species catalogue age. A source record that disappears is reported as removed, never deleted from Revit."
+                Style="{StaticResource LimPageSubtitleStyle}" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+            <Grid ColumnSpacing="12" RowSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <ComboBox x:Name="SourceKindBox" Header="Data source" SelectedIndex="0" SelectionChanged="SourceKindBox_SelectionChanged" HorizontalAlignment="Stretch">
+                    <ComboBoxItem Content="Airtable (API token)" />
+                    <ComboBoxItem Content="Excel workbook" />
+                </ComboBox>
+                <Button Grid.Column="1" Content="Refresh &amp; compare" Click="Refresh_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
+                <Grid Grid.Row="1" Grid.ColumnSpan="2" x:Name="AirtablePanel" ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <PasswordBox x:Name="AirtableTokenBox" Header="Personal access token" />
+                    <TextBox Grid.Column="1" x:Name="AirtableBaseIdBox" Header="Base ID" />
+                    <TextBox Grid.Column="2" x:Name="AirtableTableBox" Header="Table name or ID" />
+                </Grid>
+                <Grid Grid.Row="1" Grid.ColumnSpan="2" x:Name="ExcelPanel" ColumnSpacing="8" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="ExcelPathBox" Header="Excel workbook" />
+                    <Button Grid.Column="1" Content="Browse..." Click="BrowseExcel_Click" VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Style="{StaticResource LimCardStyle}" Padding="10">
+                <StackPanel Spacing="2"><TextBlock Text="ADDED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="AddedCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource LimCardStyle}" Padding="10">
+                <StackPanel Spacing="2"><TextBlock Text="CHANGED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ChangedCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
+            </Border>
+            <Border Grid.Column="2" Style="{StaticResource LimCardStyle}" Padding="10">
+                <StackPanel Spacing="2"><TextBlock Text="CONFLICT" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ConflictCountText" Text="—" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource LimWarningBrush}" /></StackPanel>
+            </Border>
+            <Border Grid.Column="3" Style="{StaticResource LimCardStyle}" Padding="10">
+                <StackPanel Spacing="2"><TextBlock Text="REMOVED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="RemovedCountText" Text="—" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource LimErrorBrush}" /></StackPanel>
+            </Border>
+            <Border Grid.Column="4" Style="{StaticResource LimCardStyle}" Padding="10">
+                <StackPanel Spacing="2"><TextBlock Text="CALC STALE" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="CalcStaleCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
+            </Border>
+            <Border Grid.Column="5" Style="{StaticResource LimCardStyle}" Padding="10">
+                <StackPanel Spacing="2"><TextBlock Text="CATALOGUE" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="CatalogueStaleCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
+            </Border>
+            <Border Grid.Column="6" Style="{StaticResource LimCardStyle}" Padding="10">
+                <StackPanel Spacing="2"><TextBlock Text="UNCHANGED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="UnchangedCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="0,14,0,10" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="StatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center"
+                       Text="Select Refresh &amp; compare to see what changed since the last sync." />
+            <Button Grid.Column="1" Content="Reapply selected (Accept source)" Click="ReapplySelected_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="2" Content="Keep Revit value (selected)" Click="KeepRevitValue_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="3" Content="Recalculate stale trees" Click="RecalculateStale_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="4" Content="Refresh species catalogue" Click="RefreshCatalogue_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="5" Content="Export audit report" Click="ExportReport_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+        </Grid>
+
+        <Grid Grid.Row="4" RowSpacing="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <ListView x:Name="ReportList" Grid.Row="0" ItemsSource="{x:Bind ReportRows}" SelectionMode="Multiple">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="local:AuditRow">
+                        <Grid Padding="6" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="90" />
+                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="220" />
+                                <ColumnDefinition Width="220" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{x:Bind Category}" FontWeight="SemiBold" Foreground="{x:Bind CategoryBrush}" />
+                            <TextBlock Grid.Column="1" Text="{x:Bind Scope}" />
+                            <TextBlock Grid.Column="2" Text="{x:Bind Target}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="3" Text="{x:Bind Parameter}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="4" Text="{x:Bind PreviousValue}" TextTrimming="CharacterEllipsis" Opacity="0.7" />
+                            <TextBlock Grid.Column="5" Text="{x:Bind CurrentValue}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="6" Text="{x:Bind LatestValue}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="7" Text="{x:Bind ProposedAction}" TextTrimming="CharacterEllipsis" FontStyle="Italic" Opacity="0.85" />
+                            <TextBlock Grid.Column="8" Text="{x:Bind Message}" Opacity="0.75" TextWrapping="Wrap" />
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <Grid Grid.Row="1" ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Content="Sync latest source data (apply all Added/Changed)" Click="SyncLatest_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
+                <TextBlock Grid.Column="1" x:Name="ActionStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
+            </Grid>
+        </Grid>
+
+        <ProgressRing x:Name="BusyIndicator"
+                      Grid.RowSpan="5"
+                      Width="40"
+                      Height="40"
+                      IsActive="False"
+                      Visibility="Collapsed"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center" />
+    </Grid>
+</Page>
