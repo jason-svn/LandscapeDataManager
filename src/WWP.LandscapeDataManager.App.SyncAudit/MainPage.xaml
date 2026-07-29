@@ -16,7 +16,7 @@
         <StackPanel Grid.Row="0" Spacing="4">
             <TextBlock Text="Refresh, Compare and Audit" Style="{StaticResource LimPageTitleStyle}" />
             <TextBlock
-                Text="Compares current Revit values against the latest source data, i-Tree calculation staleness, and species catalogue age. A source record that disappears is reported as removed, never deleted from Revit."
+                Text="Compares the value last synced, the current Revit value, and the latest source value for every mapped field. A field only Revit touched since the last sync is a Conflict, not a silent overwrite. A source record that disappears is reported as removed, never deleted from Revit."
                 Style="{StaticResource LimPageSubtitleStyle}" />
         </StackPanel>
 
@@ -147,7 +147,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Button Content="Sync latest source data (apply all Added/Changed)" Click="SyncLatest_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
+                <Button Content="Sync latest source data (apply all Changed; Conflicts need a decision)" Click="SyncLatest_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
                 <TextBlock Grid.Column="1" x:Name="ActionStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
             </Grid>
         </Grid>
