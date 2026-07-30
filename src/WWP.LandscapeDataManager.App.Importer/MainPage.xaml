@@ -74,55 +74,40 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="STEP 2 — MAP COLUMNS" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Content="Auto-map all" Click="AutoMap_Click"
+                        <Button Grid.Column="1" Content="Import mappings..." Click="ImportMappings_Click"
+                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,8,0" />
+                        <Button Grid.Column="2" Content="Export mappings..." Click="ExportMappings_Click"
+                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,8,0" />
+                        <Button Grid.Column="3" Content="Auto-map all" Click="AutoMap_Click"
                                 Style="{StaticResource LimSecondaryButtonStyle}" />
                     </Grid>
 
-                    <TextBlock Text="Type mappings (growth ratios, max dimensions, species assignment — one value per Revit type)"
+                    <TextBlock Text="One row per source column. Choose Type (growth ratios, max dimensions, species assignment — one value per Revit type) or Instance (tree year, condition, crown exposure — can differ per instance)."
                                Style="{StaticResource LimMutedTextStyle}" />
-                    <ListView x:Name="TypeMappingList" ItemsSource="{x:Bind TypeMappingRows}" SelectionMode="None" MaxHeight="220">
+                    <ListView x:Name="MappingList" ItemsSource="{x:Bind MappingRows}" SelectionMode="None" MaxHeight="420">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="models:MappingRow">
                                 <Grid Padding="6" ColumnSpacing="10">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="60" />
-                                        <ColumnDefinition Width="260" />
+                                        <ColumnDefinition Width="220" />
+                                        <ColumnDefinition Width="110" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="200" />
                                         <ColumnDefinition Width="100" />
                                     </Grid.ColumnDefinitions>
                                     <ToggleSwitch IsOn="{x:Bind Enabled, Mode=TwoWay}" />
                                     <TextBlock Grid.Column="1" Text="{x:Bind SelectedAirtableField}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                    <ComboBox Grid.Column="2" ItemsSource="{x:Bind TargetOptions}" SelectedItem="{x:Bind SelectedTarget, Mode=TwoWay}"
+                                    <ComboBox Grid.Column="2" ItemsSource="{x:Bind ScopeOptions}" SelectedItem="{x:Bind Scope, Mode=TwoWay}"
+                                              HorizontalAlignment="Stretch" />
+                                    <ComboBox Grid.Column="3" ItemsSource="{x:Bind TargetOptions, Mode=OneWay}" SelectedItem="{x:Bind SelectedTarget, Mode=TwoWay}"
                                               DisplayMemberPath="DisplayName" PlaceholderText="Select Revit parameter" HorizontalAlignment="Stretch" />
-                                    <ComboBox Grid.Column="3" ItemsSource="{x:Bind ConversionOptions}" SelectedItem="{x:Bind SelectedConversion, Mode=TwoWay}" HorizontalAlignment="Stretch" />
-                                    <TextBlock Grid.Column="4" Text="{x:Bind MappingStatus, Mode=OneWay}" VerticalAlignment="Center" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-
-                    <TextBlock Text="Instance mappings (tree year, condition, crown exposure — can differ per instance)"
-                               Style="{StaticResource LimMutedTextStyle}" />
-                    <ListView x:Name="InstanceMappingList" ItemsSource="{x:Bind InstanceMappingRows}" SelectionMode="None" MaxHeight="220">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="models:MappingRow">
-                                <Grid Padding="6" ColumnSpacing="10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="60" />
-                                        <ColumnDefinition Width="260" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="200" />
-                                        <ColumnDefinition Width="100" />
-                                    </Grid.ColumnDefinitions>
-                                    <ToggleSwitch IsOn="{x:Bind Enabled, Mode=TwoWay}" />
-                                    <TextBlock Grid.Column="1" Text="{x:Bind SelectedAirtableField}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                    <ComboBox Grid.Column="2" ItemsSource="{x:Bind TargetOptions}" SelectedItem="{x:Bind SelectedTarget, Mode=TwoWay}"
-                                              DisplayMemberPath="DisplayName" PlaceholderText="Select Revit parameter" HorizontalAlignment="Stretch" />
-                                    <ComboBox Grid.Column="3" ItemsSource="{x:Bind ConversionOptions}" SelectedItem="{x:Bind SelectedConversion, Mode=TwoWay}" HorizontalAlignment="Stretch" />
-                                    <TextBlock Grid.Column="4" Text="{x:Bind MappingStatus, Mode=OneWay}" VerticalAlignment="Center" />
+                                    <ComboBox Grid.Column="4" ItemsSource="{x:Bind ConversionOptions}" SelectedItem="{x:Bind SelectedConversion, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+                                    <TextBlock Grid.Column="5" Text="{x:Bind MappingStatus, Mode=OneWay}" VerticalAlignment="Center" />
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>

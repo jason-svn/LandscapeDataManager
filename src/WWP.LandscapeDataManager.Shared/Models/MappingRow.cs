@@ -8,17 +8,24 @@ public sealed class MappingRow : INotifyPropertyChanged
     private bool _enabled;
     private ParameterOption? _selectedTarget;
     private string _selectedConversion = "Auto (Revit spec)";
+    private string _scope;
 
     public MappingRow(
         IReadOnlyList<string> sourceOptions,
-        IReadOnlyList<ParameterOption> targetOptions)
+        IReadOnlyList<ParameterOption> typeTargetOptions,
+        IReadOnlyList<ParameterOption> instanceTargetOptions,
+        string scope = "Type")
     {
         SourceOptions = sourceOptions;
-        TargetOptions = targetOptions;
+        TypeTargetOptions = typeTargetOptions;
+        InstanceTargetOptions = instanceTargetOptions;
+        _scope = scope;
     }
 
     public IReadOnlyList<string> SourceOptions { get; }
-    public IReadOnlyList<ParameterOption> TargetOptions { get; }
+    public IReadOnlyList<ParameterOption> TypeTargetOptions { get; }
+    public IReadOnlyList<ParameterOption> InstanceTargetOptions { get; }
+    public IReadOnlyList<string> ScopeOptions { get; } = ["Type", "Instance"];
     public IReadOnlyList<string> ConversionOptions { get; } =
     [
         "Auto (Revit spec)",
@@ -29,6 +36,26 @@ public sealed class MappingRow : INotifyPropertyChanged
     ];
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string Scope
+    {
+        get => _scope;
+        set
+        {
+            if (_scope == value)
+            {
+                return;
+            }
+
+            _scope = value;
+            SelectedTarget = null;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TargetOptions));
+        }
+    }
+
+    public IReadOnlyList<ParameterOption> TargetOptions =>
+        string.Equals(Scope, "Instance", StringComparison.OrdinalIgnoreCase) ? InstanceTargetOptions : TypeTargetOptions;
 
     public bool Enabled
     {

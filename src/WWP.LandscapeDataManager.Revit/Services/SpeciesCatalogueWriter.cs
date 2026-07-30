@@ -34,6 +34,8 @@ internal static class SpeciesCatalogueWriter
 
         var rows = new List<SpeciesCatalogueUpdateRow>();
         var skipped = 0;
+        var missingParameter = 0;
+        var emptyCode = 0;
 
         using var transaction = new Transaction(document, "LIM Update Species Catalogue");
         transaction.Start();
@@ -42,9 +44,20 @@ internal static class SpeciesCatalogueWriter
             foreach (var type in types)
             {
                 var codeParameter = type.LookupParameter(CodeParameter);
-                var code = codeParameter?.AsString()?.Trim();
+                if (codeParameter is null)
+                {
+                    // The Species_Code shared parameter isn't bound to Planting types in this
+                    // project at all — distinct from a type that has the parameter but hasn't
+                    // had a code entered yet, since the fix is different (run Shared Parameter
+                    // Setup) rather than just entering a value.
+                    missingParameter++;
+                    continue;
+                }
+
+                var code = codeParameter.AsString()?.Trim();
                 if (string.IsNullOrEmpty(code))
                 {
+                    emptyCode++;
                     continue;
                 }
 
@@ -69,22 +82,27 @@ internal static class SpeciesCatalogueWriter
             throw;
         }
 
-        var scheduleCreated = false;
+        string scheduleStatus;
+        string? scheduleFailureReason = null;
         try
         {
             using var scheduleTransaction = new Transaction(document, "LIM Create Planting Key Schedule");
             scheduleTransaction.Start();
-            scheduleCreated = PlantingKeyScheduleService.EnsureSchedule(document);
+            var status = PlantingKeyScheduleService.EnsureSchedule(document);
             scheduleTransaction.Commit();
+            scheduleStatus = status == ScheduleEnsureStatus.Created ? "Created" : "Updated";
         }
-        catch
+        catch (Exception exception)
         {
             // The species parameter updates above already succeeded and were committed; a
-            // schedule-creation problem shouldn't hide that real, useful result from the user.
-            scheduleCreated = false;
+            // schedule-creation problem shouldn't hide that real, useful result from the user —
+            // but it also shouldn't be swallowed silently, so the reason is reported back.
+            scheduleStatus = "Failed";
+            scheduleFailureReason = exception.Message;
         }
 
-        return new UpdateSpeciesCatalogueResult(document.Title, rows, scheduleCreated, skipped);
+        return new UpdateSpeciesCatalogueResult(
+            document.Title, rows, scheduleStatus, scheduleFailureReason, skipped, missingParameter, emptyCode, types.Count);
     }
 
     private static SpeciesCatalogueUpdateRow UpdateOne(Element type, string code, SpeciesCatalogueRecord record)

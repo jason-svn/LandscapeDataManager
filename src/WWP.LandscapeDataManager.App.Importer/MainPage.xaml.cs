@@ -38,8 +38,7 @@ public sealed partial class MainPage : Page
         InitializeComponent();
     }
 
-    public ObservableCollection<MappingRow> TypeMappingRows { get; } = [];
-    public ObservableCollection<MappingRow> InstanceMappingRows { get; } = [];
+    public ObservableCollection<MappingRow> MappingRows { get; } = [];
     public ObservableCollection<TypeSyncRow> TypeSyncRows { get; } = [];
     public ObservableCollection<InstanceSyncRow> InstanceSyncRows { get; } = [];
 
@@ -157,26 +156,25 @@ public sealed partial class MainPage : Page
         var instanceOptions = _parameterCatalog.Where(p => p.IsWritable && p.Scope == "Instance").Select(p => new ParameterOption(p)).ToList();
         var savedMappings = await _mappingStore.LoadAsync();
 
-        PopulateRows(TypeMappingRows, sourceHeaders, typeOptions, savedMappings, "Type");
-        PopulateRows(InstanceMappingRows, sourceHeaders, instanceOptions, savedMappings, "Instance");
+        ApplyMappings(sourceHeaders, typeOptions, instanceOptions, savedMappings);
     }
 
-    private static void PopulateRows(
-        ObservableCollection<MappingRow> rows,
+    private void ApplyMappings(
         IReadOnlyList<string> sourceHeaders,
-        IReadOnlyList<ParameterOption> targetOptions,
-        IReadOnlyList<ParameterMappingDefinition> savedMappings,
-        string scope)
+        IReadOnlyList<ParameterOption> typeOptions,
+        IReadOnlyList<ParameterOption> instanceOptions,
+        IReadOnlyList<ParameterMappingDefinition> savedMappings)
     {
-        rows.Clear();
+        MappingRows.Clear();
         foreach (var header in sourceHeaders)
         {
             var mapping = savedMappings.FirstOrDefault(saved =>
-                string.Equals(saved.Scope, scope, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(saved.AirtableField, header, StringComparison.OrdinalIgnoreCase));
+            var scope = mapping?.Scope ?? "Type";
+            var targetOptions = string.Equals(scope, "Instance", StringComparison.OrdinalIgnoreCase) ? instanceOptions : typeOptions;
             var target = targetOptions.FirstOrDefault(option =>
                 mapping is not null && string.Equals(option.Descriptor.Name, mapping.RevitParameter, StringComparison.OrdinalIgnoreCase));
-            rows.Add(new MappingRow(sourceHeaders, targetOptions)
+            MappingRows.Add(new MappingRow(sourceHeaders, typeOptions, instanceOptions, scope)
             {
                 SelectedAirtableField = header,
                 SelectedTarget = target,
@@ -188,19 +186,13 @@ public sealed partial class MainPage : Page
 
     private void AutoMap_Click(object sender, RoutedEventArgs e)
     {
-        var mapped = AutoMapUnmapped(TypeMappingRows) + AutoMapUnmapped(InstanceMappingRows);
-        ConnectStatusText.Text = $"Auto-mapped {mapped:N0} additional columns by exact name match.";
-    }
-
-    private static int AutoMapUnmapped(ObservableCollection<MappingRow> rows)
-    {
-        var used = rows.Where(r => r.SelectedTarget is not null)
+        var used = MappingRows.Where(r => r.SelectedTarget is not null)
             .Select(r => r.SelectedTarget!.Descriptor.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var mapped = 0;
-        foreach (var row in rows.Where(r => r.SelectedTarget is null))
+        foreach (var row in MappingRows.Where(r => r.SelectedTarget is null))
         {
-            var target = row.TargetOptions.FirstOrDefault(option =>
+            var target = row.TypeTargetOptions.Concat(row.InstanceTargetOptions).FirstOrDefault(option =>
                 !used.Contains(option.Descriptor.Name) &&
                 string.Equals(option.Descriptor.Name, row.SelectedAirtableField, StringComparison.OrdinalIgnoreCase));
             if (target is null)
@@ -208,13 +200,14 @@ public sealed partial class MainPage : Page
                 continue;
             }
 
+            row.Scope = target.Descriptor.Scope;
             row.SelectedTarget = target;
             row.Enabled = true;
             used.Add(target.Descriptor.Name);
             mapped++;
         }
 
-        return mapped;
+        ConnectStatusText.Text = $"Auto-mapped {mapped:N0} additional columns by exact name match.";
     }
 
     private async void Preview_Click(object sender, RoutedEventArgs e)
@@ -290,7 +283,7 @@ public sealed partial class MainPage : Page
 
     private List<ParameterWriteItem> BuildTypeWriteItems(IReadOnlyList<TypeMatch> matches)
     {
-        var enabledMappings = TypeMappingRows.Where(row => row.Enabled && row.SelectedTarget is not null).ToList();
+        var enabledMappings = MappingRows.Where(row => row.Enabled && row.Scope == "Type" && row.SelectedTarget is not null).ToList();
         var items = new List<ParameterWriteItem>();
         foreach (var match in matches.Where(m => m.Status == "Matched"))
         {
@@ -322,7 +315,7 @@ public sealed partial class MainPage : Page
 
     private List<InstanceParameterWriteItem> BuildInstanceWriteItems(InstanceMatchPlan plan)
     {
-        var enabledMappings = InstanceMappingRows.Where(row => row.Enabled && row.SelectedTarget is not null).ToList();
+        var enabledMappings = MappingRows.Where(row => row.Enabled && row.Scope == "Instance" && row.SelectedTarget is not null).ToList();
         var items = new List<InstanceParameterWriteItem>();
         foreach (var match in plan.Instances.Where(m => m.Status == "Matched"))
         {
@@ -351,18 +344,57 @@ public sealed partial class MainPage : Page
         return items;
     }
 
-    private async Task SaveMappingsAsync()
-    {
-        var definitions = TypeMappingRows
+    private async Task SaveMappingsAsync() => await _mappingStore.SaveAsync(BuildMappingDefinitions());
+
+    private List<ParameterMappingDefinition> BuildMappingDefinitions() =>
+        MappingRows
             .Where(row => row.SelectedTarget is not null)
             .Select(row => new ParameterMappingDefinition(
-                row.SelectedAirtableField!, row.SelectedTarget!.Descriptor.Name, "Type", row.SelectedConversion, row.Enabled))
-            .Concat(InstanceMappingRows
-                .Where(row => row.SelectedTarget is not null)
-                .Select(row => new ParameterMappingDefinition(
-                    row.SelectedAirtableField!, row.SelectedTarget!.Descriptor.Name, "Instance", row.SelectedConversion, row.Enabled)))
+                row.SelectedAirtableField!, row.SelectedTarget!.Descriptor.Name, row.Scope, row.SelectedConversion, row.Enabled))
             .ToList();
-        await _mappingStore.SaveAsync(definitions);
+
+    private async void ExportMappings_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = "LIM parameter mappings"
+        };
+        picker.FileTypeChoices.Add("Mapping settings", [".json"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        await _mappingStore.ExportToAsync(file.Path, BuildMappingDefinitions());
+        ConnectStatusText.Text = $"Exported mappings to {file.Path}.";
+    }
+
+    private async void ImportMappings_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
+        picker.FileTypeFilter.Add(".json");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var imported = await _mappingStore.ImportFromAsync(file.Path);
+        await _mappingStore.SaveAsync(imported);
+
+        if (MappingRows.Count > 0)
+        {
+            var typeOptions = MappingRows[0].TypeTargetOptions;
+            var instanceOptions = MappingRows[0].InstanceTargetOptions;
+            var sourceHeaders = MappingRows.Select(row => row.SelectedAirtableField!).ToList();
+            ApplyMappings(sourceHeaders, typeOptions, instanceOptions, imported);
+        }
+
+        ConnectStatusText.Text = $"Imported {imported.Count:N0} mappings from {file.Path}.";
     }
 
     private async void Apply_Click(object sender, RoutedEventArgs e)

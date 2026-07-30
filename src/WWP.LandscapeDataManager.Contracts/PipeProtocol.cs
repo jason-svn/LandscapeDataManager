@@ -223,8 +223,12 @@ public sealed record SpeciesCatalogueUpdateRow(
 public sealed record UpdateSpeciesCatalogueResult(
     string DocumentTitle,
     IReadOnlyList<SpeciesCatalogueUpdateRow> Rows,
-    bool KeyScheduleCreated,
-    int SkippedNoMatchingType);
+    string ScheduleStatus,
+    string? ScheduleFailureReason,
+    int SkippedNoMatchingType,
+    int TypesMissingSpeciesCodeParameter,
+    int TypesWithEmptySpeciesCode,
+    int TotalPlantingTypes);
 
 /// <summary>
 /// A single Planting instance's raw i-Tree inputs plus whatever tracking values were stored by

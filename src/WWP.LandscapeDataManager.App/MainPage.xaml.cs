@@ -660,7 +660,7 @@ public sealed partial class MainPage : Page
                     option.Descriptor.Scope,
                     mapping.Scope,
                     StringComparison.OrdinalIgnoreCase));
-            MappingRows.Add(new MappingRow(_airtableHeaders, _parameterOptions)
+            MappingRows.Add(new MappingRow(_airtableHeaders, _parameterOptions, _parameterOptions)
             {
                 SelectedAirtableField = source,
                 SelectedTarget = target,

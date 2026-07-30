@@ -32,17 +32,31 @@ public sealed class ParameterMappingStore
                ?? [];
     }
 
-    public async Task SaveAsync(IReadOnlyList<ParameterMappingDefinition> mappings)
+    public async Task SaveAsync(IReadOnlyList<ParameterMappingDefinition> mappings) =>
+        await ExportToAsync(_filePath, mappings);
+
+    /// <summary>Writes mappings to an arbitrary file, e.g. one the user picked to share with a teammate.</summary>
+    public async Task ExportToAsync(string path, IReadOnlyList<ParameterMappingDefinition> mappings)
     {
-        var directory = Path.GetDirectoryName(_filePath)
-                        ?? throw new InvalidOperationException("The mapping directory could not be resolved.");
-        Directory.CreateDirectory(directory);
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
 
         var options = new JsonSerializerOptions(JsonDefaults.Options)
         {
             WriteIndented = true
         };
-        await using var stream = File.Create(_filePath);
+        await using var stream = File.Create(path);
         await JsonSerializer.SerializeAsync(stream, mappings, options);
+    }
+
+    /// <summary>Reads mappings from an arbitrary file, e.g. one a teammate shared.</summary>
+    public async Task<IReadOnlyList<ParameterMappingDefinition>> ImportFromAsync(string path)
+    {
+        await using var stream = File.OpenRead(path);
+        return await JsonSerializer.DeserializeAsync<List<ParameterMappingDefinition>>(stream, JsonDefaults.Options)
+               ?? [];
     }
 }

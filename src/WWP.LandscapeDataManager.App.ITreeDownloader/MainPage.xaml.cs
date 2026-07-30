@@ -150,9 +150,13 @@ public sealed partial class MainPage : Page
                 ChangedCountText.Text = result.Rows.Count(r => r.Status == "Changed").ToString("N0");
                 DeprecatedCountText.Text = result.Rows.Count(r => r.Status == "Deprecated").ToString("N0");
                 UnchangedCountText.Text = result.Rows.Count(r => r.Status == "Unchanged").ToString("N0");
-                notes.Add(result.KeyScheduleCreated
-                    ? $"Created the Planting Key Schedule and updated {result.Rows.Count:N0} types ({result.SkippedNoMatchingType:N0} species not currently used were skipped)."
-                    : $"Updated {result.Rows.Count:N0} types ({result.SkippedNoMatchingType:N0} species not currently used were skipped).");
+                notes.Add(result.ScheduleStatus switch
+                {
+                    "Created" => "Created the Planting Key Schedule.",
+                    "Updated" => "Reconciled the Planting Key Schedule's columns and sort order.",
+                    _ => $"Could not create or update the Planting Key Schedule: {result.ScheduleFailureReason}."
+                });
+                notes.Add(BuildUpdateSummary(result));
             }
 
             if (exportExcel)
@@ -182,6 +186,33 @@ public sealed partial class MainPage : Page
             BusyIndicator.IsActive = false;
             BusyIndicator.Visibility = Visibility.Collapsed;
         }
+    }
+
+    private static string BuildUpdateSummary(UpdateSpeciesCatalogueResult result)
+    {
+        if (result.TotalPlantingTypes == 0)
+        {
+            return "No Planting types were found in this model — place at least one Planting family instance (or load a Planting family) before there's anything for species data to attach to.";
+        }
+
+        var diagnostics = new List<string>();
+        if (result.TypesMissingSpeciesCodeParameter > 0)
+        {
+            diagnostics.Add($"{result.TypesMissingSpeciesCodeParameter:N0} don't have the Species_Code shared parameter bound yet (run Shared Parameter Setup first)");
+        }
+
+        if (result.TypesWithEmptySpeciesCode > 0)
+        {
+            diagnostics.Add($"{result.TypesWithEmptySpeciesCode:N0} have the parameter but no code entered yet");
+        }
+
+        if (result.SkippedNoMatchingType > 0)
+        {
+            diagnostics.Add($"{result.SkippedNoMatchingType:N0} have a code this catalogue doesn't recognize");
+        }
+
+        var summary = $"Updated {result.Rows.Count:N0} of {result.TotalPlantingTypes:N0} Planting types.";
+        return diagnostics.Count > 0 ? $"{summary} {string.Join("; ", diagnostics)}." : summary;
     }
 
     private async Task<HashSet<string>> GetUsedSpeciesCodesAsync()

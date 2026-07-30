@@ -28,7 +28,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <PasswordBox x:Name="ApiKeyBox" Header="i-Tree API key" />
-                <CheckBox x:Name="RememberKeyCheckBox" Content="Remember" IsChecked="True" VerticalAlignment="Bottom" Margin="0,0,10,8" />
+                <CheckBox Grid.Column="1" x:Name="RememberKeyCheckBox" Content="Remember" IsChecked="True" VerticalAlignment="Bottom" Margin="0,0,0,8" />
                 <Button Grid.Column="2" Content="Validate" Click="Validate_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
             </Grid>
         </Border>
