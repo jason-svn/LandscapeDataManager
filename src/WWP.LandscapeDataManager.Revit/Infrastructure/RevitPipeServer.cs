@@ -113,6 +113,7 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.PreviewParameterWrites => await PreviewParameterWritesAsync(request).ConfigureAwait(false),
                 PipeCommands.ApplyParameterWrites => await ApplyParameterWritesAsync(request).ConfigureAwait(false),
                 PipeCommands.GetITreeInputs => await GetITreeInputsAsync(request).ConfigureAwait(false),
+                PipeCommands.PreviewSharedParameters => await PreviewSharedParametersAsync(request).ConfigureAwait(false),
                 PipeCommands.EnsureSharedParameters => await EnsureSharedParametersAsync(request).ConfigureAwait(false),
                 PipeCommands.ScanPlantingInstances => await ScanPlantingInstancesAsync(request).ConfigureAwait(false),
                 PipeCommands.PreviewInstanceParameterWrites => await PreviewInstanceParameterWritesAsync(request).ConfigureAwait(false),
@@ -126,6 +127,9 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.ResetIsolation => await ResetIsolationAsync(request).ConfigureAwait(false),
                 PipeCommands.ApplyStatusColourOverrides => await ApplyStatusColourOverridesAsync(request).ConfigureAwait(false),
                 PipeCommands.ResetColourOverrides => await ResetColourOverridesAsync(request).ConfigureAwait(false),
+                PipeCommands.AssignSpeciesToSelection => await AssignSpeciesToSelectionAsync(request).ConfigureAwait(false),
+                PipeCommands.GetProjectSiteLocation => await GetProjectSiteLocationAsync(request).ConfigureAwait(false),
+                PipeCommands.PublishProjectLocation => await PublishProjectLocationAsync(request).ConfigureAwait(false),
                 _ => new PipeResponse(request.RequestId, false, Error: $"Unknown command: {request.Command}")
             };
         }
@@ -196,6 +200,15 @@ internal sealed class RevitPipeServer : IDisposable
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 
+    private async Task<PipeResponse> PreviewSharedParametersAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<PreviewSharedParametersRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The shared parameter file path was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            SharedParameterSetupService.PreviewParameters(application, options.SharedParameterFilePath)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
     private async Task<PipeResponse> EnsureSharedParametersAsync(PipeRequest request)
     {
         var options = request.Payload?.Deserialize<EnsureSharedParametersRequest>(JsonDefaults.Options)
@@ -247,9 +260,36 @@ internal sealed class RevitPipeServer : IDisposable
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 
+    private async Task<PipeResponse> AssignSpeciesToSelectionAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<AssignSpeciesRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The species record was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            SpeciesCatalogueWriter.AssignToSelection(application, options.Record)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetProjectSiteLocationAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(ProjectLocationService.GetSiteLocation).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> PublishProjectLocationAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<PublishProjectLocationRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The project location was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            ProjectLocationService.Publish(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
     private async Task<PipeResponse> ValidatePlantingInstancesAsync(PipeRequest request)
     {
-        var result = await _dispatcher.RunAsync(PlantingInstanceValidationScanner.Scan).ConfigureAwait(false);
+        var options = request.Payload?.Deserialize<ValidatePlantingInstancesRequest>(JsonDefaults.Options)
+                      ?? new ValidatePlantingInstancesRequest();
+        var result = await _dispatcher.RunAsync(application =>
+            PlantingInstanceValidationScanner.Scan(application, options.SelectedOnly)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

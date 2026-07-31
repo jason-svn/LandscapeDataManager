@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Storage.Pickers;
@@ -50,7 +51,7 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private async void Run_Click(object sender, RoutedEventArgs e)
+    private async void LoadParameters_Click(object sender, RoutedEventArgs e)
     {
         var filePath = SharedParameterFilePathBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(filePath))
@@ -59,16 +60,13 @@ public sealed partial class MainPage : Page
             return;
         }
 
-        BusyIndicator.IsActive = true;
-        BusyIndicator.Visibility = Visibility.Visible;
-        RunButton.IsEnabled = false;
-        try
+        await RunBusyAsync(async () =>
         {
             await _settingsStore.SaveAsync(new SharedParameterFileSettings(filePath));
 
             var result = await GetClient().SendAsync<SharedParameterSetupResult>(
-                PipeCommands.EnsureSharedParameters,
-                new EnsureSharedParametersRequest(filePath));
+                PipeCommands.PreviewSharedParameters,
+                new PreviewSharedParametersRequest(filePath));
 
             ResultRows.Clear();
             foreach (var row in result.Rows
@@ -78,39 +76,139 @@ public sealed partial class MainPage : Page
                 ResultRows.Add(new SetupRow(row));
             }
 
-            var created = result.Rows.Count(row => row.Status == "Created");
+            ApplyButton.IsEnabled = ResultRows.Count > 0;
+            UpdateCounts();
+            ShowStatus($"{result.DocumentTitle}: loaded {ResultRows.Count:N0} parameters. " +
+                       "Review the rows below, uncheck anything you don't want touched, then click Apply.");
+        });
+    }
+
+    private async void Apply_Click(object sender, RoutedEventArgs e)
+    {
+        var filePath = SharedParameterFilePathBox.Text.Trim();
+        var includedNames = ResultRows.Where(row => row.IsIncluded).Select(row => row.Name).ToList();
+        if (includedNames.Count == 0)
+        {
+            ShowStatus("Check at least one parameter to apply.");
+            return;
+        }
+
+        await RunBusyAsync(async () =>
+        {
+            var result = await GetClient().SendAsync<SharedParameterSetupResult>(
+                PipeCommands.EnsureSharedParameters,
+                new EnsureSharedParametersRequest(filePath, includedNames));
+
+            var updatedByName = result.Rows.ToDictionary(row => row.Name, StringComparer.Ordinal);
+            foreach (var row in ResultRows)
+            {
+                if (updatedByName.TryGetValue(row.Name, out var updated))
+                {
+                    row.ApplyResult(updated);
+                }
+            }
+
+            UpdateCounts();
+
+            var created = result.Rows.Count(row => row.Status is "Created" or "Regrouped");
             var valid = result.Rows.Count(row => row.Status == "Already valid");
             var attention = result.Rows.Count(row => row.Status is "Conflict" or "Error");
-            CreatedCountText.Text = created.ToString("N0");
-            ValidCountText.Text = valid.ToString("N0");
-            AttentionCountText.Text = attention.ToString("N0");
-
             ShowStatus(attention == 0
-                ? $"{result.DocumentTitle}: {created:N0} created, {valid:N0} already valid. Nothing needs attention."
-                : $"{result.DocumentTitle}: {created:N0} created, {valid:N0} already valid, {attention:N0} need attention — see the rows below.");
-        }
-        catch (Exception exception)
+                ? $"{result.DocumentTitle}: {created:N0} created/regrouped, {valid:N0} already valid. Nothing needs attention."
+                : $"{result.DocumentTitle}: {created:N0} created/regrouped, {valid:N0} already valid, {attention:N0} need attention — see the rows below.");
+        });
+    }
+
+    private async void ExportSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileSavePicker
         {
-            ShowStatus($"Setup failed: {exception.Message}");
-        }
-        finally
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = "LIM shared parameter settings"
+        };
+        picker.FileTypeChoices.Add("Shared parameter settings", [".json"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
         {
-            BusyIndicator.IsActive = false;
-            BusyIndicator.Visibility = Visibility.Collapsed;
-            RunButton.IsEnabled = true;
+            return;
         }
+
+        await _settingsStore.ExportToAsync(file.Path, new SharedParameterFileSettings(SharedParameterFilePathBox.Text.Trim()));
+        ShowStatus($"Exported settings to {file.Path}.");
+    }
+
+    private async void ImportSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
+        picker.FileTypeFilter.Add(".json");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        SharedParameterFileSettings imported;
+        try
+        {
+            imported = await _settingsStore.ImportFromAsync(file.Path);
+        }
+        catch (JsonException)
+        {
+            ShowStatus($"'{file.Path}' is not a valid shared parameter settings file.");
+            return;
+        }
+
+        SharedParameterFilePathBox.Text = imported.FilePath;
+        await _settingsStore.SaveAsync(imported);
+        ShowStatus($"Imported settings from {file.Path}.");
     }
 
     private static int StatusSortOrder(string status) => status switch
     {
         "Error" => 0,
         "Conflict" => 1,
-        "Created" => 2,
-        "Already valid" => 3,
-        _ => 4
+        "Will create" => 2,
+        "Will regroup" => 3,
+        "Created" => 4,
+        "Regrouped" => 5,
+        "Already valid" => 6,
+        _ => 7
     };
 
+    private void UpdateCounts()
+    {
+        CreatedCountText.Text = ResultRows.Count(row => row.Status is "Created" or "Regrouped").ToString("N0");
+        ValidCountText.Text = ResultRows.Count(row => row.Status == "Already valid").ToString("N0");
+        PendingCountText.Text = ResultRows.Count(row => row.Status is "Will create" or "Will regroup").ToString("N0");
+        AttentionCountText.Text = ResultRows.Count(row => row.Status is "Conflict" or "Error").ToString("N0");
+    }
+
     private void ShowStatus(string message) => StatusText.Text = message;
+
+    private async Task RunBusyAsync(Func<Task> operation)
+    {
+        BusyIndicator.IsActive = true;
+        BusyIndicator.Visibility = Visibility.Visible;
+        LoadButton.IsEnabled = false;
+        ApplyButton.IsEnabled = false;
+        try
+        {
+            await operation();
+        }
+        catch (Exception exception)
+        {
+            ShowStatus($"Failed: {exception.Message}");
+        }
+        finally
+        {
+            BusyIndicator.IsActive = false;
+            BusyIndicator.Visibility = Visibility.Collapsed;
+            LoadButton.IsEnabled = true;
+            ApplyButton.IsEnabled = ResultRows.Count > 0;
+        }
+    }
 
     private RevitPipeClient GetClient() =>
         _revitClient ?? throw new InvalidOperationException("The Revit connection has not been initialized.");

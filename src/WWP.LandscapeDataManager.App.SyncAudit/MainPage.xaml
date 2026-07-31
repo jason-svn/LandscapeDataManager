@@ -29,6 +29,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <ComboBox x:Name="SourceKindBox" Header="Data source" SelectedIndex="0" SelectionChanged="SourceKindBox_SelectionChanged" HorizontalAlignment="Stretch">
                     <ComboBoxItem Content="Airtable (API token)" />
@@ -52,6 +53,19 @@
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="ExcelPathBox" Header="Excel workbook" />
                     <Button Grid.Column="1" Content="Browse..." Click="BrowseExcel_Click" VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
+                </Grid>
+                <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="1" Content="Import connection settings..." Click="ImportConnectionSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    <Button Grid.Column="2" Content="Export connection settings..." Click="ExportConnectionSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    <Button Grid.Column="3" Content="Import type aliases..." Click="ImportTypeAliases_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    <Button Grid.Column="4" Content="Export type aliases..." Click="ExportTypeAliases_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
                 </Grid>
             </Grid>
         </Border>

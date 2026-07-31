@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Text;
+using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Storage.Pickers;
@@ -86,6 +87,107 @@ public sealed partial class MainPage : Page
             SourceKindBox.SelectedIndex = 1;
         }
     }
+
+    private async void ExportConnectionSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = "LIM data source settings"
+        };
+        picker.FileTypeChoices.Add("Connection settings", [".json"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var dataSourceSettings = new DataSourceSettings(
+            SourceKindBox.SelectedIndex == 1 ? DataSourceKind.Excel : DataSourceKind.Airtable,
+            string.Empty,
+            ExcelPathBox.Text.Trim());
+        var airtableSettings = new AirtableApiSettings(AirtableBaseIdBox.Text.Trim(), AirtableTableBox.Text.Trim(), null);
+        var bundle = new ConnectionSettingsBundle(dataSourceSettings, airtableSettings);
+
+        await using var stream = File.Create(file.Path);
+        await JsonSerializer.SerializeAsync(stream, bundle, new JsonSerializerOptions(JsonDefaults.Options) { WriteIndented = true });
+        StatusText.Text = $"Exported connection settings to {file.Path}.";
+    }
+
+    private async void ImportConnectionSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
+        picker.FileTypeFilter.Add(".json");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        ConnectionSettingsBundle? bundle;
+        await using (var stream = File.OpenRead(file.Path))
+        {
+            bundle = await JsonSerializer.DeserializeAsync<ConnectionSettingsBundle>(stream, JsonDefaults.Options);
+        }
+
+        if (bundle is null)
+        {
+            StatusText.Text = $"Could not read connection settings from {file.Path}.";
+            return;
+        }
+
+        await _dataSourceSettingsStore.SaveAsync(bundle.DataSource);
+        await _airtableApiSettingsStore.SaveAsync(bundle.Airtable);
+
+        SourceKindBox.SelectedIndex = bundle.DataSource.Kind == DataSourceKind.Excel ? 1 : 0;
+        ExcelPathBox.Text = bundle.DataSource.ExcelPath;
+        AirtableBaseIdBox.Text = bundle.Airtable.BaseId;
+        AirtableTableBox.Text = bundle.Airtable.TableIdOrName;
+        UpdateSourceVisibility();
+
+        StatusText.Text = $"Imported connection settings from {file.Path}.";
+    }
+
+    private async void ExportTypeAliases_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = "LIM type aliases"
+        };
+        picker.FileTypeChoices.Add("Type aliases", [".json"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var aliases = await _typeAliasStore.LoadAsync();
+        await _typeAliasStore.ExportToAsync(file.Path, aliases);
+        StatusText.Text = $"Exported {aliases.Count:N0} type aliases to {file.Path}.";
+    }
+
+    private async void ImportTypeAliases_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
+        picker.FileTypeFilter.Add(".json");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var imported = await _typeAliasStore.ImportFromAsync(file.Path);
+        await _typeAliasStore.SaveAsync(imported);
+        StatusText.Text = $"Imported {imported.Count:N0} type aliases from {file.Path}.";
+    }
+
+    /// <summary>Bundles the non-secret connection settings a teammate needs to reconnect to the same source. The Airtable API token itself is never included.</summary>
+    private sealed record ConnectionSettingsBundle(DataSourceSettings DataSource, AirtableApiSettings Airtable);
 
     private async Task<IReadOnlyList<AirtableRecord>> LoadSourceRecordsAsync()
     {

@@ -136,6 +136,14 @@
                                     Spacing="10"
                                     HorizontalAlignment="Right">
                         <Button
+                                Content="Import data source settings..."
+                                Click="ImportDataSourceSettings_Click"
+                                Padding="16,9" />
+                        <Button
+                                Content="Export data source settings..."
+                                Click="ExportDataSourceSettings_Click"
+                                Padding="16,9" />
+                        <Button
                                 Content="Test connection"
                                 Click="TestConnection_Click"
                                 Padding="16,9" />
@@ -252,6 +260,8 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="3">
                             <TextBlock Text="Source data → Revit parameter mapping"
@@ -267,11 +277,21 @@
                                 Padding="16,9"
                                 VerticalAlignment="Center" />
                         <Button Grid.Column="2"
+                                Content="Import mappings..."
+                                Click="ImportMappings_Click"
+                                Padding="16,9"
+                                VerticalAlignment="Center" />
+                        <Button Grid.Column="3"
+                                Content="Export mappings..."
+                                Click="ExportMappings_Click"
+                                Padding="16,9"
+                                VerticalAlignment="Center" />
+                        <Button Grid.Column="4"
                                 Content="Auto-map all columns"
                                 Click="AutoMap_Click"
                                 Padding="16,9"
                                 VerticalAlignment="Center" />
-                        <Button Grid.Column="3"
+                        <Button Grid.Column="5"
                                 Content="Adjust columns"
                                 Padding="16,9"
                                 VerticalAlignment="Center">
@@ -309,7 +329,7 @@
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
-                        <Button Grid.Column="4"
+                        <Button Grid.Column="6"
                                 Content="Save mappings"
                                 Click="SaveMappings_Click"
                                 Style="{StaticResource PrimaryButtonStyle}"

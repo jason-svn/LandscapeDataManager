@@ -25,6 +25,8 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="SharedParameterFilePathBox"
                          Header="Shared parameter file"
@@ -34,16 +36,42 @@
                         Click="BrowseSharedParameterFile_Click"
                         VerticalAlignment="Bottom"
                         Style="{StaticResource LimSecondaryButtonStyle}" />
+                <Button Grid.Column="2"
+                        Content="Import settings..."
+                        Click="ImportSettings_Click"
+                        VerticalAlignment="Bottom"
+                        Margin="8,0,0,0"
+                        Style="{StaticResource LimSecondaryButtonStyle}" />
+                <Button Grid.Column="3"
+                        Content="Export settings..."
+                        Click="ExportSettings_Click"
+                        VerticalAlignment="Bottom"
+                        Margin="8,0,0,0"
+                        Style="{StaticResource LimSecondaryButtonStyle}" />
             </Grid>
         </Border>
 
         <StackPanel Grid.Row="2" Margin="0,20,0,0" Spacing="10">
-            <Button x:Name="RunButton"
-                    Content="Check &amp; set up parameters"
-                    Click="Run_Click"
-                    Style="{StaticResource LimPrimaryButtonStyle}" />
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="LoadButton"
+                        Content="Load parameters"
+                        Click="LoadParameters_Click"
+                        HorizontalAlignment="Stretch"
+                        Style="{StaticResource LimSecondaryButtonStyle}" />
+                <Button x:Name="ApplyButton"
+                        Grid.Column="1"
+                        Content="Apply changes"
+                        Click="Apply_Click"
+                        IsEnabled="False"
+                        HorizontalAlignment="Stretch"
+                        Style="{StaticResource LimPrimaryButtonStyle}" />
+            </Grid>
             <TextBlock x:Name="StatusText"
-                       Text="Select a shared parameter file, then run the check. No Revit values are changed unless a binding is missing."
+                       Text="Select a shared parameter file, then click Load parameters to review what would change. No Revit values are touched until you click Apply."
                        Style="{StaticResource LimMutedTextStyle}" />
         </StackPanel>
 
@@ -52,20 +80,27 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Border Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="WILL CREATE" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock x:Name="PendingCountText" Text="—" FontSize="22" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="CREATED" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock x:Name="CreatedCountText" Text="—" FontSize="22" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
-            <Border Grid.Column="1" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Column="2" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="ALREADY VALID" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock x:Name="ValidCountText" Text="—" FontSize="22" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
-            <Border Grid.Column="2" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Column="3" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="NEEDS ATTENTION" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock x:Name="AttentionCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource LimWarningBrush}" />
@@ -76,17 +111,19 @@
         <ListView Grid.Row="4" ItemsSource="{x:Bind ResultRows}" SelectionMode="None">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:SetupRow">
-                    <Grid Padding="8,7" ColumnSpacing="12">
+                    <Grid Padding="8,7" ColumnSpacing="12" ToolTipService.ToolTip="{x:Bind Description}">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="36" />
+                            <ColumnDefinition Width="110" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="90" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="{x:Bind Status}" FontWeight="SemiBold" Foreground="{x:Bind StatusBrush}" />
-                        <TextBlock Grid.Column="1" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="2" Text="{x:Bind Scope}" />
-                        <TextBlock Grid.Column="3" Text="{x:Bind Message}" Opacity="0.75" TextWrapping="Wrap" />
+                        <CheckBox IsChecked="{x:Bind IsIncluded, Mode=TwoWay}" />
+                        <TextBlock Grid.Column="1" Text="{x:Bind Status, Mode=OneWay}" FontWeight="SemiBold" Foreground="{x:Bind StatusBrush, Mode=OneWay}" />
+                        <TextBlock Grid.Column="2" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="3" Text="{x:Bind Scope}" />
+                        <TextBlock Grid.Column="4" Text="{x:Bind Message, Mode=OneWay}" Opacity="0.75" TextWrapping="Wrap" />
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>

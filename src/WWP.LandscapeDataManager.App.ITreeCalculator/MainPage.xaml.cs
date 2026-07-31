@@ -48,8 +48,10 @@ public sealed partial class MainPage : Page
 
     private async Task RefreshReportAsync()
     {
+        var selectedOnly = ValidationScopeBox.SelectedIndex == 1;
         var catalogTask = GetClient().SendAsync<ParameterCatalogResult>(PipeCommands.GetParameterCatalog, new ModelScanOptions());
-        var validationTask = GetClient().SendAsync<ValidatePlantingInstancesResult>(PipeCommands.ValidatePlantingInstances, null);
+        var validationTask = GetClient().SendAsync<ValidatePlantingInstancesResult>(
+            PipeCommands.ValidatePlantingInstances, new ValidatePlantingInstancesRequest(selectedOnly));
         await Task.WhenAll(catalogTask, validationTask);
 
         _preferredUnitSystem = (await catalogTask).PreferredUnitSystem;

@@ -20,7 +20,8 @@ internal static class RevitViewInteractionService
         ["Calculated"] = new Color(34, 139, 34),
         ["APIWarning"] = new Color(230, 180, 30),
         ["APIError"] = new Color(196, 38, 46),
-        ["Stale"] = new Color(142, 68, 173)
+        ["Stale"] = new Color(142, 68, 173),
+        ["Failed"] = new Color(255, 0, 0)
     };
 
     public static OperationResult Select(UIApplication application, ElementSelectionRequest request)

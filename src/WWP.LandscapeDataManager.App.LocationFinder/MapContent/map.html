@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        html, body, #map { height: 100%; margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        var limMap = L.map('map').setView([39.8283, -98.5795], 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(limMap);
+
+        var limMarker = null;
+
+        function postLatLng(lat, lng) {
+            window.chrome.webview.postMessage(JSON.stringify({ lat: lat, lng: lng }));
+        }
+
+        function setMarker(lat, lng, zoom) {
+            var target = [lat, lng];
+            if (limMarker === null) {
+                limMarker = L.marker(target, { draggable: true }).addTo(limMap);
+                limMarker.on('dragend', function () {
+                    var position = limMarker.getLatLng();
+                    postLatLng(position.lat, position.lng);
+                });
+            } else {
+                limMarker.setLatLng(target);
+            }
+
+            limMap.setView(target, zoom || Math.max(limMap.getZoom(), 12));
+        }
+
+        limMap.on('click', function (e) {
+            setMarker(e.latlng.lat, e.latlng.lng);
+            postLatLng(e.latlng.lat, e.latlng.lng);
+        });
+    </script>
+</body>
+</html>

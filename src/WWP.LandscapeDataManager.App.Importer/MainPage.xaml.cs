@@ -353,6 +353,111 @@ public sealed partial class MainPage : Page
                 row.SelectedAirtableField!, row.SelectedTarget!.Descriptor.Name, row.Scope, row.SelectedConversion, row.Enabled))
             .ToList();
 
+    private async void ExportConnectionSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = "LIM data source settings"
+        };
+        picker.FileTypeChoices.Add("Connection settings", [".json"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var dataSourceSettings = new DataSourceSettings(
+            SourceKindBox.SelectedIndex == 1 ? DataSourceKind.Excel : DataSourceKind.Airtable,
+            string.Empty,
+            ExcelPathBox.Text.Trim());
+        var airtableSettings = new AirtableApiSettings(
+            AirtableBaseIdBox.Text.Trim(),
+            AirtableTableBox.Text.Trim(),
+            string.IsNullOrWhiteSpace(AirtableViewBox.Text) ? null : AirtableViewBox.Text.Trim());
+        var bundle = new ConnectionSettingsBundle(dataSourceSettings, airtableSettings);
+
+        await using var stream = File.Create(file.Path);
+        await JsonSerializer.SerializeAsync(stream, bundle, new JsonSerializerOptions(JsonDefaults.Options) { WriteIndented = true });
+        ConnectStatusText.Text = $"Exported connection settings to {file.Path}.";
+    }
+
+    private async void ImportConnectionSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
+        picker.FileTypeFilter.Add(".json");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        ConnectionSettingsBundle? bundle;
+        await using (var stream = File.OpenRead(file.Path))
+        {
+            bundle = await JsonSerializer.DeserializeAsync<ConnectionSettingsBundle>(stream, JsonDefaults.Options);
+        }
+
+        if (bundle is null)
+        {
+            ConnectStatusText.Text = $"Could not read connection settings from {file.Path}.";
+            return;
+        }
+
+        await _dataSourceSettingsStore.SaveAsync(bundle.DataSource);
+        await _airtableApiSettingsStore.SaveAsync(bundle.Airtable);
+
+        SourceKindBox.SelectedIndex = bundle.DataSource.Kind == DataSourceKind.Excel ? 1 : 0;
+        ExcelPathBox.Text = bundle.DataSource.ExcelPath;
+        AirtableBaseIdBox.Text = bundle.Airtable.BaseId;
+        AirtableTableBox.Text = bundle.Airtable.TableIdOrName;
+        AirtableViewBox.Text = bundle.Airtable.ViewName ?? string.Empty;
+        UpdateSourceVisibility();
+
+        ConnectStatusText.Text = $"Imported connection settings from {file.Path}.";
+    }
+
+    private async void ExportTypeAliases_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = "LIM type aliases"
+        };
+        picker.FileTypeChoices.Add("Type aliases", [".json"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var aliases = await _typeAliasStore.LoadAsync();
+        await _typeAliasStore.ExportToAsync(file.Path, aliases);
+        ConnectStatusText.Text = $"Exported {aliases.Count:N0} type aliases to {file.Path}.";
+    }
+
+    private async void ImportTypeAliases_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
+        picker.FileTypeFilter.Add(".json");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var imported = await _typeAliasStore.ImportFromAsync(file.Path);
+        await _typeAliasStore.SaveAsync(imported);
+        ConnectStatusText.Text = $"Imported {imported.Count:N0} type aliases from {file.Path}.";
+    }
+
+    /// <summary>Bundles the non-secret connection settings a teammate needs to reconnect to the same source. The Airtable API token itself is never included.</summary>
+    private sealed record ConnectionSettingsBundle(DataSourceSettings DataSource, AirtableApiSettings Airtable);
+
     private async void ExportMappings_Click(object sender, RoutedEventArgs e)
     {
         var picker = new FileSavePicker
@@ -468,6 +573,88 @@ public sealed partial class MainPage : Page
             _pendingInstanceBatch = null;
             ApplyButton.IsEnabled = false;
             PreviewStatusText.Text = $"Applied {appliedParameters:N0} parameter values across {appliedElements:N0} Revit elements/types.";
+        });
+    }
+
+    private static readonly HashSet<string> FailedInstanceStatuses = new(StringComparer.Ordinal)
+    {
+        "NotPaired", "Duplicate", "Orphaned", "Invalid"
+    };
+
+    private IReadOnlyList<string> GetFailedInstanceUniqueIds() =>
+        InstanceSyncRows
+            .Where(row => FailedInstanceStatuses.Contains(row.Status) && !string.IsNullOrEmpty(row.UniqueId))
+            .Select(row => row.UniqueId)
+            .Distinct()
+            .ToList();
+
+    private async void SelectFailedInstances_Click(object sender, RoutedEventArgs e)
+    {
+        var ids = GetFailedInstanceUniqueIds();
+        if (ids.Count == 0)
+        {
+            InstanceActionStatusText.Text = "No failed instance rows to select.";
+            return;
+        }
+
+        await RunBusyAsync(async () =>
+        {
+            var result = await GetClient().SendAsync<OperationResult>(PipeCommands.SelectElements, new ElementSelectionRequest(ids));
+            InstanceActionStatusText.Text = result.Message ?? "Selected failed elements.";
+        });
+    }
+
+    private async void ZoomFailedInstances_Click(object sender, RoutedEventArgs e)
+    {
+        var ids = GetFailedInstanceUniqueIds();
+        if (ids.Count == 0)
+        {
+            InstanceActionStatusText.Text = "No failed instance rows to zoom to.";
+            return;
+        }
+
+        await RunBusyAsync(async () =>
+        {
+            var result = await GetClient().SendAsync<OperationResult>(PipeCommands.ZoomToElements, new ElementSelectionRequest(ids));
+            InstanceActionStatusText.Text = result.Message ?? "Zoomed to failed elements.";
+        });
+    }
+
+    private async void ColourFailedInstances_Click(object sender, RoutedEventArgs e)
+    {
+        var ids = GetFailedInstanceUniqueIds();
+        if (ids.Count == 0)
+        {
+            InstanceActionStatusText.Text = "No failed instance rows to colour.";
+            return;
+        }
+
+        await RunBusyAsync(async () =>
+        {
+            var statusByUniqueId = ids.ToDictionary(id => id, _ => "Failed");
+            var result = await GetClient().SendAsync<OperationResult>(
+                PipeCommands.ApplyStatusColourOverrides, new StatusColourOverrideRequest(statusByUniqueId));
+            InstanceActionStatusText.Text = result.Message ?? $"Applied red colour overrides to {ids.Count:N0} element(s).";
+        });
+    }
+
+    private async void ResetFailedColours_Click(object sender, RoutedEventArgs e)
+    {
+        var allIds = InstanceSyncRows
+            .Where(row => !string.IsNullOrEmpty(row.UniqueId))
+            .Select(row => row.UniqueId)
+            .Distinct()
+            .ToList();
+        if (allIds.Count == 0)
+        {
+            InstanceActionStatusText.Text = "No instance rows to reset.";
+            return;
+        }
+
+        await RunBusyAsync(async () =>
+        {
+            var result = await GetClient().SendAsync<OperationResult>(PipeCommands.ResetColourOverrides, new ElementSelectionRequest(allIds));
+            InstanceActionStatusText.Text = result.Message ?? "Colour overrides reset.";
         });
     }
 

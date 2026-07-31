@@ -1,0 +1,93 @@
+<Page
+    x:Class="WWP.LandscapeDataManager.App.LocationFinder.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WWP.LandscapeDataManager.App.LocationFinder">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="{StaticResource LimPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Spacing="4">
+            <TextBlock Text="Location Finder" Style="{StaticResource LimPageTitleStyle}" />
+            <TextBlock
+                Text="Pick a point on the map (or search an address), then publish it to the project's i-Tree latitude/longitude parameters. Map data © OpenStreetMap contributors."
+                Style="{StaticResource LimPageSubtitleStyle}" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+            <StackPanel Spacing="10">
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="AddressBox"
+                             Header="Search an address or place"
+                             PlaceholderText="e.g. 350 5th Ave, New York, NY" />
+                    <Button Grid.Column="1"
+                            Content="Search"
+                            Click="Search_Click"
+                            VerticalAlignment="Bottom"
+                            Style="{StaticResource LimSecondaryButtonStyle}" />
+                    <Button Grid.Column="2"
+                            Content="Get from file"
+                            Click="GetFromFile_Click"
+                            VerticalAlignment="Bottom"
+                            Style="{StaticResource LimSecondaryButtonStyle}" />
+                </Grid>
+
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="LatitudeBox" Header="Latitude" />
+                    <TextBox Grid.Column="1" x:Name="LongitudeBox" Header="Longitude" />
+                    <Button Grid.Column="2"
+                            Content="Update pin"
+                            Click="UpdatePin_Click"
+                            VerticalAlignment="Bottom"
+                            Style="{StaticResource LimSecondaryButtonStyle}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}" Padding="0">
+            <WebView2 x:Name="MapView" />
+        </Border>
+
+        <Grid Grid.Row="3" Margin="0,16,0,0" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="StatusText"
+                       Text="Click the map (or drag the pin) to choose a location, then publish it to the project."
+                       Style="{StaticResource LimMutedTextStyle}"
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap" />
+            <Button Grid.Column="1"
+                    x:Name="PublishButton"
+                    Content="Publish to project"
+                    Click="Publish_Click"
+                    IsEnabled="False"
+                    Style="{StaticResource LimPrimaryButtonStyle}" />
+        </Grid>
+
+        <ProgressRing x:Name="BusyIndicator"
+                      Grid.RowSpan="4"
+                      Width="40"
+                      Height="40"
+                      IsActive="False"
+                      Visibility="Collapsed"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center" />
+    </Grid>
+</Page>

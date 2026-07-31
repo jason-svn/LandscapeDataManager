@@ -25,19 +25,40 @@ internal static class PlantingInstanceValidationScanner
     private const string EngineVersionParameter = "!_S_PLANTING_iTreeResult_EngineVersion_Text";
     private const string InputSignatureParameter = "!_S_PLANTING_iTreeResult_InputSignature_Text";
 
-    public static ValidatePlantingInstancesResult Scan(UIApplication application)
+    public static ValidatePlantingInstancesResult Scan(UIApplication application, bool selectedOnly = false)
     {
-        var document = application.ActiveUIDocument?.Document
-                       ?? throw new InvalidOperationException("Open a Revit project before validating planting instances.");
+        var uiDocument = application.ActiveUIDocument
+                        ?? throw new InvalidOperationException("Open a Revit project before validating planting instances.");
+        var document = uiDocument.Document;
 
         var projectInfo = document.ProjectInformation;
         var latitude = GetNullableDouble(projectInfo, LatitudeParameter);
         var longitude = GetNullableDouble(projectInfo, LongitudeParameter);
 
-        var items = new FilteredElementCollector(document)
-            .OfCategory(BuiltInCategory.OST_Planting)
-            .WhereElementIsNotElementType()
-            .ToElements()
+        IEnumerable<Element> instances;
+        if (selectedOnly)
+        {
+            var selectedIds = uiDocument.Selection.GetElementIds();
+            if (selectedIds.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "Select one or more planting instances in Revit, or switch the scope to all planting instances.");
+            }
+
+            instances = selectedIds
+                .Select(document.GetElement)
+                .Where(element => element is not null and not ElementType &&
+                                   element.Category?.BuiltInCategory == BuiltInCategory.OST_Planting);
+        }
+        else
+        {
+            instances = new FilteredElementCollector(document)
+                .OfCategory(BuiltInCategory.OST_Planting)
+                .WhereElementIsNotElementType()
+                .ToElements();
+        }
+
+        var items = instances
             .Select(element =>
             {
                 var elementType = document.GetElement(element.GetTypeId()) as ElementType;

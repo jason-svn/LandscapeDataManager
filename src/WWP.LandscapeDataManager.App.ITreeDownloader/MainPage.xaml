@@ -37,12 +37,13 @@
                 </StackPanel>
             </Border>
 
-            <!-- Step 2: destinations (multi-select) -->
+            <!-- Step 2: destinations -->
             <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="STEP 2 — WHERE TO SAVE (SELECT ANY)" Style="{StaticResource LimSectionHeaderStyle}" />
-                    <CheckBox x:Name="UpdateScheduleCheckBox" Content="Update the Revit Planting Key Schedule" IsChecked="True"
-                              Checked="DestinationCheckBox_Changed" Unchecked="DestinationCheckBox_Changed" />
+                    <TextBlock Text="STEP 2 — ALSO EXPORT TO EXCEL (OPTIONAL)" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock
+                        Text="Downloading always caches the full catalogue locally for Tree Searcher, and always reconciles species data on modeled types that already have a Species_Code entered. Exporting to Excel is optional, on top of that."
+                        Style="{StaticResource LimMutedTextStyle}" />
                     <CheckBox x:Name="ExportExcelCheckBox" Content="Export to an Excel workbook"
                               Checked="DestinationCheckBox_Changed" Unchecked="DestinationCheckBox_Changed" />
 

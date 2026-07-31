@@ -643,9 +643,13 @@ public sealed partial class MainPage : Page
 
     private async Task RestoreMappingsAsync()
     {
-        MappingRows.Clear();
         var savedMappings = await _mappingStore.LoadAsync();
+        ApplyMappings(savedMappings);
+    }
 
+    private void ApplyMappings(IReadOnlyList<ParameterMappingDefinition> savedMappings)
+    {
+        MappingRows.Clear();
         foreach (var source in _airtableHeaders)
         {
             var mapping = savedMappings.FirstOrDefault(saved =>
@@ -668,6 +672,106 @@ public sealed partial class MainPage : Page
                 Enabled = target is not null && mapping!.Enabled
             });
         }
+    }
+
+    private List<ParameterMappingDefinition> BuildMappingDefinitions() =>
+        MappingRows
+            .Where(row => row.SelectedTarget is not null)
+            .Select(row => new ParameterMappingDefinition(
+                row.SelectedAirtableField!, row.SelectedTarget!.Descriptor.Name, row.SelectedTarget.Descriptor.Scope, row.SelectedConversion, row.Enabled))
+            .ToList();
+
+    private async void ExportMappings_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = "LIM parameter mappings"
+        };
+        picker.FileTypeChoices.Add("Mapping settings", [".json"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        await _mappingStore.ExportToAsync(file.Path, BuildMappingDefinitions());
+        MapperStatusText.Text = $"Exported mappings to {file.Path}.";
+    }
+
+    private async void ImportMappings_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
+        picker.FileTypeFilter.Add(".json");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var imported = await _mappingStore.ImportFromAsync(file.Path);
+        await _mappingStore.SaveAsync(imported);
+
+        if (_airtableHeaders.Count > 0)
+        {
+            ApplyMappings(imported);
+            UpdateMappingSummary();
+        }
+
+        MapperStatusText.Text = $"Imported {imported.Count:N0} mappings from {file.Path}.";
+        ShowStatus(
+            InfoBarSeverity.Success,
+            "Mappings imported",
+            _airtableHeaders.Count > 0
+                ? "Imported mappings were applied to the current source columns."
+                : "Load catalogs to apply the imported mappings to source columns.");
+    }
+
+    private async void ExportDataSourceSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = "LIM data source settings"
+        };
+        picker.FileTypeChoices.Add("Data source settings", [".json"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var settings = new DataSourceSettings(
+            DataSourceBox.SelectedIndex == 1 ? DataSourceKind.Excel : DataSourceKind.Airtable,
+            SharedLinkBox.Text.Trim(),
+            ExcelPathBox.Text.Trim());
+        await _dataSourceSettingsStore.ExportToAsync(file.Path, settings);
+        ShowStatus(InfoBarSeverity.Success, "Data source settings exported", $"Exported data source settings to {file.Path}.");
+    }
+
+    private async void ImportDataSourceSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
+        picker.FileTypeFilter.Add(".json");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        var imported = await _dataSourceSettingsStore.ImportFromAsync(file.Path);
+        await _dataSourceSettingsStore.SaveAsync(imported);
+
+        SharedLinkBox.Text = imported.SharedLink;
+        ExcelPathBox.Text = imported.ExcelPath;
+        DataSourceBox.SelectedIndex = imported.Kind == DataSourceKind.Excel ? 1 : 0;
+        UpdateDataSourceVisibility();
+
+        ShowStatus(InfoBarSeverity.Success, "Data source settings imported", $"Imported data source settings from {file.Path}.");
     }
 
     private async Task PromptForMappingModeAsync(string documentTitle)

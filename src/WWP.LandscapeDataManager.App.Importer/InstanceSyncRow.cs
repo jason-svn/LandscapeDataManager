@@ -7,6 +7,7 @@ namespace WWP.LandscapeDataManager.App.Importer;
 public sealed class InstanceSyncRow
 {
     public string Status { get; private init; } = string.Empty;
+    public string UniqueId { get; private init; } = string.Empty;
     public string FamilyType { get; private init; } = string.Empty;
     public string Parameter { get; private init; } = "—";
     public string CurrentValue { get; private init; } = "—";
@@ -16,6 +17,7 @@ public sealed class InstanceSyncRow
     public static InstanceSyncRow FromIssue(InstanceMatch match) => new()
     {
         Status = match.Status,
+        UniqueId = match.Instance.UniqueId,
         FamilyType = $"{match.Instance.FamilyName} : {match.Instance.TypeName}",
         Message = match.Message ?? string.Empty
     };
@@ -23,6 +25,7 @@ public sealed class InstanceSyncRow
     public static InstanceSyncRow FromWrite(InstanceParameterWritePreviewRow row, string familyType) => new()
     {
         Status = row.Status,
+        UniqueId = row.UniqueId,
         FamilyType = familyType,
         Parameter = row.RevitParameter,
         CurrentValue = row.CurrentValue,

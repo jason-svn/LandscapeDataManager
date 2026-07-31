@@ -39,7 +39,7 @@ public sealed partial class MainPage : Page
         var metadata = await _database.GetMetadataAsync();
         if (metadata.Version is not null)
         {
-            CatalogueVersionText.Text = $"Local catalogue last downloaded {metadata.DownloadedAtUtc} (version {metadata.Version[..8]}...).";
+            CatalogueVersionText.Text = $"Local catalogue last downloaded {metadata.FormatDownloadedAtLocal() ?? metadata.DownloadedAtUtc} (version {metadata.Version[..8]}...).";
         }
 
         UpdateExcelPanelVisibility();
@@ -88,13 +88,7 @@ public sealed partial class MainPage : Page
 
     private async void Download_Click(object sender, RoutedEventArgs e)
     {
-        var updateSchedule = UpdateScheduleCheckBox.IsChecked == true;
         var exportExcel = ExportExcelCheckBox.IsChecked == true;
-        if (!updateSchedule && !exportExcel)
-        {
-            StatusText.Text = "Select at least one destination: the Revit key schedule, Excel, or both.";
-            return;
-        }
 
         var apiKey = ApiKeyBox.Password.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -134,30 +128,21 @@ public sealed partial class MainPage : Page
 
             var notes = new List<string>();
 
-            if (updateSchedule)
+            var updateResult = await GetClient().SendAsync<UpdateSpeciesCatalogueResult>(
+                PipeCommands.UpdateSpeciesCatalogue,
+                new UpdateSpeciesCatalogueRequest(allRecords));
+
+            ResultRows.Clear();
+            foreach (var row in updateResult.Rows)
             {
-                var result = await GetClient().SendAsync<UpdateSpeciesCatalogueResult>(
-                    PipeCommands.UpdateSpeciesCatalogue,
-                    new UpdateSpeciesCatalogueRequest(allRecords));
-
-                ResultRows.Clear();
-                foreach (var row in result.Rows)
-                {
-                    ResultRows.Add(new SpeciesResultRow(row));
-                }
-
-                AddedCountText.Text = result.Rows.Count(r => r.Status == "Added").ToString("N0");
-                ChangedCountText.Text = result.Rows.Count(r => r.Status == "Changed").ToString("N0");
-                DeprecatedCountText.Text = result.Rows.Count(r => r.Status == "Deprecated").ToString("N0");
-                UnchangedCountText.Text = result.Rows.Count(r => r.Status == "Unchanged").ToString("N0");
-                notes.Add(result.ScheduleStatus switch
-                {
-                    "Created" => "Created the Planting Key Schedule.",
-                    "Updated" => "Reconciled the Planting Key Schedule's columns and sort order.",
-                    _ => $"Could not create or update the Planting Key Schedule: {result.ScheduleFailureReason}."
-                });
-                notes.Add(BuildUpdateSummary(result));
+                ResultRows.Add(new SpeciesResultRow(row));
             }
+
+            AddedCountText.Text = updateResult.Rows.Count(r => r.Status == "Added").ToString("N0");
+            ChangedCountText.Text = updateResult.Rows.Count(r => r.Status == "Changed").ToString("N0");
+            DeprecatedCountText.Text = updateResult.Rows.Count(r => r.Status == "Deprecated").ToString("N0");
+            UnchangedCountText.Text = updateResult.Rows.Count(r => r.Status == "Unchanged").ToString("N0");
+            notes.Add(BuildUpdateSummary(updateResult));
 
             if (exportExcel)
             {

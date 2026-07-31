@@ -82,27 +82,8 @@ internal static class SpeciesCatalogueWriter
             throw;
         }
 
-        string scheduleStatus;
-        string? scheduleFailureReason = null;
-        try
-        {
-            using var scheduleTransaction = new Transaction(document, "LIM Create Planting Key Schedule");
-            scheduleTransaction.Start();
-            var status = PlantingKeyScheduleService.EnsureSchedule(document);
-            scheduleTransaction.Commit();
-            scheduleStatus = status == ScheduleEnsureStatus.Created ? "Created" : "Updated";
-        }
-        catch (Exception exception)
-        {
-            // The species parameter updates above already succeeded and were committed; a
-            // schedule-creation problem shouldn't hide that real, useful result from the user —
-            // but it also shouldn't be swallowed silently, so the reason is reported back.
-            scheduleStatus = "Failed";
-            scheduleFailureReason = exception.Message;
-        }
-
         return new UpdateSpeciesCatalogueResult(
-            document.Title, rows, scheduleStatus, scheduleFailureReason, skipped, missingParameter, emptyCode, types.Count);
+            document.Title, rows, skipped, missingParameter, emptyCode, types.Count);
     }
 
     private static SpeciesCatalogueUpdateRow UpdateOne(Element type, string code, SpeciesCatalogueRecord record)
@@ -145,5 +126,68 @@ internal static class SpeciesCatalogueWriter
         {
             parameter.Set(value);
         }
+    }
+
+    /// <summary>
+    /// Writes one chosen species record onto the ElementType of every currently-selected Revit
+    /// element, deduped by type so multiple selected instances of the same type are only written
+    /// once. Unlike <see cref="Update"/>, this never matches by an existing Species_Code — the
+    /// caller has already picked the exact species to apply.
+    /// </summary>
+    public static AssignSpeciesResult AssignToSelection(UIApplication application, SpeciesCatalogueRecord record)
+    {
+        var uiDocument = application.ActiveUIDocument
+                        ?? throw new InvalidOperationException("Open a Revit project before assigning species data.");
+        var document = uiDocument.Document;
+
+        var selectedIds = uiDocument.Selection.GetElementIds();
+        if (selectedIds.Count == 0)
+        {
+            throw new InvalidOperationException("Select one or more planting instances or types in Revit first.");
+        }
+
+        var types = selectedIds
+            .Select(document.GetElement)
+            .Where(element => element is not null)
+            .Select(element => element as ElementType ?? document.GetElement(element!.GetTypeId()) as ElementType)
+            .Where(elementType => elementType is not null &&
+                                  elementType.Category?.BuiltInCategory == BuiltInCategory.OST_Planting)
+            .Cast<ElementType>()
+            .DistinctBy(elementType => elementType.Id.Value)
+            .ToList();
+
+        if (types.Count == 0)
+        {
+            throw new InvalidOperationException("None of the selected elements are Planting instances or types.");
+        }
+
+        var updatedNames = new List<string>();
+        using var transaction = new Transaction(document, "LIM Assign Species");
+        transaction.Start();
+        try
+        {
+            foreach (var type in types)
+            {
+                SetIfWritable(type.LookupParameter(CodeParameter), record.SpeciesCode);
+                SetIfWritable(type.LookupParameter(CommonNameParameter), record.CommonName);
+                SetIfWritable(type.LookupParameter(ScientificNameParameter), record.ScientificName);
+                SetIfWritable(type.LookupParameter(SpeciesTypeParameter), record.SpeciesType);
+                SetIfWritable(type.LookupParameter(ReplaceByParameter), record.ReplaceBy ?? string.Empty);
+                updatedNames.Add(type.Name);
+            }
+
+            transaction.Commit();
+        }
+        catch
+        {
+            if (transaction.GetStatus() == TransactionStatus.Started)
+            {
+                transaction.RollBack();
+            }
+
+            throw;
+        }
+
+        return new AssignSpeciesResult(document.Title, updatedNames);
     }
 }

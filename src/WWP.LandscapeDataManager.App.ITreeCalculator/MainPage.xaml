@@ -24,12 +24,21 @@
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="220" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <PasswordBox x:Name="ApiKeyBox" Header="i-Tree API key" />
-                <CheckBox Grid.Column="1" x:Name="RememberKeyCheckBox" Content="Remember" IsChecked="True" VerticalAlignment="Bottom" Margin="0,0,0,8" />
-                <Button Grid.Column="2" Content="Validate" Click="Validate_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
+                <ComboBox Grid.Column="1"
+                          x:Name="ValidationScopeBox"
+                          Header="Scope"
+                          SelectedIndex="0"
+                          HorizontalAlignment="Stretch">
+                    <ComboBoxItem Content="All planting instances in model" />
+                    <ComboBoxItem Content="Current Revit selection only" />
+                </ComboBox>
+                <CheckBox Grid.Column="2" x:Name="RememberKeyCheckBox" Content="Remember" IsChecked="True" VerticalAlignment="Bottom" Margin="0,0,0,8" />
+                <Button Grid.Column="3" Content="Validate" Click="Validate_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
             </Grid>
         </Border>
 

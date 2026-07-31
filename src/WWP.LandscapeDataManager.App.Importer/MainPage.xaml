@@ -25,7 +25,18 @@
             <!-- Step 1: Connect -->
             <Border Grid.Row="1" Margin="0,20,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="STEP 1 — CONNECT A SOURCE" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="STEP 1 — CONNECT A SOURCE" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="Import connection settings..." Click="ImportConnectionSettings_Click"
+                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,8,0" />
+                        <Button Grid.Column="2" Content="Export connection settings..." Click="ExportConnectionSettings_Click"
+                                Style="{StaticResource LimSecondaryButtonStyle}" />
+                    </Grid>
                     <ComboBox x:Name="SourceKindBox" Header="Data source" SelectedIndex="0"
                               SelectionChanged="SourceKindBox_SelectionChanged" HorizontalAlignment="Stretch">
                         <ComboBoxItem Content="Airtable (API token)" />
@@ -76,13 +87,19 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="STEP 2 — MAP COLUMNS" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
                         <Button Grid.Column="1" Content="Import mappings..." Click="ImportMappings_Click"
                                 Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,8,0" />
                         <Button Grid.Column="2" Content="Export mappings..." Click="ExportMappings_Click"
                                 Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,8,0" />
-                        <Button Grid.Column="3" Content="Auto-map all" Click="AutoMap_Click"
+                        <Button Grid.Column="3" Content="Import type aliases..." Click="ImportTypeAliases_Click"
+                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,8,0" />
+                        <Button Grid.Column="4" Content="Export type aliases..." Click="ExportTypeAliases_Click"
+                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,8,0" />
+                        <Button Grid.Column="5" Content="Auto-map all" Click="AutoMap_Click"
                                 Style="{StaticResource LimSecondaryButtonStyle}" />
                     </Grid>
 
@@ -180,6 +197,21 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Content="Select failed" Click="SelectFailedInstances_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                        <Button Grid.Column="1" Content="Zoom to failed" Click="ZoomFailedInstances_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                        <Button Grid.Column="2" Content="Colour override failed (red)" Click="ColourFailedInstances_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                        <Button Grid.Column="3" Content="Reset colours" Click="ResetFailedColours_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                        <TextBlock Grid.Column="4" x:Name="InstanceActionStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
+                    </Grid>
                 </StackPanel>
             </Border>
 

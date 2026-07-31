@@ -151,4 +151,11 @@ public sealed class SpeciesCatalogueDatabase
     }
 }
 
-public sealed record CatalogueMetadata(string? Version, string? DownloadedAtUtc);
+public sealed record CatalogueMetadata(string? Version, string? DownloadedAtUtc)
+{
+    /// <summary>The download timestamp formatted for display in the current Windows user's local time, or null if never downloaded.</summary>
+    public string? FormatDownloadedAtLocal() =>
+        DateTimeOffset.TryParse(DownloadedAtUtc, out var parsed)
+            ? parsed.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+            : null;
+}

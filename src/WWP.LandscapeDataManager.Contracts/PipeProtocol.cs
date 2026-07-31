@@ -10,6 +10,7 @@ public static class PipeCommands
     public const string PreviewParameterWrites = "preview-parameter-writes";
     public const string ApplyParameterWrites = "apply-parameter-writes";
     public const string GetITreeInputs = "get-itree-inputs";
+    public const string PreviewSharedParameters = "preview-shared-parameters";
     public const string EnsureSharedParameters = "ensure-shared-parameters";
     public const string ScanPlantingInstances = "scan-planting-instances";
     public const string PreviewInstanceParameterWrites = "preview-instance-parameter-writes";
@@ -23,6 +24,9 @@ public static class PipeCommands
     public const string ResetIsolation = "reset-isolation";
     public const string ApplyStatusColourOverrides = "apply-status-colour-overrides";
     public const string ResetColourOverrides = "reset-colour-overrides";
+    public const string AssignSpeciesToSelection = "assign-species-to-selection";
+    public const string GetProjectSiteLocation = "get-project-site-location";
+    public const string PublishProjectLocation = "publish-project-location";
 }
 
 public sealed record PipeRequest(string RequestId, string Command, JsonElement? Payload);
@@ -130,13 +134,18 @@ public sealed record ITreeInputScanResult(
     IReadOnlyList<ITreeRevitInput> Items,
     int SkippedWithoutSpeciesCode);
 
-public sealed record EnsureSharedParametersRequest(string SharedParameterFilePath);
+/// <summary>Read-only check of the shared parameter file against the current document — nothing is changed.</summary>
+public sealed record PreviewSharedParametersRequest(string SharedParameterFilePath);
+
+/// <summary>Creates/validates only the parameters named in <see cref="IncludedParameterNames"/>, e.g. the subset the user left checked after reviewing the preview rows.</summary>
+public sealed record EnsureSharedParametersRequest(string SharedParameterFilePath, IReadOnlyList<string> IncludedParameterNames);
 
 /// <summary>
 /// One shared-parameter definition's binding outcome. Status is one of:
-/// "Created" (binding added), "Already valid" (binding matched expectations),
-/// "Conflict" (an existing name/GUID/scope mismatch was found and left untouched), or
-/// "Error" (the definition could not be read or bound).
+/// "Will create" (preview only — no binding exists yet and none was created), "Created" (binding
+/// added), "Already valid" (binding matched expectations), "Conflict" (an existing
+/// name/GUID/scope mismatch was found and left untouched), or "Error" (the definition could not
+/// be read or bound).
 /// </summary>
 public sealed record SharedParameterSetupRow(
     string Name,
@@ -144,7 +153,8 @@ public sealed record SharedParameterSetupRow(
     string Scope,
     string Category,
     string Status,
-    string? Message);
+    string? Message,
+    string Description);
 
 public sealed record SharedParameterSetupResult(
     string DocumentTitle,
@@ -223,12 +233,26 @@ public sealed record SpeciesCatalogueUpdateRow(
 public sealed record UpdateSpeciesCatalogueResult(
     string DocumentTitle,
     IReadOnlyList<SpeciesCatalogueUpdateRow> Rows,
-    string ScheduleStatus,
-    string? ScheduleFailureReason,
     int SkippedNoMatchingType,
     int TypesMissingSpeciesCodeParameter,
     int TypesWithEmptySpeciesCode,
     int TotalPlantingTypes);
+
+/// <summary>Writes one chosen species record onto the ElementType of every currently-selected Revit element (deduped by type).</summary>
+public sealed record AssignSpeciesRequest(SpeciesCatalogueRecord Record);
+
+public sealed record AssignSpeciesResult(string DocumentTitle, IReadOnlyList<string> UpdatedTypeNames);
+
+/// <summary>
+/// Whatever location is currently set on the document's built-in Site Location (Manage tab →
+/// Location). This reflects the Revit template default until someone has actually set it, so a
+/// non-null result here is not proof the project was deliberately geolocated.
+/// </summary>
+public sealed record ProjectSiteLocationResult(string DocumentTitle, double Latitude, double Longitude, string? PlaceName);
+
+public sealed record PublishProjectLocationRequest(double Latitude, double Longitude);
+
+public sealed record PublishProjectLocationResult(string DocumentTitle, double Latitude, double Longitude);
 
 /// <summary>
 /// A single Planting instance's raw i-Tree inputs plus whatever tracking values were stored by
@@ -252,6 +276,8 @@ public sealed record PlantingInstanceValidationItem(
     string StoredLastUpdatedUtc,
     string StoredEngineVersion,
     string StoredInputSignature);
+
+public sealed record ValidatePlantingInstancesRequest(bool SelectedOnly = false);
 
 public sealed record ValidatePlantingInstancesResult(
     string DocumentTitle,

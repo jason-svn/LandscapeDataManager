@@ -17,6 +17,8 @@ public sealed class App : IExternalApplication
     internal static ToolProcessLauncher? ITreeDownloaderLauncher { get; private set; }
     internal static ToolProcessLauncher? ITreeCalculatorLauncher { get; private set; }
     internal static ToolProcessLauncher? SyncAuditLauncher { get; private set; }
+    internal static ToolProcessLauncher? TreeSearcherLauncher { get; private set; }
+    internal static ToolProcessLauncher? LocationFinderLauncher { get; private set; }
 
     public Result OnStartup(UIControlledApplication application)
     {
@@ -38,6 +40,12 @@ public sealed class App : IExternalApplication
         SyncAuditLauncher = new ToolProcessLauncher(
             Path.Combine("SyncAudit", "WWP.LandscapeDataManager.SyncAudit.exe"),
             PipeServer.PipeName);
+        TreeSearcherLauncher = new ToolProcessLauncher(
+            Path.Combine("TreeSearcher", "WWP.LandscapeDataManager.TreeSearcher.exe"),
+            PipeServer.PipeName);
+        LocationFinderLauncher = new ToolProcessLauncher(
+            Path.Combine("LocationFinder", "WWP.LandscapeDataManager.LocationFinder.exe"),
+            PipeServer.PipeName);
         PipeServer.Start();
 
         var panel = GetOrCreatePanel(application);
@@ -55,13 +63,20 @@ public sealed class App : IExternalApplication
             "EX",
             "Planting Data Import",
             "Import Excel or Airtable records, detect source units, preview changes, and write mapped Planting type and instance values.");
+        AddWorkflowButton<SearchTreesCommand>(
+            panel,
+            "LIMSearchTrees",
+            "Tree\nSearcher",
+            "TS",
+            "Tree Searcher",
+            "Search the cached i-Tree species catalogue by name or code and assign a species directly to whatever Planting instances or types are currently selected.");
         AddWorkflowButton<DownloadSpeciesScheduleCommand>(
             panel,
             "LIMDownloadITreeSpecies",
             "i-Tree\nDownloader",
             "IT",
             "i-Tree Downloader",
-            "Download the i-Tree species catalog, including Species_Code, common name, scientific name, and species type, and update the planting key schedule.");
+            "Download the i-Tree species catalog, including Species_Code, common name, scientific name, and species type, and cache it locally for Tree Searcher.");
         AddWorkflowButton<CalculateITreeCommand>(
             panel,
             "LIMCalculateITree",
@@ -76,6 +91,13 @@ public sealed class App : IExternalApplication
             "RA",
             "Refresh and Audit",
             "Compare with the last pull, reapply changed data, report updates, and identify stale or incomplete planting elements.");
+        AddWorkflowButton<FindLocationCommand>(
+            panel,
+            "LIMFindLocation",
+            "Location\nFinder",
+            "LF",
+            "Location Finder",
+            "Pick a location on a map (or search an address, or read the project's existing Site Location) and publish it to the i-Tree latitude/longitude parameters.");
 
         return Result.Succeeded;
     }
@@ -88,6 +110,8 @@ public sealed class App : IExternalApplication
         ITreeDownloaderLauncher?.Dispose();
         ITreeCalculatorLauncher?.Dispose();
         SyncAuditLauncher?.Dispose();
+        TreeSearcherLauncher?.Dispose();
+        LocationFinderLauncher?.Dispose();
         PipeServer?.Dispose();
         Dispatcher?.Dispose();
 
@@ -97,6 +121,8 @@ public sealed class App : IExternalApplication
         ITreeDownloaderLauncher = null;
         ITreeCalculatorLauncher = null;
         SyncAuditLauncher = null;
+        TreeSearcherLauncher = null;
+        LocationFinderLauncher = null;
         PipeServer = null;
         Dispatcher = null;
         return Result.Succeeded;

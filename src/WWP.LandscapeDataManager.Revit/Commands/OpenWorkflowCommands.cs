@@ -77,3 +77,15 @@ public sealed class SyncLatestCommand : LaunchToolCommand
 {
     protected override ToolProcessLauncher? Launcher => App.SyncAuditLauncher;
 }
+
+[Transaction(TransactionMode.Manual)]
+public sealed class SearchTreesCommand : LaunchToolCommand
+{
+    protected override ToolProcessLauncher? Launcher => App.TreeSearcherLauncher;
+}
+
+[Transaction(TransactionMode.Manual)]
+public sealed class FindLocationCommand : LaunchToolCommand
+{
+    protected override ToolProcessLauncher? Launcher => App.LocationFinderLauncher;
+}

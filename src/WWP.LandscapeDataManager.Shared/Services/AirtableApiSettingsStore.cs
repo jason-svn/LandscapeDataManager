@@ -28,15 +28,29 @@ public sealed class AirtableApiSettingsStore
                ?? new AirtableApiSettings(string.Empty, string.Empty, string.Empty);
     }
 
-    public async Task SaveAsync(AirtableApiSettings settings)
+    public async Task SaveAsync(AirtableApiSettings settings) =>
+        await ExportToAsync(_filePath, settings);
+
+    /// <summary>Writes the settings to an arbitrary file, e.g. one the user picked to share with a teammate.</summary>
+    public async Task ExportToAsync(string path, AirtableApiSettings settings)
     {
-        var directory = Path.GetDirectoryName(_filePath)
-                        ?? throw new InvalidOperationException("The settings directory could not be resolved.");
-        Directory.CreateDirectory(directory);
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
 
         var options = new JsonSerializerOptions(JsonDefaults.Options) { WriteIndented = true };
-        await using var stream = File.Create(_filePath);
+        await using var stream = File.Create(path);
         await JsonSerializer.SerializeAsync(stream, settings, options);
+    }
+
+    /// <summary>Reads settings from an arbitrary file, e.g. one a teammate shared.</summary>
+    public async Task<AirtableApiSettings> ImportFromAsync(string path)
+    {
+        await using var stream = File.OpenRead(path);
+        return await JsonSerializer.DeserializeAsync<AirtableApiSettings>(stream, JsonDefaults.Options)
+               ?? new AirtableApiSettings(string.Empty, string.Empty, string.Empty);
     }
 }
 
