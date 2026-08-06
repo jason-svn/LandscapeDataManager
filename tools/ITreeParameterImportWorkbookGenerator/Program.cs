@@ -1,4 +1,4 @@
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
 
 const string sharedGroupName = "PLANTING - iTree";
 const string projectInformationCategory = "OST_ProjectInformation";
@@ -123,9 +123,7 @@ static string GetRevitGroup(string name)
         return "PG_GEOMETRY";
     }
 
-    if (name.Contains("_iTreeCarbon_", StringComparison.Ordinal) ||
-        name.Contains("_iTreeAir_", StringComparison.Ordinal) ||
-        name.Contains("_iTreeWater_", StringComparison.Ordinal))
+    if (ParameterSchema.GreenBuildingResultParameters.Contains(name))
     {
         return "PG_GREEN_BUILDING";
     }
@@ -329,51 +327,64 @@ internal static class ParameterSchema
 {
     public static readonly HashSet<string> ProjectInformationParameters =
     [
-        "!_S_PLANTING_iTreeLocation_Latitude_Number",
-        "!_S_PLANTING_iTreeLocation_Longitude_Number",
-        "!_S_PLANTING_iTreeUnits_PreferredSystem_Text"
+        "!_S_PLT_iTreeLocation_Latitude_Number",
+        "!_S_PLT_iTreeLocation_Longitude_Number",
+        "!_S_PLT_iTreeUnits_PreferredSystem_Text"
+    ];
+
+    public static readonly HashSet<string> GreenBuildingResultParameters =
+    [
+        "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Number",
+        "!_S_PLT_iTreeResult_CORemovedAnnual_Number",
+        "!_S_PLT_iTreeResult_NO2RemovedAnnual_Number",
+        "!_S_PLT_iTreeResult_O3RemovedAnnual_Number",
+        "!_S_PLT_iTreeResult_SO2RemovedAnnual_Number",
+        "!_S_PLT_iTreeResult_PM25RemovedAnnual_Number",
+        "!_S_PLT_iTreeResult_RainfallInterceptedAnnual_Volume",
+        "!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume",
+        "!_S_PLT_iTreeResult_CostSavedAnnual_Number"
     ];
 
     public static readonly HashSet<string> TypeParameters =
     [
-        "!_S_PLANTING_iTreeSpecies_Code_Text",
-        "!_S_PLANTING_iTreeSpecies_ScientificName_Text",
-        "!_S_PLANTING_iTreeSpecies_CommonName_Text",
-        "!_S_PLANTING_iTreeSpecies_Type_Text",
-        "!_S_PLANTING_iTreeSpecies_ReplaceBy_Text",
-        "!_S_PLANTING_GrowthRatio_HeightbyYear_Number",
-        "!_S_PLANTING_GrowthRatio_WidthbyYear_Number",
-        "!_S_PLANTING_GrowthRatio_TrunkDiameterbyYear_Number",
-        "!_S_PLANTING_DataSync_SourceName_Text",
-        "!_S_PLANTING_DataSync_SourceRecordId_Text",
-        "!_S_PLANTING_DataSync_Status_Text",
-        "!_S_PLANTING_DataSync_LastUpdated_Text",
-        "!_S_PLANTING_DataSync_InputSignature_Text"
+        "!_S_PLT_iTreeSpecies_Code_Text",
+        "!_S_PLT_iTreeSpecies_ScientificName_Text",
+        "!_S_PLT_iTreeSpecies_CommonName_Text",
+        "!_S_PLT_iTreeSpecies_Type_Text",
+        "!_S_PLT_iTreeSpecies_ReplaceBy_Text",
+        "!_S_PLT_GrowthRatio_HeightbyYear_Number",
+        "!_S_PLT_GrowthRatio_WidthbyYear_Number",
+        "!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number",
+        "!_S_PLT_DataSync_SourceName_Text",
+        "!_S_PLT_DataSync_SourceRecordId_Text",
+        "!_S_PLT_DataSync_Status_Text",
+        "!_S_PLT_DataSync_LastUpdated_Text",
+        "!_S_PLT_DataSync_InputSignature_Text"
     ];
 
     public static readonly IReadOnlyDictionary<string, string> SuggestedSourceColumns =
         new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        ["!_S_PLANTING_iTreeLocation_Latitude_Number"] = "Latitude",
-        ["!_S_PLANTING_iTreeLocation_Longitude_Number"] = "Longitude",
-        ["!_S_PLANTING_iTreeSpecies_Code_Text"] = "Species_Code",
-        ["!_S_PLANTING_iTreeSpecies_ScientificName_Text"] = "Scientific_Name",
-        ["!_S_PLANTING_iTreeSpecies_CommonName_Text"] = "Common_Name",
-        ["!_S_PLANTING_iTreeSpecies_Type_Text"] = "Species_Type",
-        ["!_S_PLANTING_iTreeSpecies_ReplaceBy_Text"] = "Replace_By",
-        ["!_S_PLANTING_TreeGrowth_Years_Number"] = "Years",
-        ["!_S_PLANTING_iTreeInput_Condition_Text"] = "Tree_Condition",
-        ["!_S_PLANTING_iTreeInput_CrownExposure_Number"] = "Crown_Exposure",
-        ["!_S_PLANTING_TreeFoliage_Width"] = "Crown_Width",
-        ["!_S_PLANTING_TreeFoliage_Height"] = "Crown_Height",
-        ["!_S_PLANTING_TreeTrunk_Height"] = "Trunk_Height",
-        ["!_S_PLANTING_TreeTrunk_Diameter"] = "Trunk_Diameter",
-        ["!_S_PLANTING_TreeTrunk_DBH_Diameter"] = "DBH",
-        ["!_S_PLANTING_TreeOverall_Height"] = "Height",
-        ["!_S_PLANTING_GrowthRatio_HeightbyYear_Number"] = "GrowthRatio_HeightbyYear",
-        ["!_S_PLANTING_GrowthRatio_WidthbyYear_Number"] = "GrowthRatio_WidthbyYear",
-        ["!_S_PLANTING_GrowthRatio_TrunkDiameterbyYear_Number"] = "GrowthRatio_TrunkDiameterbyYear",
-        ["!_S_PLANTING_iTreeUnits_PreferredSystem_Text"] = "Unit System"
+        ["!_S_PLT_iTreeLocation_Latitude_Number"] = "Latitude",
+        ["!_S_PLT_iTreeLocation_Longitude_Number"] = "Longitude",
+        ["!_S_PLT_iTreeSpecies_Code_Text"] = "Species_Code",
+        ["!_S_PLT_iTreeSpecies_ScientificName_Text"] = "Scientific_Name",
+        ["!_S_PLT_iTreeSpecies_CommonName_Text"] = "Common_Name",
+        ["!_S_PLT_iTreeSpecies_Type_Text"] = "Species_Type",
+        ["!_S_PLT_iTreeSpecies_ReplaceBy_Text"] = "Replace_By",
+        ["!_S_PLT_TreeGrowth_Years_Number"] = "Years",
+        ["!_S_PLT_iTreeInput_Condition_Text"] = "Tree_Condition",
+        ["!_S_PLT_iTreeInput_CrownExposure_Number"] = "Crown_Exposure",
+        ["!_S_PLT_TreeFoliage_Width"] = "Crown_Width",
+        ["!_S_PLT_TreeFoliage_Height"] = "Crown_Height",
+        ["!_S_PLT_TreeTrunk_Height"] = "Trunk_Height",
+        ["!_S_PLT_TreeTrunk_Diameter"] = "Trunk_Diameter",
+        ["!_S_PLT_TreeTrunk_DBH_Diameter"] = "DBH",
+        ["!_S_PLT_TreeOverall_Height"] = "Height",
+        ["!_S_PLT_GrowthRatio_HeightbyYear_Number"] = "GrowthRatio_HeightbyYear",
+        ["!_S_PLT_GrowthRatio_WidthbyYear_Number"] = "GrowthRatio_WidthbyYear",
+        ["!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number"] = "GrowthRatio_TrunkDiameterbyYear",
+        ["!_S_PLT_iTreeUnits_PreferredSystem_Text"] = "Unit System"
     };
 }
 

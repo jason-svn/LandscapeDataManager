@@ -1,4 +1,4 @@
-using Autodesk.Revit.DB;
+﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using WWP.LandscapeDataManager.Contracts;
 
@@ -12,11 +12,11 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 /// </summary>
 internal static class SpeciesCatalogueWriter
 {
-    private const string CodeParameter = "!_S_PLANTING_iTreeSpecies_Code_Text";
-    private const string CommonNameParameter = "!_S_PLANTING_iTreeSpecies_CommonName_Text";
-    private const string ScientificNameParameter = "!_S_PLANTING_iTreeSpecies_ScientificName_Text";
-    private const string SpeciesTypeParameter = "!_S_PLANTING_iTreeSpecies_Type_Text";
-    private const string ReplaceByParameter = "!_S_PLANTING_iTreeSpecies_ReplaceBy_Text";
+    private const string CodeParameter = "!_S_PLT_iTreeSpecies_Code_Text";
+    private const string CommonNameParameter = "!_S_PLT_iTreeSpecies_CommonName_Text";
+    private const string ScientificNameParameter = "!_S_PLT_iTreeSpecies_ScientificName_Text";
+    private const string SpeciesTypeParameter = "!_S_PLT_iTreeSpecies_Type_Text";
+    private const string ReplaceByParameter = "!_S_PLT_iTreeSpecies_ReplaceBy_Text";
 
     public static UpdateSpeciesCatalogueResult Update(UIApplication application, UpdateSpeciesCatalogueRequest request)
     {
@@ -128,16 +128,70 @@ internal static class SpeciesCatalogueWriter
         }
     }
 
+    /// <summary>Reports one row per distinct Planting ElementType among the current Revit selection, for Tree Searcher to review/match.</summary>
+    public static SelectedPlantingTypesResult GetSelectedTypes(UIApplication application)
+    {
+        var (document, types) = ResolveSelectedPlantingTypes(application);
+        var items = types
+            .Select(type => new SelectedPlantingTypeItem(
+                type.UniqueId,
+                GetFamilyName(type),
+                type.Name,
+                GetNullableText(type, CodeParameter)))
+            .ToList();
+
+        return new SelectedPlantingTypesResult(document.Title, items);
+    }
+
     /// <summary>
-    /// Writes one chosen species record onto the ElementType of every currently-selected Revit
-    /// element, deduped by type so multiple selected instances of the same type are only written
-    /// once. Unlike <see cref="Update"/>, this never matches by an existing Species_Code — the
-    /// caller has already picked the exact species to apply.
+    /// Writes each assignment's chosen species record onto its target ElementType, in one
+    /// transaction. Unlike <see cref="Update"/>, this never matches by an existing Species_Code —
+    /// the caller (Tree Searcher) has already picked the exact species per type.
     /// </summary>
-    public static AssignSpeciesResult AssignToSelection(UIApplication application, SpeciesCatalogueRecord record)
+    public static AssignSpeciesBatchResult AssignBatch(UIApplication application, AssignSpeciesBatchRequest request)
+    {
+        var document = application.ActiveUIDocument?.Document
+                       ?? throw new InvalidOperationException("Open a Revit project before assigning species data.");
+
+        var updatedNames = new List<string>();
+        using var transaction = new Transaction(document, "LIM Assign Species");
+        transaction.Start();
+        try
+        {
+            foreach (var assignment in request.Assignments)
+            {
+                if (document.GetElement(assignment.TypeUniqueId) is not ElementType type)
+                {
+                    continue;
+                }
+
+                SetIfWritable(type.LookupParameter(CodeParameter), assignment.Record.SpeciesCode);
+                SetIfWritable(type.LookupParameter(CommonNameParameter), assignment.Record.CommonName);
+                SetIfWritable(type.LookupParameter(ScientificNameParameter), assignment.Record.ScientificName);
+                SetIfWritable(type.LookupParameter(SpeciesTypeParameter), assignment.Record.SpeciesType);
+                SetIfWritable(type.LookupParameter(ReplaceByParameter), assignment.Record.ReplaceBy ?? string.Empty);
+                updatedNames.Add(type.Name);
+            }
+
+            transaction.Commit();
+        }
+        catch
+        {
+            if (transaction.GetStatus() == TransactionStatus.Started)
+            {
+                transaction.RollBack();
+            }
+
+            throw;
+        }
+
+        return new AssignSpeciesBatchResult(document.Title, updatedNames);
+    }
+
+    private static (Document Document, IReadOnlyList<ElementType> Types) ResolveSelectedPlantingTypes(UIApplication application)
     {
         var uiDocument = application.ActiveUIDocument
-                        ?? throw new InvalidOperationException("Open a Revit project before assigning species data.");
+                        ?? throw new InvalidOperationException("Open a Revit project before working with a selection.");
         var document = uiDocument.Document;
 
         var selectedIds = uiDocument.Selection.GetElementIds();
@@ -154,6 +208,8 @@ internal static class SpeciesCatalogueWriter
                                   elementType.Category?.BuiltInCategory == BuiltInCategory.OST_Planting)
             .Cast<ElementType>()
             .DistinctBy(elementType => elementType.Id.Value)
+            .OrderBy(GetFamilyName)
+            .ThenBy(elementType => elementType.Name)
             .ToList();
 
         if (types.Count == 0)
@@ -161,33 +217,15 @@ internal static class SpeciesCatalogueWriter
             throw new InvalidOperationException("None of the selected elements are Planting instances or types.");
         }
 
-        var updatedNames = new List<string>();
-        using var transaction = new Transaction(document, "LIM Assign Species");
-        transaction.Start();
-        try
-        {
-            foreach (var type in types)
-            {
-                SetIfWritable(type.LookupParameter(CodeParameter), record.SpeciesCode);
-                SetIfWritable(type.LookupParameter(CommonNameParameter), record.CommonName);
-                SetIfWritable(type.LookupParameter(ScientificNameParameter), record.ScientificName);
-                SetIfWritable(type.LookupParameter(SpeciesTypeParameter), record.SpeciesType);
-                SetIfWritable(type.LookupParameter(ReplaceByParameter), record.ReplaceBy ?? string.Empty);
-                updatedNames.Add(type.Name);
-            }
+        return (document, types);
+    }
 
-            transaction.Commit();
-        }
-        catch
-        {
-            if (transaction.GetStatus() == TransactionStatus.Started)
-            {
-                transaction.RollBack();
-            }
+    private static string GetFamilyName(ElementType type) =>
+        type is FamilySymbol symbol ? symbol.FamilyName : type.FamilyName;
 
-            throw;
-        }
-
-        return new AssignSpeciesResult(document.Title, updatedNames);
+    private static string? GetNullableText(Element element, string name)
+    {
+        var parameter = element.LookupParameter(name);
+        return parameter is { HasValue: true } ? parameter.AsString() : null;
     }
 }

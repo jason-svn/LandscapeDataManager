@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Text;
 using System.Text.Json;
 using Microsoft.UI.Xaml;
@@ -27,10 +27,12 @@ public sealed partial class MainPage : Page
     private readonly ITreeCredentialStore _iTreeCredentialStore = new();
     private readonly SpeciesCatalogueDatabase _catalogueDatabase = new();
     private readonly SyncedValueHistoryStore _historyStore = new();
+    private readonly ExchangeRateService _exchangeRateService = new();
 
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
     private string _preferredUnitSystem = "Metric";
+    private string _preferredCurrency = "USD";
     private List<ParameterWriteItem> _typeWriteItems = [];
     private List<InstanceParameterWriteItem> _instanceWriteItems = [];
 
@@ -50,6 +52,9 @@ public sealed partial class MainPage : Page
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
+        var syncedFromProject = await ProjectSettingsSync.PullAndApplyAsync(
+            GetClient(), _dataSourceSettingsStore, _airtableApiSettingsStore, _mappingStore, _typeAliasStore);
+
         var dataSourceSettings = await _dataSourceSettingsStore.LoadAsync();
         var airtableSettings = await _airtableApiSettingsStore.LoadAsync();
         SourceKindBox.SelectedIndex = dataSourceSettings.Kind == DataSourceKind.Excel ? 1 : 0;
@@ -58,6 +63,11 @@ public sealed partial class MainPage : Page
         AirtableTableBox.Text = airtableSettings.TableIdOrName;
         AirtableTokenBox.Password = _airtableCredentialStore.Load();
         UpdateSourceVisibility();
+
+        if (syncedFromProject)
+        {
+            StatusText.Text = "Data source, Airtable, mapping, and type-alias settings loaded from this project's saved settings.";
+        }
     }
 
     private void SourceKindBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateSourceVisibility();
@@ -140,6 +150,7 @@ public sealed partial class MainPage : Page
 
         await _dataSourceSettingsStore.SaveAsync(bundle.DataSource);
         await _airtableApiSettingsStore.SaveAsync(bundle.Airtable);
+        await ProjectSettingsSync.PushAsync(GetClient(), _dataSourceSettingsStore, _airtableApiSettingsStore);
 
         SourceKindBox.SelectedIndex = bundle.DataSource.Kind == DataSourceKind.Excel ? 1 : 0;
         ExcelPathBox.Text = bundle.DataSource.ExcelPath;
@@ -183,6 +194,7 @@ public sealed partial class MainPage : Page
 
         var imported = await _typeAliasStore.ImportFromAsync(file.Path);
         await _typeAliasStore.SaveAsync(imported);
+        await ProjectSettingsSync.PushAsync(GetClient(), typeAliasStore: _typeAliasStore);
         StatusText.Text = $"Imported {imported.Count:N0} type aliases from {file.Path}.";
     }
 
@@ -217,6 +229,7 @@ public sealed partial class MainPage : Page
         var catalog = await catalogTask;
         var validation = await validationTask;
         _preferredUnitSystem = catalog.PreferredUnitSystem;
+        _preferredCurrency = catalog.PreferredCurrency;
 
         var mappings = await _mappingStore.LoadAsync();
         var aliases = await _typeAliasStore.LoadAsync();
@@ -356,7 +369,7 @@ public sealed partial class MainPage : Page
             if (match.Status == "Orphaned")
             {
                 _instanceWriteItems.Add(new InstanceParameterWriteItem(
-                    match.Instance.UniqueId, "!_S_PLANTING_DataSync_Status_Text", "Text", "Orphaned"));
+                    match.Instance.UniqueId, "!_S_PLT_DataSync_Status_Text", "Text", "Orphaned"));
             }
         }
 
@@ -594,18 +607,21 @@ public sealed partial class MainPage : Page
                 item.Years ?? 1, item.CrownExposure ?? 0))).ToList();
 
         var outcomes = await _iTreeApiClient.CalculateForInstancesAsync(signedInputs, apiKey);
+        var exchangeRate = await _exchangeRateService.GetUsdRateAsync(_preferredCurrency);
         var writeItems = new List<InstanceParameterWriteItem>();
         foreach (var (item, (signature, _)) in staleItems.Zip(signedInputs))
         {
             var outcome = outcomes.GetValueOrDefault(signature);
             var status = outcome?.Error is null ? "Calculated" : "APIError";
             writeItems.AddRange(ITreeInstanceResultMapper.BuildWriteItems(
-                item.UniqueId, status, outcome?.Error, signature, outcome, _preferredUnitSystem));
+                item.UniqueId, status, outcome?.Error, signature, outcome,
+                _preferredUnitSystem, exchangeRate.CurrencyCode, exchangeRate.UsdRate));
         }
 
         await GetClient().SendAsync<InstanceParameterWriteResult>(
             PipeCommands.ApplyInstanceParameterWrites, new InstanceParameterWriteBatch(writeItems));
-        ActionStatusText.Text = $"Recalculated {staleItems.Count:N0} stale tree(s). Select Refresh &amp; compare to see updated status.";
+        var rateNote = exchangeRate.Success ? string.Empty : $" ({exchangeRate.Error})";
+        ActionStatusText.Text = $"Recalculated {staleItems.Count:N0} stale tree(s) in {exchangeRate.CurrencyCode}. Select Refresh &amp; compare to see updated status.{rateNote}";
     });
 
     private async void RefreshCatalogue_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>

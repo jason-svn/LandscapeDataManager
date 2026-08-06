@@ -59,10 +59,10 @@ public sealed class SetupRow(SharedParameterSetupRow row) : INotifyPropertyChang
     public SolidColorBrush StatusBrush => Status switch
     {
         "Created" => new SolidColorBrush(Colors.SeaGreen),
-        "Regrouped" => new SolidColorBrush(Colors.SeaGreen),
+        "Updated" => new SolidColorBrush(Colors.SeaGreen),
         "Already valid" => new SolidColorBrush(Colors.Gray),
         "Will create" => new SolidColorBrush(Colors.SteelBlue),
-        "Will regroup" => new SolidColorBrush(Colors.SteelBlue),
+        "Will update" => new SolidColorBrush(Colors.SteelBlue),
         "Conflict" => new SolidColorBrush(Colors.DarkOrange),
         "Error" => new SolidColorBrush(Colors.Crimson),
         _ => new SolidColorBrush(Colors.Gray)

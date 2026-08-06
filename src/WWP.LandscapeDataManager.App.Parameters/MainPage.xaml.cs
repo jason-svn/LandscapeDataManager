@@ -110,12 +110,12 @@ public sealed partial class MainPage : Page
 
             UpdateCounts();
 
-            var created = result.Rows.Count(row => row.Status is "Created" or "Regrouped");
+            var created = result.Rows.Count(row => row.Status is "Created" or "Updated");
             var valid = result.Rows.Count(row => row.Status == "Already valid");
             var attention = result.Rows.Count(row => row.Status is "Conflict" or "Error");
             ShowStatus(attention == 0
-                ? $"{result.DocumentTitle}: {created:N0} created/regrouped, {valid:N0} already valid. Nothing needs attention."
-                : $"{result.DocumentTitle}: {created:N0} created/regrouped, {valid:N0} already valid, {attention:N0} need attention — see the rows below.");
+                ? $"{result.DocumentTitle}: {created:N0} created/updated, {valid:N0} already valid. Nothing needs attention."
+                : $"{result.DocumentTitle}: {created:N0} created/updated, {valid:N0} already valid, {attention:N0} need attention — see the rows below.");
         });
     }
 
@@ -170,18 +170,18 @@ public sealed partial class MainPage : Page
         "Error" => 0,
         "Conflict" => 1,
         "Will create" => 2,
-        "Will regroup" => 3,
+        "Will update" => 3,
         "Created" => 4,
-        "Regrouped" => 5,
+        "Updated" => 5,
         "Already valid" => 6,
         _ => 7
     };
 
     private void UpdateCounts()
     {
-        CreatedCountText.Text = ResultRows.Count(row => row.Status is "Created" or "Regrouped").ToString("N0");
+        CreatedCountText.Text = ResultRows.Count(row => row.Status is "Created" or "Updated").ToString("N0");
         ValidCountText.Text = ResultRows.Count(row => row.Status == "Already valid").ToString("N0");
-        PendingCountText.Text = ResultRows.Count(row => row.Status is "Will create" or "Will regroup").ToString("N0");
+        PendingCountText.Text = ResultRows.Count(row => row.Status is "Will create" or "Will update").ToString("N0");
         AttentionCountText.Text = ResultRows.Count(row => row.Status is "Conflict" or "Error").ToString("N0");
     }
 

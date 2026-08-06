@@ -127,9 +127,16 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.ResetIsolation => await ResetIsolationAsync(request).ConfigureAwait(false),
                 PipeCommands.ApplyStatusColourOverrides => await ApplyStatusColourOverridesAsync(request).ConfigureAwait(false),
                 PipeCommands.ResetColourOverrides => await ResetColourOverridesAsync(request).ConfigureAwait(false),
-                PipeCommands.AssignSpeciesToSelection => await AssignSpeciesToSelectionAsync(request).ConfigureAwait(false),
+                PipeCommands.GetSelectedPlantingTypes => await GetSelectedPlantingTypesAsync(request).ConfigureAwait(false),
+                PipeCommands.AssignSpeciesBatch => await AssignSpeciesBatchAsync(request).ConfigureAwait(false),
                 PipeCommands.GetProjectSiteLocation => await GetProjectSiteLocationAsync(request).ConfigureAwait(false),
                 PipeCommands.PublishProjectLocation => await PublishProjectLocationAsync(request).ConfigureAwait(false),
+                PipeCommands.PublishPreferredCurrency => await PublishPreferredCurrencyAsync(request).ConfigureAwait(false),
+                PipeCommands.GetProjectSettingsJson => await GetProjectSettingsJsonAsync(request).ConfigureAwait(false),
+                PipeCommands.PublishProjectSettingsJson => await PublishProjectSettingsJsonAsync(request).ConfigureAwait(false),
+                PipeCommands.GetSelectedFloors => await GetSelectedFloorsAsync(request).ConfigureAwait(false),
+                PipeCommands.CalculateFloorsBatch => await CalculateFloorsBatchAsync(request).ConfigureAwait(false),
+                PipeCommands.RunHealthCheck => await RunHealthCheckAsync(request).ConfigureAwait(false),
                 _ => new PipeResponse(request.RequestId, false, Error: $"Unknown command: {request.Command}")
             };
         }
@@ -260,12 +267,18 @@ internal sealed class RevitPipeServer : IDisposable
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 
-    private async Task<PipeResponse> AssignSpeciesToSelectionAsync(PipeRequest request)
+    private async Task<PipeResponse> GetSelectedPlantingTypesAsync(PipeRequest request)
     {
-        var options = request.Payload?.Deserialize<AssignSpeciesRequest>(JsonDefaults.Options)
-                      ?? throw new InvalidDataException("The species record was empty.");
+        var result = await _dispatcher.RunAsync(SpeciesCatalogueWriter.GetSelectedTypes).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> AssignSpeciesBatchAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<AssignSpeciesBatchRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The species assignment batch was empty.");
         var result = await _dispatcher.RunAsync(application =>
-            SpeciesCatalogueWriter.AssignToSelection(application, options.Record)).ConfigureAwait(false);
+            SpeciesCatalogueWriter.AssignBatch(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 
@@ -281,6 +294,51 @@ internal sealed class RevitPipeServer : IDisposable
                       ?? throw new InvalidDataException("The project location was empty.");
         var result = await _dispatcher.RunAsync(application =>
             ProjectLocationService.Publish(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> PublishPreferredCurrencyAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<PublishPreferredCurrencyRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The currency preference was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            ProjectPreferencesService.PublishPreferredCurrency(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetProjectSettingsJsonAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(ProjectPreferencesService.GetSettingsJson).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> PublishProjectSettingsJsonAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<PublishProjectSettingsJsonRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The project settings JSON was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            ProjectPreferencesService.PublishSettingsJson(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetSelectedFloorsAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(FloorLdsCalculationService.GetSelectedFloors).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> CalculateFloorsBatchAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<CalculateFloorsBatchRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The floor calculation batch was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            FloorLdsCalculationService.CalculateBatch(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> RunHealthCheckAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(HealthCheckScanner.Scan).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

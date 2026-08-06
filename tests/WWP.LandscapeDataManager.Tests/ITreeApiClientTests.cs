@@ -71,10 +71,16 @@ public sealed class ITreeApiClientTests
         {
             "Annual_Benefit_USD",
             "Benefit_20yr_USD",
+            "Annual_CarbonBenefit_USD",
+            "CarbonBenefit_20yr_USD",
+            "Annual_StormWaterBenefit_USD",
+            "StormWaterBenefit_20yr_USD",
+            "Annual_AirPollutionBenefit_USD",
+            "AirPollutionBenefit_20yr_USD",
             "Annual_CarbonSequestered_lb",
             "CarbonSequestered_20yr_lb",
-            "Annual_CO2eq_lb",
-            "CO2eq_20yr_lb",
+            "Annual_CO2Equivalent_lb",
+            "CO2Equivalent_20yr_lb",
             "Annual_RunoffAvoided_gal",
             "RunoffAvoided_20yr_gal",
             "Annual_RainfallIntercepted_gal",
@@ -87,7 +93,7 @@ public sealed class ITreeApiClientTests
             "PM25_20yr_oz"
         };
         Assert.All(expectedBenefitColumns, column => Assert.True(record.Fields.ContainsKey(column), column));
-        Assert.Equal(25, result.FieldCount);
+        Assert.Equal(31, result.FieldCount);
         Assert.Empty(result.Errors);
     }
 }

@@ -1,4 +1,4 @@
-using Autodesk.Revit.DB;
+﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using WWP.LandscapeDataManager.Contracts;
 
@@ -12,8 +12,8 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 /// </summary>
 internal static class ProjectLocationService
 {
-    private const string LatitudeParameter = "!_S_PLANTING_iTreeLocation_Latitude_Number";
-    private const string LongitudeParameter = "!_S_PLANTING_iTreeLocation_Longitude_Number";
+    private const string LatitudeParameter = "!_S_PLT_iTreeLocation_Latitude_Number";
+    private const string LongitudeParameter = "!_S_PLT_iTreeLocation_Longitude_Number";
 
     public static ProjectSiteLocationResult GetSiteLocation(UIApplication application)
     {

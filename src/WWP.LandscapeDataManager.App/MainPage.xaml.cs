@@ -61,6 +61,12 @@ public sealed partial class MainPage : Page
     {
         await RunBusyAsync(async () =>
         {
+            // No single general-purpose status label exists on this tab to report into (unlike
+            // Importer/SyncAudit's ConnectStatusText/StatusText) — this applies silently; the
+            // MapperStatusText/SyncStatusText controls it could arguably use belong to other tabs.
+            await ProjectSettingsSync.PullAndApplyAsync(
+                GetClient(), _dataSourceSettingsStore, mappingStore: _mappingStore);
+
             var settings = await _dataSourceSettingsStore.LoadAsync();
             SharedLinkBox.Text = settings.SharedLink;
             ExcelPathBox.Text = settings.ExcelPath;
@@ -279,6 +285,7 @@ public sealed partial class MainPage : Page
             SharedLinkBox.Text.Trim(),
             ExcelPathBox.Text.Trim());
         await _dataSourceSettingsStore.SaveAsync(settings);
+        await ProjectSettingsSync.PushAsync(GetClient(), _dataSourceSettingsStore);
 
         return settings.Kind == DataSourceKind.Excel
             ? await _excelClient.GetRecordsAsync(settings.ExcelPath)
@@ -631,6 +638,7 @@ public sealed partial class MainPage : Page
                 .ToList();
 
             await _mappingStore.SaveAsync(definitions);
+            await ProjectSettingsSync.PushAsync(GetClient(), mappingStore: _mappingStore);
             _pendingWriteBatch = null;
             ApplyParameterWritesButton.IsEnabled = false;
             MapperStatusText.Text = $"Saved {definitions.Count:N0} mappings to {_mappingStore.FilePath}";
@@ -713,6 +721,7 @@ public sealed partial class MainPage : Page
 
         var imported = await _mappingStore.ImportFromAsync(file.Path);
         await _mappingStore.SaveAsync(imported);
+        await ProjectSettingsSync.PushAsync(GetClient(), mappingStore: _mappingStore);
 
         if (_airtableHeaders.Count > 0)
         {
@@ -765,6 +774,7 @@ public sealed partial class MainPage : Page
 
         var imported = await _dataSourceSettingsStore.ImportFromAsync(file.Path);
         await _dataSourceSettingsStore.SaveAsync(imported);
+        await ProjectSettingsSync.PushAsync(GetClient(), _dataSourceSettingsStore);
 
         SharedLinkBox.Text = imported.SharedLink;
         ExcelPathBox.Text = imported.ExcelPath;

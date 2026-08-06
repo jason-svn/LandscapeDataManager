@@ -13,4 +13,7 @@ public sealed class SpeciesRow(SpeciesCatalogueRecord record)
     public string DeprecatedNote { get; } = string.IsNullOrWhiteSpace(record.ReplaceBy)
         ? string.Empty
         : $"Deprecated — replaced by {record.ReplaceBy}";
+
+    /// <summary>Compact label for the per-row AutoSuggestBox dropdown and selected-text display.</summary>
+    public string Display { get; } = $"{record.CommonName} ({record.SpeciesCode}) — {record.ScientificName}";
 }

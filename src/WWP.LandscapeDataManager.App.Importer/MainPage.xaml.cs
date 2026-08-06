@@ -51,6 +51,9 @@ public sealed partial class MainPage : Page
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
+        var syncedFromProject = await ProjectSettingsSync.PullAndApplyAsync(
+            GetClient(), _dataSourceSettingsStore, _airtableApiSettingsStore, _mappingStore, _typeAliasStore);
+
         var dataSourceSettings = await _dataSourceSettingsStore.LoadAsync();
         var airtableSettings = await _airtableApiSettingsStore.LoadAsync();
         SourceKindBox.SelectedIndex = dataSourceSettings.Kind == DataSourceKind.Excel ? 1 : 0;
@@ -60,6 +63,11 @@ public sealed partial class MainPage : Page
         AirtableViewBox.Text = airtableSettings.ViewName ?? string.Empty;
         AirtableTokenBox.Password = _airtableCredentialStore.Load();
         UpdateSourceVisibility();
+
+        if (syncedFromProject)
+        {
+            ConnectStatusText.Text = "Data source, Airtable, mapping, and type-alias settings loaded from this project's saved settings.";
+        }
     }
 
     private void SourceKindBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateSourceVisibility();
@@ -108,6 +116,10 @@ public sealed partial class MainPage : Page
             var catalog = await catalogTask;
             _parameterCatalog = catalog.Parameters;
             _preferredUnitSystem = catalog.PreferredUnitSystem;
+
+            await ProjectSettingsSync.PushAsync(
+                GetClient(), _dataSourceSettingsStore, _airtableApiSettingsStore,
+                preferredUnitSystem: _preferredUnitSystem);
 
             await RestoreMappingsAsync();
 
@@ -344,7 +356,11 @@ public sealed partial class MainPage : Page
         return items;
     }
 
-    private async Task SaveMappingsAsync() => await _mappingStore.SaveAsync(BuildMappingDefinitions());
+    private async Task SaveMappingsAsync()
+    {
+        await _mappingStore.SaveAsync(BuildMappingDefinitions());
+        await ProjectSettingsSync.PushAsync(GetClient(), mappingStore: _mappingStore);
+    }
 
     private List<ParameterMappingDefinition> BuildMappingDefinitions() =>
         MappingRows
@@ -408,6 +424,7 @@ public sealed partial class MainPage : Page
 
         await _dataSourceSettingsStore.SaveAsync(bundle.DataSource);
         await _airtableApiSettingsStore.SaveAsync(bundle.Airtable);
+        await ProjectSettingsSync.PushAsync(GetClient(), _dataSourceSettingsStore, _airtableApiSettingsStore);
 
         SourceKindBox.SelectedIndex = bundle.DataSource.Kind == DataSourceKind.Excel ? 1 : 0;
         ExcelPathBox.Text = bundle.DataSource.ExcelPath;
@@ -452,6 +469,7 @@ public sealed partial class MainPage : Page
 
         var imported = await _typeAliasStore.ImportFromAsync(file.Path);
         await _typeAliasStore.SaveAsync(imported);
+        await ProjectSettingsSync.PushAsync(GetClient(), typeAliasStore: _typeAliasStore);
         ConnectStatusText.Text = $"Imported {imported.Count:N0} type aliases from {file.Path}.";
     }
 
@@ -490,6 +508,7 @@ public sealed partial class MainPage : Page
 
         var imported = await _mappingStore.ImportFromAsync(file.Path);
         await _mappingStore.SaveAsync(imported);
+        await ProjectSettingsSync.PushAsync(GetClient(), mappingStore: _mappingStore);
 
         if (MappingRows.Count > 0)
         {

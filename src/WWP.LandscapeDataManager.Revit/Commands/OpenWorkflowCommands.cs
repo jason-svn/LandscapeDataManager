@@ -85,7 +85,19 @@ public sealed class SearchTreesCommand : LaunchToolCommand
 }
 
 [Transaction(TransactionMode.Manual)]
+public sealed class CalculateFloorCommand : LaunchToolCommand
+{
+    protected override ToolProcessLauncher? Launcher => App.FloorCalculatorLauncher;
+}
+
+[Transaction(TransactionMode.Manual)]
 public sealed class FindLocationCommand : LaunchToolCommand
 {
     protected override ToolProcessLauncher? Launcher => App.LocationFinderLauncher;
+}
+
+[Transaction(TransactionMode.Manual)]
+public sealed class RunHealthCheckCommand : LaunchToolCommand
+{
+    protected override ToolProcessLauncher? Launcher => App.HealthCheckLauncher;
 }

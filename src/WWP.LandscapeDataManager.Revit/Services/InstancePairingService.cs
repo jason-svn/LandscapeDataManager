@@ -1,4 +1,4 @@
-using Autodesk.Revit.DB;
+﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using WWP.LandscapeDataManager.Contracts;
 
@@ -11,7 +11,7 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 /// </summary>
 internal static class InstancePairingService
 {
-    private const string SourceRecordIdParameter = "!_S_PLANTING_DataSync_SourceRecordId_Text";
+    private const string SourceRecordIdParameter = "!_S_PLT_DataSync_SourceRecordId_Text";
 
     public static PairSelectedInstanceResult PairSelected(UIApplication application, PairSelectedInstanceRequest request)
     {

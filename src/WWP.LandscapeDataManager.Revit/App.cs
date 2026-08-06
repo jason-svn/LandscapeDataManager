@@ -19,6 +19,8 @@ public sealed class App : IExternalApplication
     internal static ToolProcessLauncher? SyncAuditLauncher { get; private set; }
     internal static ToolProcessLauncher? TreeSearcherLauncher { get; private set; }
     internal static ToolProcessLauncher? LocationFinderLauncher { get; private set; }
+    internal static ToolProcessLauncher? FloorCalculatorLauncher { get; private set; }
+    internal static ToolProcessLauncher? HealthCheckLauncher { get; private set; }
 
     public Result OnStartup(UIControlledApplication application)
     {
@@ -46,58 +48,85 @@ public sealed class App : IExternalApplication
         LocationFinderLauncher = new ToolProcessLauncher(
             Path.Combine("LocationFinder", "WWP.LandscapeDataManager.LocationFinder.exe"),
             PipeServer.PipeName);
+        FloorCalculatorLauncher = new ToolProcessLauncher(
+            Path.Combine("FloorCalculator", "WWP.LandscapeDataManager.FloorCalculator.exe"),
+            PipeServer.PipeName);
+        HealthCheckLauncher = new ToolProcessLauncher(
+            Path.Combine("HealthCheck", "WWP.LandscapeDataManager.HealthCheck.exe"),
+            PipeServer.PipeName);
         PipeServer.Start();
 
-        var panel = GetOrCreatePanel(application);
+        var projectSetupPanel = GetOrCreatePanel(application, "Project Setup");
+        var dataProcessingPanel = GetOrCreatePanel(application, "Data Processing");
+        var dataCalculationPanel = GetOrCreatePanel(application, "Data Calculation");
+        var diagnosisPanel = GetOrCreatePanel(application, "Diagnosis");
+
         AddWorkflowButton<SetupParametersCommand>(
-            panel,
+            projectSetupPanel,
             "LIMSetupPlantingParameters",
             "Project\nSetup",
             "PS",
             "Shared Parameter Setup",
             "Assign the shared parameter file, import the required planting and i-Tree parameters, and bind them to Project Information and Planting.");
-        AddWorkflowButton<ImportPlantingDataCommand>(
-            panel,
-            "LIMImportPlantingData",
-            "Excel\nImporter",
-            "EX",
-            "Planting Data Import",
-            "Import Excel or Airtable records, detect source units, preview changes, and write mapped Planting type and instance values.");
-        AddWorkflowButton<SearchTreesCommand>(
-            panel,
-            "LIMSearchTrees",
-            "Tree\nSearcher",
-            "TS",
-            "Tree Searcher",
-            "Search the cached i-Tree species catalogue by name or code and assign a species directly to whatever Planting instances or types are currently selected.");
         AddWorkflowButton<DownloadSpeciesScheduleCommand>(
-            panel,
+            projectSetupPanel,
             "LIMDownloadITreeSpecies",
             "i-Tree\nDownloader",
-            "IT",
+            "iDL",
             "i-Tree Downloader",
             "Download the i-Tree species catalog, including Species_Code, common name, scientific name, and species type, and cache it locally for Tree Searcher.");
-        AddWorkflowButton<CalculateITreeCommand>(
-            panel,
-            "LIMCalculateITree",
-            "i-Tree\nCalculator",
-            "CAL",
-            "i-Tree Calculator",
-            "Validate tree inputs, calculate i-Tree benefits, write the WWP output parameters, and report elements with missing inputs.");
-        AddWorkflowButton<SyncLatestCommand>(
-            panel,
-            "LIMSyncLatestPlantingData",
-            "Refresh\nand Audit",
-            "RA",
-            "Refresh and Audit",
-            "Compare with the last pull, reapply changed data, report updates, and identify stale or incomplete planting elements.");
         AddWorkflowButton<FindLocationCommand>(
-            panel,
+            projectSetupPanel,
             "LIMFindLocation",
             "Location\nFinder",
             "LF",
             "Location Finder",
             "Pick a location on a map (or search an address, or read the project's existing Site Location) and publish it to the i-Tree latitude/longitude parameters.");
+
+        AddWorkflowButton<SearchTreesCommand>(
+            dataProcessingPanel,
+            "LIMSearchTrees",
+            "Tree\nSearcher",
+            "TS",
+            "Tree Searcher",
+            "Search the cached i-Tree species catalogue by name or code and assign a species directly to whatever Planting instances or types are currently selected.");
+        AddWorkflowButton<ImportPlantingDataCommand>(
+            dataProcessingPanel,
+            "LIMImportPlantingData",
+            "Excel\nImporter",
+            "EX",
+            "Planting Data Import",
+            "Import Excel or Airtable records, detect source units, preview changes, and write mapped Planting type and instance values.");
+
+        AddWorkflowButton<CalculateITreeCommand>(
+            dataCalculationPanel,
+            "LIMCalculateITree",
+            "i-Tree\nCalculator",
+            "iCAL",
+            "i-Tree Calculator",
+            "Validate tree inputs, calculate i-Tree benefits, write the WWP output parameters, and report elements with missing inputs.");
+        AddWorkflowButton<CalculateFloorCommand>(
+            dataCalculationPanel,
+            "LIMCalculateFloor",
+            "Floor\nCalculator",
+            "FC",
+            "Floor Calculator",
+            "Match selected Floor instances to the WWP landscape data sheet and calculate cost, carbon, air, water, and temperature benefits from the sheet's per-square-metre coefficients.");
+
+        AddWorkflowButton<SyncLatestCommand>(
+            diagnosisPanel,
+            "LIMSyncLatestPlantingData",
+            "Refresh\nand Audit",
+            "RA",
+            "Refresh and Audit",
+            "Compare with the last pull, reapply changed data, report updates, and identify stale or incomplete planting elements.");
+        AddWorkflowButton<RunHealthCheckCommand>(
+            diagnosisPanel,
+            "LIMRunHealthCheck",
+            "Health\nCheck",
+            "HC",
+            "Health Check",
+            "Scan every Planting and Floor element for missing i-Tree or landscape data sheet results, list what still needs attention, and colour the active view red (needs attention) or green (calculated).");
 
         return Result.Succeeded;
     }
@@ -112,6 +141,8 @@ public sealed class App : IExternalApplication
         SyncAuditLauncher?.Dispose();
         TreeSearcherLauncher?.Dispose();
         LocationFinderLauncher?.Dispose();
+        FloorCalculatorLauncher?.Dispose();
+        HealthCheckLauncher?.Dispose();
         PipeServer?.Dispose();
         Dispatcher?.Dispose();
 
@@ -123,15 +154,16 @@ public sealed class App : IExternalApplication
         SyncAuditLauncher = null;
         TreeSearcherLauncher = null;
         LocationFinderLauncher = null;
+        FloorCalculatorLauncher = null;
+        HealthCheckLauncher = null;
         PipeServer = null;
         Dispatcher = null;
         return Result.Succeeded;
     }
 
-    private static RibbonPanel GetOrCreatePanel(UIControlledApplication application)
+    private static RibbonPanel GetOrCreatePanel(UIControlledApplication application, string panelName)
     {
-        const string tabName = "EGIS";
-        const string panelName = "LIM- LANDSCAPE DATA";
+        const string tabName = "LIM";
 
         try
         {
@@ -139,7 +171,7 @@ public sealed class App : IExternalApplication
         }
         catch (Autodesk.Revit.Exceptions.ArgumentException)
         {
-            // Another EGIS add-in already created the shared tab.
+            // Another LIM add-in already created the shared tab.
         }
 
         return application.GetRibbonPanels(tabName)

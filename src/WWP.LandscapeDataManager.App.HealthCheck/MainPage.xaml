@@ -1,0 +1,121 @@
+<Page
+    x:Class="WWP.LandscapeDataManager.App.HealthCheck.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WWP.LandscapeDataManager.App.HealthCheck">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="{StaticResource LimPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Spacing="4">
+            <TextBlock Text="Health Check" Style="{StaticResource LimPageTitleStyle}" />
+            <TextBlock
+                Text="Scans every Planting and Floor element in the model and reports which ones still need attention — a missing shared parameter, a missing i-Tree API key or downloaded data, a missing input, a calculation error, or an unmatched or uncalculated landscape type. Apply the view colours to see problems highlighted red and successes green directly in the active view."
+                Style="{StaticResource LimPageSubtitleStyle}" />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                x:Name="WarningsBanner"
+                Margin="0,14,0,0"
+                Padding="12,10"
+                CornerRadius="6"
+                Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                Visibility="Collapsed">
+            <TextBlock x:Name="WarningsText" Foreground="{StaticResource LimWarningBrush}" TextWrapping="Wrap" />
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="TOTAL SCANNED" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock x:Name="TotalCountText" Text="—" FontSize="22" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="SUCCESS" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock x:Name="SuccessCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource LimSuccessBrush}" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="NEEDS ATTENTION" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock x:Name="NeedsAttentionCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource LimErrorBrush}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="0,16,0,10" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="StatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center"
+                       Text="Select Run health check to scan the current model." />
+            <Button Grid.Column="1" Content="Run health check" Click="RunHealthCheck_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
+            <Button Grid.Column="2" Content="Select" Click="SelectRows_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="3" Content="Zoom to" Click="ZoomRows_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="4" Content="Isolate" Click="IsolateRows_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="5" Content="Apply view colours" Click="ApplyColours_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="6" Content="Reset view colours" Click="ResetColours_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+        </Grid>
+
+        <Grid Grid.Row="4" Padding="8,0" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="90" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="130" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Category" Style="{StaticResource LimColumnHeaderStyle}" />
+            <TextBlock Grid.Column="1" Text="Family Name : Type Name" Style="{StaticResource LimColumnHeaderStyle}" />
+            <TextBlock Grid.Column="2" Text="Status" Style="{StaticResource LimColumnHeaderStyle}" />
+            <TextBlock Grid.Column="3" Text="Reason" Style="{StaticResource LimColumnHeaderStyle}" />
+        </Grid>
+
+        <ListView Grid.Row="5" x:Name="ReportList" ItemsSource="{x:Bind ReportRows}" SelectionMode="Multiple">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="local:HealthCheckRow">
+                    <Grid Padding="8,7" ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{x:Bind Category}" Opacity="0.75" />
+                        <TextBlock Grid.Column="1" Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind DisplayName}" />
+                        <TextBlock Grid.Column="2" Text="{x:Bind Status}" FontWeight="SemiBold" Foreground="{x:Bind StatusBrush}" />
+                        <TextBlock Grid.Column="3" Text="{x:Bind Reason}" TextWrapping="Wrap" Opacity="0.85" />
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <ProgressRing x:Name="BusyIndicator"
+                      Grid.RowSpan="6"
+                      Width="40"
+                      Height="40"
+                      IsActive="False"
+                      Visibility="Collapsed"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center" />
+    </Grid>
+</Page>

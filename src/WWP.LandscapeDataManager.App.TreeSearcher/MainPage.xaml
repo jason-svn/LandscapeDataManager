@@ -9,6 +9,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -16,69 +17,87 @@
         <StackPanel Grid.Row="0" Spacing="4">
             <TextBlock Text="Tree Searcher" Style="{StaticResource LimPageTitleStyle}" />
             <TextBlock
-                Text="Search the cached i-Tree species catalogue and assign a species directly to whatever Planting instances or types are currently selected in Revit — no need to know the code or hunt through a schedule of thousands of entries."
+                Text="Select one or more Planting instances or types in Revit, then load them here — each distinct type becomes a row. Every row is auto-matched to the cached i-Tree species catalogue by family name first; anything unmatched can be searched and assigned manually."
                 Style="{StaticResource LimPageSubtitleStyle}" />
         </StackPanel>
 
         <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
-            <StackPanel Spacing="10">
-                <TextBox x:Name="SearchBox"
-                         Header="Search by common name, scientific name, or species code"
-                         PlaceholderText="e.g. red maple, Acer rubrum, ACRU"
-                         TextChanged="SearchBox_TextChanged" />
-                <TextBlock x:Name="CatalogueStatusText" Style="{StaticResource LimMutedTextStyle}" />
-            </StackPanel>
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="CatalogueStatusText" VerticalAlignment="Center" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                <Button Grid.Column="1" Content="Load selected trees" Click="LoadSelectedTrees_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                <Button Grid.Column="2"
+                        x:Name="AssignAllButton"
+                        Content="Assign all matched"
+                        Click="AssignAll_Click"
+                        IsEnabled="False"
+                        Style="{StaticResource LimPrimaryButtonStyle}" />
+            </Grid>
         </Border>
 
-        <Grid Grid.Row="2" Margin="0,12,0,6">
-            <TextBlock x:Name="ResultsCountText" Style="{StaticResource LimMutedTextStyle}" />
+        <TextBlock Grid.Row="2" x:Name="RowsCountText" Margin="0,12,0,6" Style="{StaticResource LimMutedTextStyle}" />
+
+        <Grid Grid.Row="3" Padding="8,0" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="90" />
+                <ColumnDefinition Width="130" />
+                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Family Name : Type Name" Style="{StaticResource LimColumnHeaderStyle}" />
+            <TextBlock Grid.Column="1" Text="Species Code" Style="{StaticResource LimColumnHeaderStyle}" />
+            <TextBlock Grid.Column="2" Text="Status" Style="{StaticResource LimColumnHeaderStyle}" />
+            <TextBlock Grid.Column="3" Text="Scientific Name" Style="{StaticResource LimColumnHeaderStyle}" />
         </Grid>
 
-        <ListView Grid.Row="3"
-                  x:Name="ResultsList"
-                  ItemsSource="{x:Bind ResultRows}"
-                  SelectionMode="Single"
-                  SelectionChanged="ResultsList_SelectionChanged">
+        <ListView Grid.Row="4" x:Name="RowsList" ItemsSource="{x:Bind Rows}" SelectionMode="None">
             <ListView.ItemTemplate>
-                <DataTemplate x:DataType="local:SpeciesRow">
-                    <Grid Padding="8,7" ColumnSpacing="12">
+                <DataTemplate x:DataType="local:TreeAssignmentRow">
+                    <Grid Padding="8,7" ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="110" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="140" />
-                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="300" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="{x:Bind SpeciesCode}" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="1" Text="{x:Bind CommonName}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="2" Text="{x:Bind ScientificName}" FontStyle="Italic" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="3" Text="{x:Bind SpeciesType}" />
-                        <TextBlock Grid.Column="4" Text="{x:Bind DeprecatedNote}" Foreground="{StaticResource LimWarningBrush}" TextWrapping="Wrap" />
+                        <TextBlock Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind DisplayName}" />
+                        <TextBlock Grid.Column="1" Text="{x:Bind CurrentSpeciesCode, Mode=OneWay}" Opacity="0.75" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2"
+                                   Text="{x:Bind MatchStatus, Mode=OneWay}"
+                                   Foreground="{x:Bind MatchStatusBrush, Mode=OneWay}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <AutoSuggestBox Grid.Column="3"
+                                        Text="{x:Bind SearchQuery, Mode=TwoWay}"
+                                        PlaceholderText="Search species by name or code..."
+                                        ItemsSource="{x:Bind SearchResults, Mode=OneWay}"
+                                        DisplayMemberPath="Display"
+                                        ToolTipService.ToolTip="{x:Bind SearchQuery, Mode=OneWay}"
+                                        TextChanged="RowSearchBox_TextChanged"
+                                        SuggestionChosen="RowSearchBox_SuggestionChosen"
+                                        QuerySubmitted="RowSearchBox_QuerySubmitted" />
+                        <Button Grid.Column="4" Content="Assign" Click="RowAssign_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>
 
-        <Grid Grid.Row="4" Margin="0,12,0,0" ColumnSpacing="10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock x:Name="StatusText"
-                       Text="Type to search, select a species, then assign it to whatever trees are currently selected in Revit."
-                       Style="{StaticResource LimMutedTextStyle}"
-                       VerticalAlignment="Center"
-                       TextWrapping="Wrap" />
-            <Button Grid.Column="1"
-                    x:Name="AssignButton"
-                    Content="Assign to selected trees"
-                    Click="Assign_Click"
-                    IsEnabled="False"
-                    Style="{StaticResource LimPrimaryButtonStyle}" />
-        </Grid>
+        <TextBlock Grid.Row="5"
+                   x:Name="StatusText"
+                   Margin="0,12,0,0"
+                   Text="Select trees in Revit, then click &quot;Load selected trees&quot;."
+                   Style="{StaticResource LimMutedTextStyle}"
+                   TextWrapping="Wrap" />
 
         <ProgressRing x:Name="BusyIndicator"
-                      Grid.RowSpan="5"
+                      Grid.RowSpan="6"
                       Width="40"
                       Height="40"
                       IsActive="False"

@@ -34,6 +34,7 @@ public sealed class ITreeApiClient
 {
     private const string ApiUrl = "https://api.itreetools.org/v3/benefit/";
     private const string SpeciesCatalogUrl = "https://dtbe-api.daveyinstitute.com/v2/getSpecies/";
+    private const double CarbonToCo2MassRatio = 3.67d;
     private static readonly HttpClient HttpClient = new() { Timeout = TimeSpan.FromSeconds(90) };
 
     public async Task<ITreeDownloadResult> DownloadAsync(
@@ -127,7 +128,7 @@ public sealed class ITreeApiClient
         }
 
         var profile = new ITreeExportProfile(
-            Monetary: false, Carbon: true, Hydrology: true, AirQuality: true, Metadata: true,
+            Monetary: true, Carbon: true, Hydrology: true, AirQuality: true, Metadata: true,
             AnnualTimeline: false, CumulativeTimeline: false, FullResponse: false);
         var representatives = signedInputs
             .GroupBy(pair => pair.Signature, StringComparer.Ordinal)
@@ -376,25 +377,43 @@ public sealed class ITreeApiClient
 
         var annual = annualCategory.EnumerateArray().ToList();
         var first = annual[0];
-        var last = annual[^1];
 
         if (profile.Monetary)
         {
-            fields["Annual_Benefit_USD"] =
-                ReadNumber(first, "pollution-avoided", "co2-worth") +
-                ReadNumber(first, "hydrology", "runoff-avoided-worth");
-            fields["Benefit_20yr_USD"] = annual.Sum(year =>
-                ReadNumber(year, "pollution-avoided", "co2-worth") +
-                ReadNumber(year, "hydrology", "runoff-avoided-worth"));
+            // Carbon and storm-water worth are confirmed against the API's own JSON paths (both were
+            // already relied on before this benefit total existed). Air-pollution worth's path is our
+            // best-effort guess by analogy with the other two categories' "<metric>-worth" siblings —
+            // it hasn't been confirmed against a live response. If it ever reads back as 0 while the
+            // public i-Tree "MyTree Benefits" report shows a non-zero Air Pollution Removal $ figure
+            // for the same tree, the path below needs correcting.
+            var carbonWorthAnnual = ReadNumber(first, "pollution-avoided", "co2-worth");
+            var carbonWorth20yr = annual.Sum(year => ReadNumber(year, "pollution-avoided", "co2-worth"));
+            var stormWaterWorthAnnual = ReadNumber(first, "hydrology", "runoff-avoided-worth");
+            var stormWaterWorth20yr = annual.Sum(year => ReadNumber(year, "hydrology", "runoff-avoided-worth"));
+            var airPollutionWorthAnnual = ReadNumber(first, "pollution-removed", "worth");
+            var airPollutionWorth20yr = annual.Sum(year => ReadNumber(year, "pollution-removed", "worth"));
+
+            fields["Annual_CarbonBenefit_USD"] = carbonWorthAnnual;
+            fields["CarbonBenefit_20yr_USD"] = carbonWorth20yr;
+            fields["Annual_StormWaterBenefit_USD"] = stormWaterWorthAnnual;
+            fields["StormWaterBenefit_20yr_USD"] = stormWaterWorth20yr;
+            fields["Annual_AirPollutionBenefit_USD"] = airPollutionWorthAnnual;
+            fields["AirPollutionBenefit_20yr_USD"] = airPollutionWorth20yr;
+            fields["Annual_Benefit_USD"] = carbonWorthAnnual + stormWaterWorthAnnual + airPollutionWorthAnnual;
+            fields["Benefit_20yr_USD"] = carbonWorth20yr + stormWaterWorth20yr + airPollutionWorth20yr;
         }
 
         if (profile.Carbon)
         {
-            fields["Annual_CarbonSequestered_lb"] = KgToPounds(ReadNumber(first, "carbon", "sequestration"));
-            fields["CarbonSequestered_20yr_lb"] = KgToPounds(
-                annual.Sum(year => ReadNumber(year, "carbon", "sequestration")));
-            fields["Annual_CO2eq_lb"] = KgToPounds(ReadNumber(first, "carbon", "storage") * 3.67d);
-            fields["CO2eq_20yr_lb"] = KgToPounds(ReadNumber(last, "carbon", "storage") * 3.67d);
+            var sequesteredAnnualLb = KgToPounds(ReadNumber(first, "carbon", "sequestration"));
+            var sequestered20yrLb = KgToPounds(annual.Sum(year => ReadNumber(year, "carbon", "sequestration")));
+            fields["Annual_CarbonSequestered_lb"] = sequesteredAnnualLb;
+            fields["CarbonSequestered_20yr_lb"] = sequestered20yrLb;
+            // Derived directly from sequestered carbon (standard 3.67 mass ratio of CO2 to C) rather
+            // than a separate API "storage" path, so it always matches the public i-Tree "MyTree
+            // Benefits" report's CO2 Equivalent figure (which tracks Carbon Sequestered x 3.67).
+            fields["Annual_CO2Equivalent_lb"] = Math.Round(sequesteredAnnualLb * CarbonToCo2MassRatio, 6);
+            fields["CO2Equivalent_20yr_lb"] = Math.Round(sequestered20yrLb * CarbonToCo2MassRatio, 6);
         }
 
         if (profile.Hydrology)

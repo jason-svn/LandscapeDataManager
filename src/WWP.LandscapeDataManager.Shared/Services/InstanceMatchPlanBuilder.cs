@@ -1,11 +1,11 @@
-using WWP.LandscapeDataManager.Contracts;
+﻿using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Models;
 
 namespace WWP.LandscapeDataManager.Shared.Services;
 
 /// <summary>
 /// Matches Planting instances to source records purely by stable ID — the
-/// <c>!_S_PLANTING_DataSync_SourceRecordId_Text</c> parameter a Revit instance was previously
+/// <c>!_S_PLT_DataSync_SourceRecordId_Text</c> parameter a Revit instance was previously
 /// paired with, checked against the source record's own ID (Airtable's native record ID, or an
 /// equivalent stable ID column for Excel). Never matches by display name; an instance with no
 /// stable pairing yet is reported, not guessed, so the user can pair it explicitly in Revit.

@@ -1,4 +1,4 @@
-using Autodesk.Revit.DB;
+﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using WWP.LandscapeDataManager.Contracts;
 
@@ -12,18 +12,18 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 /// </summary>
 internal static class PlantingInstanceValidationScanner
 {
-    private const string SpeciesCodeParameter = "!_S_PLANTING_iTreeSpecies_Code_Text";
-    private const string YearsParameter = "!_S_PLANTING_TreeGrowth_Years_Number";
-    private const string ConditionParameter = "!_S_PLANTING_iTreeInput_Condition_Text";
-    private const string CrownExposureParameter = "!_S_PLANTING_iTreeInput_CrownExposure_Number";
-    private const string DbhParameter = "!_S_PLANTING_TreeTrunk_DBH_Diameter";
-    private const string LatitudeParameter = "!_S_PLANTING_iTreeLocation_Latitude_Number";
-    private const string LongitudeParameter = "!_S_PLANTING_iTreeLocation_Longitude_Number";
-    private const string StatusParameter = "!_S_PLANTING_iTreeResult_Status_Text";
-    private const string DetailsParameter = "!_S_PLANTING_iTreeResult_Details_Text";
-    private const string LastUpdatedParameter = "!_S_PLANTING_iTreeResult_LastUpdated_Text";
-    private const string EngineVersionParameter = "!_S_PLANTING_iTreeResult_EngineVersion_Text";
-    private const string InputSignatureParameter = "!_S_PLANTING_iTreeResult_InputSignature_Text";
+    private const string SpeciesCodeParameter = "!_S_PLT_iTreeSpecies_Code_Text";
+    private const string YearsParameter = "!_S_PLT_TreeGrowth_Years_Number";
+    private const string ConditionParameter = "!_S_PLT_iTreeInput_Condition_Text";
+    private const string CrownExposureParameter = "!_S_PLT_iTreeInput_CrownExposure_Number";
+    private const string DbhParameter = "!_S_PLT_TreeTrunk_DBH_Diameter";
+    private const string LatitudeParameter = "!_S_PLT_iTreeLocation_Latitude_Number";
+    private const string LongitudeParameter = "!_S_PLT_iTreeLocation_Longitude_Number";
+    private const string StatusParameter = "!_S_PLT_iTreeResult_Status_Text";
+    private const string DetailsParameter = "!_S_PLT_iTreeResult_Details_Text";
+    private const string LastUpdatedParameter = "!_S_PLT_iTreeResult_LastUpdated_Text";
+    private const string EngineVersionParameter = "!_S_PLT_iTreeResult_EngineVersion_Text";
+    private const string InputSignatureParameter = "!_S_PLT_iTreeResult_InputSignature_Text";
 
     public static ValidatePlantingInstancesResult Scan(UIApplication application, bool selectedOnly = false)
     {

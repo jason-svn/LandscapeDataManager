@@ -1,4 +1,4 @@
-using Autodesk.Revit.DB;
+﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using WWP.LandscapeDataManager.Contracts;
 
@@ -7,7 +7,12 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 internal static class RevitModelScanner
 {
     private const string PreferredUnitSystemParameter =
-        "!_S_PLANTING_iTreeUnits_PreferredSystem_Text";
+        "!_S_PLT_iTreeUnits_PreferredSystem_Text";
+    private const string PreferredCurrencyParameter =
+        "!_S_PLT_iTreeUnits_PreferredCurrency_Text";
+
+    /// <summary>Currencies the i-Tree Calculator currency dropdown offers — kept in sync with <c>CurrencyBox</c> in its XAML.</summary>
+    public static readonly IReadOnlyList<string> SupportedCurrencyCodes = ["USD", "GBP", "EUR", "CAD", "AUD", "NZD"];
 
     private static readonly BuiltInCategory[] SupportedCategories =
     [
@@ -102,12 +107,16 @@ internal static class RevitModelScanner
             .ToList();
 
         var unitPreference = GetPreferredUnitSystem(document);
+        var currencyPreference = GetPreferredCurrency(document);
         return new ParameterCatalogResult(
             document.Title,
             parameters,
             unitPreference.System,
             unitPreference.Source,
-            unitPreference.Warning);
+            unitPreference.Warning,
+            currencyPreference.Code,
+            currencyPreference.Source,
+            currencyPreference.Warning);
     }
 
     public static ITreeInputScanResult GetITreeInputs(
@@ -179,7 +188,7 @@ internal static class RevitModelScanner
         return new ITreeInputScanResult(document.Title, items, skipped);
     }
 
-    private const string SourceRecordIdParameter = "!_S_PLANTING_DataSync_SourceRecordId_Text";
+    private const string SourceRecordIdParameter = "!_S_PLT_DataSync_SourceRecordId_Text";
 
     /// <summary>
     /// Scans Planting instances by stable identity only (Revit <see cref="Element.UniqueId"/> and
@@ -385,6 +394,27 @@ internal static class RevitModelScanner
         return new UnitSystemPreference(fallback, "Revit project units fallback", warning);
     }
 
+    private static CurrencyPreference GetPreferredCurrency(Document document)
+    {
+        var parameter = document.ProjectInformation.LookupParameter(PreferredCurrencyParameter);
+        var configuredValue = parameter?.StorageType == StorageType.String
+            ? parameter.AsString()?.Trim()
+            : null;
+        var match = SupportedCurrencyCodes.FirstOrDefault(code =>
+            string.Equals(code, configuredValue, StringComparison.OrdinalIgnoreCase));
+        if (match is not null)
+        {
+            return new CurrencyPreference(match, "Project Information", null);
+        }
+
+        const string fallback = "USD";
+        var warning = parameter is null
+            ? $"Project Information parameter '{PreferredCurrencyParameter}' is missing. Using {fallback}."
+            : $"Project Information parameter '{PreferredCurrencyParameter}' must be one of {string.Join(", ", SupportedCurrencyCodes)}. " +
+              $"Its current value is '{configuredValue ?? string.Empty}'; using {fallback}.";
+        return new CurrencyPreference(fallback, "Default", warning);
+    }
+
     private static bool IsInPrimaryDesignOption(Element element)
     {
         var designOption = element.DesignOption;
@@ -410,6 +440,11 @@ internal static class RevitModelScanner
 
     private sealed record UnitSystemPreference(
         string System,
+        string Source,
+        string? Warning);
+
+    private sealed record CurrencyPreference(
+        string Code,
         string Source,
         string? Warning);
 }

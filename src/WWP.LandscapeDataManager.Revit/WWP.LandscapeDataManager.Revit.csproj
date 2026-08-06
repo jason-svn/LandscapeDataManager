@@ -72,6 +72,12 @@
     <ProjectReference Include="..\WWP.LandscapeDataManager.App.LocationFinder\WWP.LandscapeDataManager.App.LocationFinder.csproj"
                       ReferenceOutputAssembly="false"
                       SkipGetTargetFrameworkProperties="true" />
+    <ProjectReference Include="..\WWP.LandscapeDataManager.App.FloorCalculator\WWP.LandscapeDataManager.App.FloorCalculator.csproj"
+                      ReferenceOutputAssembly="false"
+                      SkipGetTargetFrameworkProperties="true" />
+    <ProjectReference Include="..\WWP.LandscapeDataManager.App.HealthCheck\WWP.LandscapeDataManager.App.HealthCheck.csproj"
+                      ReferenceOutputAssembly="false"
+                      SkipGetTargetFrameworkProperties="true" />
     <Reference Include="RevitAPI">
       <HintPath>$(RevitInstallDir)\RevitAPI.dll</HintPath>
       <Private>false</Private>
@@ -87,16 +93,20 @@
     <EmbeddedResource Include="..\..\Assets\PS-32.png" LogicalName="LIM.LandscapeData.PS.32.png" />
     <EmbeddedResource Include="..\..\Assets\EX-16.png" LogicalName="LIM.LandscapeData.EX.16.png" />
     <EmbeddedResource Include="..\..\Assets\EX-32.png" LogicalName="LIM.LandscapeData.EX.32.png" />
-    <EmbeddedResource Include="..\..\Assets\IT-16.png" LogicalName="LIM.LandscapeData.IT.16.png" />
-    <EmbeddedResource Include="..\..\Assets\IT-32.png" LogicalName="LIM.LandscapeData.IT.32.png" />
-    <EmbeddedResource Include="..\..\Assets\CAL-16.png" LogicalName="LIM.LandscapeData.CAL.16.png" />
-    <EmbeddedResource Include="..\..\Assets\CAL-32.png" LogicalName="LIM.LandscapeData.CAL.32.png" />
+    <EmbeddedResource Include="..\..\Assets\iDL-16.png" LogicalName="LIM.LandscapeData.iDL.16.png" />
+    <EmbeddedResource Include="..\..\Assets\iDL-32.png" LogicalName="LIM.LandscapeData.iDL.32.png" />
+    <EmbeddedResource Include="..\..\Assets\iCAL-16.png" LogicalName="LIM.LandscapeData.iCAL.16.png" />
+    <EmbeddedResource Include="..\..\Assets\iCAL-32.png" LogicalName="LIM.LandscapeData.iCAL.32.png" />
     <EmbeddedResource Include="..\..\Assets\RA-16.png" LogicalName="LIM.LandscapeData.RA.16.png" />
     <EmbeddedResource Include="..\..\Assets\RA-32.png" LogicalName="LIM.LandscapeData.RA.32.png" />
     <EmbeddedResource Include="..\..\Assets\TS-16.png" LogicalName="LIM.LandscapeData.TS.16.png" />
     <EmbeddedResource Include="..\..\Assets\TS-32.png" LogicalName="LIM.LandscapeData.TS.32.png" />
     <EmbeddedResource Include="..\..\Assets\LF-16.png" LogicalName="LIM.LandscapeData.LF.16.png" />
     <EmbeddedResource Include="..\..\Assets\LF-32.png" LogicalName="LIM.LandscapeData.LF.32.png" />
+    <EmbeddedResource Include="..\..\Assets\FC-16.png" LogicalName="LIM.LandscapeData.FC.16.png" />
+    <EmbeddedResource Include="..\..\Assets\FC-32.png" LogicalName="LIM.LandscapeData.FC.32.png" />
+    <EmbeddedResource Include="..\..\Assets\HC-16.png" LogicalName="LIM.LandscapeData.HC.16.png" />
+    <EmbeddedResource Include="..\..\Assets\HC-32.png" LogicalName="LIM.LandscapeData.HC.32.png" />
   </ItemGroup>
 
   <Target Name="ValidateRevitInstallation" BeforeTargets="ResolveReferences">
@@ -107,6 +117,6 @@
   <Target Name="DeployDebugConnector"
           AfterTargets="Build"
           Condition="('$(Configuration)' == 'Debug' Or '$(Configuration)' == 'Debug 2025' Or '$(Configuration)' == 'Debug 2026') And '$(DesignTimeBuild)' != 'true'">
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\Deployment\Deploy-DebugConnector.ps1&quot; -RevitVersion $(RevitVersion) -ConnectorAssembly &quot;$(TargetPath)&quot; -AppAssembly &quot;$(MSBuildProjectDirectory)\..\..\artifacts\App\WWP.LandscapeDataManager.App.dll&quot; -ToolAssembly &quot;Parameters=$(MSBuildProjectDirectory)\..\..\artifacts\Parameters\WWP.LandscapeDataManager.Parameters.dll;Importer=$(MSBuildProjectDirectory)\..\..\artifacts\Importer\WWP.LandscapeDataManager.Importer.dll;ITreeDownloader=$(MSBuildProjectDirectory)\..\..\artifacts\ITreeDownloader\WWP.LandscapeDataManager.ITreeDownloader.dll;ITreeCalculator=$(MSBuildProjectDirectory)\..\..\artifacts\ITreeCalculator\WWP.LandscapeDataManager.ITreeCalculator.dll;SyncAudit=$(MSBuildProjectDirectory)\..\..\artifacts\SyncAudit\WWP.LandscapeDataManager.SyncAudit.dll;TreeSearcher=$(MSBuildProjectDirectory)\..\..\artifacts\TreeSearcher\WWP.LandscapeDataManager.TreeSearcher.dll;LocationFinder=$(MSBuildProjectDirectory)\..\..\artifacts\LocationFinder\WWP.LandscapeDataManager.LocationFinder.dll&quot;" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\Deployment\Deploy-DebugConnector.ps1&quot; -RevitVersion $(RevitVersion) -ConnectorAssembly &quot;$(TargetPath)&quot; -AppAssembly &quot;$(MSBuildProjectDirectory)\..\..\artifacts\App\WWP.LandscapeDataManager.App.dll&quot; -ToolAssembly &quot;Parameters=$(MSBuildProjectDirectory)\..\..\artifacts\Parameters\WWP.LandscapeDataManager.Parameters.dll;Importer=$(MSBuildProjectDirectory)\..\..\artifacts\Importer\WWP.LandscapeDataManager.Importer.dll;ITreeDownloader=$(MSBuildProjectDirectory)\..\..\artifacts\ITreeDownloader\WWP.LandscapeDataManager.ITreeDownloader.dll;ITreeCalculator=$(MSBuildProjectDirectory)\..\..\artifacts\ITreeCalculator\WWP.LandscapeDataManager.ITreeCalculator.dll;SyncAudit=$(MSBuildProjectDirectory)\..\..\artifacts\SyncAudit\WWP.LandscapeDataManager.SyncAudit.dll;TreeSearcher=$(MSBuildProjectDirectory)\..\..\artifacts\TreeSearcher\WWP.LandscapeDataManager.TreeSearcher.dll;LocationFinder=$(MSBuildProjectDirectory)\..\..\artifacts\LocationFinder\WWP.LandscapeDataManager.LocationFinder.dll;FloorCalculator=$(MSBuildProjectDirectory)\..\..\artifacts\FloorCalculator\WWP.LandscapeDataManager.FloorCalculator.dll;HealthCheck=$(MSBuildProjectDirectory)\..\..\artifacts\HealthCheck\WWP.LandscapeDataManager.HealthCheck.dll&quot;" />
   </Target>
 </Project>

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace WWP.LandscapeDataManager.Contracts;
 
@@ -24,9 +24,16 @@ public static class PipeCommands
     public const string ResetIsolation = "reset-isolation";
     public const string ApplyStatusColourOverrides = "apply-status-colour-overrides";
     public const string ResetColourOverrides = "reset-colour-overrides";
-    public const string AssignSpeciesToSelection = "assign-species-to-selection";
+    public const string GetSelectedPlantingTypes = "get-selected-planting-types";
+    public const string AssignSpeciesBatch = "assign-species-batch";
     public const string GetProjectSiteLocation = "get-project-site-location";
     public const string PublishProjectLocation = "publish-project-location";
+    public const string PublishPreferredCurrency = "publish-preferred-currency";
+    public const string GetProjectSettingsJson = "get-project-settings-json";
+    public const string PublishProjectSettingsJson = "publish-project-settings-json";
+    public const string GetSelectedFloors = "get-selected-floors";
+    public const string CalculateFloorsBatch = "calculate-floors-batch";
+    public const string RunHealthCheck = "run-health-check";
 }
 
 public sealed record PipeRequest(string RequestId, string Command, JsonElement? Payload);
@@ -71,7 +78,10 @@ public sealed record ParameterCatalogResult(
     IReadOnlyList<RevitParameterDescriptor> Parameters,
     string PreferredUnitSystem = "Metric",
     string PreferredUnitSystemSource = "Default",
-    string? UnitSystemWarning = null);
+    string? UnitSystemWarning = null,
+    string PreferredCurrency = "USD",
+    string PreferredCurrencySource = "Default",
+    string? CurrencyWarning = null);
 
 public sealed record ParameterMappingDefinition(
     string AirtableField,
@@ -206,7 +216,7 @@ public sealed record InstanceParameterWriteResult(
 
 /// <summary>
 /// Pairs the single currently-selected Revit element with an external source record by writing
-/// its stable ID into <c>!_S_PLANTING_DataSync_SourceRecordId_Text</c> — the explicit,
+/// its stable ID into <c>!_S_PLT_DataSync_SourceRecordId_Text</c> — the explicit,
 /// user-driven alternative to ever guessing a first-sync match by display name.
 /// </summary>
 public sealed record PairSelectedInstanceRequest(string SourceRecordId);
@@ -238,10 +248,18 @@ public sealed record UpdateSpeciesCatalogueResult(
     int TypesWithEmptySpeciesCode,
     int TotalPlantingTypes);
 
-/// <summary>Writes one chosen species record onto the ElementType of every currently-selected Revit element (deduped by type).</summary>
-public sealed record AssignSpeciesRequest(SpeciesCatalogueRecord Record);
+/// <summary>One distinct Planting ElementType among the current Revit selection, deduped so multiple selected instances of the same type appear once.</summary>
+public sealed record SelectedPlantingTypeItem(string UniqueId, string FamilyName, string TypeName, string? CurrentSpeciesCode);
 
-public sealed record AssignSpeciesResult(string DocumentTitle, IReadOnlyList<string> UpdatedTypeNames);
+public sealed record SelectedPlantingTypesResult(string DocumentTitle, IReadOnlyList<SelectedPlantingTypeItem> Items);
+
+/// <summary>One row's chosen species, targeted at a specific ElementType by its stable UniqueId.</summary>
+public sealed record TypeSpeciesAssignment(string TypeUniqueId, SpeciesCatalogueRecord Record);
+
+/// <summary>Writes each assignment's species record onto its target ElementType, in one transaction.</summary>
+public sealed record AssignSpeciesBatchRequest(IReadOnlyList<TypeSpeciesAssignment> Assignments);
+
+public sealed record AssignSpeciesBatchResult(string DocumentTitle, IReadOnlyList<string> UpdatedTypeNames);
 
 /// <summary>
 /// Whatever location is currently set on the document's built-in Site Location (Manage tab →
@@ -253,6 +271,113 @@ public sealed record ProjectSiteLocationResult(string DocumentTitle, double Lati
 public sealed record PublishProjectLocationRequest(double Latitude, double Longitude);
 
 public sealed record PublishProjectLocationResult(string DocumentTitle, double Latitude, double Longitude);
+
+/// <summary>The project's ISO 4217 currency code (see <c>RevitModelScanner.SupportedCurrencyCodes</c> for the offered list) for reporting i-Tree monetary benefits — same role as <see cref="ParameterCatalogResult.PreferredUnitSystem"/>, just for currency instead of Metric/Imperial.</summary>
+public sealed record PublishPreferredCurrencyRequest(string CurrencyCode);
+
+public sealed record PublishPreferredCurrencyResult(string DocumentTitle, string CurrencyCode);
+
+/// <summary>
+/// Raw JSON stored on <c>!_S_PLT_Settings_Json_Text</c> (a multiline text Project Information
+/// parameter) — opaque at this layer by design, so the Revit side never needs to know the shape of
+/// <c>ProjectSettingsSnapshot</c> (defined in the Shared project, which this Contracts project
+/// cannot reference without a circular dependency). <see cref="SettingsJson"/> is null/empty when
+/// nothing has been saved to this project yet.
+/// </summary>
+public sealed record GetProjectSettingsJsonResult(string DocumentTitle, string? SettingsJson);
+
+public sealed record PublishProjectSettingsJsonRequest(string SettingsJson);
+
+public sealed record PublishProjectSettingsJsonResult(string DocumentTitle);
+
+/// <summary>
+/// One row of the WWP landscape data sheet (Airtable-sourced, cached locally) — the phase 2
+/// coefficient table Floor Calculator matches against. Metric fields are nullable since the
+/// sheet doesn't populate every metric for every row. <see cref="MatchKey"/> is the stable
+/// composite key (Category|SubCategory|TypeName) written onto a Floor once assigned, so a later
+/// recalculation can re-find the exact row without re-matching by name. <see cref="PlantingTypeCode"/>
+/// is the sheet's "Planting type" column — a Revit-facing code (e.g. "WWP_Wetland",
+/// "WWP_Vegetation_Hedge") that Floor families are typically named after directly, so it's matched
+/// first before falling back to Category/SubCategory/Types.
+/// </summary>
+public sealed record WwpLdsCoefficientRecord(
+    string MatchKey,
+    string Origin,
+    string PlantingTypeCode,
+    string Category,
+    string SubCategory,
+    string TypeName,
+    double? CostSavedAnnual,
+    double? OxygenProducedAnnual,
+    double? TotalGwp,
+    double? Co2SequesteredAnnual,
+    double? RunoffAvoidedAnnual,
+    double? SurfaceTempReduction,
+    double? AirTempReduction);
+
+/// <summary>One distinct selected Floor instance, with whatever WWP landscape data sheet type is already assigned (if any).</summary>
+public sealed record SelectedFloorItem(
+    string UniqueId,
+    string FamilyName,
+    string TypeName,
+    double AreaSquareMeters,
+    string? CurrentLdsType,
+    string? CurrentLdsMatchKey);
+
+public sealed record SelectedFloorsResult(string DocumentTitle, IReadOnlyList<SelectedFloorItem> Items);
+
+/// <summary>
+/// The final values to write onto one Floor — already computed client-side (coefficient times
+/// area, or as-is for the two intrinsic temperature fields), with any per-metric manual entry
+/// from the tool's own UI already substituted in. Revit-side just writes these; there's no
+/// separate override parameter to check, since "manual" only ever means "the tool sent a
+/// different number than the coefficient table would have."
+/// </summary>
+public sealed record FloorLdsValues(
+    string LdsType,
+    string MatchKey,
+    string ResultSource,
+    double Co2SequesteredAnnual,
+    double RunoffAvoidedAnnual,
+    double CostSavedAnnual,
+    double OxygenProducedAnnual,
+    double TotalGwp,
+    double SurfaceTempReduction,
+    double AirTempReduction);
+
+public sealed record FloorLdsAssignment(string FloorUniqueId, FloorLdsValues Values);
+
+public sealed record CalculateFloorsBatchRequest(IReadOnlyList<FloorLdsAssignment> Assignments);
+
+public sealed record FloorCalculationRow(string UniqueId, string ResultSource);
+
+public sealed record CalculateFloorsBatchResult(string DocumentTitle, IReadOnlyList<FloorCalculationRow> Rows);
+
+/// <summary>
+/// One Planting or Floor instance reduced to a single Success/NeedsAttention verdict for the
+/// Health Check tool — Status is one of "Success" or "NeedsAttention", matching the colour keys
+/// the Revit-side view-override service already knows how to apply.
+/// </summary>
+public sealed record HealthCheckItem(
+    string UniqueId,
+    string Category,
+    string FamilyName,
+    string TypeName,
+    string Status,
+    string Reason);
+
+/// <summary>
+/// Floor items plus project-wide setup gaps (e.g. a shared parameter never bound at all) that
+/// would otherwise make every single Floor look identically broken for the same root cause.
+/// Planting items are not included here — the client evaluates those itself via
+/// <see cref="ValidatePlantingInstancesResult"/> and the shared PlantingInstanceStatusEvaluator,
+/// the same way i-Tree Calculator and Refresh &amp; Audit already do, so Health Check never
+/// duplicates that business logic.
+/// </summary>
+public sealed record HealthCheckResult(
+    string DocumentTitle,
+    IReadOnlyList<HealthCheckItem> FloorItems,
+    IReadOnlyList<string> ProjectWarnings);
 
 /// <summary>
 /// A single Planting instance's raw i-Tree inputs plus whatever tracking values were stored by

@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Windows.Storage.Pickers;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
@@ -20,10 +22,14 @@ public sealed partial class MainPage : Page
 
     private readonly ITreeApiClient _iTreeApiClient = new();
     private readonly ITreeCredentialStore _iTreeCredentialStore = new();
+    private readonly ExchangeRateService _exchangeRateService = new();
 
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
     private string _preferredUnitSystem = "Metric";
+    private string _preferredCurrency = "USD";
+    private bool _suppressCurrencyChange;
+    private string? _activeFilter;
 
     public MainPage()
     {
@@ -31,6 +37,9 @@ public sealed partial class MainPage : Page
     }
 
     public ObservableCollection<InstanceReportRow> ReportRows { get; } = [];
+
+    /// <summary>The subset of <see cref="ReportRows"/> currently shown in the list — everything when <see cref="_activeFilter"/> is null, or just one status when a summary card is active.</summary>
+    public ObservableCollection<InstanceReportRow> FilteredRows { get; } = [];
 
     public void Initialize(string pipeName, nint windowHandle)
     {
@@ -46,6 +55,24 @@ public sealed partial class MainPage : Page
 
     private async void Validate_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(RefreshReportAsync);
 
+    /// <summary>Persists the currency choice to Project Information immediately, the same way it's read back on every Refresh — so it travels with the project file for the next person who opens it.</summary>
+    private async void CurrencyBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressCurrencyChange || CurrencyBox.SelectedItem is not ComboBoxItem { Content: string code })
+        {
+            return;
+        }
+
+        _preferredCurrency = code;
+        await RunBusyAsync(async () =>
+        {
+            await GetClient().SendAsync<PublishPreferredCurrencyResult>(
+                PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(code));
+            await ProjectSettingsSync.PushAsync(GetClient(), preferredCurrency: code, preferredUnitSystem: _preferredUnitSystem);
+            StatusText.Text = $"Preferred currency set to {code}.";
+        });
+    }
+
     private async Task RefreshReportAsync()
     {
         var selectedOnly = ValidationScopeBox.SelectedIndex == 1;
@@ -54,8 +81,23 @@ public sealed partial class MainPage : Page
             PipeCommands.ValidatePlantingInstances, new ValidatePlantingInstancesRequest(selectedOnly));
         await Task.WhenAll(catalogTask, validationTask);
 
-        _preferredUnitSystem = (await catalogTask).PreferredUnitSystem;
+        var catalog = await catalogTask;
+        _preferredUnitSystem = catalog.PreferredUnitSystem;
+        _preferredCurrency = catalog.PreferredCurrency;
         var validation = await validationTask;
+
+        _suppressCurrencyChange = true;
+        try
+        {
+            CurrencyBox.SelectedItem = CurrencyBox.Items
+                .OfType<ComboBoxItem>()
+                .FirstOrDefault(item => string.Equals((string)item.Content, _preferredCurrency, StringComparison.OrdinalIgnoreCase))
+                ?? CurrencyBox.Items.OfType<ComboBoxItem>().First();
+        }
+        finally
+        {
+            _suppressCurrencyChange = false;
+        }
 
         ReportRows.Clear();
         foreach (var item in validation.Items)
@@ -64,7 +106,9 @@ public sealed partial class MainPage : Page
             ReportRows.Add(new InstanceReportRow(item, status));
         }
 
+        _activeFilter = null;
         UpdateCounts();
+        ApplyFilter();
         StatusText.Text = $"{validation.Items.Count:N0} planting instances validated.";
     }
 
@@ -78,6 +122,42 @@ public sealed partial class MainPage : Page
         InvalidCountText.Text = Count("InvalidInput").ToString("N0");
         WarningCountText.Text = Count("APIWarning").ToString("N0");
         ErrorCountText.Text = Count("APIError").ToString("N0");
+    }
+
+    /// <summary>Clicking the active card again clears the filter; clicking a different one switches to it.</summary>
+    private void StatusCard_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        var status = (string)((FrameworkElement)sender).Tag;
+        _activeFilter = _activeFilter == status ? null : status;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        FilteredRows.Clear();
+        foreach (var row in ReportRows.Where(row => _activeFilter is null || row.Status == _activeFilter))
+        {
+            FilteredRows.Add(row);
+        }
+
+        foreach (var card in new[] { ReadyCard, StaleCard, CalculatedCard, MissingCard, InvalidCard, WarningCard, ErrorCard })
+        {
+            var isActive = _activeFilter is not null && (string)card.Tag == _activeFilter;
+            if (isActive)
+            {
+                card.BorderBrush = (Brush)Application.Current.Resources["LimAccentBrush"];
+                card.BorderThickness = new Thickness(2);
+            }
+            else
+            {
+                card.ClearValue(Border.BorderBrushProperty);
+                card.ClearValue(Border.BorderThicknessProperty);
+            }
+        }
+
+        FilterStatusText.Text = _activeFilter is null
+            ? $"Showing all {ReportRows.Count:N0} row(s) — click a card above to filter the list to just that status."
+            : $"Showing {FilteredRows.Count:N0} {_activeFilter} row(s) — click the card again to show all.";
     }
 
     private IReadOnlyList<string> GetSelectedUniqueIds() =>
@@ -149,13 +229,17 @@ public sealed partial class MainPage : Page
 
         var outcomes = await _iTreeApiClient.CalculateForInstancesAsync(signedInputs, apiKey);
 
+        // One rate lookup per batch, not per tree — the rate doesn't vary by tree, only by currency.
+        var exchangeRate = await _exchangeRateService.GetUsdRateAsync(_preferredCurrency);
+
         var writeItems = new List<InstanceParameterWriteItem>();
         foreach (var (row, (signature, _)) in rows.Zip(signedInputs))
         {
             var outcome = outcomes.GetValueOrDefault(signature);
             var status = outcome?.Error is null ? "Calculated" : "APIError";
             writeItems.AddRange(ITreeInstanceResultMapper.BuildWriteItems(
-                row.UniqueId, status, outcome?.Error, signature, outcome, _preferredUnitSystem));
+                row.UniqueId, status, outcome?.Error, signature, outcome,
+                _preferredUnitSystem, exchangeRate.CurrencyCode, exchangeRate.UsdRate));
         }
 
         await GetClient().SendAsync<InstanceParameterWriteResult>(
@@ -164,7 +248,8 @@ public sealed partial class MainPage : Page
 
         var succeeded = outcomes.Values.Count(o => o.Error is null);
         var failed = outcomes.Values.Count(o => o.Error is not null);
-        CalculateStatusText.Text = $"Calculated {succeeded:N0} unique signature(s), {failed:N0} failed, applied to {rows.Count:N0} instance(s).";
+        var rateNote = exchangeRate.Success ? string.Empty : $" ({exchangeRate.Error})";
+        CalculateStatusText.Text = $"Calculated {succeeded:N0} unique signature(s), {failed:N0} failed, applied to {rows.Count:N0} instance(s) in {exchangeRate.CurrencyCode}.{rateNote}";
 
         await RefreshReportAsync();
     }

@@ -10,6 +10,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -25,6 +26,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="110" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
@@ -37,8 +39,20 @@
                     <ComboBoxItem Content="All planting instances in model" />
                     <ComboBoxItem Content="Current Revit selection only" />
                 </ComboBox>
-                <CheckBox Grid.Column="2" x:Name="RememberKeyCheckBox" Content="Remember" IsChecked="True" VerticalAlignment="Bottom" Margin="0,0,0,8" />
-                <Button Grid.Column="3" Content="Validate" Click="Validate_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
+                <ComboBox Grid.Column="2"
+                          x:Name="CurrencyBox"
+                          Header="Currency"
+                          HorizontalAlignment="Stretch"
+                          SelectionChanged="CurrencyBox_SelectionChanged">
+                    <ComboBoxItem Content="USD" />
+                    <ComboBoxItem Content="GBP" />
+                    <ComboBoxItem Content="EUR" />
+                    <ComboBoxItem Content="CAD" />
+                    <ComboBoxItem Content="AUD" />
+                    <ComboBoxItem Content="NZD" />
+                </ComboBox>
+                <CheckBox Grid.Column="3" x:Name="RememberKeyCheckBox" Content="Remember" IsChecked="True" VerticalAlignment="Bottom" Margin="0,0,0,8" />
+                <Button Grid.Column="4" Content="Validate" Click="Validate_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
             </Grid>
         </Border>
 
@@ -52,30 +66,36 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Border Style="{StaticResource LimCardStyle}" Padding="12">
+            <Border x:Name="ReadyCard" Style="{StaticResource LimCardStyle}" Padding="12" Tag="Ready" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="READY" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ReadyCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
             </Border>
-            <Border Grid.Column="1" Style="{StaticResource LimCardStyle}" Padding="12">
+            <Border x:Name="StaleCard" Grid.Column="1" Style="{StaticResource LimCardStyle}" Padding="12" Tag="Stale" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="STALE" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="StaleCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
             </Border>
-            <Border Grid.Column="2" Style="{StaticResource LimCardStyle}" Padding="12">
+            <Border x:Name="CalculatedCard" Grid.Column="2" Style="{StaticResource LimCardStyle}" Padding="12" Tag="Calculated" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="CALCULATED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="CalculatedCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
             </Border>
-            <Border Grid.Column="3" Style="{StaticResource LimCardStyle}" Padding="12">
+            <Border x:Name="MissingCard" Grid.Column="3" Style="{StaticResource LimCardStyle}" Padding="12" Tag="MissingInput" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="MISSING" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="MissingCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
             </Border>
-            <Border Grid.Column="4" Style="{StaticResource LimCardStyle}" Padding="12">
+            <Border x:Name="InvalidCard" Grid.Column="4" Style="{StaticResource LimCardStyle}" Padding="12" Tag="InvalidInput" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="INVALID" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="InvalidCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
             </Border>
-            <Border Grid.Column="5" Style="{StaticResource LimCardStyle}" Padding="12">
+            <Border x:Name="WarningCard" Grid.Column="5" Style="{StaticResource LimCardStyle}" Padding="12" Tag="APIWarning" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="WARNING" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="WarningCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
             </Border>
-            <Border Grid.Column="6" Style="{StaticResource LimCardStyle}" Padding="12">
+            <Border x:Name="ErrorCard" Grid.Column="6" Style="{StaticResource LimCardStyle}" Padding="12" Tag="APIError" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="ERROR" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ErrorCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
             </Border>
         </Grid>
 
-        <Grid Grid.Row="3" Margin="0,16,0,10" ColumnSpacing="10">
+        <TextBlock Grid.Row="3"
+                   x:Name="FilterStatusText"
+                   Margin="0,8,0,0"
+                   Style="{StaticResource LimMutedTextStyle}"
+                   Text="Showing all rows — click a card above to filter the list to just that status." />
+
+        <Grid Grid.Row="4" Margin="0,16,0,10" ColumnSpacing="10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -96,7 +116,7 @@
             <Button Grid.Column="7" Content="Export report" Click="ExportReport_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
         </Grid>
 
-        <Grid Grid.Row="4" ColumnSpacing="12">
+        <Grid Grid.Row="5" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
@@ -105,7 +125,7 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <ListView x:Name="ReportList" Grid.Row="0" ItemsSource="{x:Bind ReportRows}" SelectionMode="Multiple">
+            <ListView x:Name="ReportList" Grid.Row="0" ItemsSource="{x:Bind FilteredRows}" SelectionMode="Multiple">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="local:InstanceReportRow">
                         <Grid Padding="6" ColumnSpacing="10">
@@ -141,7 +161,7 @@
         </Grid>
 
         <ProgressRing x:Name="BusyIndicator"
-                      Grid.RowSpan="5"
+                      Grid.RowSpan="6"
                       Width="40"
                       Height="40"
                       IsActive="False"

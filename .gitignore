@@ -14,6 +14,9 @@ artifacts/
 *.user
 *.suo
 
+# Secrets — never commit
+.env
+
 # Keep Revit working models and temporary worksharing data out of the code repository.
 *.rvt
 *.rfa

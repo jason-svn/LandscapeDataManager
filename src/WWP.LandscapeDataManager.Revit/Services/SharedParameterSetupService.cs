@@ -1,4 +1,4 @@
-using Autodesk.Revit.DB;
+﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using WWP.LandscapeDataManager.Contracts;
 
@@ -164,37 +164,74 @@ internal static class SharedParameterSetupService
         var missingCategories = ownership.Categories.Where(category =>
             !boundCategoryNames.Contains(document.Settings.Categories.get_Item(category).Name)).ToList();
 
-        if (isInstance != expectedIsInstance || missingCategories.Count > 0)
+        if (isInstance != expectedIsInstance)
         {
-            var reason = isInstance != expectedIsInstance
-                ? $"bound as {(isInstance ? "Instance" : "Type")}, expected {ownership.Scope}"
-                : $"missing categories: {string.Join(", ", missingCategories)}";
             return new SharedParameterSetupRow(
                 ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
-                "Conflict", $"Already bound, but not as expected ({reason}). Left unchanged.", ownership.Description);
+                "Conflict",
+                $"Already bound, but not as expected (bound as {(isInstance ? "Instance" : "Type")}, expected {ownership.Scope}). Left unchanged.",
+                ownership.Description);
         }
 
-        if (!existingGroup.Equals(ownership.Group))
-        {
-            var fromLabel = LabelUtils.GetLabelForGroup(existingGroup);
-            var toLabel = LabelUtils.GetLabelForGroup(ownership.Group);
+        // Adding a category to an existing binding is a safe, additive change — existing values on
+        // already-bound categories are untouched. Only the scope mismatch above is a real conflict,
+        // since Instance/Type bindings aren't interchangeable without risking data loss.
+        var needsCategoryExpansion = missingCategories.Count > 0;
+        var needsRegroup = !existingGroup.Equals(ownership.Group);
 
-            if (!apply)
+        if (!needsCategoryExpansion && !needsRegroup)
+        {
+            return new SharedParameterSetupRow(
+                ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
+                "Already valid", null, ownership.Description);
+        }
+
+        var changeNotes = new List<string>();
+        if (needsCategoryExpansion)
+        {
+            changeNotes.Add($"add categor{(missingCategories.Count == 1 ? "y" : "ies")}: {string.Join(", ", missingCategories)}");
+        }
+
+        if (needsRegroup)
+        {
+            changeNotes.Add($"move from '{LabelUtils.GetLabelForGroup(existingGroup)}' to '{LabelUtils.GetLabelForGroup(ownership.Group)}'");
+        }
+
+        var changeSummary = string.Join("; ", changeNotes) + ".";
+
+        if (!apply)
+        {
+            return new SharedParameterSetupRow(
+                ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
+                "Will update", changeSummary, ownership.Description);
+        }
+
+        if (needsCategoryExpansion)
+        {
+            foreach (var category in missingCategories)
+            {
+                boundCategories.Insert(document.Settings.Categories.get_Item(category));
+            }
+
+            Binding expandedBinding = expectedIsInstance
+                ? application.Application.Create.NewInstanceBinding(boundCategories)
+                : application.Application.Create.NewTypeBinding(boundCategories);
+
+            if (!document.ParameterBindings.ReInsert(internalDefinition, expandedBinding, ownership.Group))
             {
                 return new SharedParameterSetupRow(
                     ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
-                    "Will regroup", $"Currently under '{fromLabel}'; will move to '{toLabel}'.", ownership.Description);
+                    "Error", "Revit rejected the updated parameter binding.", ownership.Description);
             }
-
+        }
+        else if (needsRegroup)
+        {
             internalDefinition.SetGroupTypeId(ownership.Group);
-            return new SharedParameterSetupRow(
-                ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
-                "Regrouped", $"Moved from '{fromLabel}' to '{toLabel}'.", ownership.Description);
         }
 
         return new SharedParameterSetupRow(
             ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
-            "Already valid", null, ownership.Description);
+            "Updated", changeSummary, ownership.Description);
     }
 
     private static (bool IsInstance, CategorySet Categories, ForgeTypeId Group, InternalDefinition Definition)? FindExistingBinding(
@@ -236,6 +273,9 @@ internal static class SharedParameterSetupService
         private static ParameterOwnership ProjectInfo(string name, ForgeTypeId group, string description) =>
             new(name, "Instance", [BuiltInCategory.OST_ProjectInformation], group, description);
 
+        private static ParameterOwnership PlantingAndFloorInstance(string name, ForgeTypeId group, string description) =>
+            new(name, "Instance", [BuiltInCategory.OST_Planting, BuiltInCategory.OST_Floors], group, description);
+
         // Descriptions sourced verbatim from "WWP Planting iTree Project Parameters.xlsx" (the
         // Description column), except where a description referenced the retired Planting Key
         // Schedule — those three now point at Tree Searcher / the i-Tree Downloader instead.
@@ -256,102 +296,240 @@ internal static class SharedParameterSetupService
         public static readonly IReadOnlyList<ParameterOwnership> All =
         [
             // Calculated — driven by the planting family's growth-ratio formulas.
-            PlantingType("!_S_PLANTING_GrowthRatio_HeightbyYear_Number", GroupTypeId.Geometry,
+            PlantingType("!_S_PLT_GrowthRatio_HeightbyYear_Number", GroupTypeId.Geometry,
                 "Type-specific dimensionless annual height-growth ratio used by family formulas."),
-            PlantingType("!_S_PLANTING_GrowthRatio_TrunkDiameterbyYear_Number", GroupTypeId.Geometry,
+            PlantingType("!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number", GroupTypeId.Geometry,
                 "Type-specific dimensionless annual trunk-diameter growth ratio used by family formulas."),
-            PlantingType("!_S_PLANTING_GrowthRatio_WidthbyYear_Number", GroupTypeId.Geometry,
+            PlantingType("!_S_PLT_GrowthRatio_WidthbyYear_Number", GroupTypeId.Geometry,
                 "Type-specific dimensionless annual crown-width growth ratio used by family formulas."),
             // DataSync_InputSignature/LastUpdated/Status/SourceRecordId are bound Instance (not the
             // legacy workbook's Type scope): Planting Data Sync matches and tracks each Revit
             // instance individually by stable ID, so two instances of the same type can be synced
             // from two different source rows. Only SourceName (which dataset, not which record)
             // stays Type-level. All four are optional sync bookkeeping, not required for i-Tree itself.
-            PlantingInstance("!_S_PLANTING_DataSync_InputSignature_Text", GroupTypeId.General,
+            PlantingInstance("!_S_PLT_DataSync_InputSignature_Text", GroupTypeId.General,
                 "Application-managed signature used to detect source or Revit data changes."),
-            PlantingInstance("!_S_PLANTING_DataSync_LastUpdated_Text", GroupTypeId.General,
+            PlantingInstance("!_S_PLT_DataSync_LastUpdated_Text", GroupTypeId.General,
                 "ISO 8601 date and time of the latest successful external-data synchronization."),
-            PlantingInstance("!_S_PLANTING_DataSync_Status_Text", GroupTypeId.General,
+            PlantingInstance("!_S_PLT_DataSync_Status_Text", GroupTypeId.General,
                 "Latest external-data synchronization state for the planting record."),
-            PlantingType("!_S_PLANTING_DataSync_SourceName_Text", GroupTypeId.General,
+            PlantingType("!_S_PLT_DataSync_SourceName_Text", GroupTypeId.General,
                 "Name of the Excel, Airtable, or configured external data source."),
-            PlantingInstance("!_S_PLANTING_DataSync_SourceRecordId_Text", GroupTypeId.General,
+            PlantingInstance("!_S_PLT_DataSync_SourceRecordId_Text", GroupTypeId.General,
                 "Stable external record identifier used to match synchronized planting data."),
             // Required manual input — a person must assign the species (via Tree Searcher or the
             // i-Tree Downloader) before i-Tree can calculate anything for that type.
-            PlantingType("!_S_PLANTING_iTreeSpecies_Code_Text", GroupTypeId.Constraints,
+            PlantingType("!_S_PLT_iTreeSpecies_Code_Text", GroupTypeId.Constraints,
                 "i-Tree species code assigned via Tree Searcher or the i-Tree Downloader."),
             // Optional — descriptive species reference data, not itself consumed as calculation input.
-            PlantingType("!_S_PLANTING_iTreeSpecies_CommonName_Text", GroupTypeId.General,
+            PlantingType("!_S_PLT_iTreeSpecies_CommonName_Text", GroupTypeId.General,
                 "Common species name populated from the i-Tree species catalogue (Tree Searcher or the i-Tree Downloader)."),
-            PlantingType("!_S_PLANTING_iTreeSpecies_ReplaceBy_Text", GroupTypeId.General,
+            PlantingType("!_S_PLT_iTreeSpecies_ReplaceBy_Text", GroupTypeId.General,
                 "Replacement species code returned for a deprecated i-Tree catalogue record."),
-            PlantingType("!_S_PLANTING_iTreeSpecies_ScientificName_Text", GroupTypeId.General,
+            PlantingType("!_S_PLT_iTreeSpecies_ScientificName_Text", GroupTypeId.General,
                 "Scientific species name populated from the i-Tree species catalogue (Tree Searcher or the i-Tree Downloader)."),
-            PlantingType("!_S_PLANTING_iTreeSpecies_Type_Text", GroupTypeId.General,
+            PlantingType("!_S_PLT_iTreeSpecies_Type_Text", GroupTypeId.General,
                 "Taxonomic type returned by the i-Tree species catalogue."),
 
             // Required manual input — typed per instance, and fed straight to the i-Tree API.
-            PlantingInstance("!_S_PLANTING_TreeGrowth_Years_Number", GroupTypeId.Constraints,
+            PlantingInstance("!_S_PLT_TreeGrowth_Years_Number", GroupTypeId.Constraints,
                 "Instance-specific modeled tree age used by family growth formulas."),
-            PlantingInstance("!_S_PLANTING_iTreeInput_Condition_Text", GroupTypeId.Constraints,
+            PlantingInstance("!_S_PLT_iTreeInput_Condition_Text", GroupTypeId.Constraints,
                 "Tree condition: Excellent, Good, Fair, Poor, Critical, Dying, or Dead."),
-            PlantingInstance("!_S_PLANTING_iTreeInput_CrownExposure_Number", GroupTypeId.Constraints,
+            PlantingInstance("!_S_PLT_iTreeInput_CrownExposure_Number", GroupTypeId.Constraints,
                 "Crown light exposure from 0 fully shaded to 5 fully exposed."),
             // Output — the calculation's own status/tracking fields, written by i-Tree Calculator.
-            PlantingInstance("!_S_PLANTING_iTreeResult_Details_Text", GroupTypeId.AnalysisResults,
+            PlantingInstance("!_S_PLT_iTreeResult_Details_Text", GroupTypeId.AnalysisResults,
                 "Missing-input, validation, warning, or API-error details for the tree instance."),
-            PlantingInstance("!_S_PLANTING_iTreeResult_EngineVersion_Text", GroupTypeId.AnalysisResults,
+            PlantingInstance("!_S_PLT_iTreeResult_EngineVersion_Text", GroupTypeId.AnalysisResults,
                 "i-Tree engine or database version used for the latest result."),
-            PlantingInstance("!_S_PLANTING_iTreeResult_InputSignature_Text", GroupTypeId.AnalysisResults,
+            PlantingInstance("!_S_PLT_iTreeResult_InputSignature_Text", GroupTypeId.AnalysisResults,
                 "Application-managed signature used to detect stale calculated results."),
-            PlantingInstance("!_S_PLANTING_iTreeResult_LastUpdated_Text", GroupTypeId.AnalysisResults,
+            PlantingInstance("!_S_PLT_iTreeResult_LastUpdated_Text", GroupTypeId.AnalysisResults,
                 "ISO 8601 date and time of the last successful i-Tree calculation."),
-            PlantingInstance("!_S_PLANTING_iTreeResult_Status_Text", GroupTypeId.AnalysisResults,
+            PlantingInstance("!_S_PLT_iTreeResult_Status_Text", GroupTypeId.AnalysisResults,
                 "Calculation state such as Ready, MissingInput, InvalidInput, Calculated, APIWarning, APIError, or Stale."),
-            PlantingInstance("!_S_PLANTING_iTreeResult_UnitSystem_Text", GroupTypeId.AnalysisResults,
+            PlantingInstance("!_S_PLT_iTreeResult_UnitSystem_Text", GroupTypeId.AnalysisResults,
                 "Unit system currently applied to the numeric i-Tree results: Metric or Imperial."),
+            PlantingInstance("!_S_PLT_iTreeResult_CurrencyUsed_Text", GroupTypeId.AnalysisResults,
+                "Currency the numeric i-Tree monetary results (CostSaved and its three category components, annual and lifetime) were converted into for this instance's latest calculation: USD, GBP, EUR, CAD, AUD, or NZD."),
+            PlantingInstance("!_S_PLT_iTreeResult_ExchangeRateUsed_Number", GroupTypeId.AnalysisResults,
+                "USD exchange rate applied to this instance's latest monetary results (1.0 when CurrencyUsed is USD). Recorded so a historical calculation's dollar figures can be reconstructed even as rates change."),
             // Calculated — computed by the planting family's formulas (driven by the growth ratios
             // above and the modeled tree age), not typed directly onto the instance.
-            PlantingInstance("!_S_PLANTING_TreeFoliage_Height", GroupTypeId.Geometry,
-                "Live instance vertical foliage or crown depth calculated by the planting family."),
-            PlantingInstance("!_S_PLANTING_TreeFoliage_Width", GroupTypeId.Geometry,
-                "Live instance crown width calculated by the planting family."),
-            PlantingInstance("!_S_PLANTING_TreeOverall_Height", GroupTypeId.Geometry,
-                "Live instance total tree height supplied to i-Tree."),
-            PlantingInstance("!_S_PLANTING_TreeTrunk_DBH_Diameter", GroupTypeId.Geometry,
-                "Live instance trunk diameter at breast height measured 1.37 metres above ground."),
-            PlantingInstance("!_S_PLANTING_TreeTrunk_Diameter", GroupTypeId.Geometry,
-                "Live instance modeled trunk diameter."),
-            PlantingInstance("!_S_PLANTING_TreeTrunk_Height", GroupTypeId.Geometry,
-                "Live instance clear trunk height calculated by the planting family."),
-            // Output — the i-Tree API's own benefit results.
-            PlantingInstance("!_S_PLANTING_iTreeAir_CORemovedAnnual_Number", GroupTypeId.AnalysisResults,
-                "Annual carbon-monoxide removal; metric values use kilograms and imperial values use ounces."),
-            PlantingInstance("!_S_PLANTING_iTreeAir_NO2RemovedAnnual_Number", GroupTypeId.AnalysisResults,
-                "Annual nitrogen-dioxide removal; metric values use kilograms and imperial values use ounces."),
-            PlantingInstance("!_S_PLANTING_iTreeAir_O3RemovedAnnual_Number", GroupTypeId.AnalysisResults,
-                "Annual ozone removal; metric values use kilograms and imperial values use ounces."),
-            PlantingInstance("!_S_PLANTING_iTreeAir_PM25RemovedAnnual_Number", GroupTypeId.AnalysisResults,
-                "Annual PM2.5 removal; metric values use kilograms and imperial values use ounces."),
-            PlantingInstance("!_S_PLANTING_iTreeAir_SO2RemovedAnnual_Number", GroupTypeId.AnalysisResults,
-                "Annual sulfur-dioxide removal; metric values use kilograms and imperial values use ounces."),
-            PlantingInstance("!_S_PLANTING_iTreeCarbon_CO2SequesteredAnnual_Number", GroupTypeId.AnalysisResults,
-                "Annual carbon-dioxide sequestration; metric values use kilograms and imperial values use pounds."),
-            PlantingInstance("!_S_PLANTING_iTreeWater_RainfallInterceptedAnnual_Volume", GroupTypeId.AnalysisResults,
-                "Annual rainfall interception for the modeled tree instance; converted from API cubic metres to Revit volume units."),
-            PlantingInstance("!_S_PLANTING_iTreeWater_RunoffAvoidedAnnual_Volume", GroupTypeId.AnalysisResults,
-                "Annual avoided runoff for the modeled tree instance; converted from API cubic metres to Revit volume units."),
+            PlantingInstance("!_S_PLT_TreeFoliage_Height", GroupTypeId.Geometry,
+                "Live instance vertical foliage or crown depth calculated by the planting family. Metric: m. Imperial: ft (per the project's Length unit settings)."),
+            PlantingInstance("!_S_PLT_TreeFoliage_Width", GroupTypeId.Geometry,
+                "Live instance crown width calculated by the planting family. Metric: m. Imperial: ft (per the project's Length unit settings)."),
+            PlantingInstance("!_S_PLT_TreeOverall_Height", GroupTypeId.Geometry,
+                "Live instance total tree height supplied to i-Tree. Metric: m. Imperial: ft (per the project's Length unit settings)."),
+            PlantingInstance("!_S_PLT_TreeTrunk_DBH_Diameter", GroupTypeId.Geometry,
+                "Live instance trunk diameter at breast height measured 1.37 metres above ground. Metric: cm. Imperial: in (per the project's Length unit settings)."),
+            PlantingInstance("!_S_PLT_TreeTrunk_Diameter", GroupTypeId.Geometry,
+                "Live instance modeled trunk diameter. Metric: cm. Imperial: in (per the project's Length unit settings)."),
+            PlantingInstance("!_S_PLT_TreeTrunk_Height", GroupTypeId.Geometry,
+                "Live instance clear trunk height calculated by the planting family. Metric: m. Imperial: ft (per the project's Length unit settings)."),
+            // Output — the i-Tree API's own benefit results. Unified under the iTreeResult_
+            // prefix (previously split across iTreeAir_/iTreeWater_/iTreeCarbon_) so every
+            // i-Tree-sourced benefit reads as one consistent family in the Properties palette.
+            PlantingInstance("!_S_PLT_iTreeResult_CORemovedAnnual_Number", GroupTypeId.AnalysisResults,
+                "Annual carbon-monoxide removal. Metric: kg. Imperial: oz."),
+            PlantingInstance("!_S_PLT_iTreeResult_NO2RemovedAnnual_Number", GroupTypeId.AnalysisResults,
+                "Annual nitrogen-dioxide removal. Metric: kg. Imperial: oz."),
+            PlantingInstance("!_S_PLT_iTreeResult_O3RemovedAnnual_Number", GroupTypeId.AnalysisResults,
+                "Annual ozone removal. Metric: kg. Imperial: oz."),
+            PlantingInstance("!_S_PLT_iTreeResult_PM25RemovedAnnual_Number", GroupTypeId.AnalysisResults,
+                "Annual PM2.5 removal. Metric: kg. Imperial: oz."),
+            PlantingInstance("!_S_PLT_iTreeResult_SO2RemovedAnnual_Number", GroupTypeId.AnalysisResults,
+                "Annual sulfur-dioxide removal. Metric: kg. Imperial: oz."),
+            // Bound to both Planting and Floors: i-Tree Calculator writes these for trees; the
+            // Floor Calculator writes them for floors (from the WWP LDS coefficient table times
+            // area) — same two parameters either way, so a schedule mixing both element types
+            // still shows one consistent CO2/runoff column instead of two parallel ones.
+            PlantingAndFloorInstance("!_S_PLT_iTreeResult_CO2SequesteredAnnual_Number", GroupTypeId.AnalysisResults,
+                "Annual carbon-dioxide sequestration. Metric: kg. Imperial: lb — for trees, i-Tree Calculator converts to the project's preferred system; for floors, Floor Calculator always writes the landscape data sheet's metric kg value as-is."),
+            PlantingInstance("!_S_PLT_iTreeResult_RainfallInterceptedAnnual_Volume", GroupTypeId.AnalysisResults,
+                "Annual rainfall interception for the modeled tree instance. Metric: m³. Imperial: ft³ (Revit Volume parameter — displays per the project's Volume unit settings)."),
+            PlantingAndFloorInstance("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume", GroupTypeId.AnalysisResults,
+                "Annual avoided runoff. Metric: m³. Imperial: ft³ (Revit Volume parameter — displays per the project's Volume unit settings). For floors, Floor Calculator always writes the landscape data sheet's metric m³ value as-is."),
+            // Bound to both Planting and Floors, same reuse pattern as CO2/runoff above: i-Tree
+            // Calculator writes this for trees (from the API's own monetary benefit figure);
+            // Floor Calculator writes it for floors (from the WWP LDS coefficient table times area).
+            PlantingAndFloorInstance("!_S_PLT_iTreeResult_CostSavedAnnual_Number", GroupTypeId.AnalysisResults,
+                "Estimated annual cost saved — for trees, i-Tree Calculator's calculated annual monetary benefit; for floors, the WWP landscape data sheet's per-square-metre coefficient times area. Currency as entered/reported — not a physical unit, so there is no Metric/Imperial conversion."),
+            // Output — CO2 Equivalent and the per-category dollar breakdown behind CostSavedAnnual.
+            // Trees only: neither has a Floor/LDS equivalent, so unlike the results above these
+            // aren't PlantingAndFloorInstance.
+            PlantingInstance("!_S_PLT_iTreeResult_CO2EquivalentAnnual_Number", GroupTypeId.AnalysisResults,
+                "Annual CO2 equivalent of sequestered carbon (sequestered carbon × 3.67). Metric: kg. Imperial: lb."),
+            PlantingInstance("!_S_PLT_iTreeResult_CarbonCostSavedAnnual_Number", GroupTypeId.AnalysisResults,
+                "Annual carbon-benefit dollar value — one of three components summed into CostSavedAnnual for trees."),
+            PlantingInstance("!_S_PLT_iTreeResult_StormWaterCostSavedAnnual_Number", GroupTypeId.AnalysisResults,
+                "Annual storm-water-benefit dollar value — one of three components summed into CostSavedAnnual for trees."),
+            PlantingInstance("!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Number", GroupTypeId.AnalysisResults,
+                "Annual air-quality-benefit dollar value — one of three components summed into CostSavedAnnual for trees."),
+            // Output — lifetime cumulative i-Tree results, parallel to the Annual set above. "Lifetime"
+            // here means summed over however many years the instance's own TreeGrowth_Years input is
+            // set to — the API returns one entry per requested year and these sum all of them, so a
+            // tree modeled at Years=25 gets a 25-year total, not a fixed 20-year one. Trees only:
+            // Floor Calculator has no equivalent multi-year projection, so none of these are
+            // PlantingAndFloorInstance even where their Annual counterpart is.
+            PlantingInstance("!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Number", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative carbon-dioxide sequestration, summed over the instance's modeled TreeGrowth_Years. Metric: kg. Imperial: lb."),
+            PlantingInstance("!_S_PLT_iTreeResult_CORemovedLifetimeTotal_Number", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative carbon-monoxide removal, summed over the instance's modeled TreeGrowth_Years. Metric: kg. Imperial: oz."),
+            PlantingInstance("!_S_PLT_iTreeResult_NO2RemovedLifetimeTotal_Number", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative nitrogen-dioxide removal, summed over the instance's modeled TreeGrowth_Years. Metric: kg. Imperial: oz."),
+            PlantingInstance("!_S_PLT_iTreeResult_O3RemovedLifetimeTotal_Number", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative ozone removal, summed over the instance's modeled TreeGrowth_Years. Metric: kg. Imperial: oz."),
+            PlantingInstance("!_S_PLT_iTreeResult_SO2RemovedLifetimeTotal_Number", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative sulfur-dioxide removal, summed over the instance's modeled TreeGrowth_Years. Metric: kg. Imperial: oz."),
+            PlantingInstance("!_S_PLT_iTreeResult_PM25RemovedLifetimeTotal_Number", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative PM2.5 removal, summed over the instance's modeled TreeGrowth_Years. Metric: kg. Imperial: oz."),
+            PlantingInstance("!_S_PLT_iTreeResult_RainfallInterceptedLifetimeTotal_Volume", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative rainfall interception for the modeled tree instance, summed over its modeled TreeGrowth_Years. Metric: m³. Imperial: ft³ (Revit Volume parameter — displays per the project's Volume unit settings)."),
+            PlantingInstance("!_S_PLT_iTreeResult_RunoffAvoidedLifetimeTotal_Volume", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative avoided runoff for the modeled tree instance, summed over its modeled TreeGrowth_Years. Metric: m³. Imperial: ft³ (Revit Volume parameter — displays per the project's Volume unit settings)."),
+            PlantingInstance("!_S_PLT_iTreeResult_CostSavedLifetimeTotal_Number", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative estimated cost saved, from i-Tree Calculator's calculated monetary benefit summed over the instance's modeled TreeGrowth_Years. Currency as reported — not a physical unit, so there is no Metric/Imperial conversion."),
+            PlantingInstance("!_S_PLT_iTreeResult_CO2EquivalentLifetimeTotal_Number", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative CO2 equivalent of sequestered carbon (sequestered carbon × 3.67), summed over the instance's modeled TreeGrowth_Years. Metric: kg. Imperial: lb."),
+            PlantingInstance("!_S_PLT_iTreeResult_CarbonCostSavedLifetimeTotal_Number", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative carbon-benefit dollar value — one of three components summed into CostSavedLifetimeTotal."),
+            PlantingInstance("!_S_PLT_iTreeResult_StormWaterCostSavedLifetimeTotal_Number", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative storm-water-benefit dollar value — one of three components summed into CostSavedLifetimeTotal."),
+            PlantingInstance("!_S_PLT_iTreeResult_AirPollutionCostSavedLifetimeTotal_Number", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative air-quality-benefit dollar value — one of three components summed into CostSavedLifetimeTotal."),
 
             // Required manual input — location must be provided (typed, or via Location Finder)
             // before i-Tree can calculate anything for the project.
-            ProjectInfo("!_S_PLANTING_iTreeLocation_Latitude_Number", GroupTypeId.Constraints,
+            ProjectInfo("!_S_PLT_iTreeLocation_Latitude_Number", GroupTypeId.Constraints,
                 "Decimal latitude used by i-Tree; bind as an instance parameter to Project Information."),
-            ProjectInfo("!_S_PLANTING_iTreeLocation_Longitude_Number", GroupTypeId.Constraints,
+            ProjectInfo("!_S_PLT_iTreeLocation_Longitude_Number", GroupTypeId.Constraints,
                 "Decimal longitude used by i-Tree; bind as an instance parameter to Project Information."),
             // Optional — a display/reporting preference, not consumed by the i-Tree API itself.
-            ProjectInfo("!_S_PLANTING_iTreeUnits_PreferredSystem_Text", GroupTypeId.General,
-                "Project Information preference for reporting i-Tree data as Metric or Imperial.")
+            ProjectInfo("!_S_PLT_iTreeUnits_PreferredSystem_Text", GroupTypeId.General,
+                "Project Information preference for reporting i-Tree data as Metric or Imperial."),
+            // Set via the i-Tree Calculator currency dropdown (which writes it back through
+            // PublishPreferredCurrency), not typed free-form — RevitModelScanner.SupportedCurrencyCodes
+            // is the source of truth for the offered list, mirrored in this description for anyone
+            // reading Properties without the tool open.
+            ProjectInfo("!_S_PLT_iTreeUnits_PreferredCurrency_Text", GroupTypeId.General,
+                "Project Information preference for reporting i-Tree monetary benefits in USD, GBP, EUR, CAD, AUD, or NZD."),
+            // Multiline text — a JSON blob, not a human-typed value. Apps read/write this through
+            // GetProjectSettingsJson/PublishProjectSettingsJson; see Shared.Services.ProjectSettingsSnapshot
+            // for the shape. Project-wins by design: apps overwrite their own local machine settings
+            // from this on every load, so it's this parameter — not any one machine — that's the
+            // durable record once a project has been saved with settings at least once.
+            ProjectInfo("!_S_PLT_Settings_Json_Text", GroupTypeId.General,
+                "Consolidated JSON snapshot of non-secret tool settings (unit system, currency, location, data source, parameter mappings, type aliases) so they travel with the project file. Never contains API keys or tokens."),
+
+            // --- Phase 2: Floor Calculator (WWP landscape data sheet coefficients) ---
+            // Bound to both Planting and Floors, not Floors alone: these Revit Floor elements
+            // represent planted/paved landscape areas (lawn, meadow, hardscape), not building
+            // floors, so they share the PLANTING parameter family — and it means these fields
+            // are already available if a future update lets Planting instances fall back to the
+            // coefficient table too, not just i-Tree. There's no manual-override parameter here:
+            // Floor Calculator lets you edit a value before writing it, so "manual" only ever
+            // shows up as a different number in ResultSource — never a second parameter to check.
+            //
+            // Required manual input — a person must assign the landscape type (via Floor
+            // Calculator's search/match) before a coefficient row can be looked up for it.
+            PlantingAndFloorInstance("!_S_PLT_LDS_Type_Text", GroupTypeId.Constraints,
+                "WWP landscape data sheet type assigned via Floor Calculator (e.g. Lawn, Meadow, Granite - Blanco Cristal)."),
+            // Optional — internal bookkeeping, not something a person reads directly.
+            PlantingAndFloorInstance("!_S_PLT_LDS_MatchKey_Text", GroupTypeId.General,
+                "Stable lookup key into the cached WWP landscape data sheet, used to re-find the exact coefficient row without re-matching."),
+            // Output — Floor Calculator's own status/tracking fields, mirroring i-Tree Calculator's pattern.
+            PlantingAndFloorInstance("!_S_PLT_LDS_ResultSource_Text", GroupTypeId.AnalysisResults,
+                "Whether the currently written values came from the coefficient table as calculated, or were edited manually in Floor Calculator before writing."),
+            PlantingAndFloorInstance("!_S_PLT_LDS_LastCalculated_Text", GroupTypeId.AnalysisResults,
+                "ISO 8601 date and time of the last Floor Calculator run for this element."),
+            // Output — the WWP landscape data sheet's per-square-metre coefficients times area,
+            // for metrics with no i-Tree equivalent to reuse. (CostSavedAnnual moved up to the
+            // iTreeResult_ group above — it's now shared with the i-Tree tree-benefit result.)
+            PlantingAndFloorInstance("!_S_PLT_LDS_OxygenProducedAnnual_Number", GroupTypeId.AnalysisResults,
+                "Estimated annual oxygen produced, from the WWP landscape data sheet's per-square-metre coefficient times area. Metric: kg. (The landscape data sheet is metric-only — Floor Calculator does not convert to Imperial.)"),
+            PlantingAndFloorInstance("!_S_PLT_LDS_TotalGWP_Number", GroupTypeId.AnalysisResults,
+                "Total global warming potential (product plus transport) from the WWP landscape data sheet's per-square-metre coefficient times area — an embodied-impact figure, not a benefit. Metric: kg CO2e. (Metric-only — no Imperial conversion.)"),
+            PlantingAndFloorInstance("!_S_PLT_LDS_SurfaceTempReduction_Number", GroupTypeId.AnalysisResults,
+                "Surface temperature reduction for this landscape type, from the WWP landscape data sheet — an intrinsic material property, not scaled by area. Metric: °C. (Metric-only — no Imperial conversion.)"),
+            PlantingAndFloorInstance("!_S_PLT_LDS_AirTempReduction_Number", GroupTypeId.AnalysisResults,
+                "Air temperature reduction at 1.5m height for this landscape type, from the WWP landscape data sheet — an intrinsic material property, not scaled by area. Metric: °C. (Metric-only — no Imperial conversion.)"),
+
+            // Optional — descriptive landscape-type reference data from the WWP landscape data
+            // sheet, same bucket as the i-Tree species reference fields above.
+            PlantingAndFloorInstance("!_S_PLT_LDS_Origin_Text", GroupTypeId.General,
+                "Geographic origin of the landscape type, from the WWP landscape data sheet."),
+            // Recycled from the pre-existing "Données d'indentification" group (same GUIDs, moved
+            // into this group and given a description) rather than minting new duplicates — they
+            // predate this parameter family but were never wired into EnsureParameters.
+            PlantingAndFloorInstance("WWP_LDS_CalculationType", GroupTypeId.General,
+                "Landscape type classification (e.g. Tree, Shrub species, Surfaces), from the WWP landscape data sheet."),
+            PlantingAndFloorInstance("WWP_LDS_Category", GroupTypeId.General,
+                "Landscape data sheet category for this type, from the WWP landscape data sheet."),
+            PlantingAndFloorInstance("WWP_LDS_SubCategory", GroupTypeId.General,
+                "Landscape data sheet sub-category for this type, from the WWP landscape data sheet."),
+            // Output — additional WWP landscape data sheet coefficients times area, same pattern as
+            // CostSavedAnnual/OxygenProducedAnnual above.
+            PlantingAndFloorInstance("WWP_Maintenance_Cost", GroupTypeId.AnalysisResults,
+                "Estimated annual maintenance cost, from the WWP landscape data sheet's per-square-metre coefficient times area. Currency as entered in the sheet — not a physical unit, so there is no Metric/Imperial conversion."),
+            PlantingAndFloorInstance("WWP_Pollutants_Removed", GroupTypeId.AnalysisResults,
+                "Estimated annual pollutants removed, from the WWP landscape data sheet's per-square-metre coefficient times area. Metric: kg. (Metric-only — no Imperial conversion.)"),
+            PlantingAndFloorInstance("!_S_PLT_LDS_ProductGWP_Number", GroupTypeId.AnalysisResults,
+                "Embodied product global warming potential, from the WWP landscape data sheet — a component of total GWP, not scaled by area. Metric: kg CO2e/m². (Metric-only — no Imperial conversion.)"),
+            PlantingAndFloorInstance("!_S_PLT_LDS_TransportGWP_Number", GroupTypeId.AnalysisResults,
+                "Embodied transport global warming potential, from the WWP landscape data sheet — a component of total GWP, not scaled by area. Metric: kg CO2e/m². (Metric-only — no Imperial conversion.)"),
+            PlantingAndFloorInstance("!_S_PLT_LDS_PollenAnnual_Number", GroupTypeId.AnalysisResults,
+                "Estimated annual pollen production, from the WWP landscape data sheet. Metric: kg/m²/yr. (Metric-only — no Imperial conversion.)"),
+            // Output — intrinsic reference values from the WWP landscape data sheet, same bucket as
+            // SurfaceTempReduction/AirTempReduction above (not scaled by area).
+            PlantingAndFloorInstance("!_S_PLT_LDS_MaxHeight_Number", GroupTypeId.AnalysisResults,
+                "Maximum mature height for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area. Metric: m. (Metric-only — no Imperial conversion.)"),
+            PlantingAndFloorInstance("!_S_PLT_LDS_MaxWidth_Number", GroupTypeId.AnalysisResults,
+                "Maximum mature width/spread for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area. Metric: m. (Metric-only — no Imperial conversion.)"),
+            PlantingAndFloorInstance("!_S_PLT_LDS_IrrigationDemandFactor_Number", GroupTypeId.AnalysisResults,
+                "Irrigation demand plant factor for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.")
         ];
     }
 }

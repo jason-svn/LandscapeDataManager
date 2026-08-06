@@ -10,6 +10,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -108,7 +109,21 @@
             </Border>
         </Grid>
 
-        <ListView Grid.Row="4" ItemsSource="{x:Bind ResultRows}" SelectionMode="None">
+        <Grid Grid.Row="4" Padding="8,0" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="36" />
+                <ColumnDefinition Width="110" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="90" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="1" Text="Status" Style="{StaticResource LimColumnHeaderStyle}" />
+            <TextBlock Grid.Column="2" Text="Parameter Name" Style="{StaticResource LimColumnHeaderStyle}" />
+            <TextBlock Grid.Column="3" Text="Scope" Style="{StaticResource LimColumnHeaderStyle}" />
+            <TextBlock Grid.Column="4" Text="Message" Style="{StaticResource LimColumnHeaderStyle}" />
+        </Grid>
+
+        <ListView Grid.Row="5" ItemsSource="{x:Bind ResultRows}" SelectionMode="None">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:SetupRow">
                     <Grid Padding="8,7" ColumnSpacing="12" ToolTipService.ToolTip="{x:Bind Description}">
@@ -130,7 +145,7 @@
         </ListView>
 
         <ProgressRing x:Name="BusyIndicator"
-                      Grid.RowSpan="5"
+                      Grid.RowSpan="6"
                       Width="40"
                       Height="40"
                       IsActive="False"
