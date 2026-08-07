@@ -34,6 +34,7 @@ public static class PipeCommands
     public const string GetSelectedFloors = "get-selected-floors";
     public const string CalculateFloorsBatch = "calculate-floors-batch";
     public const string RunHealthCheck = "run-health-check";
+    public const string GetDashboardReport = "get-dashboard-report";
 }
 
 public sealed record PipeRequest(string RequestId, string Command, JsonElement? Payload);
@@ -413,6 +414,94 @@ public sealed record ElementSelectionRequest(IReadOnlyList<string> UniqueIds);
 public sealed record StatusColourOverrideRequest(IReadOnlyDictionary<string, string> StatusByUniqueId);
 
 public sealed record OperationResult(bool Success, string? Message = null);
+
+/// <summary>
+/// One distinct Design Option combination an element can sit in. <see cref="SetName"/>/<see cref="OptionName"/>
+/// are both null when the element isn't part of any Design Option set at all (the ordinary case for
+/// most models) — <see cref="IsPrimary"/> is true for both that case and for the primary option of a
+/// set, matching how <c>RevitModelScanner.IsInPrimaryDesignOption</c> already treats "no set" as primary.
+/// </summary>
+public sealed record DesignOptionInfo(string? SetName, string? OptionName, bool IsPrimary);
+
+/// <summary>
+/// One Planting instance's identity, placement, and every stored i-Tree benefit result (Annual and
+/// LifetimeTotal pairs), read back as-is — no aggregation, no unit/currency normalization. That happens
+/// client-side in <c>DashboardAggregationService</c> using <see cref="StoredUnitSystem"/>/
+/// <see cref="StoredCurrency"/>/<see cref="StoredExchangeRateUsed"/> to know what basis these raw
+/// numbers are actually in.
+/// </summary>
+public sealed record DashboardTreeItem(
+    string UniqueId,
+    long ElementId,
+    string FamilyName,
+    string TypeName,
+    string? SpeciesCode,
+    string? CommonName,
+    string? ScientificName,
+    string? SpeciesType,
+    string? LevelName,
+    DesignOptionInfo DesignOption,
+    string Status,
+    string StoredUnitSystem,
+    string StoredCurrency,
+    double StoredExchangeRateUsed,
+    double CO2SequesteredAnnual,
+    double CO2SequesteredLifetimeTotal,
+    double CORemovedAnnual,
+    double CORemovedLifetimeTotal,
+    double NO2RemovedAnnual,
+    double NO2RemovedLifetimeTotal,
+    double O3RemovedAnnual,
+    double O3RemovedLifetimeTotal,
+    double PM25RemovedAnnual,
+    double PM25RemovedLifetimeTotal,
+    double SO2RemovedAnnual,
+    double SO2RemovedLifetimeTotal,
+    double CostSavedAnnual,
+    double CostSavedLifetimeTotal,
+    double CarbonCostSavedAnnual,
+    double CarbonCostSavedLifetimeTotal,
+    double StormWaterCostSavedAnnual,
+    double StormWaterCostSavedLifetimeTotal,
+    double AirPollutionCostSavedAnnual,
+    double AirPollutionCostSavedLifetimeTotal,
+    double RainfallInterceptedAnnual,
+    double RainfallInterceptedLifetimeTotal,
+    double RunoffAvoidedAnnual,
+    double RunoffAvoidedLifetimeTotal);
+
+/// <summary>
+/// One Floor (planted/paved landscape area) instance's identity, placement, and stored LDS/i-Tree
+/// results. Floors have no pollution-mass-removed metric — only CO2, GWP, oxygen, temperature, and
+/// cost, per <c>FloorLdsCalculationService</c> — so this shape is intentionally narrower than
+/// <see cref="DashboardTreeItem"/> rather than padding out fields Floors never populate. Floor cost is
+/// reported as-calculated (no currency provenance is tracked for Floors today; see
+/// <c>WWP.LandscapeDataManager.App.FloorCalculator</c>, which never calls <c>ExchangeRateService</c>).
+/// </summary>
+public sealed record DashboardFloorItem(
+    string UniqueId,
+    long ElementId,
+    string FamilyName,
+    string TypeName,
+    string? LdsType,
+    string? LevelName,
+    DesignOptionInfo DesignOption,
+    double AreaSquareMeters,
+    double CO2SequesteredAnnual,
+    double CostSavedAnnual,
+    double OxygenProducedAnnual,
+    double TotalGwp,
+    double SurfaceTempReduction,
+    double AirTempReduction);
+
+public sealed record DashboardReportRequest(bool SelectedOnly = false);
+
+public sealed record DashboardReportResult(
+    string DocumentTitle,
+    string PreferredUnitSystem,
+    string PreferredCurrency,
+    IReadOnlyList<DashboardTreeItem> Trees,
+    IReadOnlyList<DashboardFloorItem> Floors);
 
 public static class JsonDefaults
 {

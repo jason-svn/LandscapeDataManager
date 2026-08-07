@@ -21,6 +21,8 @@ public sealed class App : IExternalApplication
     internal static ToolProcessLauncher? LocationFinderLauncher { get; private set; }
     internal static ToolProcessLauncher? FloorCalculatorLauncher { get; private set; }
     internal static ToolProcessLauncher? HealthCheckLauncher { get; private set; }
+    internal static ToolProcessLauncher? DashboardLauncher { get; private set; }
+    internal static ToolProcessLauncher? SettingsLauncher { get; private set; }
 
     public Result OnStartup(UIControlledApplication application)
     {
@@ -54,13 +56,27 @@ public sealed class App : IExternalApplication
         HealthCheckLauncher = new ToolProcessLauncher(
             Path.Combine("HealthCheck", "WWP.LandscapeDataManager.HealthCheck.exe"),
             PipeServer.PipeName);
+        DashboardLauncher = new ToolProcessLauncher(
+            Path.Combine("Dashboard", "WWP.LandscapeDataManager.Dashboard.exe"),
+            PipeServer.PipeName);
+        SettingsLauncher = new ToolProcessLauncher(
+            Path.Combine("Settings", "WWP.LandscapeDataManager.Settings.exe"),
+            PipeServer.PipeName);
         PipeServer.Start();
 
         var projectSetupPanel = GetOrCreatePanel(application, "Project Setup");
         var dataProcessingPanel = GetOrCreatePanel(application, "Data Processing");
         var dataCalculationPanel = GetOrCreatePanel(application, "Data Calculation");
         var diagnosisPanel = GetOrCreatePanel(application, "Diagnosis");
+        var reportingPanel = GetOrCreatePanel(application, "Reporting");
 
+        AddWorkflowButton<OpenSettingsCommand>(
+            projectSetupPanel,
+            "LIMOpenSettings",
+            "Settings",
+            "ST",
+            "Settings",
+            "Save the i-Tree API key, Airtable personal access token, and the WWP landscape data sheet source in one place — every other LIM tool reads them from here instead of asking again.");
         AddWorkflowButton<SetupParametersCommand>(
             projectSetupPanel,
             "LIMSetupPlantingParameters",
@@ -128,6 +144,14 @@ public sealed class App : IExternalApplication
             "Health Check",
             "Scan every Planting and Floor element for missing i-Tree or landscape data sheet results, list what still needs attention, and colour the active view red (needs attention) or green (calculated).");
 
+        AddWorkflowButton<OpenDashboardCommand>(
+            reportingPanel,
+            "LIMOpenDashboard",
+            "Benefits\nDashboard",
+            "DB",
+            "Landscape Benefits Dashboard",
+            "Roll up the i-Tree and landscape data sheet results already stored on Planting and Floor elements into per-species and floor-plant subtotals and a grand total, filterable by Design Option and level, exportable as an image or Excel workbook.");
+
         return Result.Succeeded;
     }
 
@@ -143,6 +167,8 @@ public sealed class App : IExternalApplication
         LocationFinderLauncher?.Dispose();
         FloorCalculatorLauncher?.Dispose();
         HealthCheckLauncher?.Dispose();
+        DashboardLauncher?.Dispose();
+        SettingsLauncher?.Dispose();
         PipeServer?.Dispose();
         Dispatcher?.Dispose();
 
@@ -156,6 +182,8 @@ public sealed class App : IExternalApplication
         LocationFinderLauncher = null;
         FloorCalculatorLauncher = null;
         HealthCheckLauncher = null;
+        DashboardLauncher = null;
+        SettingsLauncher = null;
         PipeServer = null;
         Dispatcher = null;
         return Result.Succeeded;

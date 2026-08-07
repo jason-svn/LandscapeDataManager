@@ -35,7 +35,9 @@ public sealed partial class MainPage : Page
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
-        ApiKeyBox.Password = _iTreeCredentialStore.Load();
+        ApiKeyStatusText.Text = string.IsNullOrWhiteSpace(_iTreeCredentialStore.Load())
+            ? "No i-Tree API key saved — open Settings from the LIM ribbon first."
+            : "i-Tree API key: saved (managed in Settings).";
         var metadata = await _database.GetMetadataAsync();
         if (metadata.Version is not null)
         {
@@ -90,10 +92,10 @@ public sealed partial class MainPage : Page
     {
         var exportExcel = ExportExcelCheckBox.IsChecked == true;
 
-        var apiKey = ApiKeyBox.Password.Trim();
+        var apiKey = _iTreeCredentialStore.Load().Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            StatusText.Text = "Enter your i-Tree API key first.";
+            StatusText.Text = "No i-Tree API key saved — open Settings from the LIM ribbon first.";
             return;
         }
 
@@ -101,15 +103,6 @@ public sealed partial class MainPage : Page
         BusyIndicator.Visibility = Visibility.Visible;
         try
         {
-            if (RememberKeyCheckBox.IsChecked == true)
-            {
-                _iTreeCredentialStore.Save(apiKey);
-            }
-            else
-            {
-                _iTreeCredentialStore.Delete();
-            }
-
             var download = await _iTreeApiClient.DownloadSpeciesCatalogAsync(apiKey);
             var allRecords = download.Records.Select(ToSpeciesCatalogueRecord).ToList();
             var catalogueVersion = ComputeVersionHash(allRecords);

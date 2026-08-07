@@ -11,10 +11,6 @@ namespace WWP.LandscapeDataManager.Shared.Services;
 /// </summary>
 public static class ITreeInstanceResultMapper
 {
-    private const double KilogramsPerPound = 0.45359237d;
-    private const double KilogramsPerOunce = 0.028349523125d;
-    private const double CubicMetresPerGallon = 0.00378541d;
-
     /// <param name="preferredCurrency">ISO code (USD, GBP, EUR, CAD, AUD, or NZD) the caller has already resolved the project's preference to.</param>
     /// <param name="usdExchangeRate">USD-to-<paramref name="preferredCurrency"/> rate the caller already looked up (1.0 for USD) — this method only applies it, it never fetches rates itself so it stays synchronous/pure.</param>
     public static IReadOnlyList<InstanceParameterWriteItem> BuildWriteItems(
@@ -51,8 +47,8 @@ public static class ITreeInstanceResultMapper
 
         var isMetric = string.Equals(preferredUnitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
 
-        double FromPounds(double pounds) => isMetric ? pounds * KilogramsPerPound : pounds;
-        double FromOunces(double ounces) => isMetric ? ounces * KilogramsPerOunce : ounces;
+        double FromPounds(double pounds) => isMetric ? pounds * UnitConversions.KilogramsPerPound : pounds;
+        double FromOunces(double ounces) => isMetric ? ounces * UnitConversions.KilogramsPerOunce : ounces;
         // i-Tree's API only ever reports dollars, regardless of tree location — this is the one
         // point where that USD figure becomes the project's preferred currency (usdExchangeRate is
         // 1.0 for USD itself, so this is a no-op multiply in the common case).
@@ -72,8 +68,8 @@ public static class ITreeInstanceResultMapper
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_StormWaterCostSavedAnnual_Number", ToPreferredCurrency(GetOrZero("Annual_StormWaterBenefit_USD"))));
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Number", ToPreferredCurrency(GetOrZero("Annual_AirPollutionBenefit_USD"))));
 
-        var rainfallCubicMetres = GetOrZero("Annual_RainfallIntercepted_gal") * CubicMetresPerGallon;
-        var runoffCubicMetres = GetOrZero("Annual_RunoffAvoided_gal") * CubicMetresPerGallon;
+        var rainfallCubicMetres = GetOrZero("Annual_RainfallIntercepted_gal") * UnitConversions.CubicMetresPerGallon;
+        var runoffCubicMetres = GetOrZero("Annual_RunoffAvoided_gal") * UnitConversions.CubicMetresPerGallon;
         items.Add(Volume(uniqueId, "!_S_PLT_iTreeResult_RainfallInterceptedAnnual_Volume", rainfallCubicMetres));
         items.Add(Volume(uniqueId, "!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume", runoffCubicMetres));
 
@@ -95,8 +91,8 @@ public static class ITreeInstanceResultMapper
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_StormWaterCostSavedLifetimeTotal_Number", ToPreferredCurrency(GetOrZero("StormWaterBenefit_20yr_USD"))));
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_AirPollutionCostSavedLifetimeTotal_Number", ToPreferredCurrency(GetOrZero("AirPollutionBenefit_20yr_USD"))));
 
-        var lifetimeRainfallCubicMetres = GetOrZero("RainfallIntercepted_20yr_gal") * CubicMetresPerGallon;
-        var lifetimeRunoffCubicMetres = GetOrZero("RunoffAvoided_20yr_gal") * CubicMetresPerGallon;
+        var lifetimeRainfallCubicMetres = GetOrZero("RainfallIntercepted_20yr_gal") * UnitConversions.CubicMetresPerGallon;
+        var lifetimeRunoffCubicMetres = GetOrZero("RunoffAvoided_20yr_gal") * UnitConversions.CubicMetresPerGallon;
         items.Add(Volume(uniqueId, "!_S_PLT_iTreeResult_RainfallInterceptedLifetimeTotal_Volume", lifetimeRainfallCubicMetres));
         items.Add(Volume(uniqueId, "!_S_PLT_iTreeResult_RunoffAvoidedLifetimeTotal_Volume", lifetimeRunoffCubicMetres));
 

@@ -42,7 +42,7 @@ public sealed partial class MainPage : Page
 
         if (string.IsNullOrWhiteSpace(_iTreeCredentialStore.Load()))
         {
-            warnings.Add("No i-Tree API key is saved — run i-Tree Calculator or i-Tree Downloader once with \"Remember\" checked.");
+            warnings.Add("No i-Tree API key is saved — open Settings from the LIM ribbon.");
         }
 
         if ((await _speciesCatalogueDatabase.GetAllAsync()).Count == 0)

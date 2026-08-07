@@ -50,7 +50,10 @@ public sealed partial class MainPage : Page
 
     private void Page_Loaded(object sender, RoutedEventArgs e)
     {
-        ApiKeyBox.Password = _iTreeCredentialStore.Load();
+        if (string.IsNullOrWhiteSpace(_iTreeCredentialStore.Load()))
+        {
+            StatusText.Text = "No i-Tree API key saved — open Settings from the LIM ribbon first.";
+        }
     }
 
     private async void Validate_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(RefreshReportAsync);
@@ -197,7 +200,7 @@ public sealed partial class MainPage : Page
 
     private async Task CalculateAsync(IReadOnlyList<InstanceReportRow> rows)
     {
-        var apiKey = ApiKeyBox.Password.Trim();
+        var apiKey = _iTreeCredentialStore.Load().Trim();
         if (rows.Count == 0)
         {
             CalculateStatusText.Text = "Nothing to calculate.";
@@ -206,13 +209,8 @@ public sealed partial class MainPage : Page
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            CalculateStatusText.Text = "Enter your i-Tree API key first.";
+            CalculateStatusText.Text = "No i-Tree API key saved — open Settings from the LIM ribbon first.";
             return;
-        }
-
-        if (RememberKeyCheckBox.IsChecked == true)
-        {
-            _iTreeCredentialStore.Save(apiKey);
         }
 
         var signedInputs = rows.Select(row => (

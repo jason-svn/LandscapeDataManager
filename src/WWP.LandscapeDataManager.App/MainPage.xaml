@@ -688,12 +688,7 @@
                                 <ComboBoxItem Content="Entire i-Tree species catalog (no Revit data required)" />
                             </ComboBox>
 
-                            <PasswordBox x:Name="ITreeApiKeyBox"
-                                         Header="i-Tree API key"
-                                         PlaceholderText="Enter the API key used by the Dynamo graph" />
-                            <CheckBox x:Name="RememberITreeKeyCheckBox"
-                                      Content="Remember securely for this Windows user"
-                                      IsChecked="True" />
+                            <TextBlock x:Name="ITreeApiKeyStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
 
                             <TextBlock Text="Excel destination" FontSize="16" FontWeight="SemiBold" />
                             <Grid ColumnSpacing="8">
@@ -815,12 +810,14 @@
                         <InfoBar IsOpen="True"
                                  IsClosable="False"
                                  Severity="Informational"
-                                 Title="Setup notes"
-                                 Message="Source and mapping settings are stored for the current Windows user. Use a public Airtable view or a local/shared Excel workbook; no Airtable token or administrator installation is required." />
+                                 Title="Credentials now live in a dedicated Settings tool"
+                                 Message="The i-Tree API key, Airtable personal access token, and WWP landscape data sheet source are managed from the standalone 'Settings' tool on the LIM ribbon — not here." />
                         <TextBlock TextWrapping="Wrap"
-                                   Text="Choose a public Airtable share link or an Excel workbook on the Sync &amp; Review tab. No Airtable token, account or administrator installation is required." />
+                                   Text="This app's own Sync &amp; Review workflow still needs no Airtable token: choose a public Airtable share link or an Excel workbook there, unchanged." />
                         <TextBlock TextWrapping="Wrap"
-                                   Text="The selected source is saved only for the current Windows user. Excel files must use the first row for column headers; the first non-empty worksheet is loaded." />
+                                   Text="The i-Tree Excel tab, and any of the standalone LIM tools (Importer, Refresh &amp; Audit, Floor Calculator, i-Tree Calculator, i-Tree Downloader) that call the i-Tree API or Airtable's REST API, read their credentials from the Settings tool instead of asking for them here." />
+                        <TextBlock TextWrapping="Wrap"
+                                   Text="Source and mapping settings for this app's own workflow are still saved only for the current Windows user. Excel files must use the first row for column headers; the first non-empty worksheet is loaded." />
                     </StackPanel>
                 </Grid>
             </TabViewItem>

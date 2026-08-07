@@ -41,10 +41,9 @@ public sealed partial class MainPage : Page
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
         var settings = await _ldsSettingsStore.LoadAsync();
-        BaseIdBox.Text = settings.BaseId;
-        TableIdBox.Text = settings.TableIdOrName;
-        ViewIdBox.Text = settings.ViewName ?? string.Empty;
-        ApiTokenBox.Password = _credentialStore.Load();
+        SourceStatusText.Text = string.IsNullOrWhiteSpace(_credentialStore.Load())
+            ? "No Airtable token saved, and no landscape data sheet source configured — open Settings from the LIM ribbon first."
+            : $"Source: base {settings.BaseId} / table {settings.TableIdOrName} (managed in Settings).";
 
         await RefreshCatalogueStatusAsync();
 
@@ -67,7 +66,7 @@ public sealed partial class MainPage : Page
             : null;
 
         CatalogueStatusText.Text = _allCoefficients.Count == 0
-            ? "No landscape data sheet has been synced yet — enter your Airtable token above and click \"Sync coefficient data\"."
+            ? "No landscape data sheet has been synced yet — click \"Sync coefficient data\" (make sure your Airtable token is saved in Settings first)."
             : lastUpdated is null
                 ? $"{_allCoefficients.Count:N0} landscape data sheet rows cached locally."
                 : $"{_allCoefficients.Count:N0} landscape data sheet rows cached locally, last synced {lastUpdated}.";
@@ -75,31 +74,17 @@ public sealed partial class MainPage : Page
 
     private async void Sync_Click(object sender, RoutedEventArgs e)
     {
-        var token = ApiTokenBox.Password.Trim();
+        var token = _credentialStore.Load().Trim();
         if (string.IsNullOrWhiteSpace(token))
         {
-            StatusText.Text = "Enter your Airtable personal access token first.";
+            StatusText.Text = "No Airtable personal access token saved — open Settings from the LIM ribbon first.";
             return;
         }
 
-        var settings = new WwpLdsAirtableSettings(
-            BaseIdBox.Text.Trim(),
-            TableIdBox.Text.Trim(),
-            string.IsNullOrWhiteSpace(ViewIdBox.Text) ? null : ViewIdBox.Text.Trim());
+        var settings = await _ldsSettingsStore.LoadAsync();
 
         await RunBusyAsync(async () =>
         {
-            if (RememberTokenCheckBox.IsChecked == true)
-            {
-                _credentialStore.Save(token);
-            }
-            else
-            {
-                _credentialStore.Delete();
-            }
-
-            await _ldsSettingsStore.SaveAsync(settings);
-
             var apiSettings = new AirtableApiSettings(settings.BaseId, settings.TableIdOrName, settings.ViewName);
             var records = await _airtableClient.GetRecordsAsync(apiSettings, token);
             var coefficients = records.Select(ToCoefficientRecord).ToList();

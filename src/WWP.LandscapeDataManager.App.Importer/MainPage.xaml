@@ -43,22 +43,16 @@
                         <ComboBoxItem Content="Excel workbook" />
                     </ComboBox>
 
+                    <TextBlock x:Name="AirtableTokenStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
                     <Grid x:Name="AirtablePanel" ColumnSpacing="10" RowSpacing="10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <PasswordBox x:Name="AirtableTokenBox" Header="Personal access token" />
-                        <TextBox Grid.Column="1" x:Name="AirtableBaseIdBox" Header="Base ID" PlaceholderText="appXXXXXXXXXXXXXX" />
-                        <TextBox Grid.Column="2" x:Name="AirtableTableBox" Header="Table name or ID" />
-                        <TextBox Grid.Row="1" Grid.ColumnSpan="2" x:Name="AirtableViewBox" Header="View (optional)" />
-                        <CheckBox Grid.Row="1" Grid.Column="2" x:Name="RememberAirtableTokenCheckBox"
-                                  Content="Remember token securely" IsChecked="True" VerticalAlignment="Bottom" />
+                        <TextBox x:Name="AirtableBaseIdBox" Header="Base ID" PlaceholderText="appXXXXXXXXXXXXXX" />
+                        <TextBox Grid.Column="1" x:Name="AirtableTableBox" Header="Table name or ID" />
+                        <TextBox Grid.Column="2" x:Name="AirtableViewBox" Header="View (optional)" />
                     </Grid>
 
                     <Grid x:Name="ExcelPanel" ColumnSpacing="8" Visibility="Collapsed">

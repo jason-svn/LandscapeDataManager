@@ -227,10 +227,10 @@ internal static class RevitModelScanner
         var elementType = document.GetElement(element.GetTypeId()) as ElementType;
         var typeName = elementType?.Name ?? element.Name;
         var typeId = elementType?.Id.Value ?? element.GetTypeId().Value;
-        var calculationType = GetStringParameter(element, "WWP_LDS_CalculationType")
+        var calculationType = GetStringParameter(element, "!_S_PLT_LDS_CalculationType_Text")
                               ?? (elementType is null
                                   ? null
-                                  : GetStringParameter(elementType, "WWP_LDS_CalculationType"));
+                                  : GetStringParameter(elementType, "!_S_PLT_LDS_CalculationType_Text"));
 
         var area = 0d;
         if (element is Floor)
@@ -420,6 +420,12 @@ internal static class RevitModelScanner
         var designOption = element.DesignOption;
         return designOption is null || designOption.IsPrimary;
     }
+
+    /// <summary>Same resolution as <see cref="GetParameterCatalog"/> uses, exposed for callers (the Dashboard report) that only need the resolved code, not a full parameter catalog scan.</summary>
+    public static string GetPreferredUnitSystemCode(Document document) => GetPreferredUnitSystem(document).System;
+
+    /// <summary>Same resolution as <see cref="GetParameterCatalog"/> uses, exposed for callers (the Dashboard report) that only need the resolved code, not a full parameter catalog scan.</summary>
+    public static string GetPreferredCurrencyCode(Document document) => GetPreferredCurrency(document).Code;
 
     private sealed record SourceRow(
         string Category,

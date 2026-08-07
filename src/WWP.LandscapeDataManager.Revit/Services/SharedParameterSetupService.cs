@@ -109,6 +109,71 @@ internal static class SharedParameterSetupService
                 ownership.Description);
         }
 
+        var staleRenameNote = RemoveStaleRenamedBindings(document, definition, ownership.Name, apply);
+        var row = EvaluateBindingState(document, application, definition, ownership, apply);
+        return staleRenameNote is null
+            ? row
+            : row with { Message = staleRenameNote + (string.IsNullOrEmpty(row.Message) ? string.Empty : " " + row.Message) };
+    }
+
+    /// <summary>
+    /// A rename in the shared parameter file (same GUID, different Name — e.g. the !_S_PLANTING_*
+    /// to !_S_PLT_* rename) is invisible to a project that already had the old name bound:
+    /// <see cref="FindExistingBinding"/> matches by name, so the stale binding lingers forever
+    /// under its old name unless explicitly unbound, and re-running this tool after such a rename
+    /// used to just add a second binding for the same GUID under the new name instead of replacing
+    /// the old one. This finds any such stale same-GUID binding and removes it (when
+    /// <paramref name="apply"/> is true) so the normal create/update path below binds cleanly under
+    /// the current name — that's what actually "renames" an existing project binding, since
+    /// <see cref="InternalDefinition"/> itself has no settable Name. Returns a note describing what
+    /// was (or will be) removed, or null if nothing stale was found.
+    /// </summary>
+    private static string? RemoveStaleRenamedBindings(
+        Document document, ExternalDefinition definition, string currentName, bool apply)
+    {
+        var staleNames = new FilteredElementCollector(document)
+            .OfClass(typeof(SharedParameterElement))
+            .Cast<SharedParameterElement>()
+            .Where(element => element.GuidValue == definition.GUID &&
+                               !string.Equals(element.Name, currentName, StringComparison.Ordinal))
+            .Select(element => element.Name)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (staleNames.Count == 0)
+        {
+            return null;
+        }
+
+        if (!apply)
+        {
+            return $"Also bound in this project under the now-renamed name(s) " +
+                   $"{string.Join(", ", staleNames.Select(name => $"'{name}'"))} (same parameter ID) — " +
+                   "will remove the stale binding(s) and keep only the current name.";
+        }
+
+        var removedNames = new List<string>();
+        foreach (var staleName in staleNames)
+        {
+            if (FindExistingBinding(document, staleName) is { Definition: var staleDefinition } &&
+                document.ParameterBindings.Remove(staleDefinition))
+            {
+                removedNames.Add(staleName);
+            }
+        }
+
+        return removedNames.Count == 0
+            ? null
+            : $"Removed the stale binding(s) previously named {string.Join(", ", removedNames.Select(name => $"'{name}'"))} for the same parameter ID.";
+    }
+
+    private static SharedParameterSetupRow EvaluateBindingState(
+        Document document,
+        UIApplication application,
+        ExternalDefinition definition,
+        ParameterOwnership ownership,
+        bool apply)
+    {
         var guidText = definition.GUID.ToString();
         var conflictingElement = new FilteredElementCollector(document)
             .OfClass(typeof(SharedParameterElement))
@@ -503,19 +568,31 @@ internal static class SharedParameterSetupService
                 "Geographic origin of the landscape type, from the WWP landscape data sheet."),
             // Recycled from the pre-existing "Données d'indentification" group (same GUIDs, moved
             // into this group and given a description) rather than minting new duplicates — they
-            // predate this parameter family but were never wired into EnsureParameters.
-            PlantingAndFloorInstance("WWP_LDS_CalculationType", GroupTypeId.General,
+            // predate this parameter family but were never wired into EnsureParameters. Renamed to
+            // the !_S_PLT_LDS_ prefix for consistency with their siblings above; same GUIDs, so
+            // existing bindings still resolve correctly under the new name.
+            PlantingAndFloorInstance("!_S_PLT_LDS_CalculationType_Text", GroupTypeId.General,
                 "Landscape type classification (e.g. Tree, Shrub species, Surfaces), from the WWP landscape data sheet."),
-            PlantingAndFloorInstance("WWP_LDS_Category", GroupTypeId.General,
+            PlantingAndFloorInstance("!_S_PLT_LDS_Category_Text", GroupTypeId.General,
                 "Landscape data sheet category for this type, from the WWP landscape data sheet."),
-            PlantingAndFloorInstance("WWP_LDS_SubCategory", GroupTypeId.General,
+            PlantingAndFloorInstance("!_S_PLT_LDS_SubCategory_Text", GroupTypeId.General,
                 "Landscape data sheet sub-category for this type, from the WWP landscape data sheet."),
             // Output — additional WWP landscape data sheet coefficients times area, same pattern as
             // CostSavedAnnual/OxygenProducedAnnual above.
-            PlantingAndFloorInstance("WWP_Maintenance_Cost", GroupTypeId.AnalysisResults,
+            PlantingAndFloorInstance("!_S_PLT_LDS_MaintenanceCostAnnual_Number", GroupTypeId.AnalysisResults,
                 "Estimated annual maintenance cost, from the WWP landscape data sheet's per-square-metre coefficient times area. Currency as entered in the sheet — not a physical unit, so there is no Metric/Imperial conversion."),
-            PlantingAndFloorInstance("WWP_Pollutants_Removed", GroupTypeId.AnalysisResults,
+            PlantingAndFloorInstance("!_S_PLT_LDS_PollutantsRemovedAnnual_Number", GroupTypeId.AnalysisResults,
                 "Estimated annual pollutants removed, from the WWP landscape data sheet's per-square-metre coefficient times area. Metric: kg. (Metric-only — no Imperial conversion.)"),
+            // Defined in the shared parameter file and referenced by the main App's
+            // LandscapeCalculationEngine/mapping-suggestion feature, but never actually bound here
+            // until now — closing that gap so "Ensure Shared Parameters" actually guarantees these
+            // exist, same as their MaintenanceCost/PollutantsRemoved siblings above.
+            PlantingAndFloorInstance("!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Number", GroupTypeId.AnalysisResults,
+                "Estimated annual avoided water runoff, from the WWP landscape data sheet's per-square-metre coefficient times area."),
+            PlantingAndFloorInstance("!_S_PLT_LDS_OxygenLevelsAnnual_Number", GroupTypeId.AnalysisResults,
+                "Estimated annual oxygen levels, from the WWP landscape data sheet's per-square-metre coefficient times area."),
+            PlantingAndFloorInstance("!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Number", GroupTypeId.AnalysisResults,
+                "Estimated annual carbon dioxide sequestration, from the WWP landscape data sheet's per-square-metre coefficient times area."),
             PlantingAndFloorInstance("!_S_PLT_LDS_ProductGWP_Number", GroupTypeId.AnalysisResults,
                 "Embodied product global warming potential, from the WWP landscape data sheet — a component of total GWP, not scaled by area. Metric: kg CO2e/m². (Metric-only — no Imperial conversion.)"),
             PlantingAndFloorInstance("!_S_PLT_LDS_TransportGWP_Number", GroupTypeId.AnalysisResults,

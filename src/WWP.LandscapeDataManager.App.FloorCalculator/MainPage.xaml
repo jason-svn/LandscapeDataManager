@@ -27,24 +27,7 @@
             <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">
                     <TextBlock Text="STEP 1 — WWP LANDSCAPE DATA SHEET" Style="{StaticResource LimSectionHeaderStyle}" />
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <PasswordBox x:Name="ApiTokenBox" Header="Airtable personal access token" />
-                        <CheckBox Grid.Column="1" x:Name="RememberTokenCheckBox" Content="Remember" IsChecked="True" VerticalAlignment="Bottom" Margin="0,0,0,8" />
-                    </Grid>
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="BaseIdBox" Header="Base ID" />
-                        <TextBox Grid.Column="1" x:Name="TableIdBox" Header="Table ID or name" />
-                        <TextBox Grid.Column="2" x:Name="ViewIdBox" Header="View (optional)" />
-                    </Grid>
+                    <TextBlock x:Name="SourceStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
                     <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />

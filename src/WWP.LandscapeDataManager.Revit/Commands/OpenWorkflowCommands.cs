@@ -101,3 +101,15 @@ public sealed class RunHealthCheckCommand : LaunchToolCommand
 {
     protected override ToolProcessLauncher? Launcher => App.HealthCheckLauncher;
 }
+
+[Transaction(TransactionMode.Manual)]
+public sealed class OpenDashboardCommand : LaunchToolCommand
+{
+    protected override ToolProcessLauncher? Launcher => App.DashboardLauncher;
+}
+
+[Transaction(TransactionMode.Manual)]
+public sealed class OpenSettingsCommand : LaunchToolCommand
+{
+    protected override ToolProcessLauncher? Launcher => App.SettingsLauncher;
+}

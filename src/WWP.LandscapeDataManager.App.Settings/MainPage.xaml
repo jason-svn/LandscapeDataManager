@@ -1,0 +1,131 @@
+<Page
+    x:Class="WWP.LandscapeDataManager.App.Settings.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WWP.LandscapeDataManager.App.Settings">
+
+    <ScrollViewer>
+        <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="{StaticResource LimPageMargin}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Spacing="4">
+                <TextBlock Text="Settings" Style="{StaticResource LimPageTitleStyle}" />
+                <TextBlock
+                    Text="One place for every LIM credential and machine-wide default. Every other LIM tool reads these instead of asking for them again — save here once per Windows user."
+                    Style="{StaticResource LimPageSubtitleStyle}" />
+            </StackPanel>
+
+            <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="i-TREE API KEY" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock
+                        Text="Used by i-Tree Calculator, i-Tree Downloader, and Refresh &amp; Audit."
+                        Style="{StaticResource LimMutedTextStyle}" />
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <PasswordBox x:Name="ITreeApiKeyBox" Header="i-Tree API key" />
+                        <CheckBox Grid.Column="1" x:Name="RememberITreeKeyCheckBox" Content="Remember" IsChecked="True" VerticalAlignment="Bottom" Margin="0,0,0,8" />
+                    </Grid>
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Content="Save" Click="SaveITreeKey_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
+                        <Button Grid.Column="1" Content="Clear" Click="ClearITreeKey_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                        <TextBlock Grid.Column="2" x:Name="ITreeStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="AIRTABLE PERSONAL ACCESS TOKEN" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock
+                        Text="Used by Importer, Refresh &amp; Audit, and Floor Calculator (anything reading Airtable via its REST API). Not needed for the companion app's own public-share-link workflow."
+                        Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <PasswordBox x:Name="AirtableTokenBox" Header="Airtable personal access token" />
+                        <CheckBox Grid.Column="1" x:Name="RememberAirtableTokenCheckBox" Content="Remember" IsChecked="True" VerticalAlignment="Bottom" Margin="0,0,0,8" />
+                    </Grid>
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Content="Save" Click="SaveAirtableToken_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
+                        <Button Grid.Column="1" Content="Clear" Click="ClearAirtableToken_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                        <TextBlock Grid.Column="2" x:Name="AirtableStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="3" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="WWP LANDSCAPE DATA SHEET SOURCE" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock
+                        Text="The shared company Airtable base Floor Calculator syncs its coefficient table from — a company-wide default, not tied to any one project."
+                        Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="LdsBaseIdBox" Header="Base ID" />
+                        <TextBox Grid.Column="1" x:Name="LdsTableIdBox" Header="Table ID or name" />
+                        <TextBox Grid.Column="2" x:Name="LdsViewIdBox" Header="View (optional)" />
+                    </Grid>
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Content="Save" Click="SaveLdsSettings_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
+                        <TextBlock Grid.Column="1" x:Name="LdsStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="4" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="SHARED PARAMETER FILE" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock
+                        Text="The default Revit shared parameter .txt file Shared Parameter Setup opens — it still lets you browse to a different file for one-off use, but starts from here."
+                        Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="SharedParameterFilePathBox" Header="Shared parameter file" PlaceholderText="Select the Revit shared parameter .txt file" />
+                        <Button Grid.Column="1" Content="Browse..." Click="BrowseSharedParameterFile_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Bottom" />
+                    </Grid>
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Content="Save" Click="SaveSharedParameterFile_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
+                        <TextBlock Grid.Column="1" x:Name="SharedParameterFileStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</Page>

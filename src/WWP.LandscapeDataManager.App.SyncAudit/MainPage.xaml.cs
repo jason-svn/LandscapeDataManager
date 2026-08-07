@@ -61,7 +61,9 @@ public sealed partial class MainPage : Page
         ExcelPathBox.Text = dataSourceSettings.ExcelPath;
         AirtableBaseIdBox.Text = airtableSettings.BaseId;
         AirtableTableBox.Text = airtableSettings.TableIdOrName;
-        AirtableTokenBox.Password = _airtableCredentialStore.Load();
+        AirtableTokenStatusText.Text = string.IsNullOrWhiteSpace(_airtableCredentialStore.Load())
+            ? "No Airtable personal access token saved — open Settings from the LIM ribbon first."
+            : "Airtable personal access token: saved (managed in Settings).";
         UpdateSourceVisibility();
 
         if (syncedFromProject)
@@ -208,7 +210,12 @@ public sealed partial class MainPage : Page
             return await _excelClient.GetRecordsAsync(ExcelPathBox.Text.Trim());
         }
 
-        var token = AirtableTokenBox.Password.Trim();
+        var token = _airtableCredentialStore.Load().Trim();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw new InvalidOperationException("No Airtable personal access token saved — open Settings from the LIM ribbon first.");
+        }
+
         var settings = new AirtableApiSettings(AirtableBaseIdBox.Text.Trim(), AirtableTableBox.Text.Trim(), null);
         return await _airtableApiClient.GetRecordsAsync(settings, token);
     }
@@ -582,7 +589,7 @@ public sealed partial class MainPage : Page
         var apiKey = _iTreeCredentialStore.Load();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            ActionStatusText.Text = "No saved i-Tree API key. Run the i-Tree Calculator tool once with 'Remember' checked first.";
+            ActionStatusText.Text = "No i-Tree API key saved — open Settings from the LIM ribbon first.";
             return;
         }
 
@@ -629,7 +636,7 @@ public sealed partial class MainPage : Page
         var apiKey = _iTreeCredentialStore.Load();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            ActionStatusText.Text = "No saved i-Tree API key. Run the i-Tree Downloader or Calculator tool once with 'Remember' checked first.";
+            ActionStatusText.Text = "No i-Tree API key saved — open Settings from the LIM ribbon first.";
             return;
         }
 

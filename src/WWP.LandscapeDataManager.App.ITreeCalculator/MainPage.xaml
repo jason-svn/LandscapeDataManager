@@ -26,12 +26,9 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="220" />
-                    <ColumnDefinition Width="110" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <PasswordBox x:Name="ApiKeyBox" Header="i-Tree API key" />
-                <ComboBox Grid.Column="1"
+                <ComboBox
                           x:Name="ValidationScopeBox"
                           Header="Scope"
                           SelectedIndex="0"
@@ -39,7 +36,7 @@
                     <ComboBoxItem Content="All planting instances in model" />
                     <ComboBoxItem Content="Current Revit selection only" />
                 </ComboBox>
-                <ComboBox Grid.Column="2"
+                <ComboBox Grid.Column="1"
                           x:Name="CurrencyBox"
                           Header="Currency"
                           HorizontalAlignment="Stretch"
@@ -51,8 +48,7 @@
                     <ComboBoxItem Content="AUD" />
                     <ComboBoxItem Content="NZD" />
                 </ComboBox>
-                <CheckBox Grid.Column="3" x:Name="RememberKeyCheckBox" Content="Remember" IsChecked="True" VerticalAlignment="Bottom" Margin="0,0,0,8" />
-                <Button Grid.Column="4" Content="Validate" Click="Validate_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
+                <Button Grid.Column="2" Content="Validate" Click="Validate_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
             </Grid>
         </Border>
 

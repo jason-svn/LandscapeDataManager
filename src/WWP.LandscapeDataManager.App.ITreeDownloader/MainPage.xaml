@@ -25,8 +25,7 @@
             <Border Grid.Row="1" Margin="0,20,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="12">
                     <TextBlock Text="STEP 1 — SOURCE &amp; SCOPE" Style="{StaticResource LimSectionHeaderStyle}" />
-                    <PasswordBox x:Name="ApiKeyBox" Header="i-Tree API key" />
-                    <CheckBox x:Name="RememberKeyCheckBox" Content="Remember securely for this Windows user" IsChecked="True" />
+                    <TextBlock x:Name="ApiKeyStatusText" Style="{StaticResource LimMutedTextStyle}" />
                     <ComboBox x:Name="ScopeBox" Header="Local catalogue scope" SelectedIndex="0" HorizontalAlignment="Stretch">
                         <ComboBoxItem Content="Project species (recommended) — only species used in this model" />
                         <ComboBoxItem Content="Full catalogue — cache every recognized species locally" />

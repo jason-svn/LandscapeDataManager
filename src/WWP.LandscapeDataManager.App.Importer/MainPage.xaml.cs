@@ -61,7 +61,9 @@ public sealed partial class MainPage : Page
         AirtableBaseIdBox.Text = airtableSettings.BaseId;
         AirtableTableBox.Text = airtableSettings.TableIdOrName;
         AirtableViewBox.Text = airtableSettings.ViewName ?? string.Empty;
-        AirtableTokenBox.Password = _airtableCredentialStore.Load();
+        AirtableTokenStatusText.Text = string.IsNullOrWhiteSpace(_airtableCredentialStore.Load())
+            ? "No Airtable personal access token saved — open Settings from the LIM ribbon first."
+            : "Airtable personal access token: saved (managed in Settings).";
         UpdateSourceVisibility();
 
         if (syncedFromProject)
@@ -138,21 +140,18 @@ public sealed partial class MainPage : Page
             return await _excelClient.GetRecordsAsync(excelPath);
         }
 
-        var token = AirtableTokenBox.Password.Trim();
+        var token = _airtableCredentialStore.Load().Trim();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw new InvalidOperationException("No Airtable personal access token saved — open Settings from the LIM ribbon first.");
+        }
+
         var settings = new AirtableApiSettings(
             AirtableBaseIdBox.Text.Trim(),
             AirtableTableBox.Text.Trim(),
             string.IsNullOrWhiteSpace(AirtableViewBox.Text) ? null : AirtableViewBox.Text.Trim());
         await _dataSourceSettingsStore.SaveAsync(new DataSourceSettings(DataSourceKind.Airtable, string.Empty, string.Empty));
         await _airtableApiSettingsStore.SaveAsync(settings);
-        if (RememberAirtableTokenCheckBox.IsChecked == true)
-        {
-            _airtableCredentialStore.Save(token);
-        }
-        else
-        {
-            _airtableCredentialStore.Delete();
-        }
 
         return await _airtableApiClient.GetRecordsAsync(settings, token);
     }

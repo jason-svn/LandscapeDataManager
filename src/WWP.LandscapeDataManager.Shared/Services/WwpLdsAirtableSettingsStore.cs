@@ -10,7 +10,7 @@ namespace WWP.LandscapeDataManager.Shared.Services;
 /// </summary>
 public sealed class WwpLdsAirtableSettingsStore
 {
-    private static readonly WwpLdsAirtableSettings Defaults = new("apptELCzLzMbmrk54", "tblAwGKQjNQJ9XsKM", "viwPwJX0htIKcpuKr");
+    private static readonly WwpLdsAirtableSettings Defaults = new("apptELCzLzMbmrk54", "tblAwGKQjNQJ9XsKM", "viwg4x3F7UpiVYDsn");
 
     private readonly string _filePath;
 

@@ -72,7 +72,9 @@ public sealed partial class MainPage : Page
             ExcelPathBox.Text = settings.ExcelPath;
             DataSourceBox.SelectedIndex = settings.Kind == DataSourceKind.Excel ? 1 : 0;
             UpdateDataSourceVisibility();
-            ITreeApiKeyBox.Password = _iTreeCredentialStore.Load();
+            ITreeApiKeyStatusText.Text = string.IsNullOrWhiteSpace(_iTreeCredentialStore.Load())
+                ? "No i-Tree API key saved — open Settings from the LIM ribbon first."
+                : "i-Tree API key: saved (managed in Settings).";
             await RefreshRevitStatusAsync();
         });
     }
@@ -365,7 +367,12 @@ public sealed partial class MainPage : Page
     {
         await RunBusyAsync(async () =>
         {
-            var apiKey = ITreeApiKeyBox.Password.Trim();
+            var apiKey = _iTreeCredentialStore.Load().Trim();
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                throw new InvalidOperationException("No i-Tree API key saved — open Settings from the LIM ribbon first.");
+            }
+
             var catalogMode = ITreeScopeBox.SelectedIndex == 2;
             var profile = new ITreeExportProfile(
                 ITreeMonetaryCheckBox.IsChecked == true,
@@ -395,15 +402,6 @@ public sealed partial class MainPage : Page
                     new ITreeInputOptions(ITreeScopeBox.SelectedIndex == 1));
                 download = await _iTreeApiClient.DownloadAsync(scan.Items, apiKey, profile);
             }
-            if (RememberITreeKeyCheckBox.IsChecked == true)
-            {
-                _iTreeCredentialStore.Save(apiKey);
-            }
-            else
-            {
-                _iTreeCredentialStore.Delete();
-            }
-
             var headerRow = double.IsNaN(ITreeHeaderRowBox.Value)
                 ? 1
                 : (int)Math.Round(ITreeHeaderRowBox.Value);
@@ -869,10 +867,10 @@ public sealed partial class MainPage : Page
 
     private static IReadOnlyList<string> GetTargetCandidates(string source) => source switch
     {
-        "Avoided runoff m3/yr (16/18 girth)" => ["WWP_Avoided_Water_Runoff", source],
-        "Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth)" => ["WWP_Carbon_Dioxide_Sequestration", source],
-        "Oxygen levels O2 kg/yr (16/18 girth)" => ["WWP_Oxygen_Levels", source],
-        "Maintenance Costs" => ["WWP_Maintenance_Cost", source],
+        "Avoided runoff m3/yr (16/18 girth)" => ["!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Number", source],
+        "Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth)" => ["!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Number", source],
+        "Oxygen levels O2 kg/yr (16/18 girth)" => ["!_S_PLT_LDS_OxygenLevelsAnnual_Number", source],
+        "Maintenance Costs" => ["!_S_PLT_LDS_MaintenanceCostAnnual_Number", source],
         "COST_SAVED" => ["WWP_Cost_Saved", source],
         "Max_Height" => ["Max_Height", "Maxi_Height"],
         "Max_Width" => ["Max_Width", "Maxi_Width"],

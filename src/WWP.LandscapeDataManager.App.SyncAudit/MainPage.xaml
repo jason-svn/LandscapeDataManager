@@ -36,16 +36,17 @@
                     <ComboBoxItem Content="Excel workbook" />
                 </ComboBox>
                 <Button Grid.Column="1" Content="Refresh &amp; compare" Click="Refresh_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
-                <Grid Grid.Row="1" Grid.ColumnSpan="2" x:Name="AirtablePanel" ColumnSpacing="10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <PasswordBox x:Name="AirtableTokenBox" Header="Personal access token" />
-                    <TextBox Grid.Column="1" x:Name="AirtableBaseIdBox" Header="Base ID" />
-                    <TextBox Grid.Column="2" x:Name="AirtableTableBox" Header="Table name or ID" />
-                </Grid>
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" x:Name="AirtablePanel" Spacing="10">
+                    <TextBlock x:Name="AirtableTokenStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="AirtableBaseIdBox" Header="Base ID" />
+                        <TextBox Grid.Column="1" x:Name="AirtableTableBox" Header="Table name or ID" />
+                    </Grid>
+                </StackPanel>
                 <Grid Grid.Row="1" Grid.ColumnSpan="2" x:Name="ExcelPanel" ColumnSpacing="8" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />

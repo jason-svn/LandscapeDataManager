@@ -137,6 +137,7 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.GetSelectedFloors => await GetSelectedFloorsAsync(request).ConfigureAwait(false),
                 PipeCommands.CalculateFloorsBatch => await CalculateFloorsBatchAsync(request).ConfigureAwait(false),
                 PipeCommands.RunHealthCheck => await RunHealthCheckAsync(request).ConfigureAwait(false),
+                PipeCommands.GetDashboardReport => await GetDashboardReportAsync(request).ConfigureAwait(false),
                 _ => new PipeResponse(request.RequestId, false, Error: $"Unknown command: {request.Command}")
             };
         }
@@ -339,6 +340,15 @@ internal sealed class RevitPipeServer : IDisposable
     private async Task<PipeResponse> RunHealthCheckAsync(PipeRequest request)
     {
         var result = await _dispatcher.RunAsync(HealthCheckScanner.Scan).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetDashboardReportAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<DashboardReportRequest>(JsonDefaults.Options)
+                      ?? new DashboardReportRequest();
+        var result = await _dispatcher.RunAsync(application =>
+            DashboardReportService.GetReport(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

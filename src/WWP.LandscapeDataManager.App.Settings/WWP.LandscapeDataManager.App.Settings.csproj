@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>WWP.LandscapeDataManager.App.Settings</RootNamespace>
+    <AssemblyName>WWP.LandscapeDataManager.Settings</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputPath>$(MSBuildProjectDirectory)\..\..\artifacts\Settings\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <Configurations>Debug;Release;Debug 2025;Debug 2026</Configurations>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WWP.LandscapeDataManager.Contracts\WWP.LandscapeDataManager.Contracts.csproj" />
+    <ProjectReference Include="..\WWP.LandscapeDataManager.Shared\WWP.LandscapeDataManager.Shared.csproj" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260710003" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Include="..\WWP.LandscapeDataManager.SharedUI\Styles.xaml" Link="Styles.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Content Include="..\..\Assets\LIM-logo-256.png" Link="Assets\LIM-logo.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
