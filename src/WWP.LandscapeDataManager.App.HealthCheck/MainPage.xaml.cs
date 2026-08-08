@@ -17,6 +17,7 @@ public sealed partial class MainPage : Page
     private readonly WwpLdsCoefficientDatabase _coefficientDatabase = new();
 
     private RevitPipeClient? _revitClient;
+    private string _pipeName = string.Empty;
 
     public MainPage()
     {
@@ -28,6 +29,19 @@ public sealed partial class MainPage : Page
     public void Initialize(string pipeName, nint windowHandle)
     {
         _revitClient = new RevitPipeClient(pipeName);
+        _pipeName = pipeName;
+    }
+
+    private void OpenSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SiblingToolLauncher.ShowOrStart(Path.Combine("Settings", "WWP.LandscapeDataManager.Settings.exe"), _pipeName);
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Failed to open Settings: {exception.Message}";
+        }
     }
 
     private async void RunHealthCheck_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>

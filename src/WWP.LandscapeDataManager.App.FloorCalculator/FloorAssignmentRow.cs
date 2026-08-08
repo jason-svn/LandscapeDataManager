@@ -24,11 +24,12 @@ public sealed class FloorAssignmentRow(SelectedFloorItem item) : INotifyProperty
 
     public ObservableCollection<CoefficientRow> SearchResults { get; } = [];
 
-    /// <summary>Fixed 7 metrics in a stable order: CO2, Runoff, CostSaved, Oxygen, GWP, SurfaceTemp, AirTemp (see the named index constants below).</summary>
+    /// <summary>Fixed 8 metrics in a stable order: CO2, Runoff, PollutionMassRemoved, CostSaved, Oxygen, GWP, SurfaceTemp, AirTemp (see the named index constants below).</summary>
     public ObservableCollection<FloorMetricEntry> Metrics { get; } =
     [
         new("CO2 Sequestered", "kg/yr"),
         new("Runoff Avoided", "m³/yr"),
+        new("Pollution Mitigated", "kg/yr"),
         new("Cost Saved", "/yr"),
         new("Oxygen Produced", "kg/yr"),
         new("Total GWP", "kg CO2e"),
@@ -38,11 +39,12 @@ public sealed class FloorAssignmentRow(SelectedFloorItem item) : INotifyProperty
 
     public const int Co2Index = 0;
     public const int RunoffIndex = 1;
-    public const int CostSavedIndex = 2;
-    public const int OxygenIndex = 3;
-    public const int GwpIndex = 4;
-    public const int SurfaceTempIndex = 5;
-    public const int AirTempIndex = 6;
+    public const int PollutionIndex = 2;
+    public const int CostSavedIndex = 3;
+    public const int OxygenIndex = 4;
+    public const int GwpIndex = 5;
+    public const int SurfaceTempIndex = 6;
+    public const int AirTempIndex = 7;
 
     public WwpLdsCoefficientRecord? SelectedRecord
     {

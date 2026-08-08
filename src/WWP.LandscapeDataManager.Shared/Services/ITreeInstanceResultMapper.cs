@@ -45,28 +45,31 @@ public static class ITreeInstanceResultMapper
         items.Add(Text(uniqueId, "!_S_PLT_iTreeResult_CurrencyUsed_Text", preferredCurrency));
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_ExchangeRateUsed_Number", usdExchangeRate));
 
-        var isMetric = string.Equals(preferredUnitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
-
-        double FromPounds(double pounds) => isMetric ? pounds * UnitConversions.KilogramsPerPound : pounds;
-        double FromOunces(double ounces) => isMetric ? ounces * UnitConversions.KilogramsPerOunce : ounces;
+        // Mass fields are now Revit-native Mass-spec parameters (see ParameterValueConverter's
+        // "Auto (Revit spec)" handling), so the raw kilogram figure is written as-is and Revit's own
+        // project unit settings decide metric vs. imperial display — no more manual isMetric
+        // branching here (preferredUnitSystem is still recorded via UnitSystem_Text above for
+        // historical/audit purposes, but no longer drives the mass math).
+        double FromPounds(double pounds) => pounds * UnitConversions.KilogramsPerPound;
+        double FromOunces(double ounces) => ounces * UnitConversions.KilogramsPerOunce;
         // i-Tree's API only ever reports dollars, regardless of tree location — this is the one
         // point where that USD figure becomes the project's preferred currency (usdExchangeRate is
         // 1.0 for USD itself, so this is a no-op multiply in the common case).
         double ToPreferredCurrency(double usd) => usd * usdExchangeRate;
 
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Number",
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass",
             FromPounds(GetOrZero("Annual_CarbonSequestered_lb"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CORemovedAnnual_Number", FromOunces(GetOrZero("Annual_CO_oz"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_NO2RemovedAnnual_Number", FromOunces(GetOrZero("Annual_NO2_oz"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_O3RemovedAnnual_Number", FromOunces(GetOrZero("Annual_O3_oz"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_PM25RemovedAnnual_Number", FromOunces(GetOrZero("Annual_PM25_oz"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_SO2RemovedAnnual_Number", FromOunces(GetOrZero("Annual_SO2_oz"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CostSavedAnnual_Number", ToPreferredCurrency(GetOrZero("Annual_Benefit_USD"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CO2EquivalentAnnual_Number",
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CORemovedAnnual_Mass", FromOunces(GetOrZero("Annual_CO_oz"))));
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_NO2RemovedAnnual_Mass", FromOunces(GetOrZero("Annual_NO2_oz"))));
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_O3RemovedAnnual_Mass", FromOunces(GetOrZero("Annual_O3_oz"))));
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_PM25RemovedAnnual_Mass", FromOunces(GetOrZero("Annual_PM25_oz"))));
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_SO2RemovedAnnual_Mass", FromOunces(GetOrZero("Annual_SO2_oz"))));
+        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CostSavedAnnual_Currency", ToPreferredCurrency(GetOrZero("Annual_Benefit_USD"))));
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass",
             FromPounds(GetOrZero("Annual_CO2Equivalent_lb"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CarbonCostSavedAnnual_Number", ToPreferredCurrency(GetOrZero("Annual_CarbonBenefit_USD"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_StormWaterCostSavedAnnual_Number", ToPreferredCurrency(GetOrZero("Annual_StormWaterBenefit_USD"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Number", ToPreferredCurrency(GetOrZero("Annual_AirPollutionBenefit_USD"))));
+        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CarbonCostSavedAnnual_Currency", ToPreferredCurrency(GetOrZero("Annual_CarbonBenefit_USD"))));
+        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_StormWaterCostSavedAnnual_Currency", ToPreferredCurrency(GetOrZero("Annual_StormWaterBenefit_USD"))));
+        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Currency", ToPreferredCurrency(GetOrZero("Annual_AirPollutionBenefit_USD"))));
 
         var rainfallCubicMetres = GetOrZero("Annual_RainfallIntercepted_gal") * UnitConversions.CubicMetresPerGallon;
         var runoffCubicMetres = GetOrZero("Annual_RunoffAvoided_gal") * UnitConversions.CubicMetresPerGallon;
@@ -77,19 +80,19 @@ public static class ITreeInstanceResultMapper
         // TreeGrowth_Years was set to on this instance (the API's "*_20yr_*" field names are a legacy
         // holdover from when Years defaulted to 20 — they actually sum one entry per requested year,
         // so a tree modeled at Years=25 produces a 25-year total here, not a fixed 20-year one).
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Number",
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Mass",
             FromPounds(GetOrZero("CarbonSequestered_20yr_lb"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CORemovedLifetimeTotal_Number", FromOunces(GetOrZero("CO_20yr_oz"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_NO2RemovedLifetimeTotal_Number", FromOunces(GetOrZero("NO2_20yr_oz"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_O3RemovedLifetimeTotal_Number", FromOunces(GetOrZero("O3_20yr_oz"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_PM25RemovedLifetimeTotal_Number", FromOunces(GetOrZero("PM25_20yr_oz"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_SO2RemovedLifetimeTotal_Number", FromOunces(GetOrZero("SO2_20yr_oz"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CostSavedLifetimeTotal_Number", ToPreferredCurrency(GetOrZero("Benefit_20yr_USD"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CO2EquivalentLifetimeTotal_Number",
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CORemovedLifetimeTotal_Mass", FromOunces(GetOrZero("CO_20yr_oz"))));
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_NO2RemovedLifetimeTotal_Mass", FromOunces(GetOrZero("NO2_20yr_oz"))));
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_O3RemovedLifetimeTotal_Mass", FromOunces(GetOrZero("O3_20yr_oz"))));
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_PM25RemovedLifetimeTotal_Mass", FromOunces(GetOrZero("PM25_20yr_oz"))));
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_SO2RemovedLifetimeTotal_Mass", FromOunces(GetOrZero("SO2_20yr_oz"))));
+        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CostSavedLifetimeTotal_Currency", ToPreferredCurrency(GetOrZero("Benefit_20yr_USD"))));
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CO2EquivalentLifetimeTotal_Mass",
             FromPounds(GetOrZero("CO2Equivalent_20yr_lb"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CarbonCostSavedLifetimeTotal_Number", ToPreferredCurrency(GetOrZero("CarbonBenefit_20yr_USD"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_StormWaterCostSavedLifetimeTotal_Number", ToPreferredCurrency(GetOrZero("StormWaterBenefit_20yr_USD"))));
-        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_AirPollutionCostSavedLifetimeTotal_Number", ToPreferredCurrency(GetOrZero("AirPollutionBenefit_20yr_USD"))));
+        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CarbonCostSavedLifetimeTotal_Currency", ToPreferredCurrency(GetOrZero("CarbonBenefit_20yr_USD"))));
+        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_StormWaterCostSavedLifetimeTotal_Currency", ToPreferredCurrency(GetOrZero("StormWaterBenefit_20yr_USD"))));
+        items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_AirPollutionCostSavedLifetimeTotal_Currency", ToPreferredCurrency(GetOrZero("AirPollutionBenefit_20yr_USD"))));
 
         var lifetimeRainfallCubicMetres = GetOrZero("RainfallIntercepted_20yr_gal") * UnitConversions.CubicMetresPerGallon;
         var lifetimeRunoffCubicMetres = GetOrZero("RunoffAvoided_20yr_gal") * UnitConversions.CubicMetresPerGallon;
@@ -107,6 +110,9 @@ public static class ITreeInstanceResultMapper
 
     private static InstanceParameterWriteItem Volume(string uniqueId, string parameter, double cubicMetres) =>
         new(uniqueId, parameter, "Auto (Revit spec)", cubicMetres.ToString("G17", CultureInfo.InvariantCulture));
+
+    private static InstanceParameterWriteItem Mass(string uniqueId, string parameter, double kilograms) =>
+        new(uniqueId, parameter, "Auto (Revit spec)", kilograms.ToString("G17", CultureInfo.InvariantCulture));
 
     /// <summary>Local wall-clock time in the machine's own time zone, e.g. "2026-08-04, 14:23:07, Eastern Standard Time" — readable at a glance instead of a UTC ISO 8601 stamp.</summary>
     private static string FormatLocalTimestamp()

@@ -15,7 +15,7 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Spacing="4">
-                <TextBlock Text="i-Tree Species Catalogue" Style="{StaticResource LimPageTitleStyle}" />
+                <TextBlock Text="iTree Database Cacher" Style="{StaticResource LimPageTitleStyle}" />
                 <TextBlock
                     Text="Downloads species code, common name, scientific name, and species type from i-Tree, matches by species code, and never touches columns or species it doesn't manage."
                     Style="{StaticResource LimPageSubtitleStyle}" />
@@ -24,7 +24,14 @@
             <!-- Step 1: API key + scope -->
             <Border Grid.Row="1" Margin="0,20,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="STEP 1 — SOURCE &amp; SCOPE" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="STEP 1 — SOURCE &amp; SCOPE" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    </Grid>
                     <TextBlock x:Name="ApiKeyStatusText" Style="{StaticResource LimMutedTextStyle}" />
                     <ComboBox x:Name="ScopeBox" Header="Local catalogue scope" SelectedIndex="0" HorizontalAlignment="Stretch">
                         <ComboBoxItem Content="Project species (recommended) — only species used in this model" />

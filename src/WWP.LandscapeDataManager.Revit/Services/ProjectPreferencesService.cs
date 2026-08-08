@@ -14,6 +14,24 @@ internal static class ProjectPreferencesService
     private const string PreferredCurrencyParameter = "!_S_PLT_iTreeUnits_PreferredCurrency_Text";
     private const string SettingsJsonParameter = "!_S_PLT_Settings_Json_Text";
 
+    /// <summary>
+    /// Revit's Currency spec has one symbol for the whole project (Project Units), not a per-parameter
+    /// or per-instance choice — but since this app's currency preference is also one-per-project, we
+    /// can keep the two in sync automatically. There's no separate symbol for CAD/AUD/NZD (Revit only
+    /// offers one dollar sign), so they share <see cref="SymbolTypeId.UsDollar"/> with USD; the symbol
+    /// itself is still just a display affectation — the ISO code that actually matters for math lives
+    /// in <see cref="PreferredCurrencyParameter"/> and each instance's own CurrencyUsed_Text.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, ForgeTypeId> CurrencySymbols = new Dictionary<string, ForgeTypeId>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["USD"] = SymbolTypeId.UsDollar,
+        ["CAD"] = SymbolTypeId.UsDollar,
+        ["AUD"] = SymbolTypeId.UsDollar,
+        ["NZD"] = SymbolTypeId.UsDollar,
+        ["GBP"] = SymbolTypeId.UkPound,
+        ["EUR"] = SymbolTypeId.EuroPrefix
+    };
+
     public static PublishPreferredCurrencyResult PublishPreferredCurrency(
         UIApplication application,
         PublishPreferredCurrencyRequest request)
@@ -38,6 +56,8 @@ internal static class ProjectPreferencesService
                 parameter.Set(request.CurrencyCode);
             }
 
+            SetCurrencySymbol(document, request.CurrencyCode);
+
             transaction.Commit();
         }
         catch
@@ -51,6 +71,37 @@ internal static class ProjectPreferencesService
         }
 
         return new PublishPreferredCurrencyResult(document.Title, request.CurrencyCode);
+    }
+
+    /// <summary>
+    /// Best-effort — the currency preference itself (above) is the operation that actually matters;
+    /// if the native Currency symbol can't be set for any reason, that's cosmetic and shouldn't fail
+    /// the whole publish.
+    /// </summary>
+    private static void SetCurrencySymbol(Document document, string currencyCode)
+    {
+        if (!CurrencySymbols.TryGetValue(currencyCode, out var symbol))
+        {
+            return;
+        }
+
+        try
+        {
+            var units = document.GetUnits();
+            var formatOptions = units.GetFormatOptions(SpecTypeId.Currency);
+            if (!formatOptions.CanHaveSymbol() || !formatOptions.IsValidSymbol(symbol))
+            {
+                return;
+            }
+
+            formatOptions.SetSymbolTypeId(symbol);
+            units.SetFormatOptions(SpecTypeId.Currency, formatOptions);
+            document.SetUnits(units);
+        }
+        catch
+        {
+            // Ignored — see method summary.
+        }
     }
 
     public static GetProjectSettingsJsonResult GetSettingsJson(UIApplication application)

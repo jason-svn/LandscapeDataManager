@@ -2,308 +2,520 @@
     x:Class="WWP.LandscapeDataManager.App.Dashboard.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:WWP.LandscapeDataManager.App.Dashboard">
+    xmlns:local="using:WWP.LandscapeDataManager.App.Dashboard"
+    Loaded="Page_Loaded">
 
-    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="{StaticResource LimPageMargin}">
+    <Page.Resources>
+        <SolidColorBrush x:Key="KpiForestBrush" Color="#FF176B2B" />
+        <SolidColorBrush x:Key="KpiLeafBrush" Color="#FF63BE47" />
+        <SolidColorBrush x:Key="KpiLimeBrush" Color="#FFA6D78C" />
+        <SolidColorBrush x:Key="KpiGoldBrush" Color="#FFFFC400" />
+        <SolidColorBrush x:Key="KpiCanvasBrush" Color="#FFF5F7F2" />
+        <SolidColorBrush x:Key="KpiInkBrush" Color="#FF1C281F" />
+        <Style x:Key="KpiSurfaceStyle" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#FFDDE4DA" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="24" />
+            <Setter Property="Padding" Value="22" />
+        </Style>
+        <Style x:Key="KpiEyebrowStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="CharacterSpacing" Value="100" />
+            <Setter Property="Foreground" Value="#FF687269" />
+        </Style>
+        <Style x:Key="KpiCardTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="17" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource KpiInkBrush}" />
+        </Style>
+        <Style x:Key="KpiMetricCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#FFDDE4DA" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="12,10" />
+        </Style>
+        <Style x:Key="KpiStatusCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#FFDDE4DA" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="12,10" />
+        </Style>
+    </Page.Resources>
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="24,18,24,18">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Spacing="4">
-            <TextBlock Text="Landscape Benefits Dashboard" Style="{StaticResource LimPageTitleStyle}" />
-            <TextBlock
-                Text="Rolls up whatever i-Tree and landscape-data-sheet results are already stored on Planting and Floor instances right now — subtotalled by species and by floor-based plant type, with a grand total kept separate for each."
-                Style="{StaticResource LimPageSubtitleStyle}" />
-        </StackPanel>
-
-        <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
-            <Grid ColumnSpacing="12" RowSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="150" />
-                    <ColumnDefinition Width="180" />
-                    <ColumnDefinition Width="180" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="150" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <ComboBox x:Name="ScopeBox" Header="Scope" SelectedIndex="0" HorizontalAlignment="Stretch">
-                    <ComboBoxItem Content="Whole model" />
-                    <ComboBoxItem Content="Current selection" />
-                </ComboBox>
-                <ComboBox Grid.Column="1" x:Name="DesignOptionBox" Header="Design option" HorizontalAlignment="Stretch" SelectionChanged="DesignOptionBox_SelectionChanged" />
-                <ComboBox Grid.Column="2" x:Name="LevelBox" Header="Level" HorizontalAlignment="Stretch" SelectionChanged="LevelBox_SelectionChanged" />
-                <TextBox Grid.Column="3" x:Name="SpeciesSearchBox" Header="Species search" PlaceholderText="Species code or common name" TextChanged="SpeciesSearchBox_TextChanged" />
-                <ComboBox Grid.Column="4" x:Name="UnitSystemBox" Header="Display units" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="UnitSystemBox_SelectionChanged">
-                    <ComboBoxItem Content="Project default" />
-                    <ComboBoxItem Content="Metric" />
-                    <ComboBoxItem Content="Imperial" />
-                </ComboBox>
-                <StackPanel Grid.Column="5" VerticalAlignment="Bottom" Margin="0,0,0,8">
-                    <ToggleSwitch x:Name="PeriodToggle" IsOn="True" OnContent="Annual" OffContent="Lifetime" Toggled="PeriodToggle_Toggled" />
-                </StackPanel>
-                <Button Grid.Column="6" Content="Refresh" Click="Refresh_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
-            </Grid>
-        </Border>
-
-        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnSpacing="10">
+        <Grid>
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Border x:Name="CalculatedCard" Style="{StaticResource LimCardStyle}" Padding="12" Tag="Calculated" Tapped="StatusCard_Tapped">
-                <StackPanel Spacing="2"><TextBlock Text="CALCULATED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="CalculatedCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+            <Border Width="52" Height="52" CornerRadius="14" Background="{StaticResource KpiForestBrush}" Margin="0,0,16,0">
+                <TextBlock Text="🌿" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
-            <Border x:Name="ReadyCard" Grid.Column="1" Style="{StaticResource LimCardStyle}" Padding="12" Tag="Ready" Tapped="StatusCard_Tapped">
-                <StackPanel Spacing="2"><TextBlock Text="READY" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ReadyCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-            </Border>
-            <Border x:Name="StaleCard" Grid.Column="2" Style="{StaticResource LimCardStyle}" Padding="12" Tag="Stale" Tapped="StatusCard_Tapped">
-                <StackPanel Spacing="2"><TextBlock Text="STALE" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="StaleCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-            </Border>
-            <Border x:Name="MissingCard" Grid.Column="3" Style="{StaticResource LimCardStyle}" Padding="12" Tag="MissingInput" Tapped="StatusCard_Tapped">
-                <StackPanel Spacing="2"><TextBlock Text="MISSING" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="MissingCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-            </Border>
-            <Border x:Name="InvalidCard" Grid.Column="4" Style="{StaticResource LimCardStyle}" Padding="12" Tag="InvalidInput" Tapped="StatusCard_Tapped">
-                <StackPanel Spacing="2"><TextBlock Text="INVALID" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="InvalidCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-            </Border>
-            <Border x:Name="WarningCard" Grid.Column="5" Style="{StaticResource LimCardStyle}" Padding="12" Tag="APIWarning" Tapped="StatusCard_Tapped">
-                <StackPanel Spacing="2"><TextBlock Text="WARNING" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="WarningCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-            </Border>
-            <Border x:Name="ErrorCard" Grid.Column="6" Style="{StaticResource LimCardStyle}" Padding="12" Tag="APIError" Tapped="StatusCard_Tapped">
-                <StackPanel Spacing="2"><TextBlock Text="ERROR" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ErrorCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-            </Border>
+            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                <TextBlock Text="Environmental KPI Dashboard" FontSize="25" FontWeight="Bold" />
+                <TextBlock Text="Graphic outlook, design-scenario comparison, and detailed LIM reporting" Style="{StaticResource LimPageSubtitleStyle}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Border Background="#FFE5F2E1" CornerRadius="16" Padding="14,7">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Ellipse Width="8" Height="8" Fill="{StaticResource KpiLeafBrush}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="CacheStatusText" Text="No snapshot loaded" Foreground="{StaticResource KpiForestBrush}" FontWeight="SemiBold" FontSize="13" />
+                    </StackPanel>
+                </Border>
+                <Button Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            </StackPanel>
         </Grid>
 
-        <TextBlock Grid.Row="3" x:Name="PeriodLabelText" Margin="0,8,0,0" Style="{StaticResource LimMutedTextStyle}" Text="Showing Annual benefits — click a status card above to filter trees to just that status." />
-
-        <Border x:Name="CaptureRoot" Grid.Row="4" Margin="0,12,0,0" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-            <StackPanel Spacing="12">
+        <Border Grid.Row="1" Margin="0,14,0,4" Style="{StaticResource LimCardStyle}" Padding="16,12">
+            <StackPanel Spacing="8">
+                <TextBlock Text="FILTERS &amp; SCOPE" Style="{StaticResource KpiEyebrowStyle}" />
                 <Grid ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="135" />
+                        <ColumnDefinition Width="175" />
+                        <ColumnDefinition Width="145" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="130" />
+                        <ColumnDefinition Width="135" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Style="{StaticResource LimCardStyle}" Padding="12">
-                        <StackPanel Spacing="2"><TextBlock Text="TREES COUNTED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="TreeCountText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="TreeExcludedText" Style="{StaticResource LimMutedTextStyle}" FontSize="11" /></StackPanel>
-                    </Border>
-                    <Border Grid.Column="1" Style="{StaticResource LimCardStyle}" Padding="12">
-                        <StackPanel Spacing="2"><TextBlock Text="POLLUTION MASS REMOVED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="PollutionMassText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-                    </Border>
-                    <Border Grid.Column="2" Style="{StaticResource LimCardStyle}" Padding="12">
-                        <StackPanel Spacing="2"><TextBlock Text="CO2 SEQUESTERED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="CO2SequesteredText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-                    </Border>
-                    <Border Grid.Column="3" Style="{StaticResource LimCardStyle}" Padding="12">
-                        <StackPanel Spacing="2"><TextBlock Text="TREE MONETARY BENEFIT" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="TreeCostSavedText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-                    </Border>
-                    <Border Grid.Column="4" Width="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="4,0" />
-                    <Border Grid.Column="5" Style="{StaticResource LimCardStyle}" Padding="12">
-                        <StackPanel Spacing="2"><TextBlock Text="FLOOR PLANTS — COUNT / AREA" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="FloorCountText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorAreaText" Style="{StaticResource LimMutedTextStyle}" FontSize="11" /></StackPanel>
-                    </Border>
-                    <Border Grid.Column="6" Style="{StaticResource LimCardStyle}" Padding="12">
-                        <StackPanel Spacing="2"><TextBlock Text="FLOOR CO2 / GWP" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="FloorCO2Text" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorGwpText" Style="{StaticResource LimMutedTextStyle}" FontSize="11" /></StackPanel>
-                    </Border>
-                    <Border Grid.Column="7" Style="{StaticResource LimCardStyle}" Padding="12">
-                        <StackPanel Spacing="2"><TextBlock Text="FLOOR BENEFIT" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="FloorCostSavedText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-                    </Border>
-                    <Border Grid.Column="8" Style="{StaticResource LimCardStyle}" Padding="12">
-                        <StackPanel Spacing="2"><TextBlock Text="CURRENCY" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="CurrencyText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-                    </Border>
-                </Grid>
-
-                <Grid ColumnSpacing="14">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="By species (trees)" Style="{StaticResource LimSectionHeaderStyle}" />
-                        <ListView ItemsSource="{x:Bind SpeciesSubtotals}" MaxHeight="260" SelectionMode="None">
-                            <ListView.HeaderTemplate>
-                                <DataTemplate>
-                                    <Grid Padding="6" ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="80" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="50" />
-                                            <ColumnDefinition Width="110" />
-                                            <ColumnDefinition Width="120" />
-                                            <ColumnDefinition Width="110" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Code" Style="{StaticResource LimMutedTextStyle}" />
-                                        <TextBlock Grid.Column="1" Text="Common name" Style="{StaticResource LimMutedTextStyle}" />
-                                        <TextBlock Grid.Column="2" Text="Count" Style="{StaticResource LimMutedTextStyle}" />
-                                        <TextBlock Grid.Column="3" Text="CO2" Style="{StaticResource LimMutedTextStyle}" />
-                                        <TextBlock Grid.Column="4" Text="Pollution mass" Style="{StaticResource LimMutedTextStyle}" />
-                                        <TextBlock Grid.Column="5" Text="Cost saved" Style="{StaticResource LimMutedTextStyle}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.HeaderTemplate>
-                            <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="local:SpeciesSubtotalRow">
-                                    <Grid Padding="6" ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="80" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="50" />
-                                            <ColumnDefinition Width="110" />
-                                            <ColumnDefinition Width="120" />
-                                            <ColumnDefinition Width="110" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{x:Bind SpeciesCode}" FontWeight="SemiBold" />
-                                        <TextBlock Grid.Column="1" Text="{x:Bind CommonName}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="2" Text="{x:Bind TreeCount}" />
-                                        <TextBlock Grid.Column="3" Text="{x:Bind CO2Sequestered}" />
-                                        <TextBlock Grid.Column="4" Text="{x:Bind PollutionMassRemoved}" />
-                                        <TextBlock Grid.Column="5" Text="{x:Bind CostSaved}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1" Spacing="6">
-                        <TextBlock Text="Floor-based plants, by landscape data sheet type" Style="{StaticResource LimSectionHeaderStyle}" />
-                        <ListView ItemsSource="{x:Bind FloorSubtotals}" MaxHeight="260" SelectionMode="None">
-                            <ListView.HeaderTemplate>
-                                <DataTemplate>
-                                    <Grid Padding="6" ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="50" />
-                                            <ColumnDefinition Width="90" />
-                                            <ColumnDefinition Width="90" />
-                                            <ColumnDefinition Width="70" />
-                                            <ColumnDefinition Width="130" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Type" Style="{StaticResource LimMutedTextStyle}" />
-                                        <TextBlock Grid.Column="1" Text="Count" Style="{StaticResource LimMutedTextStyle}" />
-                                        <TextBlock Grid.Column="2" Text="Area" Style="{StaticResource LimMutedTextStyle}" />
-                                        <TextBlock Grid.Column="3" Text="CO2" Style="{StaticResource LimMutedTextStyle}" />
-                                        <TextBlock Grid.Column="4" Text="GWP" Style="{StaticResource LimMutedTextStyle}" />
-                                        <TextBlock Grid.Column="5" Text="Cost" Style="{StaticResource LimMutedTextStyle}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.HeaderTemplate>
-                            <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="local:FloorSubtotalRow">
-                                    <Grid Padding="6" ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="50" />
-                                            <ColumnDefinition Width="90" />
-                                            <ColumnDefinition Width="90" />
-                                            <ColumnDefinition Width="70" />
-                                            <ColumnDefinition Width="130" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{x:Bind LdsType}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="1" Text="{x:Bind FloorCount}" />
-                                        <TextBlock Grid.Column="2" Text="{x:Bind AreaSquareMeters}" />
-                                        <TextBlock Grid.Column="3" Text="{x:Bind CO2Sequestered}" />
-                                        <TextBlock Grid.Column="4" Text="{x:Bind TotalGwp}" />
-                                        <TextBlock Grid.Column="5" Text="{x:Bind CostSaved}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-                    </StackPanel>
+                    <ComboBox x:Name="ScopeBox" Header="Model scope" SelectedIndex="0" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="Whole model" />
+                        <ComboBoxItem Content="Current selection" />
+                    </ComboBox>
+                    <ComboBox Grid.Column="1" x:Name="DesignOptionBox" Header="Design option" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="DesignOptionBox_SelectionChanged">
+                        <ComboBoxItem Content="All design options" />
+                    </ComboBox>
+                    <ComboBox Grid.Column="2" x:Name="LevelBox" Header="Level" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="LevelBox_SelectionChanged">
+                        <ComboBoxItem Content="All levels" />
+                    </ComboBox>
+                    <TextBox Grid.Column="3" x:Name="SpeciesSearchBox" Header="Species filter" PlaceholderText="Code or common name" TextChanged="SpeciesSearchBox_TextChanged" />
+                    <ComboBox Grid.Column="4" x:Name="UnitSystemBox" Header="Display units" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="UnitSystemBox_SelectionChanged">
+                        <ComboBoxItem Content="Project default" />
+                        <ComboBoxItem Content="Metric" />
+                        <ComboBoxItem Content="Imperial" />
+                    </ComboBox>
+                    <ComboBox Grid.Column="5" x:Name="ProjectionBox" Header="Outlook" SelectedIndex="1" HorizontalAlignment="Stretch" SelectionChanged="ProjectionBox_SelectionChanged">
+                        <ComboBoxItem Content="5 years" Tag="5" />
+                        <ComboBoxItem Content="10 years" Tag="10" />
+                        <ComboBoxItem Content="20 years" Tag="20" />
+                        <ComboBoxItem Content="25 years" Tag="25" />
+                    </ComboBox>
+                    <Button Grid.Column="6" Click="Refresh_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="&#8635;" FontSize="14" />
+                            <TextBlock Text="Refresh model" />
+                        </StackPanel>
+                    </Button>
                 </Grid>
             </StackPanel>
         </Border>
 
-        <Grid Grid.Row="5" Margin="0,14,0,0" ColumnSpacing="14">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <Pivot Grid.Row="2" x:Name="DashboardPages">
+            <PivotItem Header="Executive overview">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <Grid x:Name="CaptureRoot" MinWidth="1180" Background="{StaticResource KpiCanvasBrush}" Padding="22" CornerRadius="20">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
-            <StackPanel Spacing="6">
-                <TextBlock Text="Tree instances" Style="{StaticResource LimSectionHeaderStyle}" />
-                <ListView ItemsSource="{x:Bind TreeRows}" SelectionMode="None">
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="local:DashboardTreeRow">
-                            <Grid Padding="6" ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="70" />
-                                    <ColumnDefinition Width="90" />
-                                    <ColumnDefinition Width="110" />
-                                    <ColumnDefinition Width="100" />
-                                    <ColumnDefinition Width="90" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="{x:Bind FamilyType}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="1" Text="{x:Bind SpeciesCode}" />
-                                <TextBlock Grid.Column="2" Text="{x:Bind Status}" />
-                                <TextBlock Grid.Column="3" Text="{x:Bind CO2Sequestered}" />
-                                <TextBlock Grid.Column="4" Text="{x:Bind PollutionMassRemoved}" />
-                                <TextBlock Grid.Column="5" Text="{x:Bind CostSaved}" />
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </StackPanel>
+                        <Grid Margin="2,0,2,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="ENVIRONMENTAL PERFORMANCE" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiForestBrush}" />
+                                <TextBlock x:Name="ProjectTitleText" Text="LIM project snapshot" FontSize="25" FontWeight="Bold" Foreground="{StaticResource KpiInkBrush}" />
+                                <TextBlock x:Name="OutlookText" Text="10-year outlook · annual stored results × 10" Foreground="#FF667067" />
+                            </StackPanel>
+                            <Border Grid.Column="1" Background="{StaticResource KpiForestBrush}" CornerRadius="18" Padding="16,9" VerticalAlignment="Center">
+                                <TextBlock x:Name="ScenarioBadgeText" Text="ALL DESIGN OPTIONS" Foreground="White" FontWeight="SemiBold" />
+                            </Border>
+                        </Grid>
 
-            <StackPanel Grid.Column="1" Spacing="6">
-                <TextBlock Text="Floor instances" Style="{StaticResource LimSectionHeaderStyle}" />
-                <ListView ItemsSource="{x:Bind FloorRows}" SelectionMode="None">
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="local:DashboardFloorRow">
-                            <Grid Padding="6" ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="90" />
-                                    <ColumnDefinition Width="80" />
-                                    <ColumnDefinition Width="80" />
-                                    <ColumnDefinition Width="120" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="{x:Bind FamilyType}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="1" Text="{x:Bind LdsType}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="2" Text="{x:Bind AreaSquareMeters}" />
-                                <TextBlock Grid.Column="3" Text="{x:Bind CO2Sequestered}" />
-                                <TextBlock Grid.Column="4" Text="{x:Bind CostSaved}" />
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </StackPanel>
+                        <Grid Grid.Row="1" ColumnSpacing="16" RowSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="310" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="225" />
+                                <RowDefinition Height="225" />
+                                <RowDefinition Height="225" />
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.RowSpan="3" Background="{StaticResource KpiForestBrush}" CornerRadius="28" Padding="26">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="1" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="1" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="1" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="ECOSYSTEM VALUE" Foreground="#FFCDE5D1" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="KpiEcosystemValueText" Text="—" FontSize="30" FontWeight="Bold" Foreground="{StaticResource KpiGoldBrush}" TextWrapping="Wrap" />
+                                        <TextBlock Text="Projected tree monetary benefit" Foreground="White" Opacity="0.9" TextWrapping="Wrap" />
+                                        <ProgressBar x:Name="ReportingProgress" Margin="0,9,0,0" Height="7" Maximum="100" Foreground="{StaticResource KpiGoldBrush}" Background="#FF83A889" />
+                                        <TextBlock x:Name="ReportingCaptionText" Text="0% tree results ready" Foreground="#FFE5F3E7" FontSize="12" />
+                                    </StackPanel>
+                                    <Border Grid.Row="1" Background="#558CC394" />
+                                    <StackPanel Grid.Row="2" Spacing="6" VerticalAlignment="Center">
+                                        <TextBlock Text="CARBON BENEFIT" Foreground="#FFCDE5D1" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="KpiCarbonText" Text="—" FontSize="30" FontWeight="Bold" Foreground="{StaticResource KpiGoldBrush}" TextWrapping="Wrap" />
+                                        <TextBlock Text="Trees + planting areas" Foreground="White" Opacity="0.9" />
+                                    </StackPanel>
+                                    <Border Grid.Row="3" Background="#558CC394" />
+                                    <StackPanel Grid.Row="4" Spacing="6" VerticalAlignment="Center">
+                                        <TextBlock Text="WATER MANAGED" Foreground="#FFCDE5D1" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="KpiWaterText" Text="—" FontSize="30" FontWeight="Bold" Foreground="{StaticResource KpiGoldBrush}" TextWrapping="Wrap" />
+                                        <TextBlock Text="Projected avoided runoff" Foreground="White" Opacity="0.9" />
+                                    </StackPanel>
+                                    <Border Grid.Row="5" Background="#558CC394" />
+                                    <Grid Grid.Row="6" Margin="0,15,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="TREES" Foreground="#FFCDE5D1" FontSize="11" />
+                                            <TextBlock x:Name="KpiTreeCountText" Text="—" Foreground="White" FontSize="22" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="PLANTING AREAS" Foreground="#FFCDE5D1" FontSize="11" />
+                                            <TextBlock x:Name="KpiPlantingAreaText" Text="—" Foreground="White" FontSize="22" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Column="1" Style="{StaticResource KpiSurfaceStyle}">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="Carbon outlook" Style="{StaticResource KpiCardTitleStyle}" />
+                                    <TextBlock Text="Cumulative projection from the current annual rate" Foreground="#FF69736A" FontSize="12" />
+                                    <ItemsControl ItemsSource="{x:Bind ProjectionTrendRows}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="local:KpiBarRow">
+                                                <Grid Margin="0,4" ColumnSpacing="10">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="58" /><ColumnDefinition Width="*" /><ColumnDefinition Width="105" /></Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{x:Bind Label}" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                                    <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="11" Foreground="{StaticResource KpiLeafBrush}" Background="#FFE1E8DE" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="2" Style="{StaticResource KpiSurfaceStyle}">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                                    <TextBlock Text="Project snapshot" Style="{StaticResource KpiCardTitleStyle}" />
+                                    <Grid Grid.Row="1" Margin="0,14,0,0" ColumnSpacing="14">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="PLANTING AREA" Style="{StaticResource KpiEyebrowStyle}" />
+                                            <TextBlock x:Name="SnapshotAreaText" Text="—" FontSize="23" FontWeight="Bold" Foreground="{StaticResource KpiForestBrush}" />
+                                            <TextBlock Text="calculated surfaces" Foreground="#FF707970" FontSize="12" />
+                                            <TextBlock Text="GWP BASELINE" Style="{StaticResource KpiEyebrowStyle}" Margin="0,16,0,0" />
+                                            <TextBlock x:Name="GwpBaselineText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="4">
+                                            <TextBlock Text="POLLUTION REMOVED" Style="{StaticResource KpiEyebrowStyle}" />
+                                            <TextBlock x:Name="KpiPollutionText" Text="—" FontSize="23" FontWeight="Bold" Foreground="{StaticResource KpiForestBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="trees + planting areas" Foreground="#FF707970" FontSize="12" />
+                                            <TextBlock Text="INVENTORY" Style="{StaticResource KpiEyebrowStyle}" Margin="0,16,0,0" />
+                                            <TextBlock x:Name="SnapshotInventoryText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource KpiSurfaceStyle}">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="Impact profile" Style="{StaticResource KpiCardTitleStyle}" />
+                                    <TextBlock Text="Share supplied by calculated trees; the balance comes from planting areas" Foreground="#FF69736A" FontSize="12" TextWrapping="Wrap" />
+                                    <ItemsControl ItemsSource="{x:Bind ImpactProfileRows}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="local:KpiBarRow">
+                                                <StackPanel Margin="0,4" Spacing="4">
+                                                    <Grid><TextBlock Text="{x:Bind Label}" FontWeight="SemiBold" /><TextBlock Text="{x:Bind ValueText}" HorizontalAlignment="Right" /></Grid>
+                                                    <ProgressBar Value="{x:Bind Percent}" Maximum="100" Height="12" Foreground="{StaticResource KpiForestBrush}" Background="{StaticResource KpiLimeBrush}" />
+                                                    <TextBlock Text="{x:Bind Detail}" Foreground="#FF707970" FontSize="11" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource KpiSurfaceStyle}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <Grid>
+                                        <ProgressRing x:Name="ReadinessRing" Width="150" Height="150" IsIndeterminate="False" Maximum="100" Foreground="{StaticResource KpiLeafBrush}" />
+                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock x:Name="ReadinessPercentText" Text="0%" FontSize="27" FontWeight="Bold" HorizontalAlignment="Center" />
+                                            <TextBlock Text="ready" Foreground="#FF69736A" HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
+                                        <TextBlock Text="Data readiness" Style="{StaticResource KpiCardTitleStyle}" />
+                                        <TextBlock Text="Only Calculated tree records contribute to benefit totals. Planting-area results are reported independently." Foreground="#FF69736A" TextWrapping="Wrap" />
+                                        <TextBlock x:Name="ReadinessDetailText" Text="Refresh to inspect status coverage." FontWeight="SemiBold" Foreground="{StaticResource KpiForestBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource KpiSurfaceStyle}">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="Top tree palette" Style="{StaticResource KpiCardTitleStyle}" />
+                                    <ItemsControl ItemsSource="{x:Bind SpeciesMixRows}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="local:KpiBarRow">
+                                                <Grid Margin="0,3" ColumnSpacing="10">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="140" /><ColumnDefinition Width="*" /><ColumnDefinition Width="58" /></Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Detail}" />
+                                                    <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="10" Foreground="{StaticResource KpiForestBrush}" Background="#FFE1E8DE" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" FontWeight="SemiBold" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource KpiSurfaceStyle}">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="Planting-area mix" Style="{StaticResource KpiCardTitleStyle}" />
+                                    <ItemsControl ItemsSource="{x:Bind FloorMixRows}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="local:KpiBarRow">
+                                                <Grid Margin="0,3" ColumnSpacing="10">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="150" /><ColumnDefinition Width="*" /><ColumnDefinition Width="78" /></Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" />
+                                                    <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="10" Foreground="{StaticResource KpiLeafBrush}" Background="#FFE1E8DE" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" FontWeight="SemiBold" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </ScrollViewer>
+            </PivotItem>
+
+            <PivotItem Header="Design scenarios">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Background="{StaticResource KpiCanvasBrush}" Padding="22" CornerRadius="20" RowSpacing="16">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Design-option comparison" FontSize="24" FontWeight="Bold" />
+                            <TextBlock Text="Compares every Revit design option in the loaded snapshot. A year found in an option name is used as that option's outlook; otherwise the selected outlook is used." Foreground="#FF687269" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Border Grid.Row="1" Style="{StaticResource KpiSurfaceStyle}" Margin="0,2,0,0">
+                            <StackPanel Spacing="12">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="210" /><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /></Grid.ColumnDefinitions>
+                                    <TextBlock Text="DESIGN OPTION" Style="{StaticResource KpiEyebrowStyle}" />
+                                    <TextBlock Grid.Column="1" Text="INVENTORY" Style="{StaticResource KpiEyebrowStyle}" />
+                                    <TextBlock Grid.Column="2" Text="RELATIVE CARBON BENEFIT" Style="{StaticResource KpiEyebrowStyle}" />
+                                    <TextBlock Grid.Column="3" Text="PROJECTED" Style="{StaticResource KpiEyebrowStyle}" HorizontalAlignment="Right" />
+                                </Grid>
+                                <ItemsControl ItemsSource="{x:Bind ScenarioRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="local:ScenarioComparisonRow">
+                                            <Grid ColumnSpacing="12" Margin="0,7">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="210" /><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /></Grid.ColumnDefinitions>
+                                                <TextBlock Text="{x:Bind DesignOption}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="1" Text="{x:Bind Inventory}" Foreground="#FF687269" />
+                                                <ProgressBar Grid.Column="2" Value="{x:Bind Percent}" Maximum="100" Height="15" Foreground="{StaticResource KpiForestBrush}" Background="#FFDCE6D8" />
+                                                <TextBlock Grid.Column="3" Text="{x:Bind ProjectedCarbon}" HorizontalAlignment="Right" FontWeight="SemiBold" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                        <Grid Grid.Row="2" ColumnSpacing="16">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource KpiSurfaceStyle}">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="Status distribution" Style="{StaticResource KpiCardTitleStyle}" />
+                                    <ItemsControl ItemsSource="{x:Bind StatusBreakdownRows}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="local:KpiBarRow">
+                                                <Grid Margin="0,4" ColumnSpacing="10">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="130" /><ColumnDefinition Width="*" /><ColumnDefinition Width="70" /></Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{x:Bind Label}" />
+                                                    <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="11" Foreground="{StaticResource KpiLeafBrush}" Background="#FFE1E8DE" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource KpiSurfaceStyle}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Projection method" Style="{StaticResource KpiCardTitleStyle}" />
+                                    <TextBlock Text="The graphic outlook multiplies the currently stored annual benefit rate by the selected year span. It is a transparent scenario view, not a growth simulation." TextWrapping="Wrap" Foreground="#FF586359" />
+                                    <TextBlock Text="• Tree currency is normalized to the project currency." TextWrapping="Wrap" />
+                                    <TextBlock Text="• Carbon, pollution, and runoff combine compatible tree and planting-area results." TextWrapping="Wrap" />
+                                    <TextBlock Text="• Planting-area GWP stays a one-time baseline." TextWrapping="Wrap" />
+                                    <TextBlock Text="• Detailed annual and lifetime values remain available on the Data explorer page." TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </ScrollViewer>
+            </PivotItem>
+
+            <PivotItem Header="Data explorer">
+                <Grid Background="{StaticResource KpiCanvasBrush}" Padding="22" CornerRadius="20" RowSpacing="18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="CALCULATION STATUS" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiForestBrush}" />
+                                <TextBlock Text="Tree records by status — select a card to isolate it below" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource KpiInkBrush}" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" x:Name="PeriodToggle" IsOn="True" OnContent="Annual" OffContent="Lifetime" Toggled="PeriodToggle_Toggled" VerticalAlignment="Center" />
+                        </Grid>
+
+                        <Grid Grid.Row="1" ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="CalculatedCard" Style="{StaticResource KpiStatusCardStyle}" Tag="Calculated" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="CALCULATED" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiForestBrush}" /><TextBlock x:Name="CalculatedCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="ReadyCard" Grid.Column="1" Style="{StaticResource KpiStatusCardStyle}" Tag="Ready" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="READY" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiForestBrush}" /><TextBlock x:Name="ReadyCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="StaleCard" Grid.Column="2" Style="{StaticResource KpiStatusCardStyle}" Tag="Stale" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="STALE" Style="{StaticResource KpiEyebrowStyle}" Foreground="#FFB25E00" /><TextBlock x:Name="StaleCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="MissingCard" Grid.Column="3" Style="{StaticResource KpiStatusCardStyle}" Tag="MissingInput" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="MISSING" Style="{StaticResource KpiEyebrowStyle}" Foreground="#FFB25E00" /><TextBlock x:Name="MissingCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="InvalidCard" Grid.Column="4" Style="{StaticResource KpiStatusCardStyle}" Tag="InvalidInput" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="INVALID" Style="{StaticResource KpiEyebrowStyle}" Foreground="#FFC4262E" /><TextBlock x:Name="InvalidCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="WarningCard" Grid.Column="5" Style="{StaticResource KpiStatusCardStyle}" Tag="APIWarning" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="API WARNING" Style="{StaticResource KpiEyebrowStyle}" Foreground="#FFB25E00" /><TextBlock x:Name="WarningCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="ErrorCard" Grid.Column="6" Style="{StaticResource KpiStatusCardStyle}" Tag="APIError" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="API ERROR" Style="{StaticResource KpiEyebrowStyle}" Foreground="#FFC4262E" /><TextBlock x:Name="ErrorCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                        </Grid>
+
+                        <TextBlock Grid.Row="2" x:Name="PeriodLabelText" Foreground="#FF69736A" Text="Showing Annual benefits — click a status card above to filter trees." />
+
+                        <Grid Grid.Row="3" ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="TREES" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="TreeCountText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="TreeExcludedText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" /></StackPanel></Border>
+                            <Border Grid.Column="1" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="TREE POLLUTION" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="PollutionMassText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border Grid.Column="2" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="TREE CO₂" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="CO2SequesteredText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="TREE BENEFIT" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="TreeCostSavedText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border Grid.Column="4" Width="1" Background="#FFDDE4DA" Margin="2,4" />
+                            <Border Grid.Column="5" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA / COUNT" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="FloorCountText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorAreaText" FontSize="10" Foreground="#FF69736A" /></StackPanel></Border>
+                            <Border Grid.Column="6" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA CO₂ / GWP" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="FloorCO2Text" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorGwpText" FontSize="10" Foreground="#FF69736A" /></StackPanel></Border>
+                            <Border Grid.Column="7" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA RUNOFF / POLLUTION" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" /><TextBlock x:Name="FloorRunoffText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorPollutionText" FontSize="10" Foreground="#FF69736A" /></StackPanel></Border>
+                            <Border Grid.Column="8" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA BENEFIT" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="FloorCostSavedText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border Grid.Column="9" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="CURRENCY" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="CurrencyText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel></Border>
+                        </Grid>
+
+                        <Grid Grid.Row="4" ColumnSpacing="16">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+
+                            <Border Style="{StaticResource KpiSurfaceStyle}">
+                                <Grid RowSpacing="10">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                                    <TextBlock Text="By species (trees)" Style="{StaticResource KpiCardTitleStyle}" />
+                                    <Grid Grid.Row="1" ColumnSpacing="8" Padding="5,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="75" /><ColumnDefinition Width="*" /><ColumnDefinition Width="45" /><ColumnDefinition Width="105" /><ColumnDefinition Width="105" /><ColumnDefinition Width="105" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="Code" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="1" Text="Common name" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="2" Text="Count" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="3" Text="CO2" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="4" Text="Pollution" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="5" Text="Cost saved" Style="{StaticResource KpiEyebrowStyle}" />
+                                    </Grid>
+                                    <ListView Grid.Row="2" ItemsSource="{x:Bind SpeciesSubtotals}" SelectionMode="None" Padding="0">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate x:DataType="local:SpeciesSubtotalRow">
+                                                <Grid Padding="5,7" ColumnSpacing="8">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="75" /><ColumnDefinition Width="*" /><ColumnDefinition Width="45" /><ColumnDefinition Width="105" /><ColumnDefinition Width="105" /><ColumnDefinition Width="105" /></Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{x:Bind SpeciesCode}" FontWeight="SemiBold" />
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind CommonName}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind TreeCount}" />
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind CO2Sequestered}" />
+                                                    <TextBlock Grid.Column="4" Text="{x:Bind PollutionMassRemoved}" />
+                                                    <TextBlock Grid.Column="5" Text="{x:Bind CostSaved}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Column="1" Style="{StaticResource KpiSurfaceStyle}">
+                                <Grid RowSpacing="10">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                                    <TextBlock Text="Planting areas by landscape-data type" Style="{StaticResource KpiCardTitleStyle}" />
+                                    <Grid Grid.Row="1" ColumnSpacing="7" Padding="5,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="42" /><ColumnDefinition Width="75" /><ColumnDefinition Width="75" /><ColumnDefinition Width="75" /><ColumnDefinition Width="85" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="Type" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="1" Text="Count" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="2" Text="Area" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="3" Text="CO2" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="4" Text="Runoff" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="5" Text="Pollution" Style="{StaticResource KpiEyebrowStyle}" />
+                                    </Grid>
+                                    <ListView Grid.Row="2" ItemsSource="{x:Bind FloorSubtotals}" SelectionMode="None" Padding="0">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate x:DataType="local:FloorSubtotalRow">
+                                                <Grid Padding="5,7" ColumnSpacing="7">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="42" /><ColumnDefinition Width="75" /><ColumnDefinition Width="75" /><ColumnDefinition Width="75" /><ColumnDefinition Width="85" /></Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{x:Bind LdsType}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind FloorCount}" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind AreaSquareMeters}" />
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind CO2Sequestered}" />
+                                                    <TextBlock Grid.Column="4" Text="{x:Bind RunoffAvoided}" />
+                                                    <TextBlock Grid.Column="5" Text="{x:Bind PollutionMassRemoved}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                </Grid>
+            </PivotItem>
+        </Pivot>
+
+        <Grid Grid.Row="3" Margin="0,8,0,0" ColumnSpacing="8">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <Button Content="Export PNG" Click="ExportImage_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="1" Content="Export SVG" Click="ExportSvg_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="2" Content="Export Excel" Click="ExportExcel_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <TextBlock Grid.Column="3" x:Name="StatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" Text="Refresh from Revit or open the last cached snapshot." />
         </Grid>
 
-        <Grid Grid.Row="6" Margin="0,10,0,0" ColumnSpacing="10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Button Content="Export image" Click="ExportImage_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-            <Button Grid.Column="1" Content="Export Excel" Click="ExportExcel_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-            <TextBlock Grid.Column="2" x:Name="StatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" Text="Select Refresh to load the dashboard." />
-        </Grid>
-
-        <ProgressRing x:Name="BusyIndicator"
-                      Grid.RowSpan="7"
-                      Width="40"
-                      Height="40"
-                      IsActive="False"
-                      Visibility="Collapsed"
-                      HorizontalAlignment="Center"
-                      VerticalAlignment="Center" />
+        <ProgressRing x:Name="BusyIndicator" Grid.RowSpan="4" Width="44" Height="44" IsActive="False" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" />
     </Grid>
 </Page>

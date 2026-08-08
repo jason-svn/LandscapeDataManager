@@ -27,15 +27,15 @@ public sealed partial class MainPage : Page
 
     private readonly AirtableClient _airtableClient;
     private readonly ExcelClient _excelClient = new();
-    private readonly DataSourceSettingsStore _dataSourceSettingsStore = new();
-    private readonly ParameterMappingStore _mappingStore = new();
     private readonly ITreeApiClient _iTreeApiClient = new();
     private readonly ITreeExcelMergeService _iTreeExcelMergeService = new();
     private readonly ITreeCredentialStore _iTreeCredentialStore = new();
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
+    private string _pipeName = string.Empty;
     private IReadOnlyList<string> _airtableHeaders = [];
     private IReadOnlyList<ParameterOption> _parameterOptions = [];
+    private IReadOnlyList<ParameterMappingDefinition> _savedMappings = [];
     private ParameterWriteBatch? _pendingWriteBatch;
     private string? _mapperSourceIdentity;
 
@@ -54,20 +54,29 @@ public sealed partial class MainPage : Page
     {
         _revitClient = new RevitPipeClient(pipeName);
         _windowHandle = windowHandle;
+        _pipeName = pipeName;
         Loaded += Page_Loaded;
+    }
+
+    private void OpenSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SiblingToolLauncher.ShowOrStart(Path.Combine("Settings", "WWP.LandscapeDataManager.Settings.exe"), _pipeName);
+        }
+        catch (Exception exception)
+        {
+            ShowStatus(InfoBarSeverity.Error, "Failed to open Settings", exception.Message);
+        }
     }
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
         await RunBusyAsync(async () =>
         {
-            // No single general-purpose status label exists on this tab to report into (unlike
-            // Importer/SyncAudit's ConnectStatusText/StatusText) — this applies silently; the
-            // MapperStatusText/SyncStatusText controls it could arguably use belong to other tabs.
-            await ProjectSettingsSync.PullAndApplyAsync(
-                GetClient(), _dataSourceSettingsStore, mappingStore: _mappingStore);
-
-            var settings = await _dataSourceSettingsStore.LoadAsync();
+            var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
+            var settings = snapshot?.DataSource ?? new DataSourceSettings(DataSourceKind.Airtable, string.Empty, string.Empty);
+            _savedMappings = snapshot?.ParameterMappings ?? [];
             SharedLinkBox.Text = settings.SharedLink;
             ExcelPathBox.Text = settings.ExcelPath;
             DataSourceBox.SelectedIndex = settings.Kind == DataSourceKind.Excel ? 1 : 0;
@@ -167,7 +176,7 @@ public sealed partial class MainPage : Page
             ApplyParameterWritesButton.IsEnabled = false;
             SyncPreviewItems.Clear();
 
-            var mappings = await _mappingStore.LoadAsync();
+            var mappings = _savedMappings;
             var recordsTask = LoadAirtableRecordsAsync();
             var options = new ModelScanOptions(PrimaryOptionsToggle.IsOn);
             var scanTask = GetClient().SendAsync<ModelScanResult>(PipeCommands.ScanModel, options);
@@ -286,8 +295,7 @@ public sealed partial class MainPage : Page
             DataSourceBox.SelectedIndex == 1 ? DataSourceKind.Excel : DataSourceKind.Airtable,
             SharedLinkBox.Text.Trim(),
             ExcelPathBox.Text.Trim());
-        await _dataSourceSettingsStore.SaveAsync(settings);
-        await ProjectSettingsSync.PushAsync(GetClient(), _dataSourceSettingsStore);
+        await ProjectSettingsSync.PushAsync(GetClient(), dataSource: settings);
 
         return settings.Kind == DataSourceKind.Excel
             ? await _excelClient.GetRecordsAsync(settings.ExcelPath)
@@ -635,11 +643,11 @@ public sealed partial class MainPage : Page
                     row.Enabled))
                 .ToList();
 
-            await _mappingStore.SaveAsync(definitions);
-            await ProjectSettingsSync.PushAsync(GetClient(), mappingStore: _mappingStore);
+            _savedMappings = definitions;
+            await ProjectSettingsSync.PushAsync(GetClient(), parameterMappings: definitions);
             _pendingWriteBatch = null;
             ApplyParameterWritesButton.IsEnabled = false;
-            MapperStatusText.Text = $"Saved {definitions.Count:N0} mappings to {_mappingStore.FilePath}";
+            MapperStatusText.Text = $"Saved {definitions.Count:N0} mappings to this project's settings.";
             ShowStatus(
                 InfoBarSeverity.Success,
                 "Mappings saved",
@@ -649,8 +657,9 @@ public sealed partial class MainPage : Page
 
     private async Task RestoreMappingsAsync()
     {
-        var savedMappings = await _mappingStore.LoadAsync();
-        ApplyMappings(savedMappings);
+        var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
+        _savedMappings = snapshot?.ParameterMappings ?? [];
+        ApplyMappings(_savedMappings);
     }
 
     private void ApplyMappings(IReadOnlyList<ParameterMappingDefinition> savedMappings)
@@ -686,101 +695,6 @@ public sealed partial class MainPage : Page
             .Select(row => new ParameterMappingDefinition(
                 row.SelectedAirtableField!, row.SelectedTarget!.Descriptor.Name, row.SelectedTarget.Descriptor.Scope, row.SelectedConversion, row.Enabled))
             .ToList();
-
-    private async void ExportMappings_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileSavePicker
-        {
-            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-            SuggestedFileName = "LIM parameter mappings"
-        };
-        picker.FileTypeChoices.Add("Mapping settings", [".json"]);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSaveFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        await _mappingStore.ExportToAsync(file.Path, BuildMappingDefinitions());
-        MapperStatusText.Text = $"Exported mappings to {file.Path}.";
-    }
-
-    private async void ImportMappings_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
-        picker.FileTypeFilter.Add(".json");
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSingleFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        var imported = await _mappingStore.ImportFromAsync(file.Path);
-        await _mappingStore.SaveAsync(imported);
-        await ProjectSettingsSync.PushAsync(GetClient(), mappingStore: _mappingStore);
-
-        if (_airtableHeaders.Count > 0)
-        {
-            ApplyMappings(imported);
-            UpdateMappingSummary();
-        }
-
-        MapperStatusText.Text = $"Imported {imported.Count:N0} mappings from {file.Path}.";
-        ShowStatus(
-            InfoBarSeverity.Success,
-            "Mappings imported",
-            _airtableHeaders.Count > 0
-                ? "Imported mappings were applied to the current source columns."
-                : "Load catalogs to apply the imported mappings to source columns.");
-    }
-
-    private async void ExportDataSourceSettings_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileSavePicker
-        {
-            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-            SuggestedFileName = "LIM data source settings"
-        };
-        picker.FileTypeChoices.Add("Data source settings", [".json"]);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSaveFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        var settings = new DataSourceSettings(
-            DataSourceBox.SelectedIndex == 1 ? DataSourceKind.Excel : DataSourceKind.Airtable,
-            SharedLinkBox.Text.Trim(),
-            ExcelPathBox.Text.Trim());
-        await _dataSourceSettingsStore.ExportToAsync(file.Path, settings);
-        ShowStatus(InfoBarSeverity.Success, "Data source settings exported", $"Exported data source settings to {file.Path}.");
-    }
-
-    private async void ImportDataSourceSettings_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
-        picker.FileTypeFilter.Add(".json");
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSingleFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        var imported = await _dataSourceSettingsStore.ImportFromAsync(file.Path);
-        await _dataSourceSettingsStore.SaveAsync(imported);
-        await ProjectSettingsSync.PushAsync(GetClient(), _dataSourceSettingsStore);
-
-        SharedLinkBox.Text = imported.SharedLink;
-        ExcelPathBox.Text = imported.ExcelPath;
-        DataSourceBox.SelectedIndex = imported.Kind == DataSourceKind.Excel ? 1 : 0;
-        UpdateDataSourceVisibility();
-
-        ShowStatus(InfoBarSeverity.Success, "Data source settings imported", $"Imported data source settings from {file.Path}.");
-    }
 
     private async Task PromptForMappingModeAsync(string documentTitle)
     {
@@ -865,13 +779,27 @@ public sealed partial class MainPage : Page
         return null;
     }
 
-    private static IReadOnlyList<string> GetTargetCandidates(string source) => source switch
+    private static IReadOnlyList<string> GetTargetCandidates(string source) => source.Trim() switch
     {
         "Avoided runoff m3/yr (16/18 girth)" => ["!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Number", source],
         "Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth)" => ["!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Number", source],
         "Oxygen levels O2 kg/yr (16/18 girth)" => ["!_S_PLT_LDS_OxygenLevelsAnnual_Number", source],
-        "Maintenance Costs" => ["!_S_PLT_LDS_MaintenanceCostAnnual_Number", source],
-        "COST_SAVED" => ["WWP_Cost_Saved", source],
+        // MaintenanceCost/PollutantsRemoved are Floor Calculator's own coefficient-times-area outputs
+        // (see FloorLdsCalculationService) — but the raw WWP sheet columns are still useful direct
+        // mapping targets for Types, matching the same "map raw WWP_* column onto its !_S_PLT_
+        // parameter" intent as COST_SAVED below.
+        "Maintenance Costs" => ["!_S_PLT_LDS_MaintenanceCostAnnual_Currency", source],
+        "COST_SAVED" => ["!_S_PLT_iTreeResult_CostSavedAnnual_Currency", source],
+        "WWP_Pollutants_Removed" => ["!_S_PLT_LDS_PollutantsRemovedAnnual_Mass", source],
+        "Origin" => ["!_S_PLT_LDS_Origin_Text", source],
+        "WWP_LDS_Category" => ["!_S_PLT_LDS_Category_Text", source],
+        "WWP_LDS_SubCategory" => ["!_S_PLT_LDS_SubCategory_Text", source],
+        "Product GWP" => ["!_S_PLT_LDS_ProductGWP_Number", source],
+        "Transport GWP" => ["!_S_PLT_LDS_TransportGWP_Number", source],
+        "Pollen" => ["!_S_PLT_LDS_PollenAnnual_Number", source],
+        "Surface_Temperature_Reduction_Min" => ["!_S_PLT_LDS_SurfaceTempReduction_Number", source],
+        "Air temperature reduction (1.5m height)" => ["!_S_PLT_LDS_AirTempReduction_Number", source],
+        "Irrigation_Demand_Plant Factor" => ["!_S_PLT_LDS_IrrigationDemandFactor_Number", source],
         "Max_Height" => ["Max_Height", "Maxi_Height"],
         "Max_Width" => ["Max_Width", "Maxi_Width"],
         _ => [source]

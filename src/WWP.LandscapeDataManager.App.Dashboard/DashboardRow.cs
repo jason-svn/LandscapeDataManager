@@ -11,8 +11,18 @@ internal static class DashboardUnitLabels
     /// <summary>The five pollutant-removed fields are stored/normalized on an ounces-per-kilogram basis, a different conversion basis than CO2 — see <see cref="DashboardAggregationService.NormalizeTree"/>.</summary>
     public static string PollutantUnit(string unitSystem) => IsMetric(unitSystem) ? "kg" : "oz";
 
-    public static string FormatDesignOption(DesignOptionInfo option) =>
-        option.IsPrimary ? "Primary" : $"{option.SetName} : {option.OptionName}";
+    public static string FormatDesignOption(DesignOptionInfo option)
+    {
+        if (string.IsNullOrWhiteSpace(option.SetName) && string.IsNullOrWhiteSpace(option.OptionName))
+        {
+            return "Primary model";
+        }
+
+        var name = string.IsNullOrWhiteSpace(option.SetName)
+            ? option.OptionName ?? "Unnamed option"
+            : $"{option.SetName} : {option.OptionName ?? "Unnamed option"}";
+        return option.IsPrimary ? $"{name} (Primary)" : name;
+    }
 
     private static bool IsMetric(string unitSystem) => string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
 }
@@ -53,6 +63,8 @@ public sealed class FloorSubtotalRow
         FloorCount = subtotal.FloorCount;
         AreaSquareMeters = $"{subtotal.AreaSquareMeters:N1} m²";
         CO2Sequestered = $"{subtotal.CO2SequesteredAnnual:N1} kg";
+        RunoffAvoided = $"{subtotal.RunoffAvoidedAnnual:N1} m³";
+        PollutionMassRemoved = $"{subtotal.PollutionMassRemovedAnnual:N2} kg";
         TotalGwp = subtotal.TotalGwp.ToString("N1");
         CostSaved = $"{subtotal.CostSavedAnnual:N2} (as calculated)";
     }
@@ -61,6 +73,8 @@ public sealed class FloorSubtotalRow
     public int FloorCount { get; }
     public string AreaSquareMeters { get; }
     public string CO2Sequestered { get; }
+    public string RunoffAvoided { get; }
+    public string PollutionMassRemoved { get; }
     public string TotalGwp { get; }
     public string CostSaved { get; }
 }
@@ -120,6 +134,8 @@ public sealed class DashboardFloorRow
         DesignOption = DashboardUnitLabels.FormatDesignOption(item.DesignOption);
         AreaSquareMeters = $"{item.AreaSquareMeters:N1} m²";
         CO2Sequestered = $"{item.CO2SequesteredAnnual:N1} kg";
+        RunoffAvoided = $"{item.RunoffAvoidedAnnual:N1} m³";
+        PollutionMassRemoved = $"{item.PollutionMassRemovedAnnual:N2} kg";
         TotalGwp = item.TotalGwp.ToString("N1");
         CostSaved = $"{item.CostSavedAnnual:N2} (as calculated)";
     }
@@ -133,6 +149,41 @@ public sealed class DashboardFloorRow
     public string DesignOption { get; }
     public string AreaSquareMeters { get; }
     public string CO2Sequestered { get; }
+    public string RunoffAvoided { get; }
+    public string PollutionMassRemoved { get; }
     public string TotalGwp { get; }
     public string CostSaved { get; }
+}
+
+/// <summary>Small presentation-only row used by the graphic KPI pages.</summary>
+public sealed class KpiBarRow
+{
+    public KpiBarRow(string label, string valueText, double percent, string detail = "")
+    {
+        Label = label;
+        ValueText = valueText;
+        Percent = Math.Clamp(percent, 0d, 100d);
+        Detail = detail;
+    }
+
+    public string Label { get; }
+    public string ValueText { get; }
+    public double Percent { get; }
+    public string Detail { get; }
+}
+
+public sealed class ScenarioComparisonRow
+{
+    public ScenarioComparisonRow(string designOption, string inventory, string projectedCarbon, double percent)
+    {
+        DesignOption = designOption;
+        Inventory = inventory;
+        ProjectedCarbon = projectedCarbon;
+        Percent = Math.Clamp(percent, 0d, 100d);
+    }
+
+    public string DesignOption { get; }
+    public string Inventory { get; }
+    public string ProjectedCarbon { get; }
+    public double Percent { get; }
 }

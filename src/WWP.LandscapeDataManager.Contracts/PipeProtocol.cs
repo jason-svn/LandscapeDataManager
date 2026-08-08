@@ -313,6 +313,7 @@ public sealed record WwpLdsCoefficientRecord(
     double? TotalGwp,
     double? Co2SequesteredAnnual,
     double? RunoffAvoidedAnnual,
+    double? PollutionMassRemovedAnnual,
     double? SurfaceTempReduction,
     double? AirTempReduction);
 
@@ -340,6 +341,7 @@ public sealed record FloorLdsValues(
     string ResultSource,
     double Co2SequesteredAnnual,
     double RunoffAvoidedAnnual,
+    double PollutionMassRemovedAnnual,
     double CostSavedAnnual,
     double OxygenProducedAnnual,
     double TotalGwp,
@@ -472,11 +474,9 @@ public sealed record DashboardTreeItem(
 
 /// <summary>
 /// One Floor (planted/paved landscape area) instance's identity, placement, and stored LDS/i-Tree
-/// results. Floors have no pollution-mass-removed metric — only CO2, GWP, oxygen, temperature, and
-/// cost, per <c>FloorLdsCalculationService</c> — so this shape is intentionally narrower than
-/// <see cref="DashboardTreeItem"/> rather than padding out fields Floors never populate. Floor cost is
-/// reported as-calculated (no currency provenance is tracked for Floors today; see
-/// <c>WWP.LandscapeDataManager.App.FloorCalculator</c>, which never calls <c>ExchangeRateService</c>).
+/// results, per <c>FloorLdsCalculationService</c>. Floor cost is reported as-calculated (no currency
+/// provenance is tracked for Floors today; see <c>WWP.LandscapeDataManager.App.FloorCalculator</c>,
+/// which never calls <c>ExchangeRateService</c>).
 /// </summary>
 public sealed record DashboardFloorItem(
     string UniqueId,
@@ -488,6 +488,8 @@ public sealed record DashboardFloorItem(
     DesignOptionInfo DesignOption,
     double AreaSquareMeters,
     double CO2SequesteredAnnual,
+    double RunoffAvoidedAnnual,
+    double PollutionMassRemovedAnnual,
     double CostSavedAnnual,
     double OxygenProducedAnnual,
     double TotalGwp,

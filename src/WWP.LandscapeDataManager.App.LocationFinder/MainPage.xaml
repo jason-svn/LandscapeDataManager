@@ -12,12 +12,19 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Spacing="4">
-            <TextBlock Text="Location Finder" Style="{StaticResource LimPageTitleStyle}" />
-            <TextBlock
-                Text="Pick a point on the map (or search an address), then publish it to the project's i-Tree latitude/longitude parameters. Map data © OpenStreetMap contributors."
-                Style="{StaticResource LimPageSubtitleStyle}" />
-        </StackPanel>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Location Finder" Style="{StaticResource LimPageTitleStyle}" />
+                <TextBlock
+                    Text="Pick a point on the map (or search an address), then publish it to the project's i-Tree latitude/longitude parameters. Map data © OpenStreetMap contributors."
+                    Style="{StaticResource LimPageSubtitleStyle}" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
+        </Grid>
 
         <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
             <StackPanel Spacing="10">

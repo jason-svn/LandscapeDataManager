@@ -13,6 +13,7 @@ public sealed partial class MainPage : Page
     private readonly SpeciesCatalogueDatabase _catalogueDatabase = new();
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
+    private string _pipeName = string.Empty;
     private IReadOnlyList<SpeciesCatalogueRecord> _allSpecies = [];
 
     public MainPage()
@@ -26,7 +27,20 @@ public sealed partial class MainPage : Page
     {
         _revitClient = new RevitPipeClient(pipeName);
         _windowHandle = windowHandle;
+        _pipeName = pipeName;
         Loaded += Page_Loaded;
+    }
+
+    private void OpenSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SiblingToolLauncher.ShowOrStart(Path.Combine("Settings", "WWP.LandscapeDataManager.Settings.exe"), _pipeName);
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Failed to open Settings: {exception.Message}";
+        }
     }
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)

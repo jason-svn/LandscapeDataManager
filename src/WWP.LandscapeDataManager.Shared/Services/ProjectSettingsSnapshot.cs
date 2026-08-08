@@ -4,14 +4,15 @@ using WWP.LandscapeDataManager.Contracts;
 namespace WWP.LandscapeDataManager.Shared.Services;
 
 /// <summary>
-/// Everything a fresh machine needs to reconnect to the same source and reproduce the same i-Tree
-/// reporting preferences as whoever last saved settings on this project — serialized into the
-/// <c>!_S_PLT_Settings_Json_Text</c> Project Information parameter so it travels with the
-/// Revit file instead of living only under a given machine's %LOCALAPPDATA%. Every property is
-/// nullable/omittable: a snapshot built from just one app (e.g. i-Tree Calculator, which only ever
-/// knows unit system and currency) still round-trips without clobbering fields it never touched.
-/// Deliberately excludes secrets (Airtable token, i-Tree API key) — those stay in
-/// Windows Credential Manager via <see cref="AirtableCredentialStore"/>/<see cref="ITreeCredentialStore"/>,
+/// The single source of truth for every non-secret LIM setting — serialized into the
+/// <c>!_S_PLT_Settings_Json_Text</c> Project Information parameter. There is deliberately no local
+/// machine cache backing this: every tool reads this snapshot fresh (via <see cref="ProjectSettingsSync.PullAsync"/>)
+/// each time it opens and writes straight back (via <see cref="ProjectSettingsSync.PushAsync"/>) on
+/// save, so a fresh machine opening the same project always sees the same settings as whoever saved
+/// them last. Every property is nullable/omittable: a snapshot built from just one app (e.g. i-Tree
+/// Calculator, which only ever knows unit system and currency) still round-trips without clobbering
+/// fields it never touched. Deliberately excludes secrets (Airtable token, i-Tree API key) — those
+/// stay in Windows Credential Manager via <see cref="AirtableCredentialStore"/>/<see cref="ITreeCredentialStore"/>,
 /// never written to a Revit file that gets shared or synced.
 /// </summary>
 public sealed record ProjectSettingsSnapshot(
@@ -22,9 +23,11 @@ public sealed record ProjectSettingsSnapshot(
     DataSourceSettings? DataSource = null,
     AirtableApiSettings? AirtableApi = null,
     IReadOnlyList<ParameterMappingDefinition>? ParameterMappings = null,
-    IReadOnlyList<TypeAlias>? TypeAliases = null);
+    IReadOnlyList<TypeAlias>? TypeAliases = null,
+    WwpLdsAirtableSettings? WwpLdsSource = null,
+    string? SharedParameterFilePath = null);
 
-/// <summary>Pure (no I/O) serialize/deserialize for <see cref="ProjectSettingsSnapshot"/> — reading/writing the parameter itself is Revit-side (<c>ProjectSettingsService</c>) or local-store-side (each app's own stores), not this class's job.</summary>
+/// <summary>Pure (no I/O) serialize/deserialize for <see cref="ProjectSettingsSnapshot"/> — reading/writing the Project Information parameter itself is <see cref="ProjectSettingsSync"/>'s job, via the Revit-side <c>ProjectPreferencesService</c>.</summary>
 public static class ProjectSettingsJson
 {
     public static string Serialize(ProjectSettingsSnapshot snapshot) =>

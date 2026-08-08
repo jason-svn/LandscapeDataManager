@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Storage.Pickers;
@@ -15,15 +14,12 @@ public sealed partial class MainPage : Page
 
     private readonly ExcelClient _excelClient = new();
     private readonly AirtableApiClient _airtableApiClient = new();
-    private readonly DataSourceSettingsStore _dataSourceSettingsStore = new();
-    private readonly AirtableApiSettingsStore _airtableApiSettingsStore = new();
     private readonly AirtableCredentialStore _airtableCredentialStore = new();
-    private readonly ParameterMappingStore _mappingStore = new();
-    private readonly TypeAliasStore _typeAliasStore = new();
     private readonly SyncedValueHistoryStore _historyStore = new();
 
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
+    private string _pipeName = string.Empty;
 
     private IReadOnlyList<AirtableRecord> _sourceRecords = [];
     private ModelScanResult? _typeScan;
@@ -32,6 +28,8 @@ public sealed partial class MainPage : Page
     private string _preferredUnitSystem = "Metric";
     private ParameterWriteBatch? _pendingTypeBatch;
     private InstanceParameterWriteBatch? _pendingInstanceBatch;
+    private IReadOnlyList<TypeAlias> _typeAliases = [];
+    private IReadOnlyList<ParameterMappingDefinition> _savedMappings = [];
 
     public MainPage()
     {
@@ -46,16 +44,29 @@ public sealed partial class MainPage : Page
     {
         _revitClient = new RevitPipeClient(pipeName);
         _windowHandle = windowHandle;
+        _pipeName = pipeName;
         Loaded += Page_Loaded;
+    }
+
+    private void OpenSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SiblingToolLauncher.ShowOrStart(Path.Combine("Settings", "WWP.LandscapeDataManager.Settings.exe"), _pipeName);
+        }
+        catch (Exception exception)
+        {
+            ConnectStatusText.Text = $"Failed to open Settings: {exception.Message}";
+        }
     }
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
-        var syncedFromProject = await ProjectSettingsSync.PullAndApplyAsync(
-            GetClient(), _dataSourceSettingsStore, _airtableApiSettingsStore, _mappingStore, _typeAliasStore);
-
-        var dataSourceSettings = await _dataSourceSettingsStore.LoadAsync();
-        var airtableSettings = await _airtableApiSettingsStore.LoadAsync();
+        var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
+        var dataSourceSettings = snapshot?.DataSource ?? new DataSourceSettings(DataSourceKind.Airtable, string.Empty, string.Empty);
+        var airtableSettings = snapshot?.AirtableApi ?? new AirtableApiSettings(string.Empty, string.Empty, null);
+        _typeAliases = snapshot?.TypeAliases ?? [];
+        _savedMappings = snapshot?.ParameterMappings ?? [];
         SourceKindBox.SelectedIndex = dataSourceSettings.Kind == DataSourceKind.Excel ? 1 : 0;
         ExcelPathBox.Text = dataSourceSettings.ExcelPath;
         AirtableBaseIdBox.Text = airtableSettings.BaseId;
@@ -66,7 +77,7 @@ public sealed partial class MainPage : Page
             : "Airtable personal access token: saved (managed in Settings).";
         UpdateSourceVisibility();
 
-        if (syncedFromProject)
+        if (snapshot is not null)
         {
             ConnectStatusText.Text = "Data source, Airtable, mapping, and type-alias settings loaded from this project's saved settings.";
         }
@@ -119,11 +130,18 @@ public sealed partial class MainPage : Page
             _parameterCatalog = catalog.Parameters;
             _preferredUnitSystem = catalog.PreferredUnitSystem;
 
+            var dataSourceSettings = SourceKindBox.SelectedIndex == 1
+                ? new DataSourceSettings(DataSourceKind.Excel, string.Empty, ExcelPathBox.Text.Trim())
+                : new DataSourceSettings(DataSourceKind.Airtable, string.Empty, string.Empty);
+            var airtableSettings = new AirtableApiSettings(
+                AirtableBaseIdBox.Text.Trim(),
+                AirtableTableBox.Text.Trim(),
+                string.IsNullOrWhiteSpace(AirtableViewBox.Text) ? null : AirtableViewBox.Text.Trim());
             await ProjectSettingsSync.PushAsync(
-                GetClient(), _dataSourceSettingsStore, _airtableApiSettingsStore,
+                GetClient(), dataSource: dataSourceSettings, airtableApi: airtableSettings,
                 preferredUnitSystem: _preferredUnitSystem);
 
-            await RestoreMappingsAsync();
+            RestoreMappings();
 
             ConnectStatusText.Text =
                 $"{_sourceRecords.Count:N0} source records · {_typeScan.Items.Count:N0} Revit types · " +
@@ -136,7 +154,6 @@ public sealed partial class MainPage : Page
         if (SourceKindBox.SelectedIndex == 1)
         {
             var excelPath = ExcelPathBox.Text.Trim();
-            await _dataSourceSettingsStore.SaveAsync(new DataSourceSettings(DataSourceKind.Excel, string.Empty, excelPath));
             return await _excelClient.GetRecordsAsync(excelPath);
         }
 
@@ -150,13 +167,11 @@ public sealed partial class MainPage : Page
             AirtableBaseIdBox.Text.Trim(),
             AirtableTableBox.Text.Trim(),
             string.IsNullOrWhiteSpace(AirtableViewBox.Text) ? null : AirtableViewBox.Text.Trim());
-        await _dataSourceSettingsStore.SaveAsync(new DataSourceSettings(DataSourceKind.Airtable, string.Empty, string.Empty));
-        await _airtableApiSettingsStore.SaveAsync(settings);
 
         return await _airtableApiClient.GetRecordsAsync(settings, token);
     }
 
-    private async Task RestoreMappingsAsync()
+    private void RestoreMappings()
     {
         var sourceHeaders = _sourceRecords
             .SelectMany(record => record.Fields.Keys)
@@ -165,9 +180,8 @@ public sealed partial class MainPage : Page
             .ToList();
         var typeOptions = _parameterCatalog.Where(p => p.IsWritable && p.Scope == "Type").Select(p => new ParameterOption(p)).ToList();
         var instanceOptions = _parameterCatalog.Where(p => p.IsWritable && p.Scope == "Instance").Select(p => new ParameterOption(p)).ToList();
-        var savedMappings = await _mappingStore.LoadAsync();
 
-        ApplyMappings(sourceHeaders, typeOptions, instanceOptions, savedMappings);
+        ApplyMappings(sourceHeaders, typeOptions, instanceOptions, _savedMappings);
     }
 
     private void ApplyMappings(
@@ -237,8 +251,7 @@ public sealed partial class MainPage : Page
             _pendingInstanceBatch = null;
             ApplyButton.IsEnabled = false;
 
-            var aliases = await _typeAliasStore.LoadAsync();
-            var typeMatches = StableTypeMatcher.Build(_typeScan.Items, _sourceRecords, TypeKeyFields, aliases);
+            var typeMatches = StableTypeMatcher.Build(_typeScan.Items, _sourceRecords, TypeKeyFields, _typeAliases);
             var typeWriteItems = BuildTypeWriteItems(typeMatches);
             foreach (var match in typeMatches.Where(m => m.Status != "Matched"))
             {
@@ -357,8 +370,8 @@ public sealed partial class MainPage : Page
 
     private async Task SaveMappingsAsync()
     {
-        await _mappingStore.SaveAsync(BuildMappingDefinitions());
-        await ProjectSettingsSync.PushAsync(GetClient(), mappingStore: _mappingStore);
+        _savedMappings = BuildMappingDefinitions();
+        await ProjectSettingsSync.PushAsync(GetClient(), parameterMappings: _savedMappings);
     }
 
     private List<ParameterMappingDefinition> BuildMappingDefinitions() =>
@@ -367,158 +380,6 @@ public sealed partial class MainPage : Page
             .Select(row => new ParameterMappingDefinition(
                 row.SelectedAirtableField!, row.SelectedTarget!.Descriptor.Name, row.Scope, row.SelectedConversion, row.Enabled))
             .ToList();
-
-    private async void ExportConnectionSettings_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileSavePicker
-        {
-            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-            SuggestedFileName = "LIM data source settings"
-        };
-        picker.FileTypeChoices.Add("Connection settings", [".json"]);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSaveFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        var dataSourceSettings = new DataSourceSettings(
-            SourceKindBox.SelectedIndex == 1 ? DataSourceKind.Excel : DataSourceKind.Airtable,
-            string.Empty,
-            ExcelPathBox.Text.Trim());
-        var airtableSettings = new AirtableApiSettings(
-            AirtableBaseIdBox.Text.Trim(),
-            AirtableTableBox.Text.Trim(),
-            string.IsNullOrWhiteSpace(AirtableViewBox.Text) ? null : AirtableViewBox.Text.Trim());
-        var bundle = new ConnectionSettingsBundle(dataSourceSettings, airtableSettings);
-
-        await using var stream = File.Create(file.Path);
-        await JsonSerializer.SerializeAsync(stream, bundle, new JsonSerializerOptions(JsonDefaults.Options) { WriteIndented = true });
-        ConnectStatusText.Text = $"Exported connection settings to {file.Path}.";
-    }
-
-    private async void ImportConnectionSettings_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
-        picker.FileTypeFilter.Add(".json");
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSingleFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        ConnectionSettingsBundle? bundle;
-        await using (var stream = File.OpenRead(file.Path))
-        {
-            bundle = await JsonSerializer.DeserializeAsync<ConnectionSettingsBundle>(stream, JsonDefaults.Options);
-        }
-
-        if (bundle is null)
-        {
-            ConnectStatusText.Text = $"Could not read connection settings from {file.Path}.";
-            return;
-        }
-
-        await _dataSourceSettingsStore.SaveAsync(bundle.DataSource);
-        await _airtableApiSettingsStore.SaveAsync(bundle.Airtable);
-        await ProjectSettingsSync.PushAsync(GetClient(), _dataSourceSettingsStore, _airtableApiSettingsStore);
-
-        SourceKindBox.SelectedIndex = bundle.DataSource.Kind == DataSourceKind.Excel ? 1 : 0;
-        ExcelPathBox.Text = bundle.DataSource.ExcelPath;
-        AirtableBaseIdBox.Text = bundle.Airtable.BaseId;
-        AirtableTableBox.Text = bundle.Airtable.TableIdOrName;
-        AirtableViewBox.Text = bundle.Airtable.ViewName ?? string.Empty;
-        UpdateSourceVisibility();
-
-        ConnectStatusText.Text = $"Imported connection settings from {file.Path}.";
-    }
-
-    private async void ExportTypeAliases_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileSavePicker
-        {
-            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-            SuggestedFileName = "LIM type aliases"
-        };
-        picker.FileTypeChoices.Add("Type aliases", [".json"]);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSaveFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        var aliases = await _typeAliasStore.LoadAsync();
-        await _typeAliasStore.ExportToAsync(file.Path, aliases);
-        ConnectStatusText.Text = $"Exported {aliases.Count:N0} type aliases to {file.Path}.";
-    }
-
-    private async void ImportTypeAliases_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
-        picker.FileTypeFilter.Add(".json");
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSingleFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        var imported = await _typeAliasStore.ImportFromAsync(file.Path);
-        await _typeAliasStore.SaveAsync(imported);
-        await ProjectSettingsSync.PushAsync(GetClient(), typeAliasStore: _typeAliasStore);
-        ConnectStatusText.Text = $"Imported {imported.Count:N0} type aliases from {file.Path}.";
-    }
-
-    /// <summary>Bundles the non-secret connection settings a teammate needs to reconnect to the same source. The Airtable API token itself is never included.</summary>
-    private sealed record ConnectionSettingsBundle(DataSourceSettings DataSource, AirtableApiSettings Airtable);
-
-    private async void ExportMappings_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileSavePicker
-        {
-            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-            SuggestedFileName = "LIM parameter mappings"
-        };
-        picker.FileTypeChoices.Add("Mapping settings", [".json"]);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSaveFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        await _mappingStore.ExportToAsync(file.Path, BuildMappingDefinitions());
-        ConnectStatusText.Text = $"Exported mappings to {file.Path}.";
-    }
-
-    private async void ImportMappings_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
-        picker.FileTypeFilter.Add(".json");
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSingleFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        var imported = await _mappingStore.ImportFromAsync(file.Path);
-        await _mappingStore.SaveAsync(imported);
-        await ProjectSettingsSync.PushAsync(GetClient(), mappingStore: _mappingStore);
-
-        if (MappingRows.Count > 0)
-        {
-            var typeOptions = MappingRows[0].TypeTargetOptions;
-            var instanceOptions = MappingRows[0].InstanceTargetOptions;
-            var sourceHeaders = MappingRows.Select(row => row.SelectedAirtableField!).ToList();
-            ApplyMappings(sourceHeaders, typeOptions, instanceOptions, imported);
-        }
-
-        ConnectStatusText.Text = $"Imported {imported.Count:N0} mappings from {file.Path}.";
-    }
 
     private async void Apply_Click(object sender, RoutedEventArgs e)
     {

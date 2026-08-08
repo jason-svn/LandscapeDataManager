@@ -26,7 +26,14 @@
             <!-- Step 1: WWP landscape data sheet sync -->
             <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">
-                    <TextBlock Text="STEP 1 — WWP LANDSCAPE DATA SHEET" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="STEP 1 — WWP LANDSCAPE DATA SHEET" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    </Grid>
                     <TextBlock x:Name="SourceStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
                     <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>

@@ -21,13 +21,14 @@ internal static class FloorLdsCalculationService
     private const string LdsMatchKeyParameter = "!_S_PLT_LDS_MatchKey_Text";
     private const string ResultSourceParameter = "!_S_PLT_LDS_ResultSource_Text";
     private const string LastCalculatedParameter = "!_S_PLT_LDS_LastCalculated_Text";
-    private const string CostSavedParameter = "!_S_PLT_iTreeResult_CostSavedAnnual_Number";
-    private const string OxygenProducedParameter = "!_S_PLT_LDS_OxygenProducedAnnual_Number";
-    private const string TotalGwpParameter = "!_S_PLT_LDS_TotalGWP_Number";
+    private const string CostSavedParameter = "!_S_PLT_iTreeResult_CostSavedAnnual_Currency";
+    private const string OxygenProducedParameter = "!_S_PLT_LDS_OxygenProducedAnnual_Mass";
+    private const string TotalGwpParameter = "!_S_PLT_LDS_TotalGWP_Mass";
     private const string SurfaceTempReductionParameter = "!_S_PLT_LDS_SurfaceTempReduction_Number";
     private const string AirTempReductionParameter = "!_S_PLT_LDS_AirTempReduction_Number";
-    private const string Co2SequesteredParameter = "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Number";
+    private const string Co2SequesteredParameter = "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass";
     private const string RunoffAvoidedParameter = "!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume";
+    private const string PollutionMassRemovedParameter = "!_S_PLT_LDS_PollutantsRemovedAnnual_Mass";
 
     public static SelectedFloorsResult GetSelectedFloors(UIApplication application)
     {
@@ -93,11 +94,12 @@ internal static class FloorLdsCalculationService
         SetIfWritable(floor.LookupParameter(ResultSourceParameter), values.ResultSource);
         SetIfWritable(floor.LookupParameter(LastCalculatedParameter), FormatLocalTimestamp());
 
-        SetIfWritable(floor.LookupParameter(Co2SequesteredParameter), values.Co2SequesteredAnnual);
+        SetIfWritable(floor.LookupParameter(Co2SequesteredParameter), UnitUtils.ConvertToInternalUnits(values.Co2SequesteredAnnual, UnitTypeId.Kilograms));
         SetIfWritable(floor.LookupParameter(RunoffAvoidedParameter), UnitUtils.ConvertToInternalUnits(values.RunoffAvoidedAnnual, UnitTypeId.CubicMeters));
+        SetIfWritable(floor.LookupParameter(PollutionMassRemovedParameter), UnitUtils.ConvertToInternalUnits(values.PollutionMassRemovedAnnual, UnitTypeId.Kilograms));
         SetIfWritable(floor.LookupParameter(CostSavedParameter), values.CostSavedAnnual);
-        SetIfWritable(floor.LookupParameter(OxygenProducedParameter), values.OxygenProducedAnnual);
-        SetIfWritable(floor.LookupParameter(TotalGwpParameter), values.TotalGwp);
+        SetIfWritable(floor.LookupParameter(OxygenProducedParameter), UnitUtils.ConvertToInternalUnits(values.OxygenProducedAnnual, UnitTypeId.Kilograms));
+        SetIfWritable(floor.LookupParameter(TotalGwpParameter), UnitUtils.ConvertToInternalUnits(values.TotalGwp, UnitTypeId.Kilograms));
         SetIfWritable(floor.LookupParameter(SurfaceTempReductionParameter), values.SurfaceTempReduction);
         SetIfWritable(floor.LookupParameter(AirTempReductionParameter), values.AirTempReduction);
     }

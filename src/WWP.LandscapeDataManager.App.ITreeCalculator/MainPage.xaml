@@ -15,7 +15,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Spacing="4">
-            <TextBlock Text="i-Tree Calculate and Quality Control" Style="{StaticResource LimPageTitleStyle}" />
+            <TextBlock Text="Tree Calculator" Style="{StaticResource LimPageTitleStyle}" />
             <TextBlock
                 Text="Validates every planting instance before calling the i-Tree API, calculates only what's ready or stale, and caches identical inputs so repeat trees don't cost another call."
                 Style="{StaticResource LimPageSubtitleStyle}" />
@@ -26,6 +26,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <ComboBox
@@ -49,6 +50,7 @@
                     <ComboBoxItem Content="NZD" />
                 </ComboBox>
                 <Button Grid.Column="2" Content="Validate" Click="Validate_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
+                <Button Grid.Column="3" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Bottom" />
             </Grid>
         </Border>
 

@@ -17,7 +17,9 @@ public class ProjectSettingsSnapshotTests
             DataSource: new DataSourceSettings(DataSourceKind.Airtable, "https://airtable.com/shr123", string.Empty),
             AirtableApi: new AirtableApiSettings("appABC", "tblXYZ", "Grid view"),
             ParameterMappings: [new ParameterMappingDefinition("Species", "!_S_PLT_iTreeSpecies_Code_Text", "Type", "Text")],
-            TypeAliases: [new TypeAlias("Oak (mixed)", "Quercus", "English Oak")]);
+            TypeAliases: [new TypeAlias("Oak (mixed)", "Quercus", "English Oak")],
+            WwpLdsSource: new WwpLdsAirtableSettings("appDEF", "tblGHI", "Grid view"),
+            SharedParameterFilePath: @"C:\Shared\Shared_Parameters_WWP.txt");
 
         var json = ProjectSettingsJson.Serialize(snapshot);
         var roundTripped = ProjectSettingsJson.Deserialize(json);
@@ -31,6 +33,8 @@ public class ProjectSettingsSnapshotTests
         Assert.Equal(snapshot.AirtableApi, roundTripped.AirtableApi);
         Assert.Equal(snapshot.ParameterMappings, roundTripped.ParameterMappings);
         Assert.Equal(snapshot.TypeAliases, roundTripped.TypeAliases);
+        Assert.Equal(snapshot.WwpLdsSource, roundTripped.WwpLdsSource);
+        Assert.Equal(snapshot.SharedParameterFilePath, roundTripped.SharedParameterFilePath);
     }
 
     [Theory]
@@ -57,5 +61,7 @@ public class ProjectSettingsSnapshotTests
         Assert.Null(roundTripped.DataSource);
         Assert.Null(roundTripped.ParameterMappings);
         Assert.Null(roundTripped.TypeAliases);
+        Assert.Null(roundTripped.WwpLdsSource);
+        Assert.Null(roundTripped.SharedParameterFilePath);
     }
 }

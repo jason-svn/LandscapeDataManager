@@ -1,4 +1,5 @@
-﻿using WWP.LandscapeDataManager.Shared.Services;
+using WWP.LandscapeDataManager.Contracts;
+using WWP.LandscapeDataManager.Shared.Services;
 using Xunit;
 
 namespace WWP.LandscapeDataManager.Tests;
@@ -17,7 +18,7 @@ public class ITreeInstanceResultMapperTests
     }
 
     [Fact]
-    public void Converts_carbon_from_pounds_to_kilograms_for_a_metric_project()
+    public void Converts_carbon_from_pounds_to_kilograms()
     {
         var outcome = new ITreeInstanceCalculationOutcome(
             new Dictionary<string, object?> { ["Annual_CarbonSequestered_lb"] = 10d }, null);
@@ -25,22 +26,31 @@ public class ITreeInstanceResultMapperTests
         var items = ITreeInstanceResultMapper.BuildWriteItems(
             "uid-1", "Calculated", null, "sig-1", outcome, "Metric");
 
-        var carbon = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Number");
+        var carbon = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass");
+        Assert.Equal("Auto (Revit spec)", carbon.Conversion);
         var value = double.Parse(carbon.SourceValue);
         Assert.True(value is > 4.5 and < 4.6, $"Expected ~4.54 kg, got {value}");
     }
 
     [Fact]
-    public void Leaves_carbon_in_pounds_for_an_imperial_project()
+    public void Mass_conversion_is_unaffected_by_preferred_unit_system()
     {
+        // Mass fields are now Revit-native Mass-spec parameters (see ParameterValueConverter's
+        // "Auto (Revit spec)" handling) — the mapper always writes canonical kilograms, and Revit's
+        // own project unit settings decide metric vs. imperial display, so preferredUnitSystem no
+        // longer changes the written value at all.
         var outcome = new ITreeInstanceCalculationOutcome(
             new Dictionary<string, object?> { ["Annual_CarbonSequestered_lb"] = 10d }, null);
 
-        var items = ITreeInstanceResultMapper.BuildWriteItems(
+        var metricItems = ITreeInstanceResultMapper.BuildWriteItems(
+            "uid-1", "Calculated", null, "sig-1", outcome, "Metric");
+        var imperialItems = ITreeInstanceResultMapper.BuildWriteItems(
             "uid-1", "Calculated", null, "sig-1", outcome, "Imperial");
 
-        var carbon = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Number");
-        Assert.Equal(10d, double.Parse(carbon.SourceValue), precision: 6);
+        double Value(IReadOnlyList<InstanceParameterWriteItem> items) =>
+            double.Parse(Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass").SourceValue);
+
+        Assert.Equal(Value(metricItems), Value(imperialItems), precision: 6);
     }
 
     [Fact]
@@ -66,7 +76,7 @@ public class ITreeInstanceResultMapperTests
         var items = ITreeInstanceResultMapper.BuildWriteItems(
             "uid-1", "Calculated", null, "sig-1", outcome, "Metric");
 
-        var costSaved = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CostSavedAnnual_Number");
+        var costSaved = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CostSavedAnnual_Currency");
         Assert.Equal(12.5d, double.Parse(costSaved.SourceValue), precision: 6);
     }
 
@@ -85,15 +95,15 @@ public class ITreeInstanceResultMapperTests
             "uid-1", "Calculated", null, "sig-1", outcome, "Metric");
 
         Assert.Equal(1d, double.Parse(Assert.Single(items,
-            item => item.RevitParameter == "!_S_PLT_iTreeResult_CarbonCostSavedAnnual_Number").SourceValue), precision: 6);
+            item => item.RevitParameter == "!_S_PLT_iTreeResult_CarbonCostSavedAnnual_Currency").SourceValue), precision: 6);
         Assert.Equal(2d, double.Parse(Assert.Single(items,
-            item => item.RevitParameter == "!_S_PLT_iTreeResult_StormWaterCostSavedAnnual_Number").SourceValue), precision: 6);
+            item => item.RevitParameter == "!_S_PLT_iTreeResult_StormWaterCostSavedAnnual_Currency").SourceValue), precision: 6);
         Assert.Equal(3d, double.Parse(Assert.Single(items,
-            item => item.RevitParameter == "!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Number").SourceValue), precision: 6);
+            item => item.RevitParameter == "!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Currency").SourceValue), precision: 6);
     }
 
     [Fact]
-    public void Converts_co2_equivalent_from_pounds_to_kilograms_for_a_metric_project()
+    public void Converts_co2_equivalent_from_pounds_to_kilograms()
     {
         var outcome = new ITreeInstanceCalculationOutcome(
             new Dictionary<string, object?> { ["Annual_CO2Equivalent_lb"] = 10d }, null);
@@ -101,7 +111,7 @@ public class ITreeInstanceResultMapperTests
         var items = ITreeInstanceResultMapper.BuildWriteItems(
             "uid-1", "Calculated", null, "sig-1", outcome, "Metric");
 
-        var co2Equivalent = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2EquivalentAnnual_Number");
+        var co2Equivalent = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass");
         var value = double.Parse(co2Equivalent.SourceValue);
         Assert.True(value is > 4.5 and < 4.6, $"Expected ~4.54 kg, got {value}");
     }
@@ -120,13 +130,14 @@ public class ITreeInstanceResultMapperTests
         var items = ITreeInstanceResultMapper.BuildWriteItems(
             "uid-1", "Calculated", null, "sig-1", outcome, "Imperial");
 
-        var carbonLifetimeTotal = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Number");
-        Assert.Equal(10d, double.Parse(carbonLifetimeTotal.SourceValue), precision: 6);
+        var carbonLifetimeTotal = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Mass");
+        var carbonValue = double.Parse(carbonLifetimeTotal.SourceValue);
+        Assert.True(carbonValue is > 4.5 and < 4.6, $"Expected ~4.54 kg, got {carbonValue}");
 
         var runoffLifetimeTotal = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_RunoffAvoidedLifetimeTotal_Volume");
         Assert.True(double.Parse(runoffLifetimeTotal.SourceValue) is > 0.37 and < 0.38);
 
-        var costSavedLifetimeTotal = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CostSavedLifetimeTotal_Number");
+        var costSavedLifetimeTotal = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CostSavedLifetimeTotal_Currency");
         Assert.Equal(250d, double.Parse(costSavedLifetimeTotal.SourceValue), precision: 6);
     }
 
@@ -142,8 +153,9 @@ public class ITreeInstanceResultMapperTests
         var items = ITreeInstanceResultMapper.BuildWriteItems(
             "uid-1", "Calculated", null, "sig-1", outcome, "Imperial");
 
-        var carbonLifetimeTotal = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Number");
-        Assert.Equal(999d, double.Parse(carbonLifetimeTotal.SourceValue), precision: 6);
+        var carbonLifetimeTotal = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Mass");
+        var expectedKilograms = 999d * UnitConversions.KilogramsPerPound;
+        Assert.Equal(expectedKilograms, double.Parse(carbonLifetimeTotal.SourceValue), precision: 6);
     }
 
     [Fact]
@@ -182,14 +194,14 @@ public class ITreeInstanceResultMapperTests
 
         double Value(string parameter) => double.Parse(Assert.Single(items, item => item.RevitParameter == parameter).SourceValue);
 
-        Assert.Equal(80d, Value("!_S_PLT_iTreeResult_CostSavedAnnual_Number"), precision: 6);
-        Assert.Equal(32d, Value("!_S_PLT_iTreeResult_CarbonCostSavedAnnual_Number"), precision: 6);
-        Assert.Equal(40d, Value("!_S_PLT_iTreeResult_StormWaterCostSavedAnnual_Number"), precision: 6);
-        Assert.Equal(8d, Value("!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Number"), precision: 6);
-        Assert.Equal(1600d, Value("!_S_PLT_iTreeResult_CostSavedLifetimeTotal_Number"), precision: 6);
-        Assert.Equal(640d, Value("!_S_PLT_iTreeResult_CarbonCostSavedLifetimeTotal_Number"), precision: 6);
-        Assert.Equal(800d, Value("!_S_PLT_iTreeResult_StormWaterCostSavedLifetimeTotal_Number"), precision: 6);
-        Assert.Equal(160d, Value("!_S_PLT_iTreeResult_AirPollutionCostSavedLifetimeTotal_Number"), precision: 6);
+        Assert.Equal(80d, Value("!_S_PLT_iTreeResult_CostSavedAnnual_Currency"), precision: 6);
+        Assert.Equal(32d, Value("!_S_PLT_iTreeResult_CarbonCostSavedAnnual_Currency"), precision: 6);
+        Assert.Equal(40d, Value("!_S_PLT_iTreeResult_StormWaterCostSavedAnnual_Currency"), precision: 6);
+        Assert.Equal(8d, Value("!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Currency"), precision: 6);
+        Assert.Equal(1600d, Value("!_S_PLT_iTreeResult_CostSavedLifetimeTotal_Currency"), precision: 6);
+        Assert.Equal(640d, Value("!_S_PLT_iTreeResult_CarbonCostSavedLifetimeTotal_Currency"), precision: 6);
+        Assert.Equal(800d, Value("!_S_PLT_iTreeResult_StormWaterCostSavedLifetimeTotal_Currency"), precision: 6);
+        Assert.Equal(160d, Value("!_S_PLT_iTreeResult_AirPollutionCostSavedLifetimeTotal_Currency"), precision: 6);
 
         Assert.Equal("GBP", Assert.Single(items,
             item => item.RevitParameter == "!_S_PLT_iTreeResult_CurrencyUsed_Text").SourceValue);

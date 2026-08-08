@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -23,6 +24,7 @@ public sealed partial class MainPage : Page
 
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
+    private string _pipeName = string.Empty;
 
     private DashboardReportResult? _lastReport;
     private string _preferredUnitSystem = "Metric";
@@ -31,6 +33,7 @@ public sealed partial class MainPage : Page
 
     private string _unitSystemOverride = ProjectDefaultUnitSystem;
     private bool _showAnnual = true;
+    private int _projectionYears = 10;
     private string? _activeStatusFilter;
     private string _selectedDesignOption = AllDesignOptions;
     private string _selectedLevel = AllLevels;
@@ -45,37 +48,97 @@ public sealed partial class MainPage : Page
     public ObservableCollection<FloorSubtotalRow> FloorSubtotals { get; } = [];
     public ObservableCollection<DashboardTreeRow> TreeRows { get; } = [];
     public ObservableCollection<DashboardFloorRow> FloorRows { get; } = [];
+    public ObservableCollection<KpiBarRow> ProjectionTrendRows { get; } = [];
+    public ObservableCollection<KpiBarRow> ImpactProfileRows { get; } = [];
+    public ObservableCollection<KpiBarRow> SpeciesMixRows { get; } = [];
+    public ObservableCollection<KpiBarRow> FloorMixRows { get; } = [];
+    public ObservableCollection<KpiBarRow> StatusBreakdownRows { get; } = [];
+    public ObservableCollection<ScenarioComparisonRow> ScenarioRows { get; } = [];
 
     public void Initialize(string pipeName, nint windowHandle)
     {
         _revitClient = new RevitPipeClient(pipeName);
         _windowHandle = windowHandle;
+        _pipeName = pipeName;
+    }
+
+    private void OpenSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SiblingToolLauncher.ShowOrStart(Path.Combine("Settings", "WWP.LandscapeDataManager.Settings.exe"), _pipeName);
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Failed to open Settings: {exception.Message}";
+        }
     }
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(RefreshAsync);
 
+    private async void Page_Loaded(object sender, RoutedEventArgs e)
+    {
+        var cached = await DashboardSnapshotCache.TryLoadAsync();
+        if (cached is null || _lastReport is not null)
+        {
+            return;
+        }
+
+        await RunBusyAsync(async () =>
+        {
+            await ApplyReportAsync(cached.Report);
+            CacheStatusText.Text = $"Cached {cached.SavedAt.LocalDateTime:g}";
+            StatusText.Text = $"Showing cached snapshot from {cached.SavedAt.LocalDateTime:g}. Select Refresh model for current Revit data.";
+        });
+    }
+
     private async Task RefreshAsync()
     {
         var selectedOnly = ScopeBox.SelectedIndex == 1;
-        var catalogTask = GetClient().SendAsync<ParameterCatalogResult>(PipeCommands.GetParameterCatalog, new ModelScanOptions());
-        var reportTask = GetClient().SendAsync<DashboardReportResult>(PipeCommands.GetDashboardReport, new DashboardReportRequest(selectedOnly));
-        await Task.WhenAll(catalogTask, reportTask);
+        try
+        {
+            var catalogTask = GetClient().SendAsync<ParameterCatalogResult>(PipeCommands.GetParameterCatalog, new ModelScanOptions());
+            var reportTask = GetClient().SendAsync<DashboardReportResult>(PipeCommands.GetDashboardReport, new DashboardReportRequest(selectedOnly));
+            await Task.WhenAll(catalogTask, reportTask);
 
-        var catalog = await catalogTask;
-        _lastReport = await reportTask;
-        _preferredUnitSystem = catalog.PreferredUnitSystem;
-        _preferredCurrency = catalog.PreferredCurrency;
+            var catalog = await catalogTask;
+            var report = await reportTask;
+            _preferredUnitSystem = catalog.PreferredUnitSystem;
+            _preferredCurrency = catalog.PreferredCurrency;
+            await ApplyReportAsync(report);
+            await DashboardSnapshotCache.SaveAsync(report);
+
+            CacheStatusText.Text = $"Updated {DateTime.Now:t}";
+            StatusText.Text = $"{report.Trees.Count:N0} tree(s), {report.Floors.Count:N0} planting area(s) — {EffectiveUnitSystem()} / {_preferredCurrency}. Snapshot cached.";
+        }
+        catch (Exception liveException)
+        {
+            var cached = await DashboardSnapshotCache.TryLoadAsync();
+            if (cached is null)
+            {
+                throw;
+            }
+
+            await ApplyReportAsync(cached.Report);
+            CacheStatusText.Text = $"Cached {cached.SavedAt.LocalDateTime:g}";
+            StatusText.Text = $"Revit refresh failed ({liveException.Message}). Showing cached snapshot from {cached.SavedAt.LocalDateTime:g}.";
+        }
+    }
+
+    private async Task ApplyReportAsync(DashboardReportResult report)
+    {
+        _lastReport = report;
+        _preferredUnitSystem = report.PreferredUnitSystem;
+        _preferredCurrency = report.PreferredCurrency;
         CurrencyText.Text = _preferredCurrency;
+        ProjectTitleText.Text = report.DocumentTitle;
 
-        // One rate lookup per refresh, not per tree — the rate doesn't vary by tree, only by currency.
+        // One rate lookup per report, not per tree — the rate doesn't vary by tree, only by currency.
         var rate = await _exchangeRateService.GetUsdRateAsync(_preferredCurrency);
         _usdExchangeRate = rate.UsdRate;
 
         RebuildFilterOptions();
         RebuildRows();
-
-        var rateNote = rate.Success ? string.Empty : $" ({rate.Error})";
-        StatusText.Text = $"{_lastReport.Trees.Count:N0} tree(s), {_lastReport.Floors.Count:N0} floor(s) — {EffectiveUnitSystem()} / {_preferredCurrency}.{rateNote}";
     }
 
     private string EffectiveUnitSystem() =>
@@ -142,15 +205,17 @@ public sealed partial class MainPage : Page
             .ToList();
 
         var searchText = SpeciesSearchBox.Text?.Trim() ?? string.Empty;
+        bool MatchesLevel(string? levelName) => _selectedLevel == AllLevels || (levelName ?? "—") == _selectedLevel;
+        bool MatchesSearch(NormalizedTreeMetrics tree) => string.IsNullOrEmpty(searchText) ||
+            (tree.Source.SpeciesCode ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+            (tree.Source.CommonName ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase);
         bool MatchesDimensionFilters(DesignOptionInfo designOption, string? levelName) =>
             (_selectedDesignOption == AllDesignOptions || DashboardUnitLabels.FormatDesignOption(designOption) == _selectedDesignOption) &&
-            (_selectedLevel == AllLevels || (levelName ?? "—") == _selectedLevel);
+            MatchesLevel(levelName);
 
         var treesInScope = normalizedTrees
             .Where(tree => MatchesDimensionFilters(tree.Source.DesignOption, tree.Source.LevelName))
-            .Where(tree => string.IsNullOrEmpty(searchText) ||
-                           (tree.Source.SpeciesCode ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                           (tree.Source.CommonName ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            .Where(MatchesSearch)
             .ToList();
 
         UpdateStatusCounts(treesInScope);
@@ -162,14 +227,16 @@ public sealed partial class MainPage : Page
             .Where(floor => MatchesDimensionFilters(floor.DesignOption, floor.LevelName))
             .ToList();
 
+        var speciesSubtotals = DashboardAggregationService.AggregateTreesBySpecies(filteredTrees);
         SpeciesSubtotals.Clear();
-        foreach (var subtotal in DashboardAggregationService.AggregateTreesBySpecies(filteredTrees))
+        foreach (var subtotal in speciesSubtotals)
         {
             SpeciesSubtotals.Add(new SpeciesSubtotalRow(subtotal, unitSystem, _preferredCurrency, _showAnnual));
         }
 
+        var floorSubtotals = DashboardAggregationService.AggregateFloorsByType(filteredFloors);
         FloorSubtotals.Clear();
-        foreach (var subtotal in DashboardAggregationService.AggregateFloorsByType(filteredFloors))
+        foreach (var subtotal in floorSubtotals)
         {
             FloorSubtotals.Add(new FloorSubtotalRow(subtotal));
         }
@@ -208,10 +275,188 @@ public sealed partial class MainPage : Page
         FloorCountText.Text = grandTotal.FloorCount.ToString("N0");
         FloorAreaText.Text = $"{grandTotal.FloorAreaSquareMeters:N1} m²";
         FloorCO2Text.Text = $"{grandTotal.FloorCO2SequesteredAnnual:N1} kg";
+        FloorRunoffText.Text = $"{grandTotal.FloorRunoffAvoidedAnnual:N1} m³";
+        FloorPollutionText.Text = $"{grandTotal.FloorPollutionMassRemovedAnnual:N2} kg";
         FloorGwpText.Text = grandTotal.FloorTotalGwp.ToString("N1");
         FloorCostSavedText.Text = $"{grandTotal.FloorCostSavedAnnual:N2} (as calculated)";
 
         PeriodLabelText.Text = $"Showing {period} benefits.";
+
+        RebuildGraphicDashboard(
+            normalizedTrees,
+            filteredTrees,
+            filteredFloors,
+            speciesSubtotals,
+            floorSubtotals,
+            grandTotal,
+            unitSystem,
+            MatchesLevel,
+            MatchesSearch);
+    }
+
+    private void RebuildGraphicDashboard(
+        IReadOnlyList<NormalizedTreeMetrics> allNormalizedTrees,
+        IReadOnlyList<NormalizedTreeMetrics> filteredTrees,
+        IReadOnlyList<DashboardFloorItem> filteredFloors,
+        IReadOnlyList<SpeciesSubtotal> speciesSubtotals,
+        IReadOnlyList<FloorTypeSubtotal> floorSubtotals,
+        DashboardGrandTotal grandTotal,
+        string unitSystem,
+        Func<string?, bool> matchesLevel,
+        Func<NormalizedTreeMetrics, bool> matchesSearch)
+    {
+        var metric = string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
+        var co2Unit = DashboardUnitLabels.Co2Unit(unitSystem);
+        var pollutantUnit = DashboardUnitLabels.PollutantUnit(unitSystem);
+        var waterUnit = metric ? "m³" : "gal";
+        var areaUnit = metric ? "m²" : "ft²";
+
+        double FloorCo2(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerPound;
+        double FloorPollution(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerOunce;
+        double Water(double cubicMetres) => metric ? cubicMetres : cubicMetres / UnitConversions.CubicMetresPerGallon;
+        double Area(double squareMetres) => metric ? squareMetres : squareMetres * 10.7639104167d;
+
+        var countedTrees = filteredTrees.Where(tree => tree.CountsTowardTotals).ToList();
+        var treeRunoffAnnual = countedTrees.Sum(tree => tree.RunoffAvoidedAnnual);
+        var floorCo2Annual = FloorCo2(grandTotal.FloorCO2SequesteredAnnual);
+        var floorPollutionAnnual = FloorPollution(grandTotal.FloorPollutionMassRemovedAnnual);
+        var floorRunoffAnnual = Water(grandTotal.FloorRunoffAvoidedAnnual);
+        var treeRunoffDisplay = Water(treeRunoffAnnual);
+        var projectedCarbon = (grandTotal.CO2SequesteredAnnual + floorCo2Annual) * _projectionYears;
+        var projectedPollution = (grandTotal.TotalPollutionMassRemovedAnnual + floorPollutionAnnual) * _projectionYears;
+        var projectedWater = (treeRunoffDisplay + floorRunoffAnnual) * _projectionYears;
+        var projectedValue = grandTotal.TreeCostSavedAnnual * _projectionYears;
+
+        var readyPercent = filteredTrees.Count == 0 ? 0d : 100d * grandTotal.TreeCount / filteredTrees.Count;
+        var scenarioLabel = _selectedDesignOption == AllDesignOptions ? "All design options" : _selectedDesignOption;
+        ScenarioBadgeText.Text = scenarioLabel.ToUpperInvariant();
+        OutlookText.Text = $"{_projectionYears}-year outlook · current annual stored results × {_projectionYears}";
+        KpiEcosystemValueText.Text = $"{Compact(projectedValue)} {_preferredCurrency}";
+        KpiCarbonText.Text = $"{Compact(projectedCarbon)} {co2Unit}";
+        KpiWaterText.Text = $"{Compact(projectedWater)} {waterUnit}";
+        KpiPollutionText.Text = $"{Compact(projectedPollution)} {pollutantUnit}";
+        KpiTreeCountText.Text = grandTotal.TreeCount.ToString("N0");
+        KpiPlantingAreaText.Text = grandTotal.FloorCount.ToString("N0");
+        SnapshotAreaText.Text = $"{Compact(Area(grandTotal.FloorAreaSquareMeters))} {areaUnit}";
+        GwpBaselineText.Text = Compact(grandTotal.FloorTotalGwp);
+        SnapshotInventoryText.Text = $"{grandTotal.TreeCount + grandTotal.FloorCount:N0} assets";
+        ReportingProgress.Value = readyPercent;
+        ReportingCaptionText.Text = $"{readyPercent:N0}% tree results ready";
+        ReadinessRing.Value = readyPercent;
+        ReadinessPercentText.Text = $"{readyPercent:N0}%";
+        ReadinessDetailText.Text = $"{grandTotal.TreeCount:N0} of {filteredTrees.Count:N0} filtered tree records are Calculated.";
+
+        ProjectionTrendRows.Clear();
+        foreach (var years in new[] { 5, 10, 20, 25 })
+        {
+            var value = (grandTotal.CO2SequesteredAnnual + floorCo2Annual) * years;
+            ProjectionTrendRows.Add(new KpiBarRow($"{years} yr", $"{Compact(value)} {co2Unit}", 100d * years / 25d));
+        }
+
+        ImpactProfileRows.Clear();
+        AddImpactShare("Carbon", grandTotal.CO2SequesteredAnnual, floorCo2Annual, co2Unit);
+        AddImpactShare("Pollution", grandTotal.TotalPollutionMassRemovedAnnual, floorPollutionAnnual, pollutantUnit);
+        AddImpactShare("Runoff", treeRunoffDisplay, floorRunoffAnnual, waterUnit);
+
+        SpeciesMixRows.Clear();
+        var totalTrees = Math.Max(1, speciesSubtotals.Sum(row => row.TreeCount));
+        foreach (var row in speciesSubtotals.OrderByDescending(row => row.TreeCount).Take(5))
+        {
+            SpeciesMixRows.Add(new KpiBarRow(
+                row.SpeciesCode,
+                row.TreeCount.ToString("N0"),
+                100d * row.TreeCount / totalTrees,
+                row.CommonName));
+        }
+
+        FloorMixRows.Clear();
+        var totalArea = floorSubtotals.Sum(row => row.AreaSquareMeters);
+        foreach (var row in floorSubtotals.OrderByDescending(row => row.AreaSquareMeters).Take(5))
+        {
+            var displayArea = Area(row.AreaSquareMeters);
+            FloorMixRows.Add(new KpiBarRow(
+                row.LdsType,
+                $"{Compact(displayArea)} {areaUnit}",
+                totalArea <= 0d ? 0d : 100d * row.AreaSquareMeters / totalArea));
+        }
+
+        RebuildScenarioRows(allNormalizedTrees, unitSystem, matchesLevel, matchesSearch);
+
+        void AddImpactShare(string label, double treeValue, double floorValue, string valueUnit)
+        {
+            var total = treeValue + floorValue;
+            var treePercent = total <= 0d ? 0d : 100d * treeValue / total;
+            ImpactProfileRows.Add(new KpiBarRow(
+                label,
+                $"{treePercent:N0}% trees",
+                treePercent,
+                $"{Compact(total * _projectionYears)} {valueUnit} over {_projectionYears} years"));
+        }
+    }
+
+    private void RebuildScenarioRows(
+        IReadOnlyList<NormalizedTreeMetrics> allTrees,
+        string unitSystem,
+        Func<string?, bool> matchesLevel,
+        Func<NormalizedTreeMetrics, bool> matchesSearch)
+    {
+        if (_lastReport is null)
+        {
+            return;
+        }
+
+        var metric = string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
+        var co2Unit = DashboardUnitLabels.Co2Unit(unitSystem);
+        double FloorCo2(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerPound;
+
+        var treeGroups = allTrees
+            .Where(tree => matchesLevel(tree.Source.LevelName) && matchesSearch(tree))
+            .GroupBy(tree => DashboardUnitLabels.FormatDesignOption(tree.Source.DesignOption))
+            .ToDictionary(group => group.Key, group => group.ToList());
+        var floorGroups = _lastReport.Floors
+            .Where(floor => matchesLevel(floor.LevelName))
+            .GroupBy(floor => DashboardUnitLabels.FormatDesignOption(floor.DesignOption))
+            .ToDictionary(group => group.Key, group => group.ToList());
+        var optionNames = treeGroups.Keys.Concat(floorGroups.Keys).Distinct().OrderBy(ExtractProjectionYears).ThenBy(name => name).ToList();
+
+        var values = optionNames.Select(option =>
+        {
+            var trees = treeGroups.GetValueOrDefault(option) ?? [];
+            var floors = floorGroups.GetValueOrDefault(option) ?? [];
+            var total = DashboardAggregationService.BuildGrandTotal(trees, floors);
+            var years = ExtractProjectionYears(option) ?? _projectionYears;
+            var carbon = (total.CO2SequesteredAnnual + FloorCo2(total.FloorCO2SequesteredAnnual)) * years;
+            return (Option: option, Total: total, Years: years, Carbon: carbon);
+        }).ToList();
+        var maximum = values.Count == 0 ? 0d : values.Max(value => value.Carbon);
+
+        ScenarioRows.Clear();
+        foreach (var value in values)
+        {
+            ScenarioRows.Add(new ScenarioComparisonRow(
+                value.Option,
+                $"{value.Total.TreeCount:N0} trees · {value.Total.FloorCount:N0} areas",
+                $"{Compact(value.Carbon)} {co2Unit} / {value.Years} yr",
+                maximum <= 0d ? 0d : 100d * value.Carbon / maximum));
+        }
+    }
+
+    private static string Compact(double value)
+    {
+        var absolute = Math.Abs(value);
+        return absolute switch
+        {
+            >= 1_000_000_000d => $"{value / 1_000_000_000d:N1}B",
+            >= 1_000_000d => $"{value / 1_000_000d:N1}M",
+            >= 1_000d => $"{value / 1_000d:N1}K",
+            _ => value.ToString("N1")
+        };
+    }
+
+    private static int? ExtractProjectionYears(string value)
+    {
+        var match = Regex.Match(value, @"(?<!\d)(5|10|20|25)\s*(?:years?|yrs?)?", RegexOptions.IgnoreCase);
+        return match.Success && int.TryParse(match.Groups[1].Value, out var years) ? years : null;
     }
 
     private void UpdateStatusCounts(IReadOnlyList<NormalizedTreeMetrics> treesInScope)
@@ -224,6 +469,23 @@ public sealed partial class MainPage : Page
         InvalidCountText.Text = Count("InvalidInput").ToString("N0");
         WarningCountText.Text = Count("APIWarning").ToString("N0");
         ErrorCountText.Text = Count("APIError").ToString("N0");
+
+        StatusBreakdownRows.Clear();
+        foreach (var (status, label) in new[]
+                 {
+                     ("Calculated", "Calculated"),
+                     ("Ready", "Ready"),
+                     ("Stale", "Stale"),
+                     ("MissingInput", "Missing input"),
+                     ("InvalidInput", "Invalid input"),
+                     ("APIWarning", "API warning"),
+                     ("APIError", "API error")
+                 })
+        {
+            var count = Count(status);
+            var percent = treesInScope.Count == 0 ? 0d : 100d * count / treesInScope.Count;
+            StatusBreakdownRows.Add(new KpiBarRow(label, $"{count:N0} · {percent:N0}%", percent));
+        }
 
         foreach (var card in new[] { CalculatedCard, ReadyCard, StaleCard, MissingCard, InvalidCard, WarningCard, ErrorCard })
         {
@@ -256,6 +518,24 @@ public sealed partial class MainPage : Page
         }
 
         _selectedDesignOption = value;
+
+        var optionYears = ExtractProjectionYears(value);
+        if (optionYears is not null)
+        {
+            _projectionYears = optionYears.Value;
+            _suppressFilterEvents = true;
+            try
+            {
+                ProjectionBox.SelectedItem = ProjectionBox.Items
+                    .OfType<ComboBoxItem>()
+                    .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), optionYears.Value.ToString(), StringComparison.Ordinal));
+            }
+            finally
+            {
+                _suppressFilterEvents = false;
+            }
+        }
+
         RebuildRows();
     }
 
@@ -280,6 +560,18 @@ public sealed partial class MainPage : Page
         }
 
         _unitSystemOverride = value;
+        RebuildRows();
+    }
+
+    private void ProjectionBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressFilterEvents || ProjectionBox.SelectedItem is not ComboBoxItem item ||
+            !int.TryParse(item.Tag?.ToString(), out var years))
+        {
+            return;
+        }
+
+        _projectionYears = years;
         RebuildRows();
     }
 
@@ -335,6 +627,12 @@ public sealed partial class MainPage : Page
 
     private async void ExportImage_Click(object sender, RoutedEventArgs e)
     {
+        if (_lastReport is null)
+        {
+            StatusText.Text = "Refresh the dashboard or load a cached snapshot before exporting.";
+            return;
+        }
+
         var picker = new FileSavePicker
         {
             SuggestedStartLocation = PickerLocationId.PicturesLibrary,
@@ -350,11 +648,14 @@ public sealed partial class MainPage : Page
 
         await RunBusyAsync(async () =>
         {
+            DashboardPages.SelectedIndex = 0;
+            await Task.Delay(100);
             var renderTarget = new RenderTargetBitmap();
             await renderTarget.RenderAsync(CaptureRoot);
             var pixels = await renderTarget.GetPixelsAsync();
 
             using var stream = await file.OpenAsync(FileAccessMode.ReadWrite);
+            stream.Size = 0;
             var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
             encoder.SetPixelData(
                 BitmapPixelFormat.Bgra8,
@@ -366,6 +667,47 @@ public sealed partial class MainPage : Page
             await encoder.FlushAsync();
 
             StatusText.Text = $"Exported dashboard image to {file.Name}.";
+        });
+    }
+
+    private async void ExportSvg_Click(object sender, RoutedEventArgs e)
+    {
+        if (_lastReport is null)
+        {
+            StatusText.Text = "Refresh the dashboard or load a cached snapshot before exporting.";
+            return;
+        }
+
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.PicturesLibrary,
+            SuggestedFileName = $"Environmental KPI Dashboard {DateTime.Now:yyyy-MM-dd}"
+        };
+        picker.FileTypeChoices.Add("SVG vector image", [".svg"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        await RunBusyAsync(async () =>
+        {
+            var snapshot = new DashboardSvgSnapshot(
+                _lastReport.DocumentTitle,
+                _selectedDesignOption == AllDesignOptions ? "All design options" : _selectedDesignOption,
+                $"{_projectionYears}-year outlook",
+                KpiEcosystemValueText.Text,
+                KpiCarbonText.Text,
+                KpiWaterText.Text,
+                KpiPollutionText.Text,
+                SnapshotAreaText.Text,
+                ReadinessPercentText.Text,
+                ProjectionTrendRows.ToList(),
+                SpeciesMixRows.ToList(),
+                DateTimeOffset.Now);
+            await DashboardSvgExportService.ExportAsync(file.Path, snapshot);
+            StatusText.Text = $"Exported vector dashboard to {file.Name}.";
         });
     }
 

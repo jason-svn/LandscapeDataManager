@@ -9,8 +9,6 @@ artifacts/
 /outputs/
 
 # Local Codex and agent state
-.codex/
-.agents/
 *.user
 *.suo
 

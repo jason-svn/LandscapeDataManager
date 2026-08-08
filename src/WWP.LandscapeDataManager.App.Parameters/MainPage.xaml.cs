@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Storage.Pickers;
@@ -10,9 +9,9 @@ namespace WWP.LandscapeDataManager.App.Parameters;
 
 public sealed partial class MainPage : Page
 {
-    private readonly SharedParameterFileSettingsStore _settingsStore = new();
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
+    private string _pipeName = string.Empty;
 
     public MainPage()
     {
@@ -25,13 +24,26 @@ public sealed partial class MainPage : Page
     {
         _revitClient = new RevitPipeClient(pipeName);
         _windowHandle = windowHandle;
+        _pipeName = pipeName;
         Loaded += Page_Loaded;
+    }
+
+    private void OpenSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SiblingToolLauncher.ShowOrStart(Path.Combine("Settings", "WWP.LandscapeDataManager.Settings.exe"), _pipeName);
+        }
+        catch (Exception exception)
+        {
+            ShowStatus($"Failed to open Settings: {exception.Message}");
+        }
     }
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
-        var settings = await _settingsStore.LoadAsync();
-        SharedParameterFilePathBox.Text = settings.FilePath;
+        var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
+        SharedParameterFilePathBox.Text = snapshot?.SharedParameterFilePath ?? string.Empty;
     }
 
     private async void BrowseSharedParameterFile_Click(object sender, RoutedEventArgs e)
@@ -62,7 +74,7 @@ public sealed partial class MainPage : Page
 
         await RunBusyAsync(async () =>
         {
-            await _settingsStore.SaveAsync(new SharedParameterFileSettings(filePath));
+            await ProjectSettingsSync.PushAsync(GetClient(), sharedParameterFilePath: filePath);
 
             var result = await GetClient().SendAsync<SharedParameterSetupResult>(
                 PipeCommands.PreviewSharedParameters,
@@ -117,52 +129,6 @@ public sealed partial class MainPage : Page
                 ? $"{result.DocumentTitle}: {created:N0} created/updated, {valid:N0} already valid. Nothing needs attention."
                 : $"{result.DocumentTitle}: {created:N0} created/updated, {valid:N0} already valid, {attention:N0} need attention — see the rows below.");
         });
-    }
-
-    private async void ExportSettings_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileSavePicker
-        {
-            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-            SuggestedFileName = "LIM shared parameter settings"
-        };
-        picker.FileTypeChoices.Add("Shared parameter settings", [".json"]);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSaveFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        await _settingsStore.ExportToAsync(file.Path, new SharedParameterFileSettings(SharedParameterFilePathBox.Text.Trim()));
-        ShowStatus($"Exported settings to {file.Path}.");
-    }
-
-    private async void ImportSettings_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
-        picker.FileTypeFilter.Add(".json");
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSingleFileAsync();
-        if (file is null)
-        {
-            return;
-        }
-
-        SharedParameterFileSettings imported;
-        try
-        {
-            imported = await _settingsStore.ImportFromAsync(file.Path);
-        }
-        catch (JsonException)
-        {
-            ShowStatus($"'{file.Path}' is not a valid shared parameter settings file.");
-            return;
-        }
-
-        SharedParameterFilePathBox.Text = imported.FilePath;
-        await _settingsStore.SaveAsync(imported);
-        ShowStatus($"Imported settings from {file.Path}.");
     }
 
     private static int StatusSortOrder(string status) => status switch

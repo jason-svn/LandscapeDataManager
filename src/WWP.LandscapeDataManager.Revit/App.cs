@@ -80,16 +80,16 @@ public sealed class App : IExternalApplication
         AddWorkflowButton<SetupParametersCommand>(
             projectSetupPanel,
             "LIMSetupPlantingParameters",
-            "Project\nSetup",
+            "Import Shared\nParameter",
             "PS",
-            "Shared Parameter Setup",
+            "Import Shared Parameter",
             "Assign the shared parameter file, import the required planting and i-Tree parameters, and bind them to Project Information and Planting.");
         AddWorkflowButton<DownloadSpeciesScheduleCommand>(
             projectSetupPanel,
             "LIMDownloadITreeSpecies",
-            "i-Tree\nDownloader",
+            "iTree Database\nCacher",
             "iDL",
-            "i-Tree Downloader",
+            "iTree Database Cacher",
             "Download the i-Tree species catalog, including Species_Code, common name, scientific name, and species type, and cache it locally for Tree Searcher.");
         AddWorkflowButton<FindLocationCommand>(
             projectSetupPanel,
@@ -117,9 +117,9 @@ public sealed class App : IExternalApplication
         AddWorkflowButton<CalculateITreeCommand>(
             dataCalculationPanel,
             "LIMCalculateITree",
-            "i-Tree\nCalculator",
+            "Tree\nCalculator",
             "iCAL",
-            "i-Tree Calculator",
+            "Tree Calculator",
             "Validate tree inputs, calculate i-Tree benefits, write the WWP output parameters, and report elements with missing inputs.");
         AddWorkflowButton<CalculateFloorCommand>(
             dataCalculationPanel,
@@ -150,7 +150,7 @@ public sealed class App : IExternalApplication
             "Benefits\nDashboard",
             "DB",
             "Landscape Benefits Dashboard",
-            "Roll up the i-Tree and landscape data sheet results already stored on Planting and Floor elements into per-species and floor-plant subtotals and a grand total, filterable by Design Option and level, exportable as an image or Excel workbook.");
+            "Roll up the i-Tree and landscape data sheet results already stored on Planting and Floor elements into per-species and planting-area subtotals and a grand total, filterable by Design Option and level, exportable as an image or Excel workbook.");
 
         return Result.Succeeded;
     }

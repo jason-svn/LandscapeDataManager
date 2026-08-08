@@ -15,28 +15,24 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Spacing="4">
-                <TextBlock Text="Planting Data Sync" Style="{StaticResource LimPageTitleStyle}" />
-                <TextBlock
-                    Text="Connect a source, map its columns to Revit parameters, preview the changes, then apply. Types match by Family + Type; instances match only by a stable pairing — never by display name."
-                    Style="{StaticResource LimPageSubtitleStyle}" />
-            </StackPanel>
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Planting Data Sync" Style="{StaticResource LimPageTitleStyle}" />
+                    <TextBlock
+                        Text="Connect a source, map its columns to Revit parameters, preview the changes, then apply. Types match by Family + Type; instances match only by a stable pairing — never by display name."
+                        Style="{StaticResource LimPageSubtitleStyle}" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
+            </Grid>
 
             <!-- Step 1: Connect -->
             <Border Grid.Row="1" Margin="0,20,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="12">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="STEP 1 — CONNECT A SOURCE" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Content="Import connection settings..." Click="ImportConnectionSettings_Click"
-                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,8,0" />
-                        <Button Grid.Column="2" Content="Export connection settings..." Click="ExportConnectionSettings_Click"
-                                Style="{StaticResource LimSecondaryButtonStyle}" />
-                    </Grid>
+                    <TextBlock Text="STEP 1 — CONNECT A SOURCE" Style="{StaticResource LimSectionHeaderStyle}" />
                     <ComboBox x:Name="SourceKindBox" Header="Data source" SelectedIndex="0"
                               SelectionChanged="SourceKindBox_SelectionChanged" HorizontalAlignment="Stretch">
                         <ComboBoxItem Content="Airtable (API token)" />
@@ -79,21 +75,9 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="STEP 2 — MAP COLUMNS" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Content="Import mappings..." Click="ImportMappings_Click"
-                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,8,0" />
-                        <Button Grid.Column="2" Content="Export mappings..." Click="ExportMappings_Click"
-                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,8,0" />
-                        <Button Grid.Column="3" Content="Import type aliases..." Click="ImportTypeAliases_Click"
-                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,8,0" />
-                        <Button Grid.Column="4" Content="Export type aliases..." Click="ExportTypeAliases_Click"
-                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,8,0" />
-                        <Button Grid.Column="5" Content="Auto-map all" Click="AutoMap_Click"
+                        <Button Grid.Column="1" Content="Auto-map all" Click="AutoMap_Click"
                                 Style="{StaticResource LimSecondaryButtonStyle}" />
                     </Grid>
 

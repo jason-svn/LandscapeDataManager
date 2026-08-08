@@ -42,10 +42,22 @@ public class DashboardAggregationServiceTests
     }
 
     [Fact]
-    public void Converts_pound_basis_mass_from_metric_to_imperial()
+    public void Mass_stays_in_kilograms_for_a_metric_display_target()
     {
-        // Stored as 10 kg (Metric); displaying as Imperial should recover ~22.05 lb.
-        var tree = CreateTree(storedUnitSystem: "Metric", co2SequesteredAnnual: 10d);
+        // Mass values arrive from DashboardReportService already in canonical kilograms (Revit-native
+        // Mass-spec parameters) — no stored-unit-system history to resolve, unlike currency.
+        var tree = CreateTree(co2SequesteredAnnual: 10d);
+
+        var normalized = DashboardAggregationService.NormalizeTree(tree, "Metric", "USD", 1d);
+
+        Assert.Equal(10d, normalized.CO2SequesteredAnnual, precision: 6);
+    }
+
+    [Fact]
+    public void Converts_pound_basis_mass_to_pounds_for_an_imperial_display_target()
+    {
+        // 10 kg displayed as Imperial should read ~22.05 lb.
+        var tree = CreateTree(co2SequesteredAnnual: 10d);
 
         var normalized = DashboardAggregationService.NormalizeTree(tree, "Imperial", "USD", 1d);
 
@@ -54,15 +66,15 @@ public class DashboardAggregationServiceTests
     }
 
     [Fact]
-    public void Converts_ounce_basis_mass_from_imperial_to_metric()
+    public void Converts_ounce_basis_mass_to_ounces_for_an_imperial_display_target()
     {
-        // Stored as 16 oz (Imperial); displaying as Metric should recover ~0.4536 kg.
-        var tree = CreateTree(storedUnitSystem: "Imperial", pm25RemovedAnnual: 16d);
+        // 1 kg displayed as Imperial should read ~35.27 oz.
+        var tree = CreateTree(pm25RemovedAnnual: 1d);
 
-        var normalized = DashboardAggregationService.NormalizeTree(tree, "Metric", "USD", 1d);
+        var normalized = DashboardAggregationService.NormalizeTree(tree, "Imperial", "USD", 1d);
 
-        Assert.True(normalized.PM25RemovedAnnual is > 0.45 and < 0.46,
-            $"Expected ~0.4536 kg, got {normalized.PM25RemovedAnnual}");
+        Assert.True(normalized.PM25RemovedAnnual is > 35.2 and < 35.3,
+            $"Expected ~35.27 oz, got {normalized.PM25RemovedAnnual}");
     }
 
     [Fact]
@@ -121,7 +133,7 @@ public class DashboardAggregationServiceTests
             CreateTree(co2SequesteredAnnual: 10d, costSavedAnnual: 5d), "Metric", "USD", 1d);
         var floor = new DashboardFloorItem(
             "floor-1", 2, "FloorFamily", "FloorType", "WWP_Wetland", "Level 1",
-            new DesignOptionInfo(null, null, true), 100d, 15d, 30d, 2d, 40d, 0.5d, 0.5d);
+            new DesignOptionInfo(null, null, true), 100d, 15d, 8d, 3d, 30d, 2d, 40d, 0.5d, 0.5d);
 
         var total = DashboardAggregationService.BuildGrandTotal([tree], [floor]);
 
@@ -130,6 +142,8 @@ public class DashboardAggregationServiceTests
         Assert.Equal(1, total.FloorCount);
         Assert.Equal(100d, total.FloorAreaSquareMeters, precision: 6);
         Assert.Equal(15d, total.FloorCO2SequesteredAnnual, precision: 6);
+        Assert.Equal(8d, total.FloorRunoffAvoidedAnnual, precision: 6);
+        Assert.Equal(3d, total.FloorPollutionMassRemovedAnnual, precision: 6);
         Assert.Equal(40d, total.FloorTotalGwp, precision: 6);
         Assert.Equal(30d, total.FloorCostSavedAnnual, precision: 6);
     }

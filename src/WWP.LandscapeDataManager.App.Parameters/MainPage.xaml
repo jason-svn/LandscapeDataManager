@@ -14,19 +14,24 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Spacing="4">
-            <TextBlock Text="Shared Parameter Setup" Style="{StaticResource LimPageTitleStyle}" />
-            <TextBlock
-                Text="Creates and validates the Project Information and Planting parameter bindings the LIM workflow needs. Safe to run again — it never duplicates a parameter, and reports anything it can't safely change."
-                Style="{StaticResource LimPageSubtitleStyle}" />
-        </StackPanel>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Import Shared Parameter" Style="{StaticResource LimPageTitleStyle}" />
+                <TextBlock
+                    Text="Creates and validates the Project Information and Planting parameter bindings the LIM workflow needs. Safe to run again — it never duplicates a parameter, and reports anything it can't safely change."
+                    Style="{StaticResource LimPageSubtitleStyle}" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
+        </Grid>
 
         <Border Grid.Row="1" Margin="0,20,0,0" Style="{StaticResource LimCardStyle}">
             <Grid ColumnSpacing="10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="SharedParameterFilePathBox"
@@ -36,18 +41,6 @@
                         Content="Browse..."
                         Click="BrowseSharedParameterFile_Click"
                         VerticalAlignment="Bottom"
-                        Style="{StaticResource LimSecondaryButtonStyle}" />
-                <Button Grid.Column="2"
-                        Content="Import settings..."
-                        Click="ImportSettings_Click"
-                        VerticalAlignment="Bottom"
-                        Margin="8,0,0,0"
-                        Style="{StaticResource LimSecondaryButtonStyle}" />
-                <Button Grid.Column="3"
-                        Content="Export settings..."
-                        Click="ExportSettings_Click"
-                        VerticalAlignment="Bottom"
-                        Margin="8,0,0,0"
                         Style="{StaticResource LimSecondaryButtonStyle}" />
             </Grid>
         </Border>

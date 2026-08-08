@@ -9,8 +9,6 @@ public sealed partial class MainPage : Page
 {
     private readonly ITreeCredentialStore _iTreeCredentialStore = new();
     private readonly AirtableCredentialStore _airtableCredentialStore = new();
-    private readonly WwpLdsAirtableSettingsStore _ldsSettingsStore = new();
-    private readonly SharedParameterFileSettingsStore _sharedParameterFileSettingsStore = new();
 
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
@@ -32,13 +30,13 @@ public sealed partial class MainPage : Page
         ITreeApiKeyBox.Password = _iTreeCredentialStore.Load();
         AirtableTokenBox.Password = _airtableCredentialStore.Load();
 
-        var ldsSettings = await _ldsSettingsStore.LoadAsync();
+        var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
+        var ldsSettings = snapshot?.WwpLdsSource ?? WwpLdsAirtableSettings.CompanyDefault;
         LdsBaseIdBox.Text = ldsSettings.BaseId;
         LdsTableIdBox.Text = ldsSettings.TableIdOrName;
         LdsViewIdBox.Text = ldsSettings.ViewName ?? string.Empty;
 
-        var sharedParameterSettings = await _sharedParameterFileSettingsStore.LoadAsync();
-        SharedParameterFilePathBox.Text = sharedParameterSettings.FilePath;
+        SharedParameterFilePathBox.Text = snapshot?.SharedParameterFilePath ?? string.Empty;
     }
 
     private void SaveITreeKey_Click(object sender, RoutedEventArgs e)
@@ -95,7 +93,7 @@ public sealed partial class MainPage : Page
             LdsBaseIdBox.Text.Trim(),
             LdsTableIdBox.Text.Trim(),
             string.IsNullOrWhiteSpace(LdsViewIdBox.Text) ? null : LdsViewIdBox.Text.Trim());
-        await _ldsSettingsStore.SaveAsync(settings);
+        await ProjectSettingsSync.PushAsync(GetClient(), wwpLdsSource: settings);
         LdsStatusText.Text = "WWP landscape data sheet source saved — Floor Calculator will use it on its next sync.";
     }
 
@@ -113,9 +111,12 @@ public sealed partial class MainPage : Page
 
     private async void SaveSharedParameterFile_Click(object sender, RoutedEventArgs e)
     {
-        await _sharedParameterFileSettingsStore.SaveAsync(new SharedParameterFileSettings(SharedParameterFilePathBox.Text.Trim()));
+        await ProjectSettingsSync.PushAsync(GetClient(), sharedParameterFilePath: SharedParameterFilePathBox.Text.Trim());
         SharedParameterFileStatusText.Text = "Shared parameter file path saved — Shared Parameter Setup will default to it next time.";
     }
+
+    private RevitPipeClient GetClient() =>
+        _revitClient ?? throw new InvalidOperationException("The Revit connection has not been initialized.");
 
     public async ValueTask DisposeAsync()
     {

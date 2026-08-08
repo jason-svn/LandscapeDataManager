@@ -84,6 +84,14 @@ internal static class DashboardReportService
                 : 0d;
         }
 
+        double GetMassKilograms(string name)
+        {
+            var parameter = element.LookupParameter(name);
+            return parameter is { HasValue: true }
+                ? UnitUtils.ConvertFromInternalUnits(parameter.AsDouble(), UnitTypeId.Kilograms)
+                : 0d;
+        }
+
         return new DashboardTreeItem(
             element.UniqueId,
             element.Id.Value,
@@ -99,26 +107,26 @@ internal static class DashboardReportService
             GetNullableText(element, "!_S_PLT_iTreeResult_UnitSystem_Text") ?? "Metric",
             GetNullableText(element, "!_S_PLT_iTreeResult_CurrencyUsed_Text") ?? "USD",
             element.LookupParameter("!_S_PLT_iTreeResult_ExchangeRateUsed_Number") is { HasValue: true } rateParam ? rateParam.AsDouble() : 1d,
-            GetNumber("!_S_PLT_iTreeResult_CO2SequesteredAnnual_Number"),
-            GetNumber("!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Number"),
-            GetNumber("!_S_PLT_iTreeResult_CORemovedAnnual_Number"),
-            GetNumber("!_S_PLT_iTreeResult_CORemovedLifetimeTotal_Number"),
-            GetNumber("!_S_PLT_iTreeResult_NO2RemovedAnnual_Number"),
-            GetNumber("!_S_PLT_iTreeResult_NO2RemovedLifetimeTotal_Number"),
-            GetNumber("!_S_PLT_iTreeResult_O3RemovedAnnual_Number"),
-            GetNumber("!_S_PLT_iTreeResult_O3RemovedLifetimeTotal_Number"),
-            GetNumber("!_S_PLT_iTreeResult_PM25RemovedAnnual_Number"),
-            GetNumber("!_S_PLT_iTreeResult_PM25RemovedLifetimeTotal_Number"),
-            GetNumber("!_S_PLT_iTreeResult_SO2RemovedAnnual_Number"),
-            GetNumber("!_S_PLT_iTreeResult_SO2RemovedLifetimeTotal_Number"),
-            GetNumber("!_S_PLT_iTreeResult_CostSavedAnnual_Number"),
-            GetNumber("!_S_PLT_iTreeResult_CostSavedLifetimeTotal_Number"),
-            GetNumber("!_S_PLT_iTreeResult_CarbonCostSavedAnnual_Number"),
-            GetNumber("!_S_PLT_iTreeResult_CarbonCostSavedLifetimeTotal_Number"),
-            GetNumber("!_S_PLT_iTreeResult_StormWaterCostSavedAnnual_Number"),
-            GetNumber("!_S_PLT_iTreeResult_StormWaterCostSavedLifetimeTotal_Number"),
-            GetNumber("!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Number"),
-            GetNumber("!_S_PLT_iTreeResult_AirPollutionCostSavedLifetimeTotal_Number"),
+            GetMassKilograms("!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_CORemovedAnnual_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_CORemovedLifetimeTotal_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_NO2RemovedAnnual_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_NO2RemovedLifetimeTotal_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_O3RemovedAnnual_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_O3RemovedLifetimeTotal_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_PM25RemovedAnnual_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_PM25RemovedLifetimeTotal_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_SO2RemovedAnnual_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_SO2RemovedLifetimeTotal_Mass"),
+            GetNumber("!_S_PLT_iTreeResult_CostSavedAnnual_Currency"),
+            GetNumber("!_S_PLT_iTreeResult_CostSavedLifetimeTotal_Currency"),
+            GetNumber("!_S_PLT_iTreeResult_CarbonCostSavedAnnual_Currency"),
+            GetNumber("!_S_PLT_iTreeResult_CarbonCostSavedLifetimeTotal_Currency"),
+            GetNumber("!_S_PLT_iTreeResult_StormWaterCostSavedAnnual_Currency"),
+            GetNumber("!_S_PLT_iTreeResult_StormWaterCostSavedLifetimeTotal_Currency"),
+            GetNumber("!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Currency"),
+            GetNumber("!_S_PLT_iTreeResult_AirPollutionCostSavedLifetimeTotal_Currency"),
             GetVolumeCubicMeters("!_S_PLT_iTreeResult_RainfallInterceptedAnnual_Volume"),
             GetVolumeCubicMeters("!_S_PLT_iTreeResult_RainfallInterceptedLifetimeTotal_Volume"),
             GetVolumeCubicMeters("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume"),
@@ -135,6 +143,22 @@ internal static class DashboardReportService
             ? UnitUtils.ConvertFromInternalUnits(areaParameter.AsDouble(), UnitTypeId.SquareMeters)
             : 0d;
 
+        double GetMassKilograms(string name)
+        {
+            var parameter = element.LookupParameter(name);
+            return parameter is { HasValue: true }
+                ? UnitUtils.ConvertFromInternalUnits(parameter.AsDouble(), UnitTypeId.Kilograms)
+                : 0d;
+        }
+
+        double GetVolumeCubicMeters(string name)
+        {
+            var parameter = element.LookupParameter(name);
+            return parameter is { HasValue: true }
+                ? UnitUtils.ConvertFromInternalUnits(parameter.AsDouble(), UnitTypeId.CubicMeters)
+                : 0d;
+        }
+
         return new DashboardFloorItem(
             element.UniqueId,
             element.Id.Value,
@@ -144,10 +168,12 @@ internal static class DashboardReportService
             GetLevelName(document, element),
             GetDesignOptionInfo(document, element),
             areaSquareMeters,
-            GetDoubleParameter(element, "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Number"),
-            GetDoubleParameter(element, "!_S_PLT_iTreeResult_CostSavedAnnual_Number"),
-            GetDoubleParameter(element, "!_S_PLT_LDS_OxygenProducedAnnual_Number"),
-            GetDoubleParameter(element, "!_S_PLT_LDS_TotalGWP_Number"),
+            GetMassKilograms("!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass"),
+            GetVolumeCubicMeters("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume"),
+            GetMassKilograms("!_S_PLT_LDS_PollutantsRemovedAnnual_Mass"),
+            GetDoubleParameter(element, "!_S_PLT_iTreeResult_CostSavedAnnual_Currency"),
+            GetMassKilograms("!_S_PLT_LDS_OxygenProducedAnnual_Mass"),
+            GetMassKilograms("!_S_PLT_LDS_TotalGWP_Mass"),
             GetDoubleParameter(element, "!_S_PLT_LDS_SurfaceTempReduction_Number"),
             GetDoubleParameter(element, "!_S_PLT_LDS_AirTempReduction_Number"));
     }

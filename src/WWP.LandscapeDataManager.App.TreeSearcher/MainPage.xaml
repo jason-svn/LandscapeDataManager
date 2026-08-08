@@ -14,12 +14,19 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Spacing="4">
-            <TextBlock Text="Tree Searcher" Style="{StaticResource LimPageTitleStyle}" />
-            <TextBlock
-                Text="Select one or more Planting instances or types in Revit, then load them here — each distinct type becomes a row. Every row is auto-matched to the cached i-Tree species catalogue by family name first; anything unmatched can be searched and assigned manually."
-                Style="{StaticResource LimPageSubtitleStyle}" />
-        </StackPanel>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Tree Searcher" Style="{StaticResource LimPageTitleStyle}" />
+                <TextBlock
+                    Text="Select one or more Planting instances or types in Revit, then load them here — each distinct type becomes a row. Every row is auto-matched to the cached i-Tree species catalogue by family name first; anything unmatched can be searched and assigned manually."
+                    Style="{StaticResource LimPageSubtitleStyle}" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
+        </Grid>
 
         <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
             <Grid ColumnSpacing="10">

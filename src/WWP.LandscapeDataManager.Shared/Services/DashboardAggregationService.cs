@@ -56,15 +56,16 @@ public sealed record FloorTypeSubtotal(
     int FloorCount,
     double AreaSquareMeters,
     double CO2SequesteredAnnual,
+    double RunoffAvoidedAnnual,
+    double PollutionMassRemovedAnnual,
     double CostSavedAnnual,
     double OxygenProducedAnnual,
     double TotalGwp);
 
 /// <summary>
 /// The dashboard's headline numbers. Tree and floor benefits are kept in separate fields throughout,
-/// never summed into one figure — floors have no pollution-mass-removed metric, and floor cost has no
-/// currency provenance, so blending them into the currency-normalized tree totals would misrepresent
-/// both.
+/// never summed into one figure — floor cost has no currency provenance, so blending it into the
+/// currency-normalized tree totals would misrepresent both.
 /// </summary>
 public sealed record DashboardGrandTotal(
     int TreeCount,
@@ -88,6 +89,8 @@ public sealed record DashboardGrandTotal(
     int FloorCount,
     double FloorAreaSquareMeters,
     double FloorCO2SequesteredAnnual,
+    double FloorRunoffAvoidedAnnual,
+    double FloorPollutionMassRemovedAnnual,
     double FloorTotalGwp,
     double FloorCostSavedAnnual);
 
@@ -102,8 +105,12 @@ public static class DashboardAggregationService
 {
     /// <summary>
     /// Converts one tree's stored values onto <paramref name="targetUnitSystem"/>/<paramref name="targetCurrency"/>.
-    /// Two separate mass factors are needed, not one: <c>CO2Sequestered</c> is stored on a
-    /// pounds-per-kilogram basis while the five pollutant-removed fields are stored on an
+    /// Mass fields arrive already in canonical kilograms — <c>DashboardReportService</c> reads them
+    /// via <c>UnitUtils.ConvertFromInternalUnits</c> now that they're Revit-native Mass-spec parameters,
+    /// so (unlike currency) there's no "what basis was this calculated under" history to resolve, just
+    /// a display-basis conversion to whatever the dashboard's own unit toggle currently wants. Two
+    /// separate mass bases are still needed, not one: <c>CO2Sequestered</c> displays on a
+    /// pounds-per-kilogram basis while the five pollutant-removed fields display on an
     /// ounces-per-kilogram basis (see <c>ITreeInstanceResultMapper.FromPounds</c>/<c>FromOunces</c>) —
     /// collapsing them into one factor would silently misconvert one or the other.
     /// </summary>
@@ -113,23 +120,21 @@ public static class DashboardAggregationService
         string targetCurrency,
         double usdToTargetRate)
     {
-        var poundBasisFactor = ResolveMassFactor(item.StoredUnitSystem, targetUnitSystem, UnitConversions.KilogramsPerPound);
-        var ounceBasisFactor = ResolveMassFactor(item.StoredUnitSystem, targetUnitSystem, UnitConversions.KilogramsPerOunce);
+        var isMetric = string.Equals(targetUnitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
+        double PoundBasis(double kilograms) => isMetric ? kilograms : kilograms / UnitConversions.KilogramsPerPound;
+        double OunceBasis(double kilograms) => isMetric ? kilograms : kilograms / UnitConversions.KilogramsPerOunce;
         var currencyFactor = ResolveCurrencyFactor(item.StoredCurrency, targetCurrency, item.StoredExchangeRateUsed, usdToTargetRate);
-
-        double Pounds(double value) => value * poundBasisFactor;
-        double Ounces(double value) => value * ounceBasisFactor;
         double Money(double value) => value * currencyFactor;
 
         return new NormalizedTreeMetrics(
             item,
             string.Equals(item.Status, "Calculated", StringComparison.OrdinalIgnoreCase),
-            Pounds(item.CO2SequesteredAnnual), Pounds(item.CO2SequesteredLifetimeTotal),
-            Ounces(item.CORemovedAnnual), Ounces(item.CORemovedLifetimeTotal),
-            Ounces(item.NO2RemovedAnnual), Ounces(item.NO2RemovedLifetimeTotal),
-            Ounces(item.O3RemovedAnnual), Ounces(item.O3RemovedLifetimeTotal),
-            Ounces(item.PM25RemovedAnnual), Ounces(item.PM25RemovedLifetimeTotal),
-            Ounces(item.SO2RemovedAnnual), Ounces(item.SO2RemovedLifetimeTotal),
+            PoundBasis(item.CO2SequesteredAnnual), PoundBasis(item.CO2SequesteredLifetimeTotal),
+            OunceBasis(item.CORemovedAnnual), OunceBasis(item.CORemovedLifetimeTotal),
+            OunceBasis(item.NO2RemovedAnnual), OunceBasis(item.NO2RemovedLifetimeTotal),
+            OunceBasis(item.O3RemovedAnnual), OunceBasis(item.O3RemovedLifetimeTotal),
+            OunceBasis(item.PM25RemovedAnnual), OunceBasis(item.PM25RemovedLifetimeTotal),
+            OunceBasis(item.SO2RemovedAnnual), OunceBasis(item.SO2RemovedLifetimeTotal),
             Money(item.CostSavedAnnual), Money(item.CostSavedLifetimeTotal),
             Money(item.CarbonCostSavedAnnual), Money(item.CarbonCostSavedLifetimeTotal),
             Money(item.StormWaterCostSavedAnnual), Money(item.StormWaterCostSavedLifetimeTotal),
@@ -169,6 +174,8 @@ public static class DashboardAggregationService
                 group.Count(),
                 group.Sum(floor => floor.AreaSquareMeters),
                 group.Sum(floor => floor.CO2SequesteredAnnual),
+                group.Sum(floor => floor.RunoffAvoidedAnnual),
+                group.Sum(floor => floor.PollutionMassRemovedAnnual),
                 group.Sum(floor => floor.CostSavedAnnual),
                 group.Sum(floor => floor.OxygenProducedAnnual),
                 group.Sum(floor => floor.TotalGwp)))
@@ -198,21 +205,10 @@ public static class DashboardAggregationService
             floors.Count,
             floors.Sum(floor => floor.AreaSquareMeters),
             floors.Sum(floor => floor.CO2SequesteredAnnual),
+            floors.Sum(floor => floor.RunoffAvoidedAnnual),
+            floors.Sum(floor => floor.PollutionMassRemovedAnnual),
             floors.Sum(floor => floor.TotalGwp),
             floors.Sum(floor => floor.CostSavedAnnual));
-    }
-
-    private static double ResolveMassFactor(string storedUnitSystem, string targetUnitSystem, double kilogramsPerUnit)
-    {
-        var storedIsMetric = string.Equals(storedUnitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
-        var targetIsMetric = string.Equals(targetUnitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
-        if (storedIsMetric == targetIsMetric)
-        {
-            return 1d;
-        }
-
-        // storedIsMetric (kg) -> target lb/oz needs division; the reverse needs multiplication.
-        return storedIsMetric ? 1d / kilogramsPerUnit : kilogramsPerUnit;
     }
 
     private static double ResolveCurrencyFactor(

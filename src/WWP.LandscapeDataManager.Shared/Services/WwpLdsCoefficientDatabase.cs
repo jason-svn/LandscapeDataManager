@@ -55,6 +55,7 @@ public sealed class WwpLdsCoefficientDatabase
                 TotalGwp REAL NULL,
                 Co2SequesteredAnnual REAL NULL,
                 RunoffAvoidedAnnual REAL NULL,
+                PollutionMassRemovedAnnual REAL NULL,
                 SurfaceTempReduction REAL NULL,
                 AirTempReduction REAL NULL
             );
@@ -69,6 +70,20 @@ public sealed class WwpLdsCoefficientDatabase
         await using (var migrate = connection.CreateCommand())
         {
             migrate.CommandText = "ALTER TABLE Coefficients ADD COLUMN PlantingTypeCode TEXT NOT NULL DEFAULT '';";
+            try
+            {
+                await migrate.ExecuteNonQueryAsync();
+            }
+            catch (SqliteException)
+            {
+                // Column already exists.
+            }
+        }
+
+        // Migration for caches created before PollutionMassRemovedAnnual existed.
+        await using (var migrate = connection.CreateCommand())
+        {
+            migrate.CommandText = "ALTER TABLE Coefficients ADD COLUMN PollutionMassRemovedAnnual REAL NULL;";
             try
             {
                 await migrate.ExecuteNonQueryAsync();
@@ -99,10 +114,10 @@ public sealed class WwpLdsCoefficientDatabase
                 INSERT OR REPLACE INTO Coefficients (
                     MatchKey, Origin, PlantingTypeCode, Category, SubCategory, TypeName,
                     CostSavedAnnual, OxygenProducedAnnual, TotalGwp,
-                    Co2SequesteredAnnual, RunoffAvoidedAnnual, SurfaceTempReduction, AirTempReduction)
+                    Co2SequesteredAnnual, RunoffAvoidedAnnual, PollutionMassRemovedAnnual, SurfaceTempReduction, AirTempReduction)
                 VALUES (
                     $matchKey, $origin, $plantingTypeCode, $category, $subCategory, $typeName,
-                    $costSaved, $oxygen, $gwp, $co2, $runoff, $surfaceTemp, $airTemp);
+                    $costSaved, $oxygen, $gwp, $co2, $runoff, $pollution, $surfaceTemp, $airTemp);
                 """;
             var matchKey = upsert.CreateParameter(); matchKey.ParameterName = "$matchKey"; upsert.Parameters.Add(matchKey);
             var origin = upsert.CreateParameter(); origin.ParameterName = "$origin"; upsert.Parameters.Add(origin);
@@ -115,6 +130,7 @@ public sealed class WwpLdsCoefficientDatabase
             var gwp = upsert.CreateParameter(); gwp.ParameterName = "$gwp"; upsert.Parameters.Add(gwp);
             var co2 = upsert.CreateParameter(); co2.ParameterName = "$co2"; upsert.Parameters.Add(co2);
             var runoff = upsert.CreateParameter(); runoff.ParameterName = "$runoff"; upsert.Parameters.Add(runoff);
+            var pollution = upsert.CreateParameter(); pollution.ParameterName = "$pollution"; upsert.Parameters.Add(pollution);
             var surfaceTemp = upsert.CreateParameter(); surfaceTemp.ParameterName = "$surfaceTemp"; upsert.Parameters.Add(surfaceTemp);
             var airTemp = upsert.CreateParameter(); airTemp.ParameterName = "$airTemp"; upsert.Parameters.Add(airTemp);
 
@@ -131,6 +147,7 @@ public sealed class WwpLdsCoefficientDatabase
                 gwp.Value = (object?)record.TotalGwp ?? DBNull.Value;
                 co2.Value = (object?)record.Co2SequesteredAnnual ?? DBNull.Value;
                 runoff.Value = (object?)record.RunoffAvoidedAnnual ?? DBNull.Value;
+                pollution.Value = (object?)record.PollutionMassRemovedAnnual ?? DBNull.Value;
                 surfaceTemp.Value = (object?)record.SurfaceTempReduction ?? DBNull.Value;
                 airTemp.Value = (object?)record.AirTempReduction ?? DBNull.Value;
                 await upsert.ExecuteNonQueryAsync();
@@ -157,7 +174,7 @@ public sealed class WwpLdsCoefficientDatabase
         select.CommandText = """
             SELECT MatchKey, Origin, PlantingTypeCode, Category, SubCategory, TypeName,
                    CostSavedAnnual, OxygenProducedAnnual, TotalGwp,
-                   Co2SequesteredAnnual, RunoffAvoidedAnnual, SurfaceTempReduction, AirTempReduction
+                   Co2SequesteredAnnual, RunoffAvoidedAnnual, PollutionMassRemovedAnnual, SurfaceTempReduction, AirTempReduction
             FROM Coefficients ORDER BY Category, SubCategory, TypeName;
             """;
         await using var reader = await select.ExecuteReaderAsync();
@@ -178,7 +195,8 @@ public sealed class WwpLdsCoefficientDatabase
                 reader.IsDBNull(9) ? null : reader.GetDouble(9),
                 reader.IsDBNull(10) ? null : reader.GetDouble(10),
                 reader.IsDBNull(11) ? null : reader.GetDouble(11),
-                reader.IsDBNull(12) ? null : reader.GetDouble(12)));
+                reader.IsDBNull(12) ? null : reader.GetDouble(12),
+                reader.IsDBNull(13) ? null : reader.GetDouble(13)));
         }
 
         return records;

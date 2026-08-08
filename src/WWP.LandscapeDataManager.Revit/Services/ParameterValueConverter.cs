@@ -86,6 +86,11 @@ internal static class ParameterValueConverter
             return UnitUtils.ConvertToInternalUnits(value, UnitTypeId.CubicMeters);
         }
 
+        if (dataType == SpecTypeId.Mass)
+        {
+            return UnitUtils.ConvertToInternalUnits(value, UnitTypeId.Kilograms);
+        }
+
         return value;
     }
 

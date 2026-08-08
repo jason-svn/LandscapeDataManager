@@ -13,13 +13,14 @@ public sealed partial class MainPage : Page
     private const int MaxSearchResults = 25;
 
     private readonly WwpLdsCoefficientDatabase _coefficientDatabase = new();
-    private readonly WwpLdsAirtableSettingsStore _ldsSettingsStore = new();
     private readonly AirtableCredentialStore _credentialStore = new();
     private readonly AirtableApiClient _airtableClient = new();
 
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
+    private string _pipeName = string.Empty;
     private IReadOnlyList<WwpLdsCoefficientRecord> _allCoefficients = [];
+    private WwpLdsAirtableSettings _wwpLdsSettings = WwpLdsAirtableSettings.CompanyDefault;
 
     public MainPage()
     {
@@ -34,16 +35,30 @@ public sealed partial class MainPage : Page
     public void Initialize(string pipeName, nint windowHandle)
     {
         _revitClient = new RevitPipeClient(pipeName);
+        _pipeName = pipeName;
         _windowHandle = windowHandle;
         Loaded += Page_Loaded;
     }
 
+    private void OpenSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SiblingToolLauncher.ShowOrStart(Path.Combine("Settings", "WWP.LandscapeDataManager.Settings.exe"), _pipeName);
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Failed to open Settings: {exception.Message}";
+        }
+    }
+
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
-        var settings = await _ldsSettingsStore.LoadAsync();
+        var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
+        _wwpLdsSettings = snapshot?.WwpLdsSource ?? WwpLdsAirtableSettings.CompanyDefault;
         SourceStatusText.Text = string.IsNullOrWhiteSpace(_credentialStore.Load())
             ? "No Airtable token saved, and no landscape data sheet source configured — open Settings from the LIM ribbon first."
-            : $"Source: base {settings.BaseId} / table {settings.TableIdOrName} (managed in Settings).";
+            : $"Source: base {_wwpLdsSettings.BaseId} / table {_wwpLdsSettings.TableIdOrName} (managed in Settings).";
 
         await RefreshCatalogueStatusAsync();
 
@@ -81,11 +96,9 @@ public sealed partial class MainPage : Page
             return;
         }
 
-        var settings = await _ldsSettingsStore.LoadAsync();
-
         await RunBusyAsync(async () =>
         {
-            var apiSettings = new AirtableApiSettings(settings.BaseId, settings.TableIdOrName, settings.ViewName);
+            var apiSettings = new AirtableApiSettings(_wwpLdsSettings.BaseId, _wwpLdsSettings.TableIdOrName, _wwpLdsSettings.ViewName);
             var records = await _airtableClient.GetRecordsAsync(apiSettings, token);
             var coefficients = records.Select(ToCoefficientRecord).ToList();
             await _coefficientDatabase.SaveAsync(coefficients);
@@ -118,6 +131,7 @@ public sealed partial class MainPage : Page
             GetDouble(fields, "WWP_Total_GWP"),
             GetDouble(fields, "Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth)"),
             GetDouble(fields, "Avoided runoff m3/yr (16/18 girth)"),
+            GetDouble(fields, "WWP_Pollutants_Removed"),
             GetDouble(fields, "Surface_Temperature_Reduction_Min"),
             GetDouble(fields, "Air temperature reduction (1.5m height)"));
     }
@@ -189,6 +203,7 @@ public sealed partial class MainPage : Page
 
         metrics[FloorAssignmentRow.Co2Index].ComputedValue = (record?.Co2SequesteredAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.RunoffIndex].ComputedValue = (record?.RunoffAvoidedAnnual ?? 0) * area;
+        metrics[FloorAssignmentRow.PollutionIndex].ComputedValue = (record?.PollutionMassRemovedAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.CostSavedIndex].ComputedValue = (record?.CostSavedAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.OxygenIndex].ComputedValue = (record?.OxygenProducedAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.GwpIndex].ComputedValue = (record?.TotalGwp ?? 0) * area;
@@ -214,6 +229,7 @@ public sealed partial class MainPage : Page
             resultSource,
             metrics[FloorAssignmentRow.Co2Index].FinalValue,
             metrics[FloorAssignmentRow.RunoffIndex].FinalValue,
+            metrics[FloorAssignmentRow.PollutionIndex].FinalValue,
             metrics[FloorAssignmentRow.CostSavedIndex].FinalValue,
             metrics[FloorAssignmentRow.OxygenIndex].FinalValue,
             metrics[FloorAssignmentRow.GwpIndex].FinalValue,

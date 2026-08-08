@@ -13,12 +13,19 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Spacing="4">
-            <TextBlock Text="Refresh, Compare and Audit" Style="{StaticResource LimPageTitleStyle}" />
-            <TextBlock
-                Text="Compares the value last synced, the current Revit value, and the latest source value for every mapped field. A field only Revit touched since the last sync is a Conflict, not a silent overwrite. A source record that disappears is reported as removed, never deleted from Revit."
-                Style="{StaticResource LimPageSubtitleStyle}" />
-        </StackPanel>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Refresh, Compare and Audit" Style="{StaticResource LimPageTitleStyle}" />
+                <TextBlock
+                    Text="Compares the value last synced, the current Revit value, and the latest source value for every mapped field. A field only Revit touched since the last sync is a Conflict, not a silent overwrite. A source record that disappears is reported as removed, never deleted from Revit."
+                    Style="{StaticResource LimPageSubtitleStyle}" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
+        </Grid>
 
         <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
             <Grid ColumnSpacing="12" RowSpacing="10">
@@ -54,19 +61,6 @@
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="ExcelPathBox" Header="Excel workbook" />
                     <Button Grid.Column="1" Content="Browse..." Click="BrowseExcel_Click" VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
-                </Grid>
-                <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Button Grid.Column="1" Content="Import connection settings..." Click="ImportConnectionSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                    <Button Grid.Column="2" Content="Export connection settings..." Click="ExportConnectionSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                    <Button Grid.Column="3" Content="Import type aliases..." Click="ImportTypeAliases_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                    <Button Grid.Column="4" Content="Export type aliases..." Click="ExportTypeAliases_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
                 </Grid>
             </Grid>
         </Border>

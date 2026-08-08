@@ -26,6 +26,7 @@ public sealed partial class MainPage : Page
 
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
+    private string _pipeName = string.Empty;
     private string _preferredUnitSystem = "Metric";
     private string _preferredCurrency = "USD";
     private bool _suppressCurrencyChange;
@@ -44,8 +45,21 @@ public sealed partial class MainPage : Page
     public void Initialize(string pipeName, nint windowHandle)
     {
         _revitClient = new RevitPipeClient(pipeName);
+        _pipeName = pipeName;
         _windowHandle = windowHandle;
         Loaded += Page_Loaded;
+    }
+
+    private void OpenSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SiblingToolLauncher.ShowOrStart(Path.Combine("Settings", "WWP.LandscapeDataManager.Settings.exe"), _pipeName);
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Failed to open Settings: {exception.Message}";
+        }
     }
 
     private void Page_Loaded(object sender, RoutedEventArgs e)

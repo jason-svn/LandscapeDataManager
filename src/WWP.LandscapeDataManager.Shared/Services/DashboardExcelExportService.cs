@@ -81,11 +81,13 @@ public static class DashboardExcelExportService
         WriteRow($"  CO removed ({massUnit})", total.CORemovedAnnual.ToString("N2"));
         WriteRow($"Tree monetary benefit ({request.PreferredCurrency})", total.TreeCostSavedAnnual.ToString("N2"));
         row += 1;
-        WriteRow("Floor-based plants — count", total.FloorCount.ToString("N0"));
-        WriteRow("Floor-based plants — area (m2)", total.FloorAreaSquareMeters.ToString("N1"));
-        WriteRow("Floor-based plants — CO2 sequestered (kg)", total.FloorCO2SequesteredAnnual.ToString("N1"));
-        WriteRow("Floor-based plants — total GWP", total.FloorTotalGwp.ToString("N1"));
-        WriteRow("Floor-based plants — cost saved (as calculated)", total.FloorCostSavedAnnual.ToString("N2"));
+        WriteRow("Planting areas — count", total.FloorCount.ToString("N0"));
+        WriteRow("Planting areas — area (m2)", total.FloorAreaSquareMeters.ToString("N1"));
+        WriteRow("Planting areas — CO2 sequestered (kg)", total.FloorCO2SequesteredAnnual.ToString("N1"));
+        WriteRow("Planting areas — runoff avoided (m3)", total.FloorRunoffAvoidedAnnual.ToString("N1"));
+        WriteRow("Planting areas — pollution mitigated (kg)", total.FloorPollutionMassRemovedAnnual.ToString("N2"));
+        WriteRow("Planting areas — total GWP", total.FloorTotalGwp.ToString("N1"));
+        WriteRow("Planting areas — cost saved (as calculated)", total.FloorCostSavedAnnual.ToString("N2"));
 
         sheet.Column(1).Width = 42;
         sheet.Column(2).Width = 22;
@@ -124,8 +126,12 @@ public static class DashboardExcelExportService
 
     private static void WriteFloorSheet(XLWorkbook workbook, DashboardExcelExportRequest request)
     {
-        var sheet = workbook.AddWorksheet("Floor Plants");
-        string[] headers = ["Landscape data sheet type", "Floor count", "Area (m2)", "CO2 sequestered (kg)", "Total GWP", "Cost saved (as calculated)"];
+        var sheet = workbook.AddWorksheet("Planting Areas");
+        string[] headers =
+        [
+            "Landscape data sheet type", "Planting area count", "Area (m2)", "CO2 sequestered (kg)",
+            "Runoff avoided (m3)", "Pollution mitigated (kg)", "Total GWP", "Cost saved (as calculated)"
+        ];
         WriteHeaderRow(sheet, headers);
 
         var row = 2;
@@ -135,8 +141,10 @@ public static class DashboardExcelExportService
             sheet.Cell(row, 2).Value = subtotal.FloorCount;
             sheet.Cell(row, 3).Value = subtotal.AreaSquareMeters;
             sheet.Cell(row, 4).Value = subtotal.CO2SequesteredAnnual;
-            sheet.Cell(row, 5).Value = subtotal.TotalGwp;
-            sheet.Cell(row, 6).Value = subtotal.CostSavedAnnual;
+            sheet.Cell(row, 5).Value = subtotal.RunoffAvoidedAnnual;
+            sheet.Cell(row, 6).Value = subtotal.PollutionMassRemovedAnnual;
+            sheet.Cell(row, 7).Value = subtotal.TotalGwp;
+            sheet.Cell(row, 8).Value = subtotal.CostSavedAnnual;
             row += 1;
         }
 
@@ -177,7 +185,7 @@ public static class DashboardExcelExportService
 
         foreach (var floor in request.Floors)
         {
-            sheet.Cell(row, 1).Value = "Floor";
+            sheet.Cell(row, 1).Value = "Planting Area";
             sheet.Cell(row, 2).Value = $"{floor.FamilyName} : {floor.TypeName}";
             sheet.Cell(row, 3).Value = floor.LdsType ?? string.Empty;
             sheet.Cell(row, 4).Value = floor.LevelName ?? string.Empty;

@@ -14,12 +14,19 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Spacing="4">
-            <TextBlock Text="Health Check" Style="{StaticResource LimPageTitleStyle}" />
-            <TextBlock
-                Text="Scans every Planting and Floor element in the model and reports which ones still need attention — a missing shared parameter, a missing i-Tree API key or downloaded data, a missing input, a calculation error, or an unmatched or uncalculated landscape type. Apply the view colours to see problems highlighted red and successes green directly in the active view."
-                Style="{StaticResource LimPageSubtitleStyle}" />
-        </StackPanel>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Health Check" Style="{StaticResource LimPageTitleStyle}" />
+                <TextBlock
+                    Text="Scans every Planting and Floor element in the model and reports which ones still need attention — a missing shared parameter, a missing i-Tree API key or downloaded data, a missing input, a calculation error, or an unmatched or uncalculated landscape type. Apply the view colours to see problems highlighted red and successes green directly in the active view."
+                    Style="{StaticResource LimPageSubtitleStyle}" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
+        </Grid>
 
         <Border Grid.Row="1"
                 x:Name="WarningsBanner"
