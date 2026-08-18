@@ -10,11 +10,16 @@ public sealed partial class MainPage : Page
 {
     private const int MaxSearchResults = 25;
 
+    private static readonly string[] TypeKeyFields = ["Types", "Planting type", "Species names", "species", "type"];
+
     private readonly SpeciesCatalogueDatabase _catalogueDatabase = new();
+    private readonly AirtableApiClient _airtableApiClient = new();
+    private readonly AirtableCredentialStore _airtableCredentialStore = new();
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
     private string _pipeName = string.Empty;
     private IReadOnlyList<SpeciesCatalogueRecord> _allSpecies = [];
+    private AirtableApiSettings _airtableSettings = new(string.Empty, string.Empty, null);
 
     public MainPage()
     {
@@ -54,6 +59,16 @@ public sealed partial class MainPage : Page
             : lastUpdated is null
                 ? $"{_allSpecies.Count:N0} species cached locally (catalogue version {metadata.Version ?? "unknown"})."
                 : $"{_allSpecies.Count:N0} species cached locally, last updated {lastUpdated} (catalogue version {metadata.Version ?? "unknown"}).";
+
+        try
+        {
+            var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
+            _airtableSettings = snapshot?.AirtableApi ?? new AirtableApiSettings(string.Empty, string.Empty, null);
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = exception.Message;
+        }
 
         try
         {
@@ -223,6 +238,69 @@ public sealed partial class MainPage : Page
                 ? $"Assigned {result.UpdatedTypeNames.Count:N0} type(s)."
                 : $"Assigned {result.UpdatedTypeNames.Count:N0} type(s). {remaining:N0} still need a manual match — search and pick a species for the highlighted rows.";
         });
+    }
+
+    private async void PushSpeciesCodes_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(PushSpeciesCodesToAirtableAsync);
+
+    private async Task PushSpeciesCodesToAirtableAsync()
+    {
+        var token = _airtableCredentialStore.Load().Trim();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            StatusText.Text = "No Airtable personal access token saved — open Settings from the LIM ribbon first.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_airtableSettings.BaseId))
+        {
+            StatusText.Text = "No planting data source saved — open Settings from the LIM ribbon first.";
+            return;
+        }
+
+        var scan = await GetClient().SendAsync<ModelScanResult>(PipeCommands.ScanModel, new ModelScanOptions());
+        var codedTypes = scan.Items
+            .Where(item => item.Category == "Planting" && !string.IsNullOrWhiteSpace(item.SpeciesCode))
+            .ToList();
+        if (codedTypes.Count == 0)
+        {
+            StatusText.Text = "No Planting types have a species code assigned yet — assign one above first.";
+            return;
+        }
+
+        var records = await _airtableApiClient.GetRecordsAsync(_airtableSettings, token);
+        var matches = StableTypeMatcher.Build(codedTypes, records, TypeKeyFields, []);
+
+        var pushed = 0;
+        var problems = new List<string>();
+        foreach (var match in matches)
+        {
+            if (match.Status != "Matched" || match.Record is null)
+            {
+                problems.Add($"{match.RevitType.TypeName} ({match.Status})");
+                continue;
+            }
+
+            try
+            {
+                await _airtableApiClient.UpdateRecordFieldsAsync(
+                    _airtableSettings,
+                    token,
+                    match.Record.Id,
+                    new Dictionary<string, object?> { ["Species Code"] = match.RevitType.SpeciesCode });
+                pushed++;
+            }
+            catch (Exception exception)
+            {
+                problems.Add($"{match.RevitType.TypeName} (failed: {exception.Message})");
+            }
+
+            await Task.Delay(210);
+        }
+
+        StatusText.Text = problems.Count == 0
+            ? $"Pushed {pushed:N0} species code(s) to Airtable."
+            : $"Pushed {pushed:N0} species code(s) to Airtable. {problems.Count:N0} skipped: " +
+              $"{string.Join("; ", problems.Take(5))}{(problems.Count > 5 ? $" (+{problems.Count - 5} more)" : ".")}";
     }
 
     private void UpdateAssignAllEnabled() => AssignAllButton.IsEnabled = Rows.Any(row => row.SelectedSpecies is not null);

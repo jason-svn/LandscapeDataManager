@@ -32,4 +32,24 @@ public sealed class InstanceSyncRow
         ProposedValue = row.ProposedValue,
         Message = row.Message ?? string.Empty
     };
+
+    /// <summary>A matched instance whose mapped Airtable column has no value for this record, so there was nothing to write.</summary>
+    public static InstanceSyncRow FromSkippedField(InstanceMatch match, string airtableField, string revitParameter) => new()
+    {
+        Status = "Skipped",
+        UniqueId = match.Instance.UniqueId,
+        FamilyType = $"{match.Instance.FamilyName} : {match.Instance.TypeName}",
+        Parameter = revitParameter,
+        Message = $"Source column '{airtableField}' is empty or missing on the matched Airtable record — nothing to write."
+    };
+
+    /// <summary>A matched instance with a non-empty source value that could not be converted to the target parameter's unit.</summary>
+    public static InstanceSyncRow FromNormalizationFailure(InstanceMatch match, string revitParameter, string message) => new()
+    {
+        Status = "Skipped",
+        UniqueId = match.Instance.UniqueId,
+        FamilyType = $"{match.Instance.FamilyName} : {match.Instance.TypeName}",
+        Parameter = revitParameter,
+        Message = message
+    };
 }

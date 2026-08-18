@@ -5,30 +5,7 @@ using WWP.LandscapeDataManager.Revit.Infrastructure;
 
 namespace WWP.LandscapeDataManager.Revit.Commands;
 
-/// <summary>Legacy path: still used by tools not yet migrated to their own standalone exe.</summary>
-public abstract class OpenWorkflowCommand : IExternalCommand
-{
-    protected abstract string Workflow { get; }
-
-    public Result Execute(
-        ExternalCommandData commandData,
-        ref string message,
-        ElementSet elements)
-    {
-        try
-        {
-            App.CompanionLauncher?.ShowOrStart(Workflow);
-            return Result.Succeeded;
-        }
-        catch (Exception exception)
-        {
-            message = exception.Message;
-            return Result.Failed;
-        }
-    }
-}
-
-/// <summary>Current path: one standalone tool executable, started/refocused via its own launcher.</summary>
+/// <summary>One standalone tool executable, started/refocused via its own launcher.</summary>
 public abstract class LaunchToolCommand : IExternalCommand
 {
     protected abstract ToolProcessLauncher? Launcher { get; }

@@ -16,9 +16,14 @@ public class DashboardAggregationServiceTests
         double storedExchangeRateUsed = 1d,
         double co2SequesteredAnnual = 0d,
         double pm25RemovedAnnual = 0d,
-        double costSavedAnnual = 0d) =>
+        double costSavedAnnual = 0d,
+        string? nativeStatus = null,
+        string? bloomMonths = null,
+        string? ecologicalFunctions = null,
+        double canopyAreaSquareMeters = 0d) =>
         new(
             uniqueId, 1, "Family", "Type", speciesCode, commonName, "Acer platanoides", "Tree",
+            nativeStatus, bloomMonths, ecologicalFunctions, canopyAreaSquareMeters,
             "Level 1", new DesignOptionInfo(null, null, true), status, storedUnitSystem, storedCurrency, storedExchangeRateUsed,
             co2SequesteredAnnual, co2SequesteredAnnual * 20,
             0d, 0d, 0d, 0d, 0d, 0d,
@@ -132,7 +137,7 @@ public class DashboardAggregationServiceTests
         var tree = DashboardAggregationService.NormalizeTree(
             CreateTree(co2SequesteredAnnual: 10d, costSavedAnnual: 5d), "Metric", "USD", 1d);
         var floor = new DashboardFloorItem(
-            "floor-1", 2, "FloorFamily", "FloorType", "WWP_Wetland", "Level 1",
+            "floor-1", 2, "FloorFamily", "FloorType", "WWP_Wetland", null, "Level 1",
             new DesignOptionInfo(null, null, true), 100d, 15d, 8d, 3d, 30d, 2d, 40d, 0.5d, 0.5d);
 
         var total = DashboardAggregationService.BuildGrandTotal([tree], [floor]);
@@ -146,5 +151,146 @@ public class DashboardAggregationServiceTests
         Assert.Equal(3d, total.FloorPollutionMassRemovedAnnual, precision: 6);
         Assert.Equal(40d, total.FloorTotalGwp, precision: 6);
         Assert.Equal(30d, total.FloorCostSavedAnnual, precision: 6);
+    }
+
+    private static DashboardLightingItem CreateLighting(string uniqueId, string? darkSkyCompliant) =>
+        new(uniqueId, 3, "LightingFamily", "LightingType", "Level 1", new DesignOptionInfo(null, null, true), darkSkyCompliant);
+
+    [Fact]
+    public void Canopy_cover_percent_is_null_until_a_site_total_area_is_entered()
+    {
+        var tree = DashboardAggregationService.NormalizeTree(
+            CreateTree(canopyAreaSquareMeters: 50d), "Metric", "USD", 1d);
+
+        var withoutSiteArea = DashboardAggregationService.BuildSiteKpiSummary([tree], [], [], null, null);
+        var withSiteArea = DashboardAggregationService.BuildSiteKpiSummary([tree], [], [], 500d, null);
+
+        Assert.Null(withoutSiteArea.CanopyCoverPercent);
+        Assert.Equal(50d, withSiteArea.CanopyAreaSquareMeters, precision: 6);
+        Assert.Equal(10d, withSiteArea.CanopyCoverPercent!.Value, precision: 6);
+    }
+
+    [Fact]
+    public void Softscape_surface_ratio_only_counts_pervious_floors()
+    {
+        var pervious = new DashboardFloorItem(
+            "floor-pervious", 1, "FloorFamily", "FloorType", "Lawn", "Pervious", "Level 1",
+            new DesignOptionInfo(null, null, true), 80d, 0d, 0d, 0d, 0d, 0d, 0d, 0d, 0d);
+        var impervious = new DashboardFloorItem(
+            "floor-impervious", 2, "FloorFamily", "FloorType", "Paving", "Impervious", "Level 1",
+            new DesignOptionInfo(null, null, true), 20d, 0d, 0d, 0d, 0d, 0d, 0d, 0d, 0d);
+
+        var summary = DashboardAggregationService.BuildSiteKpiSummary([], [pervious, impervious], [], 100d, null);
+
+        Assert.Equal(80d, summary.PerviousAreaSquareMeters, precision: 6);
+        Assert.Equal(80d, summary.SoftscapeSurfaceRatioPercent!.Value, precision: 6);
+    }
+
+    [Fact]
+    public void Softscape_surface_ratio_infers_pervious_impervious_from_lds_type_when_untagged()
+    {
+        var lawnUntagged = new DashboardFloorItem(
+            "floor-lawn", 1, "FloorFamily", "FloorType", "Lawn", null, "Level 1",
+            new DesignOptionInfo(null, null, true), 80d, 0d, 0d, 0d, 0d, 0d, 0d, 0d, 0d);
+        var pavingUntagged = new DashboardFloorItem(
+            "floor-paving", 2, "FloorFamily", "FloorType", "Granite - Blanco Cristal", null, "Level 1",
+            new DesignOptionInfo(null, null, true), 20d, 0d, 0d, 0d, 0d, 0d, 0d, 0d, 0d);
+
+        var summary = DashboardAggregationService.BuildSiteKpiSummary([], [lawnUntagged, pavingUntagged], [], 100d, null);
+
+        Assert.Equal(80d, summary.PerviousAreaSquareMeters, precision: 6);
+        Assert.Equal(80d, summary.SoftscapeSurfaceRatioPercent!.Value, precision: 6);
+    }
+
+    [Fact]
+    public void Softscape_surface_ratio_lets_an_explicit_surface_class_tag_override_the_lds_type_inference()
+    {
+        // LDS Type says "Lawn" (would infer Pervious), but the project team explicitly tagged it Impervious
+        // (e.g. an artificial-turf sports pitch) — the explicit tag must win.
+        var overridden = new DashboardFloorItem(
+            "floor-1", 1, "FloorFamily", "FloorType", "Lawn", "Impervious", "Level 1",
+            new DesignOptionInfo(null, null, true), 80d, 0d, 0d, 0d, 0d, 0d, 0d, 0d, 0d);
+
+        var summary = DashboardAggregationService.BuildSiteKpiSummary([], [overridden], [], 100d, null);
+
+        Assert.Equal(0d, summary.PerviousAreaSquareMeters, precision: 6);
+    }
+
+    [Fact]
+    public void Native_species_ratio_excludes_untagged_trees_from_the_denominator()
+    {
+        var native = DashboardAggregationService.NormalizeTree(CreateTree(uniqueId: "uid-1", nativeStatus: "Native"), "Metric", "USD", 1d);
+        var adaptive = DashboardAggregationService.NormalizeTree(CreateTree(uniqueId: "uid-2", nativeStatus: "Adaptive"), "Metric", "USD", 1d);
+        var untagged = DashboardAggregationService.NormalizeTree(CreateTree(uniqueId: "uid-3"), "Metric", "USD", 1d);
+
+        var summary = DashboardAggregationService.BuildSiteKpiSummary([native, adaptive, untagged], [], [], null, null);
+
+        Assert.Equal(1, summary.NativeTreeCount);
+        Assert.Equal(1, summary.AdaptiveTreeCount);
+        Assert.Equal(2, summary.TreesWithNativeStatusCount);
+        Assert.Equal(50d, summary.NativeSpeciesRatioPercent!.Value, precision: 6);
+    }
+
+    [Fact]
+    public void Phenological_resilience_counts_distinct_months_across_all_trees()
+    {
+        var first = DashboardAggregationService.NormalizeTree(CreateTree(uniqueId: "uid-1", bloomMonths: "3,4,5"), "Metric", "USD", 1d);
+        var second = DashboardAggregationService.NormalizeTree(CreateTree(uniqueId: "uid-2", bloomMonths: "5,6,9"), "Metric", "USD", 1d);
+
+        var summary = DashboardAggregationService.BuildSiteKpiSummary([first, second], [], [], null, null);
+
+        Assert.Equal(5, summary.DistinctBloomMonthsCount); // {3,4,5,6,9}
+    }
+
+    [Fact]
+    public void Functional_diversity_counts_distinct_tags_and_sums_multi_function_canopy_area()
+    {
+        var singleFunction = DashboardAggregationService.NormalizeTree(
+            CreateTree(uniqueId: "uid-1", ecologicalFunctions: "Pollinator", canopyAreaSquareMeters: 10d), "Metric", "USD", 1d);
+        var multiFunction = DashboardAggregationService.NormalizeTree(
+            CreateTree(uniqueId: "uid-2", ecologicalFunctions: "Pollinator,BirdFood", canopyAreaSquareMeters: 20d), "Metric", "USD", 1d);
+
+        var summary = DashboardAggregationService.BuildSiteKpiSummary([singleFunction, multiFunction], [], [], null, null);
+
+        Assert.Equal(2, summary.DistinctEcologicalFunctionsCount); // {Pollinator, BirdFood}
+        Assert.Equal(20d, summary.MultiFunctionAreaSquareMeters, precision: 6);
+    }
+
+    [Fact]
+    public void Lighting_compliance_percent_is_the_share_of_dark_sky_compliant_fixtures()
+    {
+        var lighting = new[]
+        {
+            CreateLighting("light-1", "Yes"),
+            CreateLighting("light-2", "Yes"),
+            CreateLighting("light-3", "No"),
+        };
+
+        var summary = DashboardAggregationService.BuildSiteKpiSummary([], [], lighting, null, null);
+
+        Assert.Equal(3, summary.LightingFixtureCount);
+        Assert.Equal(2, summary.DarkSkyCompliantFixtureCount);
+        Assert.Equal(66.666, summary.LightingCompliancePercent!.Value, precision: 2);
+    }
+
+    [Fact]
+    public void Habitat_connectivity_score_passes_through_unchanged()
+    {
+        var summary = DashboardAggregationService.BuildSiteKpiSummary([], [], [], null, 7d);
+
+        Assert.Equal(7d, summary.HabitatConnectivityScore);
+    }
+
+    [Fact]
+    public void Distinct_species_count_ignores_calculation_status()
+    {
+        var calculated = DashboardAggregationService.NormalizeTree(
+            CreateTree(uniqueId: "uid-1", speciesCode: "ACPL", status: "Calculated"), "Metric", "USD", 1d);
+        var notYetCalculated = DashboardAggregationService.NormalizeTree(
+            CreateTree(uniqueId: "uid-2", speciesCode: "QUAL", status: "MissingInput"), "Metric", "USD", 1d);
+
+        var summary = DashboardAggregationService.BuildSiteKpiSummary([calculated, notYetCalculated], [], [], null, null);
+
+        Assert.Equal(2, summary.DistinctSpeciesCount);
     }
 }

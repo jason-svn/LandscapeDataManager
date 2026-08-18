@@ -61,7 +61,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <Border Width="52" Height="52" CornerRadius="14" Background="{StaticResource KpiForestBrush}" Margin="0,0,16,0">
-                <TextBlock Text="🌿" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Text="LIM" FontSize="15" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                 <TextBlock Text="Environmental KPI Dashboard" FontSize="25" FontWeight="Bold" />
@@ -334,21 +334,23 @@
                         <Border Grid.Row="1" Style="{StaticResource KpiSurfaceStyle}" Margin="0,2,0,0">
                             <StackPanel Spacing="12">
                                 <Grid ColumnSpacing="12">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="210" /><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /></Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="150" /><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /></Grid.ColumnDefinitions>
                                     <TextBlock Text="DESIGN OPTION" Style="{StaticResource KpiEyebrowStyle}" />
                                     <TextBlock Grid.Column="1" Text="INVENTORY" Style="{StaticResource KpiEyebrowStyle}" />
-                                    <TextBlock Grid.Column="2" Text="RELATIVE CARBON BENEFIT" Style="{StaticResource KpiEyebrowStyle}" />
-                                    <TextBlock Grid.Column="3" Text="PROJECTED" Style="{StaticResource KpiEyebrowStyle}" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="2" Text="BIODIVERSITY ADDED" Style="{StaticResource KpiEyebrowStyle}" />
+                                    <TextBlock Grid.Column="3" Text="RELATIVE CARBON BENEFIT" Style="{StaticResource KpiEyebrowStyle}" />
+                                    <TextBlock Grid.Column="4" Text="PROJECTED" Style="{StaticResource KpiEyebrowStyle}" HorizontalAlignment="Right" />
                                 </Grid>
                                 <ItemsControl ItemsSource="{x:Bind ScenarioRows}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="local:ScenarioComparisonRow">
                                             <Grid ColumnSpacing="12" Margin="0,7">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="210" /><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /></Grid.ColumnDefinitions>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="150" /><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /></Grid.ColumnDefinitions>
                                                 <TextBlock Text="{x:Bind DesignOption}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Grid.Column="1" Text="{x:Bind Inventory}" Foreground="#FF687269" />
-                                                <ProgressBar Grid.Column="2" Value="{x:Bind Percent}" Maximum="100" Height="15" Foreground="{StaticResource KpiForestBrush}" Background="#FFDCE6D8" />
-                                                <TextBlock Grid.Column="3" Text="{x:Bind ProjectedCarbon}" HorizontalAlignment="Right" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="2" Text="{x:Bind SpeciesCount}" Foreground="#FF687269" TextWrapping="Wrap" />
+                                                <ProgressBar Grid.Column="3" Value="{x:Bind Percent}" Maximum="100" Height="15" Foreground="{StaticResource KpiForestBrush}" Background="#FFDCE6D8" />
+                                                <TextBlock Grid.Column="4" Text="{x:Bind ProjectedCarbon}" HorizontalAlignment="Right" FontWeight="SemiBold" />
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -505,6 +507,89 @@
                             </Border>
                         </Grid>
                 </Grid>
+            </PivotItem>
+
+            <PivotItem Header="Site &amp; Biodiversity">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Background="{StaticResource KpiCanvasBrush}" Padding="22" CornerRadius="20" RowSpacing="16">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Site &amp; Biodiversity KPIs" FontSize="24" FontWeight="Bold" />
+                            <TextBlock Text="Canopy Cover and Softscape Surface Ratio need a total site area on Project Information (!_S_PLT_Site_TotalArea_Area) to compute a percentage; Habitat Connectivity Score is entered after external GIS connectivity modelling, not calculated here." Foreground="#FF687269" TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <Grid Grid.Row="1" ColumnSpacing="10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="CANOPY COVER" Style="{StaticResource KpiEyebrowStyle}" />
+                                    <TextBlock x:Name="CanopyCoverText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="CanopyCoverDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="SOFTSCAPE SURFACE RATIO" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="SoftscapeRatioText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="SoftscapeRatioDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="BIODIVERSITY ADDED" Style="{StaticResource KpiEyebrowStyle}" />
+                                    <TextBlock x:Name="BiodiversityAddedText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="BiodiversityAddedDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="NATIVE SPECIES RATIO" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="NativeSpeciesRatioText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="NativeSpeciesRatioDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Grid Grid.Row="2" ColumnSpacing="10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="PHENOLOGICAL RESILIENCE" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="PhenologicalResilienceText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="PhenologicalResilienceDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="FUNCTIONAL DIVERSITY INDEX" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="FunctionalDiversityText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="FunctionalDiversityDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="HABITAT CONNECTIVITY SCORE" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="HabitatConnectivityText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="HabitatConnectivityDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="LIGHTING IMPACT REDUCTION" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="LightingImpactText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="LightingImpactDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Border Grid.Row="3" Style="{StaticResource KpiSurfaceStyle}">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Data entry" Style="{StaticResource KpiCardTitleStyle}" />
+                                <TextBlock TextWrapping="Wrap" Foreground="#FF586359" Text="Tag each Planting Type's !_S_PLT_iTreeSpecies_NativeStatus_Text, _BloomMonths_Text, and _EcologicalFunctions_Text; each Lighting Fixture Type's !_S_PLT_Lighting_DarkSkyCompliant_Text (Yes/No); and Project Information's !_S_PLT_Site_TotalArea_Area and !_S_PLT_Site_HabitatConnectivityScore_Number. Softscape Surface Ratio infers Pervious/Impervious automatically from each floor's LDS Type — tag !_S_PLT_LDS_SurfaceClass_Text only to override that guess. Run &quot;Import Shared Parameter&quot; first if these parameters aren't bound yet." />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
             </PivotItem>
         </Pivot>
 

@@ -10,10 +10,10 @@ A Revit add-in (.NET 8, C#) called LIM (Landscape Information Manager) for WWP/E
 
 - One Revit-connector assembly, `WWP.LandscapeDataManager.Revit` (`IExternalApplication`), adds a
   ribbon tab ("LIM") with buttons that launch standalone tool executables.
-- ~11 standalone WinUI3 tool exes (`WWP.LandscapeDataManager.App.*` projects, plus the original
-  companion `WWP.LandscapeDataManager.App`) — each is its own process, communicating with the Revit
-  connector over named pipes (`RevitPipeServer`/`RevitPipeClient`, JSON request/response via
-  `PipeCommands` in `WWP.LandscapeDataManager.Contracts\PipeProtocol.cs`).
+- 11 standalone WinUI3 tool exes (`WWP.LandscapeDataManager.App.*` projects) — each is its own
+  process, communicating with the Revit connector over named pipes (`RevitPipeServer`/
+  `RevitPipeClient`, JSON request/response via `PipeCommands` in
+  `WWP.LandscapeDataManager.Contracts\PipeProtocol.cs`).
 - `WWP.LandscapeDataManager.Shared` holds cross-tool services (Airtable/Excel clients, SQLite
   caches, unit conversion, dashboard aggregation, etc.) referenced by both the Revit connector and
   the tool exes.
@@ -35,9 +35,9 @@ A Revit add-in (.NET 8, C#) called LIM (Landscape Information Manager) for WWP/E
 | Diagnosis | Health Check | App.HealthCheck | Scans for missing/stale data, colors the view |
 | Reporting | Benefits Dashboard | App.Dashboard | Rolls up stored results into subtotals/grand totals |
 
-The companion `WWP.LandscapeDataManager.App` project is an older, tabbed all-in-one tool that
-predates the individual tools above; it's still wired up but most new work happens in the
-individual tools.
+There used to be a 12th project, the companion `WWP.LandscapeDataManager.App` — an older, tabbed
+all-in-one tool that predated the individual tools above. **It was deleted this session** (dead
+code — fully superseded, and its ribbon-launch path had zero live callers). See item 12 below.
 
 Renamed this session (ribbon button text + tooltip + tool window title + page title, display-only,
 **no internal project/exe/namespace/command-class renames**):
@@ -111,7 +111,7 @@ Renamed this session (ribbon button text + tooltip + tool window title + page ti
    contain only the data *records*, no file I/O). Also removed the manual "Export/Import settings
    to a file" buttons that existed as a workaround before auto-sync (redundant now).
 7. **Settings button added to every tool** (see convention above) — mechanical rollout across all
-   11 tool exes plus the companion App.
+   11 tool exes (plus the companion App, before it was deleted — see item 13).
 8. **Auto-map fix + expansion** (companion App's `GetTargetCandidates`, used by the "Sync & Review"
    tab's column-mapping auto-suggest) — one entry (`"Maintenance Costs"`) was pointing at a deleted
    parameter name; fixed to the current `!_S_PLT_LDS_MaintenanceCostAnnual_Currency`. Cross-checked
@@ -142,6 +142,70 @@ Renamed this session (ribbon button text + tooltip + tool window title + page ti
       "Planting Area" (titles, KPI labels, table/column headers, Excel sheet name and row labels).
       Did **not** rename the "Floor Calculator" tool itself, or any internal C# type/property names
       (`DashboardFloorItem`, `FloorSubtotalRow`, etc.) — display text only.
+11. **Dashboard rebuilt as a graphic KPI report** — three `Pivot` tabs (Executive overview, Design
+    scenarios, Data explorer), a 5/10/20/25-year "Outlook" selector that multiplies current annual
+    stored results, a local JSON snapshot cache (`DashboardSnapshotCache`, so the tool still opens
+    with last-known data when Revit's pipe is unavailable), and PNG/SVG/Excel export
+    (`DashboardSvgExportService` is a hand-built vector renderer, not a screen capture). Polished for
+    visual consistency afterward (status-card color coding, table headers, header/filter styling).
+12. **UI-tested every tool with `winapp` (win-dev-skills plugin)** — installed the `winapp` CLI
+    (`winget install Microsoft.WinAppCli` — note the package ID is `WinAppCli`, not `WinAppCLI`),
+    then launched every standalone exe with a dummy `--pipe` argument and screenshotted it. Found
+    and fixed two real launch-crashing bugs that `dotnet build` never caught (WinUI3 XAML failures
+    are native `XamlParseException`s that fail-fast with **no dialog, no log** — diagnosing them
+    required temporarily adding an `UnhandledException` handler to each `App.xaml.cs` that writes
+    the exception to `%TEMP%\<tool>-crash.txt`; kept permanently as a low-cost safety net):
+    - **Dashboard**: crashed on every launch. Root cause was the 🌿 emoji in the header badge (an
+      astral-plane Unicode character — WinUI3's XAML compiler/`.pri` resource pipeline has known
+      fragility around surrogate pairs) compounded by a stale incremental build. Fixed by swapping
+      the emoji for a plain "LIM" text badge and doing a clean rebuild.
+    - **Companion App** (before its removal — item 13): crashed with `Cannot find a Resource with
+      the Name/Key LimMutedTextStyle`. Its `App.xaml` never merged the shared
+      `SharedUI\Styles.xaml` dictionary that every other tool merges — a pre-existing gap, not
+      something introduced this session.
+    - All other 9 tools (Settings, Parameters, ITreeDownloader, ITreeCalculator, SyncAudit,
+      TreeSearcher, LocationFinder, FloorCalculator, Importer) launched and rendered correctly on
+      the first try.
+    - **Gotcha for next time**: `winapp ui screenshot -a <PID>` composites every window owned by
+      the target process (WinUI3 apps have small invisible utility popup windows), producing an odd
+      tiled image. Doesn't matter much — the main window still renders correctly inside the
+      composite — but a truly single-window capture doesn't seem to be selectable via `-w <HWND>`
+      alone.
+13. **Companion App deleted entirely** (explicit user direction: "that multi tab interface is the
+    deprecated code, it should have been deleted") — confirmed first that it was genuinely dead
+    (its `OpenWorkflowCommand` ribbon-launch path had zero concrete subclasses anywhere, and no
+    test references its internals), then removed: the whole `src\WWP.LandscapeDataManager.App\`
+    project folder, `Revit\Infrastructure\CompanionLauncher.cs`, the now-empty `OpenWorkflowCommand`
+    base class in `OpenWorkflowCommands.cs`, the `CompanionLauncher` property/init/dispose in
+    `Revit\App.cs`, its `ProjectReference` and the `-AppAssembly` deploy arg in
+    `WWP.LandscapeDataManager.Revit.csproj`, its `Project(...)`/`EndProject` block and 8
+    `ProjectConfigurationPlatforms` lines in the `.sln`, its App-deploy block in
+    `Deployment\Deploy-DebugConnector.ps1`, and its list entry in `Package-Addin.ps1` /
+    `Install-Addin.ps1`. Also deleted the stale `artifacts\App\` and deployed
+    `...\Addins\2025\WWP.LandscapeDataManager\App\` folders.
+    - **Pre-existing, unrelated to this removal**: `Package-Addin.ps1` and `Install-Addin.ps1`'s
+      `$toolApps` lists were already missing TreeSearcher/LocationFinder/FloorCalculator/
+      HealthCheck/Dashboard/Settings even before this session — they only ever covered
+      App/Parameters/Importer/ITreeDownloader/ITreeCalculator/SyncAudit. Not touched/fixed here,
+      just noted since it means neither script currently packages/installs the full tool set.
+
+14. **Audited every tool for leftover credential/API-settings UI, then centralized the one real
+    gap.** User request: "there is still some tools with api settings... they should all be in the
+    setting app not in the tool itself." A dedicated audit subagent confirmed the i-Tree API key and
+    Airtable personal-access-token are already fully centralized everywhere (every tool shows only a
+    read-only "…saved (managed in Settings)" status + a Settings button — no tool lets you type a
+    secret directly). The one real gap: `App.Importer` and `App.SyncAudit` both had their own
+    editable "Base ID" / "Table name" / "View" text boxes for the Airtable *planting-data* source
+    (`AirtableApiSettings` — distinct from `WwpLdsSource`, which Settings already owned exclusively).
+    Fixed by adding a new "PLANTING DATA SOURCE (AIRTABLE)" section to Settings (mirrors the existing
+    WWP LDS SOURCE section — Base ID/Table/View + Save, pushes `airtableApi` via
+    `ProjectSettingsSync.PushAsync`), then converting Importer and SyncAudit's own Base/Table/View
+    boxes into a single read-only status line ("Source: base {BaseId} / table {TableIdOrName}
+    (managed in Settings)") — same pattern `FloorCalculator.SourceStatusText` already used for
+    `WwpLdsSource`. Importer's `Connect_Click` no longer pushes `airtableApi` (Settings owns the only
+    write path now); both tools still push `dataSource`/`preferredUnitSystem` themselves, and Excel
+    workbook path selection stays untouched in each tool (that's a one-off browse choice, not a
+    durable setting, same reasoning as the shared-parameter-file path).
 
 ## Known gaps / things not done (candidates for follow-up)
 
@@ -155,17 +219,25 @@ Renamed this session (ribbon button text + tooltip + tool window title + page ti
   (`DashboardAggregationService.NormalizeTree` handles Metric/Imperial + currency conversion for
   trees; floors are summed as-is and always display fixed units — "kg", "m³", "m²" — regardless of
   the dashboard's unit-system toggle). Pre-existing behavior, not introduced or fixed this session.
-- None of this session's work has been manually verified inside Revit yet (no live model testing) —
-  only `dotnet build`/`dotnet test` were run. Worth a manual pass through Settings → Floor
-  Calculator → Dashboard → Excel export before considering this done.
+- Every tool has now been launch-tested standalone (dummy `--pipe`, `winapp ui screenshot` — see
+  item 12) and confirmed to open and render without crashing. **None of it has been tested against
+  a live Revit session yet** — no real pipe connection, no actual model data, no "Refresh
+  model"/data-fetch flow, no export-to-file flow. Worth a manual pass through Settings → Floor
+  Calculator → Dashboard → Excel export with an actual Revit project open before considering this
+  done.
 
 ## Current repo state
 
-**Nothing has been committed.** `git status --short` at the end of this session shows the working
-tree modified across ~50 files plus one new file (`Shared\Services\SiblingToolLauncher.cs`) and one
-deleted file (`Shared\Services\ParameterMappingStore.cs`). Run `git status`/`git diff` to see the
-full picture before committing — this file is a narrative summary, not a substitute for reviewing
-the actual diff.
+The bulk of this session's earlier work (items 1–10 above) has already been committed at some
+point — `git status --short` now shows only the most recent chunk (items 11–13: the Dashboard
+crash fix + polish, and the companion App's complete removal): `CONTEXT.md`, 4 deploy
+scripts/`.sln`, the Dashboard's `App.xaml.cs`/`MainPage.xaml`, 3 modified Revit-connector files,
+and 11 deleted files under `src\WWP.LandscapeDataManager.App\` plus `Infrastructure\
+CompanionLauncher.cs`. Run `git status`/`git diff` to see the exact current picture before
+committing — this file is a narrative summary, not a substitute for reviewing the actual diff.
 
 `dotnet build WWP.LandscapeDataManager.sln -c Debug` succeeds with 0 warnings/0 errors and deploys
-all tools + the connector. `dotnet test tests\WWP.LandscapeDataManager.Tests\...` passes 72/72.
+all 11 tools + the connector (no more companion App deploy step). `dotnet test
+tests\WWP.LandscapeDataManager.Tests\...` passes 72/72. Every tool has also been launch-tested
+standalone via `winapp` and confirmed to render without crashing (see item 12) — but not yet
+against a live Revit session.

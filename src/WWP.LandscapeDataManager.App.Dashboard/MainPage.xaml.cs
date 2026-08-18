@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Graphics.Imaging;
+using Windows.UI;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using WWP.LandscapeDataManager.Contracts;
@@ -381,6 +382,7 @@ public sealed partial class MainPage : Page
         }
 
         RebuildScenarioRows(allNormalizedTrees, unitSystem, matchesLevel, matchesSearch);
+        UpdateSiteKpiCards(filteredTrees, filteredFloors);
 
         void AddImpactShare(string label, double treeValue, double floorValue, string valueUnit)
         {
@@ -426,20 +428,113 @@ public sealed partial class MainPage : Page
             var total = DashboardAggregationService.BuildGrandTotal(trees, floors);
             var years = ExtractProjectionYears(option) ?? _projectionYears;
             var carbon = (total.CO2SequesteredAnnual + FloorCo2(total.FloorCO2SequesteredAnnual)) * years;
-            return (Option: option, Total: total, Years: years, Carbon: carbon);
+            var speciesCount = trees
+                .Select(tree => tree.Source.SpeciesCode ?? tree.Source.CommonName ?? "Unassigned")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
+            return (Option: option, Total: total, Years: years, Carbon: carbon, SpeciesCount: speciesCount);
         }).ToList();
         var maximum = values.Count == 0 ? 0d : values.Max(value => value.Carbon);
+
+        // Biodiversity Added's "% species added" needs a baseline to compare against — the option
+        // flagged (Primary) if one exists (the model's "existing" design), otherwise the first option
+        // in projection-year order.
+        var baselineSpeciesCount = values
+            .FirstOrDefault(value => value.Option.Contains("(Primary)", StringComparison.Ordinal)).SpeciesCount;
+        if (baselineSpeciesCount == 0 && values.Count > 0)
+        {
+            baselineSpeciesCount = values[0].SpeciesCount;
+        }
 
         ScenarioRows.Clear();
         foreach (var value in values)
         {
+            var speciesCountText = baselineSpeciesCount > 0 && value.SpeciesCount != baselineSpeciesCount
+                ? $"{value.SpeciesCount:N0} species ({100d * (value.SpeciesCount - baselineSpeciesCount) / baselineSpeciesCount:+0;-0}% vs. baseline)"
+                : $"{value.SpeciesCount:N0} species";
             ScenarioRows.Add(new ScenarioComparisonRow(
                 value.Option,
                 $"{value.Total.TreeCount:N0} trees · {value.Total.FloorCount:N0} areas",
+                speciesCountText,
                 $"{Compact(value.Carbon)} {co2Unit} / {value.Years} yr",
                 maximum <= 0d ? 0d : 100d * value.Carbon / maximum));
         }
     }
+
+    private void UpdateSiteKpiCards(IReadOnlyList<NormalizedTreeMetrics> filteredTrees, IReadOnlyList<DashboardFloorItem> filteredFloors)
+    {
+        if (_lastReport is null)
+        {
+            return;
+        }
+
+        var summary = DashboardAggregationService.BuildSiteKpiSummary(
+            filteredTrees, filteredFloors, _lastReport.Lighting, _lastReport.SiteTotalAreaSquareMeters, _lastReport.HabitatConnectivityScore);
+
+        SetPercentCard(CanopyCoverText, CanopyCoverDetailText, summary.CanopyCoverPercent,
+            $"{summary.CanopyAreaSquareMeters:N0} m² canopy over site area",
+            "Enter !_S_PLT_Site_TotalArea_Area on Project Information to see a percentage.",
+            high: 30d, medium: 15d);
+
+        SetPercentCard(SoftscapeRatioText, SoftscapeRatioDetailText, summary.SoftscapeSurfaceRatioPercent,
+            $"{summary.PerviousAreaSquareMeters:N0} m² pervious over site area",
+            "Enter !_S_PLT_Site_TotalArea_Area on Project Information to see a percentage.",
+            high: 50d, medium: 25d);
+
+        BiodiversityAddedText.Text = $"{summary.DistinctSpeciesCount:N0} species";
+        BiodiversityAddedDetailText.Text = "Species richness in the current filter. See Design scenarios for the % added vs. the baseline design option.";
+
+        SetPercentCard(NativeSpeciesRatioText, NativeSpeciesRatioDetailText, summary.NativeSpeciesRatioPercent,
+            $"{summary.NativeTreeCount:N0} native : {summary.AdaptiveTreeCount:N0} adaptive of {summary.TreesWithNativeStatusCount:N0} tagged trees",
+            "Tag !_S_PLT_iTreeSpecies_NativeStatus_Text on Planting Types to see a ratio.",
+            high: 80d, medium: 60d);
+
+        PhenologicalResilienceText.Text = $"{summary.DistinctBloomMonthsCount} months";
+        PhenologicalResilienceDetailText.Text = "Distinct calendar months with a bloom/seed source, from !_S_PLT_iTreeSpecies_BloomMonths_Text.";
+        PhenologicalResilienceText.Foreground = Tier(summary.DistinctBloomMonthsCount, high: 9d, medium: 6d);
+
+        FunctionalDiversityText.Text = $"{summary.DistinctEcologicalFunctionsCount} function{(summary.DistinctEcologicalFunctionsCount == 1 ? "" : "s")}";
+        FunctionalDiversityDetailText.Text = $"{summary.MultiFunctionAreaSquareMeters:N0} m² of canopy from multi-function species.";
+
+        if (summary.HabitatConnectivityScore is { } connectivityScore)
+        {
+            HabitatConnectivityText.Text = $"{connectivityScore:N1} / 10";
+            HabitatConnectivityDetailText.Text = "Entered from external GIS connectivity modelling (site-wide, not per design option).";
+        }
+        else
+        {
+            HabitatConnectivityText.Text = "—";
+            HabitatConnectivityDetailText.Text = "Enter !_S_PLT_Site_HabitatConnectivityScore_Number on Project Information after running GIS analysis.";
+        }
+
+        SetPercentCard(LightingImpactText, LightingImpactDetailText, summary.LightingCompliancePercent,
+            $"{summary.DarkSkyCompliantFixtureCount:N0} of {summary.LightingFixtureCount:N0} fixtures compliant",
+            "Tag !_S_PLT_Lighting_DarkSkyCompliant_Text on Lighting Fixture Types to see a percentage.",
+            high: 80d, medium: 50d);
+    }
+
+    private static void SetPercentCard(TextBlock valueText, TextBlock detailText, double? percent, string detailWithValue, string detailWithoutValue, double high, double medium)
+    {
+        if (percent is { } value)
+        {
+            valueText.Text = $"{value:N0}%";
+            valueText.Foreground = Tier(value, high, medium);
+            detailText.Text = detailWithValue;
+        }
+        else
+        {
+            valueText.Text = "—";
+            valueText.ClearValue(TextBlock.ForegroundProperty);
+            detailText.Text = detailWithoutValue;
+        }
+    }
+
+    private static Brush Tier(double value, double high, double medium) => value switch
+    {
+        _ when value >= high => new SolidColorBrush(Color.FromArgb(0xFF, 0x17, 0x6B, 0x2B)),
+        _ when value >= medium => new SolidColorBrush(Color.FromArgb(0xFF, 0xB2, 0x5E, 0x00)),
+        _ => new SolidColorBrush(Color.FromArgb(0xFF, 0xC4, 0x26, 0x2E))
+    };
 
     private static string Compact(double value)
     {

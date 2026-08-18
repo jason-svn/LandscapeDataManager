@@ -29,4 +29,22 @@ public sealed class TypeSyncRow
         ProposedValue = row.ProposedValue,
         Message = row.Message ?? string.Empty
     };
+
+    /// <summary>A matched type whose mapped Airtable column has no value for this record, so there was nothing to write.</summary>
+    public static TypeSyncRow FromSkippedField(TypeMatch match, string airtableField, string revitParameter) => new()
+    {
+        Status = "Skipped",
+        TypeName = $"{match.RevitType.FamilyName} : {match.RevitType.TypeName}",
+        Parameter = revitParameter,
+        Message = $"Source column '{airtableField}' is empty or missing on the matched Airtable record — nothing to write."
+    };
+
+    /// <summary>A matched type with a non-empty source value that could not be converted to the target parameter's unit.</summary>
+    public static TypeSyncRow FromNormalizationFailure(TypeMatch match, string revitParameter, string message) => new()
+    {
+        Status = "Skipped",
+        TypeName = $"{match.RevitType.FamilyName} : {match.RevitType.TypeName}",
+        Parameter = revitParameter,
+        Message = message
+    };
 }

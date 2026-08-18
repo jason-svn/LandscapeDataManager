@@ -36,6 +36,11 @@ public sealed partial class MainPage : Page
         LdsTableIdBox.Text = ldsSettings.TableIdOrName;
         LdsViewIdBox.Text = ldsSettings.ViewName ?? string.Empty;
 
+        var importSource = snapshot?.AirtableApi ?? new AirtableApiSettings(string.Empty, string.Empty, null);
+        ImportBaseIdBox.Text = importSource.BaseId;
+        ImportTableIdBox.Text = importSource.TableIdOrName;
+        ImportViewIdBox.Text = importSource.ViewName ?? string.Empty;
+
         SharedParameterFilePathBox.Text = snapshot?.SharedParameterFilePath ?? string.Empty;
     }
 
@@ -95,6 +100,58 @@ public sealed partial class MainPage : Page
             string.IsNullOrWhiteSpace(LdsViewIdBox.Text) ? null : LdsViewIdBox.Text.Trim());
         await ProjectSettingsSync.PushAsync(GetClient(), wwpLdsSource: settings);
         LdsStatusText.Text = "WWP landscape data sheet source saved — Floor Calculator will use it on its next sync.";
+    }
+
+    private async void SaveImportSourceSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = new AirtableApiSettings(
+            ImportBaseIdBox.Text.Trim(),
+            ImportTableIdBox.Text.Trim(),
+            string.IsNullOrWhiteSpace(ImportViewIdBox.Text) ? null : ImportViewIdBox.Text.Trim());
+        await ProjectSettingsSync.PushAsync(GetClient(), airtableApi: settings);
+        ImportSourceStatusText.Text = "Planting data source saved — Excel Importer and Refresh & Audit will use it next time Airtable is selected.";
+    }
+
+    private async void BrowseLdsSource_Click(object sender, RoutedEventArgs e)
+    {
+        var result = await PickAirtableSourceAsync();
+        if (result is { } picked)
+        {
+            LdsBaseIdBox.Text = picked.BaseId;
+            LdsTableIdBox.Text = picked.TableIdOrName;
+            LdsViewIdBox.Text = picked.ViewName ?? string.Empty;
+        }
+    }
+
+    private async void BrowseImportSource_Click(object sender, RoutedEventArgs e)
+    {
+        var result = await PickAirtableSourceAsync();
+        if (result is { } picked)
+        {
+            ImportBaseIdBox.Text = picked.BaseId;
+            ImportTableIdBox.Text = picked.TableIdOrName;
+            ImportViewIdBox.Text = picked.ViewName ?? string.Empty;
+        }
+    }
+
+    private async Task<(string BaseId, string TableIdOrName, string? ViewName)?> PickAirtableSourceAsync()
+    {
+        var token = AirtableTokenBox.Password.Trim();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            var noTokenDialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = "Airtable token needed",
+                Content = "Save an Airtable personal access token above first, then Browse can list your bases.",
+                CloseButtonText = "OK"
+            };
+            await noTokenDialog.ShowAsync();
+            return null;
+        }
+
+        var picker = new AirtableSourcePickerDialog { XamlRoot = XamlRoot };
+        return await picker.PickAsync(token);
     }
 
     private async void BrowseSharedParameterFile_Click(object sender, RoutedEventArgs e)

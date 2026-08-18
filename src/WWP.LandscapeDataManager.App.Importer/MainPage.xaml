@@ -39,17 +39,10 @@
                         <ComboBoxItem Content="Excel workbook" />
                     </ComboBox>
 
-                    <TextBlock x:Name="AirtableTokenStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
-                    <Grid x:Name="AirtablePanel" ColumnSpacing="10" RowSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="AirtableBaseIdBox" Header="Base ID" PlaceholderText="appXXXXXXXXXXXXXX" />
-                        <TextBox Grid.Column="1" x:Name="AirtableTableBox" Header="Table name or ID" />
-                        <TextBox Grid.Column="2" x:Name="AirtableViewBox" Header="View (optional)" />
-                    </Grid>
+                    <StackPanel x:Name="AirtablePanel" Spacing="6">
+                        <TextBlock x:Name="AirtableTokenStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="AirtableSourceStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                    </StackPanel>
 
                     <Grid x:Name="ExcelPanel" ColumnSpacing="8" Visibility="Collapsed">
                         <Grid.ColumnDefinitions>

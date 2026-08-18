@@ -1,3 +1,4 @@
+using System.IO;
 using Microsoft.UI.Xaml;
 
 namespace WWP.LandscapeDataManager.App.Dashboard;
@@ -9,14 +10,30 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        UnhandledException += (_, e) =>
+        {
+            try
+            {
+                File.WriteAllText(Path.Combine(Path.GetTempPath(), "dashboard-crash.txt"), $"{e.Exception}\n\n{e.Message}");
+            }
+            catch { }
+        };
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        var arguments = Environment.GetCommandLineArgs();
-        var pipeName = ReadRequiredArgument(arguments, "--pipe");
-        _window = new MainWindow(pipeName);
-        _window.Activate();
+        try
+        {
+            var arguments = Environment.GetCommandLineArgs();
+            var pipeName = ReadRequiredArgument(arguments, "--pipe");
+            _window = new MainWindow(pipeName);
+            _window.Activate();
+        }
+        catch (Exception exception)
+        {
+            File.WriteAllText(Path.Combine(Path.GetTempPath(), "dashboard-crash.txt"), exception.ToString());
+            throw;
+        }
     }
 
     private static string ReadRequiredArgument(IReadOnlyList<string> arguments, string name)

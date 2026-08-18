@@ -21,7 +21,6 @@ $zipPath = "$stagingRoot.zip"
 
 # One entry per standalone tool executable; each publishes and stages into its own App\<Name>\ folder.
 $toolApps = @(
-    @{ Name = 'App'; Project = 'src\WWP.LandscapeDataManager.App\WWP.LandscapeDataManager.App.csproj' }
     @{ Name = 'Parameters'; Project = 'src\WWP.LandscapeDataManager.App.Parameters\WWP.LandscapeDataManager.App.Parameters.csproj' }
     @{ Name = 'Importer'; Project = 'src\WWP.LandscapeDataManager.App.Importer\WWP.LandscapeDataManager.App.Importer.csproj' }
     @{ Name = 'ITreeDownloader'; Project = 'src\WWP.LandscapeDataManager.App.ITreeDownloader\WWP.LandscapeDataManager.App.ITreeDownloader.csproj' }

@@ -174,16 +174,20 @@ public sealed class KpiBarRow
 
 public sealed class ScenarioComparisonRow
 {
-    public ScenarioComparisonRow(string designOption, string inventory, string projectedCarbon, double percent)
+    public ScenarioComparisonRow(string designOption, string inventory, string speciesCount, string projectedCarbon, double percent)
     {
         DesignOption = designOption;
         Inventory = inventory;
+        SpeciesCount = speciesCount;
         ProjectedCarbon = projectedCarbon;
         Percent = Math.Clamp(percent, 0d, 100d);
     }
 
     public string DesignOption { get; }
     public string Inventory { get; }
+
+    /// <summary>Biodiversity Added's species-richness metric, per design option — see <see cref="DashboardAggregationService.BuildSiteKpiSummary"/>.</summary>
+    public string SpeciesCount { get; }
     public string ProjectedCarbon { get; }
     public double Percent { get; }
 }

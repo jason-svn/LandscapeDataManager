@@ -10,6 +10,8 @@ internal static class RevitModelScanner
         "!_S_PLT_iTreeUnits_PreferredSystem_Text";
     private const string PreferredCurrencyParameter =
         "!_S_PLT_iTreeUnits_PreferredCurrency_Text";
+    private const string SpeciesCodeParameter =
+        "!_S_PLT_iTreeSpecies_Code_Text";
 
     /// <summary>Currencies the i-Tree Calculator currency dropdown offers — kept in sync with <c>CurrencyBox</c> in its XAML.</summary>
     public static readonly IReadOnlyList<string> SupportedCurrencyCodes = ["USD", "GBP", "EUR", "CAD", "AUD", "NZD"];
@@ -42,7 +44,8 @@ internal static class RevitModelScanner
                 row.TypeId,
                 row.CalculationType,
                 row.IsAreaBased,
-                row.FamilyName
+                row.FamilyName,
+                row.SpeciesCode
             })
             .Select(group => new ModelScanItem(
                 group.Key.Category,
@@ -52,7 +55,8 @@ internal static class RevitModelScanner
                 Math.Round(group.Sum(row => row.AreaSquareMetres), 2),
                 group.Key.CalculationType,
                 group.Key.IsAreaBased,
-                group.Key.FamilyName))
+                group.Key.FamilyName,
+                group.Key.SpeciesCode))
             .OrderBy(item => item.Category)
             .ThenBy(item => item.TypeName)
             .ToList();
@@ -231,6 +235,9 @@ internal static class RevitModelScanner
                               ?? (elementType is null
                                   ? null
                                   : GetStringParameter(elementType, "!_S_PLT_LDS_CalculationType_Text"));
+        var speciesCode = GetStringParameter(element, SpeciesCodeParameter)
+                          ?? (elementType is null ? null : GetStringParameter(elementType, SpeciesCodeParameter));
+        speciesCode = string.IsNullOrWhiteSpace(speciesCode) ? null : speciesCode.Trim();
 
         var area = 0d;
         if (element is Floor)
@@ -251,7 +258,8 @@ internal static class RevitModelScanner
             area,
             calculationType,
             element is Floor,
-            elementType is not null ? GetFamilyName(elementType) : string.Empty);
+            elementType is not null ? GetFamilyName(elementType) : string.Empty,
+            speciesCode);
     }
 
     private static IEnumerable<Element> GetSupportedElements(
@@ -434,7 +442,8 @@ internal static class RevitModelScanner
         double AreaSquareMetres,
         string? CalculationType,
         bool IsAreaBased,
-        string FamilyName);
+        string FamilyName,
+        string? SpeciesCode);
 
     private sealed record ParameterSource(
         string Name,

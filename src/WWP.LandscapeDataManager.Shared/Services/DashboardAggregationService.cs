@@ -95,6 +95,33 @@ public sealed record DashboardGrandTotal(
     double FloorCostSavedAnnual);
 
 /// <summary>
+/// The Site &amp; Biodiversity KPI tab's headline numbers. Unlike <see cref="DashboardGrandTotal"/>,
+/// none of these depend on a tree's i-Tree calculation <c>Status</c> — canopy area, species identity,
+/// native status, bloom months, and ecological function tags are all geometry/reference data available
+/// the moment a Planting instance and its type are placed, whether or not the i-Tree API has run yet.
+/// A percent field is null (rather than 0) whenever its denominator isn't available — e.g. Canopy Cover
+/// and Softscape Surface Ratio need <c>!_S_PLT_Site_TotalArea_Area</c> entered on Project Information
+/// first — so the UI can show "not entered yet" instead of a misleading 0%.
+/// </summary>
+public sealed record SiteKpiSummary(
+    double? CanopyCoverPercent,
+    double CanopyAreaSquareMeters,
+    double? SoftscapeSurfaceRatioPercent,
+    double PerviousAreaSquareMeters,
+    int DistinctSpeciesCount,
+    int NativeTreeCount,
+    int AdaptiveTreeCount,
+    int TreesWithNativeStatusCount,
+    double? NativeSpeciesRatioPercent,
+    int DistinctBloomMonthsCount,
+    int DistinctEcologicalFunctionsCount,
+    double MultiFunctionAreaSquareMeters,
+    double? HabitatConnectivityScore,
+    int LightingFixtureCount,
+    int DarkSkyCompliantFixtureCount,
+    double? LightingCompliancePercent);
+
+/// <summary>
 /// Normalizes stored per-instance i-Tree results onto one unit-system/currency basis and sums across
 /// instances — pure/testable, no Revit or IO dependency, mirroring <see cref="PlantingInstanceStatusEvaluator"/>
 /// and <see cref="ITreeInstanceResultMapper"/>. This is the one place in the codebase that sums across
@@ -210,6 +237,106 @@ public static class DashboardAggregationService
             floors.Sum(floor => floor.TotalGwp),
             floors.Sum(floor => floor.CostSavedAnnual));
     }
+
+    /// <summary>
+    /// Builds the Site &amp; Biodiversity tab's numbers from the same filtered tree/floor lists every
+    /// other tab uses, plus the two Project-Information-level site inputs and the (currently
+    /// unfiltered — lighting fixtures aren't Design-Option/Level filtered yet) lighting fixture list.
+    /// </summary>
+    public static SiteKpiSummary BuildSiteKpiSummary(
+        IReadOnlyList<NormalizedTreeMetrics> trees,
+        IReadOnlyList<DashboardFloorItem> floors,
+        IReadOnlyList<DashboardLightingItem> lighting,
+        double? siteTotalAreaSquareMeters,
+        double? habitatConnectivityScore)
+    {
+        var canopyAreaSquareMeters = trees.Sum(tree => tree.Source.CanopyAreaSquareMeters);
+        var canopyCoverPercent = siteTotalAreaSquareMeters is > 0
+            ? canopyAreaSquareMeters / siteTotalAreaSquareMeters.Value * 100d
+            : (double?)null;
+
+        var perviousAreaSquareMeters = floors
+            .Where(floor => string.Equals(ResolveSurfaceClass(floor), "Pervious", StringComparison.OrdinalIgnoreCase))
+            .Sum(floor => floor.AreaSquareMeters);
+        var softscapeSurfaceRatioPercent = siteTotalAreaSquareMeters is > 0
+            ? perviousAreaSquareMeters / siteTotalAreaSquareMeters.Value * 100d
+            : (double?)null;
+
+        var distinctSpeciesCount = trees
+            .Select(tree => tree.Source.SpeciesCode ?? tree.Source.CommonName ?? "Unassigned")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+        var nativeTreeCount = trees.Count(tree => string.Equals(tree.Source.NativeStatus, "Native", StringComparison.OrdinalIgnoreCase));
+        var adaptiveTreeCount = trees.Count(tree => string.Equals(tree.Source.NativeStatus, "Adaptive", StringComparison.OrdinalIgnoreCase));
+        var treesWithNativeStatusCount = trees.Count(tree => !string.IsNullOrWhiteSpace(tree.Source.NativeStatus));
+        var nativeSpeciesRatioPercent = treesWithNativeStatusCount > 0
+            ? (double)nativeTreeCount / treesWithNativeStatusCount * 100d
+            : (double?)null;
+
+        var distinctBloomMonths = new HashSet<int>();
+        foreach (var tree in trees)
+        {
+            foreach (var month in ParseMonthList(tree.Source.BloomMonths))
+            {
+                distinctBloomMonths.Add(month);
+            }
+        }
+
+        var distinctEcologicalFunctions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var tree in trees)
+        {
+            foreach (var tag in ParseTagList(tree.Source.EcologicalFunctions))
+            {
+                distinctEcologicalFunctions.Add(tag);
+            }
+        }
+        var multiFunctionAreaSquareMeters = trees
+            .Where(tree => ParseTagList(tree.Source.EcologicalFunctions).Count >= 2)
+            .Sum(tree => tree.Source.CanopyAreaSquareMeters);
+
+        var lightingFixtureCount = lighting.Count;
+        var darkSkyCompliantFixtureCount = lighting.Count(fixture => string.Equals(fixture.DarkSkyCompliant, "Yes", StringComparison.OrdinalIgnoreCase));
+        var lightingCompliancePercent = lightingFixtureCount > 0
+            ? (double)darkSkyCompliantFixtureCount / lightingFixtureCount * 100d
+            : (double?)null;
+
+        return new SiteKpiSummary(
+            canopyCoverPercent,
+            canopyAreaSquareMeters,
+            softscapeSurfaceRatioPercent,
+            perviousAreaSquareMeters,
+            distinctSpeciesCount,
+            nativeTreeCount,
+            adaptiveTreeCount,
+            treesWithNativeStatusCount,
+            nativeSpeciesRatioPercent,
+            distinctBloomMonths.Count,
+            distinctEcologicalFunctions.Count,
+            multiFunctionAreaSquareMeters,
+            habitatConnectivityScore,
+            lightingFixtureCount,
+            darkSkyCompliantFixtureCount,
+            lightingCompliancePercent);
+    }
+
+    /// <summary>The explicit <c>!_S_PLT_LDS_SurfaceClass_Text</c> tag always wins; otherwise inferred from the floor's LDS Type (see <see cref="SurfaceClassCatalog"/>).</summary>
+    private static string? ResolveSurfaceClass(DashboardFloorItem floor) =>
+        !string.IsNullOrWhiteSpace(floor.SurfaceClass) ? floor.SurfaceClass : SurfaceClassCatalog.Infer(floor.LdsType);
+
+    private static IReadOnlyList<int> ParseMonthList(string? raw) =>
+        string.IsNullOrWhiteSpace(raw)
+            ? []
+            : raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(token => int.TryParse(token, out var month) ? month : (int?)null)
+                .Where(month => month is >= 1 and <= 12)
+                .Select(month => month!.Value)
+                .ToList();
+
+    private static IReadOnlyList<string> ParseTagList(string? raw) =>
+        string.IsNullOrWhiteSpace(raw)
+            ? []
+            : raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
 
     private static double ResolveCurrencyFactor(
         string storedCurrency, string targetCurrency, double storedExchangeRateUsed, double usdToTargetRate)

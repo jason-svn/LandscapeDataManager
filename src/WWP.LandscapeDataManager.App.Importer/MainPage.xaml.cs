@@ -30,6 +30,7 @@ public sealed partial class MainPage : Page
     private InstanceParameterWriteBatch? _pendingInstanceBatch;
     private IReadOnlyList<TypeAlias> _typeAliases = [];
     private IReadOnlyList<ParameterMappingDefinition> _savedMappings = [];
+    private AirtableApiSettings _airtableSettings = new(string.Empty, string.Empty, null);
 
     public MainPage()
     {
@@ -64,17 +65,17 @@ public sealed partial class MainPage : Page
     {
         var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
         var dataSourceSettings = snapshot?.DataSource ?? new DataSourceSettings(DataSourceKind.Airtable, string.Empty, string.Empty);
-        var airtableSettings = snapshot?.AirtableApi ?? new AirtableApiSettings(string.Empty, string.Empty, null);
+        _airtableSettings = snapshot?.AirtableApi ?? new AirtableApiSettings(string.Empty, string.Empty, null);
         _typeAliases = snapshot?.TypeAliases ?? [];
         _savedMappings = snapshot?.ParameterMappings ?? [];
         SourceKindBox.SelectedIndex = dataSourceSettings.Kind == DataSourceKind.Excel ? 1 : 0;
         ExcelPathBox.Text = dataSourceSettings.ExcelPath;
-        AirtableBaseIdBox.Text = airtableSettings.BaseId;
-        AirtableTableBox.Text = airtableSettings.TableIdOrName;
-        AirtableViewBox.Text = airtableSettings.ViewName ?? string.Empty;
         AirtableTokenStatusText.Text = string.IsNullOrWhiteSpace(_airtableCredentialStore.Load())
             ? "No Airtable personal access token saved — open Settings from the LIM ribbon first."
             : "Airtable personal access token: saved (managed in Settings).";
+        AirtableSourceStatusText.Text = string.IsNullOrWhiteSpace(_airtableSettings.BaseId)
+            ? "No planting data source saved yet — open Settings from the LIM ribbon first."
+            : $"Source: base {_airtableSettings.BaseId} / table {_airtableSettings.TableIdOrName} (managed in Settings).";
         UpdateSourceVisibility();
 
         if (snapshot is not null)
@@ -133,12 +134,8 @@ public sealed partial class MainPage : Page
             var dataSourceSettings = SourceKindBox.SelectedIndex == 1
                 ? new DataSourceSettings(DataSourceKind.Excel, string.Empty, ExcelPathBox.Text.Trim())
                 : new DataSourceSettings(DataSourceKind.Airtable, string.Empty, string.Empty);
-            var airtableSettings = new AirtableApiSettings(
-                AirtableBaseIdBox.Text.Trim(),
-                AirtableTableBox.Text.Trim(),
-                string.IsNullOrWhiteSpace(AirtableViewBox.Text) ? null : AirtableViewBox.Text.Trim());
             await ProjectSettingsSync.PushAsync(
-                GetClient(), dataSource: dataSourceSettings, airtableApi: airtableSettings,
+                GetClient(), dataSource: dataSourceSettings,
                 preferredUnitSystem: _preferredUnitSystem);
 
             RestoreMappings();
@@ -163,12 +160,12 @@ public sealed partial class MainPage : Page
             throw new InvalidOperationException("No Airtable personal access token saved — open Settings from the LIM ribbon first.");
         }
 
-        var settings = new AirtableApiSettings(
-            AirtableBaseIdBox.Text.Trim(),
-            AirtableTableBox.Text.Trim(),
-            string.IsNullOrWhiteSpace(AirtableViewBox.Text) ? null : AirtableViewBox.Text.Trim());
+        if (string.IsNullOrWhiteSpace(_airtableSettings.BaseId))
+        {
+            throw new InvalidOperationException("No planting data source saved — open Settings from the LIM ribbon first.");
+        }
 
-        return await _airtableApiClient.GetRecordsAsync(settings, token);
+        return await _airtableApiClient.GetRecordsAsync(_airtableSettings, token);
     }
 
     private void RestoreMappings()
@@ -184,6 +181,11 @@ public sealed partial class MainPage : Page
         ApplyMappings(sourceHeaders, typeOptions, instanceOptions, _savedMappings);
     }
 
+    /// <summary>
+    /// A saved (per-project) mapping always wins when one exists for a header. Otherwise, falls back
+    /// to <see cref="DefaultParameterMappingCatalog"/> so a project that has never been mapped before
+    /// still starts with every standard WWP column pre-wired instead of showing up entirely blank.
+    /// </summary>
     private void ApplyMappings(
         IReadOnlyList<string> sourceHeaders,
         IReadOnlyList<ParameterOption> typeOptions,
@@ -191,35 +193,65 @@ public sealed partial class MainPage : Page
         IReadOnlyList<ParameterMappingDefinition> savedMappings)
     {
         MappingRows.Clear();
+        var allOptions = typeOptions.Concat(instanceOptions).ToList();
+        var usedTargetKeys = new HashSet<string>();
+
         foreach (var header in sourceHeaders)
         {
-            var mapping = savedMappings.FirstOrDefault(saved =>
-                string.Equals(saved.AirtableField, header, StringComparison.OrdinalIgnoreCase));
-            var scope = mapping?.Scope ?? "Type";
-            var targetOptions = string.Equals(scope, "Instance", StringComparison.OrdinalIgnoreCase) ? instanceOptions : typeOptions;
-            var target = targetOptions.FirstOrDefault(option =>
-                mapping is not null && string.Equals(option.Descriptor.Name, mapping.RevitParameter, StringComparison.OrdinalIgnoreCase));
+            var saved = savedMappings.FirstOrDefault(mapping =>
+                string.Equals(mapping.AirtableField, header, StringComparison.OrdinalIgnoreCase));
+
+            string scope;
+            ParameterOption? target;
+            bool enabled;
+            string conversion;
+
+            if (saved is not null)
+            {
+                scope = saved.Scope;
+                var savedTargetOptions = string.Equals(scope, "Instance", StringComparison.OrdinalIgnoreCase) ? instanceOptions : typeOptions;
+                target = savedTargetOptions.FirstOrDefault(option =>
+                    string.Equals(option.Descriptor.Name, saved.RevitParameter, StringComparison.OrdinalIgnoreCase));
+                enabled = target is not null && saved.Enabled;
+                conversion = saved.Conversion;
+            }
+            else
+            {
+                target = DefaultParameterMappingCatalog.FindMatch(header, allOptions, usedTargetKeys);
+                scope = target?.Descriptor.Scope ?? "Type";
+                enabled = target is not null;
+                conversion = "Auto (Revit spec)";
+            }
+
+            if (target is not null)
+            {
+                usedTargetKeys.Add(DefaultParameterMappingCatalog.TargetKey(target));
+            }
+
             MappingRows.Add(new MappingRow(sourceHeaders, typeOptions, instanceOptions, scope)
             {
                 SelectedAirtableField = header,
                 SelectedTarget = target,
-                SelectedConversion = mapping?.Conversion ?? "Auto (Revit spec)",
-                Enabled = target is not null && mapping!.Enabled
+                SelectedConversion = conversion,
+                Enabled = enabled
             });
         }
     }
 
     private void AutoMap_Click(object sender, RoutedEventArgs e)
     {
-        var used = MappingRows.Where(r => r.SelectedTarget is not null)
-            .Select(r => r.SelectedTarget!.Descriptor.Name)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var allOptions = MappingRows.Count > 0
+            ? MappingRows[0].TypeTargetOptions.Concat(MappingRows[0].InstanceTargetOptions).ToList()
+            : [];
+        var usedTargetKeys = MappingRows
+            .Where(row => row.SelectedTarget is not null)
+            .Select(row => DefaultParameterMappingCatalog.TargetKey(row.SelectedTarget!))
+            .ToHashSet();
+
         var mapped = 0;
-        foreach (var row in MappingRows.Where(r => r.SelectedTarget is null))
+        foreach (var row in MappingRows.Where(row => row.SelectedTarget is null))
         {
-            var target = row.TypeTargetOptions.Concat(row.InstanceTargetOptions).FirstOrDefault(option =>
-                !used.Contains(option.Descriptor.Name) &&
-                string.Equals(option.Descriptor.Name, row.SelectedAirtableField, StringComparison.OrdinalIgnoreCase));
+            var target = DefaultParameterMappingCatalog.FindMatch(row.SelectedAirtableField!, allOptions, usedTargetKeys);
             if (target is null)
             {
                 continue;
@@ -227,12 +259,13 @@ public sealed partial class MainPage : Page
 
             row.Scope = target.Descriptor.Scope;
             row.SelectedTarget = target;
+            row.SelectedConversion = "Auto (Revit spec)";
             row.Enabled = true;
-            used.Add(target.Descriptor.Name);
+            usedTargetKeys.Add(DefaultParameterMappingCatalog.TargetKey(target));
             mapped++;
         }
 
-        ConnectStatusText.Text = $"Auto-mapped {mapped:N0} additional columns by exact name match.";
+        ConnectStatusText.Text = $"Auto-mapped {mapped:N0} additional column(s) using the default mapping table.";
     }
 
     private async void Preview_Click(object sender, RoutedEventArgs e)
@@ -252,10 +285,15 @@ public sealed partial class MainPage : Page
             ApplyButton.IsEnabled = false;
 
             var typeMatches = StableTypeMatcher.Build(_typeScan.Items, _sourceRecords, TypeKeyFields, _typeAliases);
-            var typeWriteItems = BuildTypeWriteItems(typeMatches);
+            var (typeWriteItems, skippedTypeFields) = BuildTypeWriteItems(typeMatches);
             foreach (var match in typeMatches.Where(m => m.Status != "Matched"))
             {
                 TypeSyncRows.Add(TypeSyncRow.FromIssue(match));
+            }
+
+            foreach (var skipped in skippedTypeFields)
+            {
+                TypeSyncRows.Add(skipped);
             }
 
             if (typeWriteItems.Count > 0)
@@ -275,10 +313,15 @@ public sealed partial class MainPage : Page
             }
 
             var instanceMatchPlan = InstanceMatchPlanBuilder.Build(_instanceScan.Items, _sourceRecords);
-            var instanceWriteItems = BuildInstanceWriteItems(instanceMatchPlan);
+            var (instanceWriteItems, skippedInstanceFields) = BuildInstanceWriteItems(instanceMatchPlan);
             foreach (var match in instanceMatchPlan.Instances.Where(m => m.Status != "Matched"))
             {
                 InstanceSyncRows.Add(InstanceSyncRow.FromIssue(match));
+            }
+
+            foreach (var skipped in skippedInstanceFields)
+            {
+                InstanceSyncRows.Add(skipped);
             }
 
             if (instanceWriteItems.Count > 0)
@@ -305,26 +348,30 @@ public sealed partial class MainPage : Page
         });
     }
 
-    private List<ParameterWriteItem> BuildTypeWriteItems(IReadOnlyList<TypeMatch> matches)
+    private (List<ParameterWriteItem> Items, List<TypeSyncRow> Skipped) BuildTypeWriteItems(IReadOnlyList<TypeMatch> matches)
     {
         var enabledMappings = MappingRows.Where(row => row.Enabled && row.Scope == "Type" && row.SelectedTarget is not null).ToList();
         var items = new List<ParameterWriteItem>();
+        var skipped = new List<TypeSyncRow>();
         foreach (var match in matches.Where(m => m.Status == "Matched"))
         {
             foreach (var mapping in enabledMappings)
             {
+                var target = mapping.SelectedTarget!.Descriptor;
                 if (!match.Record!.Fields.TryGetValue(mapping.SelectedAirtableField!, out var sourceValue))
                 {
+                    skipped.Add(TypeSyncRow.FromSkippedField(match, mapping.SelectedAirtableField!, target.Name));
                     continue;
                 }
 
-                var target = mapping.SelectedTarget!.Descriptor;
                 var raw = ParameterSyncPlanBuilder.ReadSourceValue(sourceValue);
                 var normalized = ImportUnitNormalizer.Normalize(
                     raw, mapping.SelectedAirtableField!, target, mapping.SelectedConversion,
                     _preferredUnitSystem, ParameterSyncPlanBuilder.ReadRecordUnitSystem(match.Record));
                 if (!normalized.Success)
                 {
+                    skipped.Add(TypeSyncRow.FromNormalizationFailure(
+                        match, target.Name, normalized.Message ?? "The source unit could not be normalized."));
                     continue;
                 }
 
@@ -334,29 +381,33 @@ public sealed partial class MainPage : Page
             }
         }
 
-        return items;
+        return (items, skipped);
     }
 
-    private List<InstanceParameterWriteItem> BuildInstanceWriteItems(InstanceMatchPlan plan)
+    private (List<InstanceParameterWriteItem> Items, List<InstanceSyncRow> Skipped) BuildInstanceWriteItems(InstanceMatchPlan plan)
     {
         var enabledMappings = MappingRows.Where(row => row.Enabled && row.Scope == "Instance" && row.SelectedTarget is not null).ToList();
         var items = new List<InstanceParameterWriteItem>();
+        var skipped = new List<InstanceSyncRow>();
         foreach (var match in plan.Instances.Where(m => m.Status == "Matched"))
         {
             foreach (var mapping in enabledMappings)
             {
+                var target = mapping.SelectedTarget!.Descriptor;
                 if (!match.Record!.Fields.TryGetValue(mapping.SelectedAirtableField!, out var sourceValue))
                 {
+                    skipped.Add(InstanceSyncRow.FromSkippedField(match, mapping.SelectedAirtableField!, target.Name));
                     continue;
                 }
 
-                var target = mapping.SelectedTarget!.Descriptor;
                 var raw = ParameterSyncPlanBuilder.ReadSourceValue(sourceValue);
                 var normalized = ImportUnitNormalizer.Normalize(
                     raw, mapping.SelectedAirtableField!, target, mapping.SelectedConversion,
                     _preferredUnitSystem, ParameterSyncPlanBuilder.ReadRecordUnitSystem(match.Record));
                 if (!normalized.Success)
                 {
+                    skipped.Add(InstanceSyncRow.FromNormalizationFailure(
+                        match, target.Name, normalized.Message ?? "The source unit could not be normalized."));
                     continue;
                 }
 
@@ -365,7 +416,7 @@ public sealed partial class MainPage : Page
             }
         }
 
-        return items;
+        return (items, skipped);
     }
 
     private async Task SaveMappingsAsync()

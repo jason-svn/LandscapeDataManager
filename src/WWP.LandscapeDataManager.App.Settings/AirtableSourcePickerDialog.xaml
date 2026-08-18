@@ -1,0 +1,33 @@
+<ContentDialog
+    x:Class="WWP.LandscapeDataManager.App.Settings.AirtableSourcePickerDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WWP.LandscapeDataManager.App.Settings"
+    Title="Browse Airtable"
+    SecondaryButtonText="Back"
+    CloseButtonText="Cancel"
+    SecondaryButtonClick="Dialog_SecondaryButtonClick"
+    Opened="Dialog_Opened"
+    Closed="Dialog_Closed">
+
+    <Grid MinWidth="420" MinHeight="360">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="StepText" Grid.Row="0" Margin="0,0,0,10" Text="Select a base" FontWeight="SemiBold" />
+
+        <Grid Grid.Row="1">
+            <ProgressRing x:Name="LoadingRing" IsActive="False" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <TextBlock x:Name="ErrorText" TextWrapping="Wrap" Foreground="#FFC4262E" Visibility="Collapsed" VerticalAlignment="Top" />
+            <ListView x:Name="ItemsListView" SelectionMode="Single" ItemClick="ItemsListView_ItemClick" IsItemClickEnabled="True">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="local:AirtablePickerItem">
+                        <TextBlock Text="{x:Bind Name}" Padding="4" />
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
+    </Grid>
+</ContentDialog>

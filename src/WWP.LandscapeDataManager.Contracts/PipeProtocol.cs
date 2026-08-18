@@ -60,7 +60,8 @@ public sealed record ModelScanItem(
     double AreaSquareMetres,
     string? CalculationType,
     bool IsAreaBased = false,
-    string FamilyName = "");
+    string FamilyName = "",
+    string? SpeciesCode = null);
 
 public sealed record ModelScanResult(
     string DocumentTitle,
@@ -430,7 +431,10 @@ public sealed record DesignOptionInfo(string? SetName, string? OptionName, bool 
 /// LifetimeTotal pairs), read back as-is — no aggregation, no unit/currency normalization. That happens
 /// client-side in <c>DashboardAggregationService</c> using <see cref="StoredUnitSystem"/>/
 /// <see cref="StoredCurrency"/>/<see cref="StoredExchangeRateUsed"/> to know what basis these raw
-/// numbers are actually in.
+/// numbers are actually in. <see cref="NativeStatus"/>/<see cref="BloomMonths"/>/
+/// <see cref="EcologicalFunctions"/> are person-entered Site &amp; Biodiversity reference data (Planting
+/// Type scope); <see cref="CanopyAreaSquareMeters"/> is derived from the Planting instance's own
+/// <c>!_S_PLT_TreeFoliage_Width</c> (crown width), not looked up from a shared parameter of its own.
 /// </summary>
 public sealed record DashboardTreeItem(
     string UniqueId,
@@ -441,6 +445,10 @@ public sealed record DashboardTreeItem(
     string? CommonName,
     string? ScientificName,
     string? SpeciesType,
+    string? NativeStatus,
+    string? BloomMonths,
+    string? EcologicalFunctions,
+    double CanopyAreaSquareMeters,
     string? LevelName,
     DesignOptionInfo DesignOption,
     string Status,
@@ -484,6 +492,7 @@ public sealed record DashboardFloorItem(
     string FamilyName,
     string TypeName,
     string? LdsType,
+    string? SurfaceClass,
     string? LevelName,
     DesignOptionInfo DesignOption,
     double AreaSquareMeters,
@@ -496,14 +505,31 @@ public sealed record DashboardFloorItem(
     double SurfaceTempReduction,
     double AirTempReduction);
 
+/// <summary>
+/// One Lighting Fixture instance's identity, placement, and dark-sky compliance tag — the compliance
+/// value itself is Type-scoped (<c>!_S_PLT_Lighting_DarkSkyCompliant_Text</c>) since fixture shielding
+/// is a fixture-model property, not something that varies instance to instance.
+/// </summary>
+public sealed record DashboardLightingItem(
+    string UniqueId,
+    long ElementId,
+    string FamilyName,
+    string TypeName,
+    string? LevelName,
+    DesignOptionInfo DesignOption,
+    string? DarkSkyCompliant);
+
 public sealed record DashboardReportRequest(bool SelectedOnly = false);
 
 public sealed record DashboardReportResult(
     string DocumentTitle,
     string PreferredUnitSystem,
     string PreferredCurrency,
+    double? SiteTotalAreaSquareMeters,
+    double? HabitatConnectivityScore,
     IReadOnlyList<DashboardTreeItem> Trees,
-    IReadOnlyList<DashboardFloorItem> Floors);
+    IReadOnlyList<DashboardFloorItem> Floors,
+    IReadOnlyList<DashboardLightingItem> Lighting);
 
 public static class JsonDefaults
 {

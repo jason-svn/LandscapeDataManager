@@ -6,8 +6,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.Co
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.Revit", "src\WWP.LandscapeDataManager.Revit\WWP.LandscapeDataManager.Revit.csproj", "{6FE65A4A-720F-4C3A-8A6D-844FD9DEDA4A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App", "src\WWP.LandscapeDataManager.App\WWP.LandscapeDataManager.App.csproj", "{95F505BF-4C0C-4D43-B6E6-9773F1AD6664}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.Shared", "src\WWP.LandscapeDataManager.Shared\WWP.LandscapeDataManager.Shared.csproj", "{B9C40BC0-EE9E-4327-B15F-540423E9723D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.Parameters", "src\WWP.LandscapeDataManager.App.Parameters\WWP.LandscapeDataManager.App.Parameters.csproj", "{6A0AB831-069F-41E3-A38A-9D1778384050}"
@@ -56,14 +54,6 @@ Global
 		{6FE65A4A-720F-4C3A-8A6D-844FD9DEDA4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6FE65A4A-720F-4C3A-8A6D-844FD9DEDA4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6FE65A4A-720F-4C3A-8A6D-844FD9DEDA4A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{95F505BF-4C0C-4D43-B6E6-9773F1AD6664}.Debug 2025|Any CPU.ActiveCfg = Debug 2025|x64
-		{95F505BF-4C0C-4D43-B6E6-9773F1AD6664}.Debug 2025|Any CPU.Build.0 = Debug 2025|x64
-		{95F505BF-4C0C-4D43-B6E6-9773F1AD6664}.Debug 2026|Any CPU.ActiveCfg = Debug 2026|x64
-		{95F505BF-4C0C-4D43-B6E6-9773F1AD6664}.Debug 2026|Any CPU.Build.0 = Debug 2026|x64
-		{95F505BF-4C0C-4D43-B6E6-9773F1AD6664}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{95F505BF-4C0C-4D43-B6E6-9773F1AD6664}.Debug|Any CPU.Build.0 = Debug|x64
-		{95F505BF-4C0C-4D43-B6E6-9773F1AD6664}.Release|Any CPU.ActiveCfg = Release|x64
-		{95F505BF-4C0C-4D43-B6E6-9773F1AD6664}.Release|Any CPU.Build.0 = Release|x64
 		{B9C40BC0-EE9E-4327-B15F-540423E9723D}.Debug 2025|Any CPU.ActiveCfg = Debug 2025|Any CPU
 		{B9C40BC0-EE9E-4327-B15F-540423E9723D}.Debug 2025|Any CPU.Build.0 = Debug 2025|Any CPU
 		{B9C40BC0-EE9E-4327-B15F-540423E9723D}.Debug 2026|Any CPU.ActiveCfg = Debug 2026|Any CPU

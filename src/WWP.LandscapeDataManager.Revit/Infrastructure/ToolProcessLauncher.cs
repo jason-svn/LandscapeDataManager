@@ -6,10 +6,10 @@ using System.Runtime.InteropServices;
 namespace WWP.LandscapeDataManager.Revit.Infrastructure;
 
 /// <summary>
-/// Starts (or refocuses) one dedicated tool executable. Each of the 5 LIM tools gets its own
-/// instance of this launcher, keyed to its own exe — unlike the old single-process
-/// CompanionLauncher, there is no cross-tool navigation: each exe hosts exactly one tool, so
-/// "show or start" only ever means "start it" or "bring its one window to front."
+/// Starts (or refocuses) one dedicated tool executable. Each LIM tool gets its own instance of
+/// this launcher, keyed to its own exe — there is no cross-tool navigation: each exe hosts
+/// exactly one tool, so "show or start" only ever means "start it" or "bring its one window to
+/// front."
 /// </summary>
 public sealed class ToolProcessLauncher(string exeRelativePath, string pipeName) : IDisposable
 {

@@ -146,6 +146,11 @@ internal static class SharedParameterSetupService
         var staleNames = sameGuidStaleNames
             .Concat(ownership.LegacyAliases)
             .Distinct(StringComparer.Ordinal)
+            // LegacyAliases is a static list of names that MIGHT be stale in some project — a project
+            // that never had the old name bound (e.g. a brand-new file) has nothing to report. Verify
+            // an actual binding exists before claiming one does, same check the apply branch below
+            // already relies on to decide what to remove.
+            .Where(name => FindExistingBinding(document, name) is not null)
             .ToList();
 
         if (staleNames.Count == 0)
@@ -357,6 +362,16 @@ internal static class SharedParameterSetupService
 
         private static ParameterOwnership PlantingAndFloorInstance(string name, ForgeTypeId group, string description, IReadOnlyList<string>? legacyAliases = null) =>
             new(name, "Instance", [BuiltInCategory.OST_Planting, BuiltInCategory.OST_Floors], group, description, legacyAliases ?? []);
+
+        // Same two categories as PlantingAndFloorInstance above, but Type scope — for landscape-type
+        // reference values that are the same for every instance of a species/type (e.g. a WWP sheet
+        // reference figure for a standard starter tree), rather than something that varies per
+        // individual placed element or needs area-scaling.
+        private static ParameterOwnership PlantingAndFloorType(string name, ForgeTypeId group, string description, IReadOnlyList<string>? legacyAliases = null) =>
+            new(name, "Type", [BuiltInCategory.OST_Planting, BuiltInCategory.OST_Floors], group, description, legacyAliases ?? []);
+
+        private static ParameterOwnership LightingFixtureType(string name, ForgeTypeId group, string description, IReadOnlyList<string>? legacyAliases = null) =>
+            new(name, "Type", [BuiltInCategory.OST_LightingFixtures], group, description, legacyAliases ?? []);
 
         // Descriptions sourced verbatim from "WWP Planting iTree Project Parameters.xlsx" (the
         // Description column), except where a description referenced the retired Planting Key
@@ -579,49 +594,74 @@ internal static class SharedParameterSetupService
             //
             // Required manual input — a person must assign the landscape type (via Floor
             // Calculator's search/match) before a coefficient row can be looked up for it.
-            PlantingAndFloorInstance("!_S_PLT_LDS_Type_Text", GroupTypeId.Constraints,
+            // Match key/status fields are a function of which Type got assigned via Floor
+            // Calculator, not of any per-instance measurement — every instance of the same Type
+            // resolves to the same coefficient row, so Type scope (same reasoning as the rest of
+            // this file's LDS reference data).
+            PlantingAndFloorType("!_S_PLT_LDS_Type_Text", GroupTypeId.Constraints,
                 "WWP landscape data sheet type assigned via Floor Calculator (e.g. Lawn, Meadow, Granite - Blanco Cristal)."),
             // Optional — internal bookkeeping, not something a person reads directly.
-            PlantingAndFloorInstance("!_S_PLT_LDS_MatchKey_Text", GroupTypeId.General,
+            PlantingAndFloorType("!_S_PLT_LDS_MatchKey_Text", GroupTypeId.General,
                 "Stable lookup key into the cached WWP landscape data sheet, used to re-find the exact coefficient row without re-matching."),
             // Output — Floor Calculator's own status/tracking fields, mirroring i-Tree Calculator's pattern.
-            PlantingAndFloorInstance("!_S_PLT_LDS_ResultSource_Text", GroupTypeId.AnalysisResults,
+            PlantingAndFloorType("!_S_PLT_LDS_ResultSource_Text", GroupTypeId.AnalysisResults,
                 "Whether the currently written values came from the coefficient table as calculated, or were edited manually in Floor Calculator before writing."),
-            PlantingAndFloorInstance("!_S_PLT_LDS_LastCalculated_Text", GroupTypeId.AnalysisResults,
+            PlantingAndFloorType("!_S_PLT_LDS_LastCalculated_Text", GroupTypeId.AnalysisResults,
                 "ISO 8601 date and time of the last Floor Calculator run for this element."),
             // Output — the WWP landscape data sheet's per-square-metre coefficients times area,
             // for metrics with no i-Tree equivalent to reuse. (CostSavedAnnual moved up to the
             // iTreeResult_ group above — it's now shared with the i-Tree tree-benefit result.)
+            // These three are genuinely instance-varying (App.FloorCalculator/MainPage.xaml.cs
+            // multiplies each by that instance's own area) — stay Instance, unlike the rest of
+            // this group, so two instances of the same Type with different areas still get their
+            // own totals.
             PlantingAndFloorInstance("!_S_PLT_LDS_OxygenProducedAnnual_Mass", GroupTypeId.AnalysisResults,
                 "Estimated annual oxygen produced, from the WWP landscape data sheet's per-square-metre coefficient times area (Revit Mass parameter).",
                 legacyAliases: ["!_S_PLT_LDS_OxygenProducedAnnual_Number"]),
             PlantingAndFloorInstance("!_S_PLT_LDS_TotalGWP_Mass", GroupTypeId.AnalysisResults,
                 "Total global warming potential (product plus transport) from the WWP landscape data sheet's per-square-metre coefficient times area — an embodied-impact figure, not a benefit (Revit Mass parameter).",
                 legacyAliases: ["!_S_PLT_LDS_TotalGWP_Number"]),
-            PlantingAndFloorInstance("!_S_PLT_LDS_SurfaceTempReduction_Number", GroupTypeId.AnalysisResults,
+            // Not multiplied by area (App.FloorCalculator/MainPage.xaml.cs passes these straight
+            // through) — an intrinsic material property, so Type scope like MaxHeight/MaxWidth above.
+            PlantingAndFloorType("!_S_PLT_LDS_SurfaceTempReduction_Number", GroupTypeId.AnalysisResults,
                 "Surface temperature reduction for this landscape type, from the WWP landscape data sheet — an intrinsic material property, not scaled by area. Metric: °C. (Metric-only — no Imperial conversion.)"),
-            PlantingAndFloorInstance("!_S_PLT_LDS_AirTempReduction_Number", GroupTypeId.AnalysisResults,
+            PlantingAndFloorType("!_S_PLT_LDS_AirTempReduction_Number", GroupTypeId.AnalysisResults,
                 "Air temperature reduction at 1.5m height for this landscape type, from the WWP landscape data sheet — an intrinsic material property, not scaled by area. Metric: °C. (Metric-only — no Imperial conversion.)"),
 
             // Optional — descriptive landscape-type reference data from the WWP landscape data
-            // sheet, same bucket as the i-Tree species reference fields above.
-            PlantingAndFloorInstance("!_S_PLT_LDS_Origin_Text", GroupTypeId.General,
+            // sheet, same bucket as the i-Tree species reference fields above. Type scope: a
+            // classification tag or reference figure for the type, not something that varies per
+            // placed instance — and Instance scope would otherwise require per-instance pairing
+            // before the Importer could ever write it (see AvoidedWaterRunoff etc. below).
+            PlantingAndFloorType("!_S_PLT_LDS_Origin_Text", GroupTypeId.General,
                 "Geographic origin of the landscape type, from the WWP landscape data sheet."),
-            // Recycled from the pre-existing "Données d'indentification" group (same GUIDs, moved
-            // into this group and given a description) rather than minting new duplicates — they
-            // predate this parameter family but were never wired into EnsureParameters. Renamed to
-            // the !_S_PLT_LDS_ prefix for consistency with their siblings above; same GUIDs, so
-            // existing bindings still resolve correctly under the new name.
-            PlantingAndFloorInstance("!_S_PLT_LDS_CalculationType_Text", GroupTypeId.General,
-                "Landscape type classification (e.g. Tree, Shrub species, Surfaces), from the WWP landscape data sheet."),
-            PlantingAndFloorInstance("!_S_PLT_LDS_Category_Text", GroupTypeId.General,
-                "Landscape data sheet category for this type, from the WWP landscape data sheet."),
-            PlantingAndFloorInstance("!_S_PLT_LDS_SubCategory_Text", GroupTypeId.General,
-                "Landscape data sheet sub-category for this type, from the WWP landscape data sheet."),
-            // Output — additional WWP landscape data sheet coefficients times area, same pattern as
-            // CostSavedAnnual/OxygenProducedAnnual above.
-            PlantingAndFloorInstance("!_S_PLT_LDS_MaintenanceCostAnnual_Currency", GroupTypeId.AnalysisResults,
-                "Estimated annual maintenance cost, from the WWP landscape data sheet's per-square-metre coefficient times area (Revit Currency parameter).",
+            // Originally recycled from the pre-existing "Données d'indentification" group under the
+            // same GUIDs on the theory that renaming the .txt entry would resolve existing bindings
+            // under the new name — confirmed false: Revit caches a bound SharedParameterElement's
+            // display name per GUID at the project level, so a project that already had one of these
+            // GUIDs bound under its old "WWP_LDS_*" name kept showing that old name forever, no
+            // matter what the .txt file's text said. Reissued with fresh GUIDs and legacyAliases
+            // (matching AvoidedWaterRunoff/CarbonDioxideSequestration/OxygenLevels below) so
+            // RemoveStaleBindings can actually retire the old names instead of leaving them as
+            // orphaned duplicates. Also converted Instance -> Type for the same reason as Origin_Text
+            // above — RevitModelScanner already falls back to a Type-level lookup for
+            // CalculationType_Text, which only made sense if this was meant to be Type-bound.
+            PlantingAndFloorType("!_S_PLT_LDS_CalculationType_Text", GroupTypeId.General,
+                "Landscape type classification (e.g. Tree, Shrub species, Surfaces), from the WWP landscape data sheet.",
+                legacyAliases: ["WWP_LDS_CalculationType"]),
+            PlantingAndFloorType("!_S_PLT_LDS_Category_Text", GroupTypeId.General,
+                "Landscape data sheet category for this type, from the WWP landscape data sheet.",
+                legacyAliases: ["WWP_LDS_Category"]),
+            PlantingAndFloorType("!_S_PLT_LDS_SubCategory_Text", GroupTypeId.General,
+                "Landscape data sheet sub-category for this type, from the WWP landscape data sheet.",
+                legacyAliases: ["WWP_LDS_SubCategory"]),
+            // Despite the "coefficient times area" wording, this is NOT actually computed anywhere —
+            // grepped FloorLdsCalculationService's full write list and it's absent (unlike its
+            // OxygenProducedAnnual/PollutantsRemovedAnnual siblings, which really are computed
+            // there). It's a pure Importer-only reference value, so Type scope for the same reason as
+            // AvoidedWaterRunoff/CarbonDioxideSequestration/OxygenLevels below.
+            PlantingAndFloorType("!_S_PLT_LDS_MaintenanceCostAnnual_Currency", GroupTypeId.AnalysisResults,
+                "Estimated annual maintenance cost for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area (Revit Currency parameter).",
                 legacyAliases: ["!_S_PLT_LDS_MaintenanceCostAnnual_Number"]),
             PlantingAndFloorInstance("!_S_PLT_LDS_PollutantsRemovedAnnual_Mass", GroupTypeId.AnalysisResults,
                 "Estimated annual pollutants removed, from the WWP landscape data sheet's per-square-metre coefficient times area (Revit Mass parameter).",
@@ -630,29 +670,74 @@ internal static class SharedParameterSetupService
             // LandscapeCalculationEngine/mapping-suggestion feature, but never actually bound here
             // until now — closing that gap so "Ensure Shared Parameters" actually guarantees these
             // exist, same as their MaintenanceCost/PollutantsRemoved siblings above.
-            PlantingAndFloorInstance("!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Number", GroupTypeId.AnalysisResults,
-                "Estimated annual avoided water runoff, from the WWP landscape data sheet's per-square-metre coefficient times area.",
+            // Instance scope was the original design (per the "times area" wording below), but
+            // nothing in this codebase ever actually multiplies these by area — the Importer just
+            // copies the raw sheet number across — and the WWP sheet's own column names carry a
+            // "(16/18 girth)" qualifier: a standard nursery starter-tree trunk-girth spec, meaning
+            // these are per-species reference figures for a typical young tree, not a true
+            // per-square-metre rate. Type scope matches what they actually are (and lets them
+            // populate via the Importer's automatic Family+Type name matching, with no per-instance
+            // pairing required — same as MaxHeight/MaxWidth below).
+            PlantingAndFloorType("!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Number", GroupTypeId.AnalysisResults,
+                "Estimated annual avoided water runoff for a standard starter tree of this species (WWP sheet's \"16/18 girth\" reference), from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.",
                 legacyAliases: ["WWP_Avoided_Water_Runoff"]),
-            PlantingAndFloorInstance("!_S_PLT_LDS_OxygenLevelsAnnual_Number", GroupTypeId.AnalysisResults,
-                "Estimated annual oxygen levels, from the WWP landscape data sheet's per-square-metre coefficient times area.",
+            PlantingAndFloorType("!_S_PLT_LDS_OxygenLevelsAnnual_Number", GroupTypeId.AnalysisResults,
+                "Estimated annual oxygen levels for a standard starter tree of this species (WWP sheet's \"16/18 girth\" reference), from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.",
                 legacyAliases: ["WWP_Oxygen_Levels"]),
-            PlantingAndFloorInstance("!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Number", GroupTypeId.AnalysisResults,
-                "Estimated annual carbon dioxide sequestration, from the WWP landscape data sheet's per-square-metre coefficient times area.",
+            PlantingAndFloorType("!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Number", GroupTypeId.AnalysisResults,
+                "Estimated annual carbon dioxide sequestration for a standard starter tree of this species (WWP sheet's \"16/18 girth\" reference), from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.",
                 legacyAliases: ["WWP_Carbon_Dioxide_Sequestration"]),
-            PlantingAndFloorInstance("!_S_PLT_LDS_ProductGWP_Number", GroupTypeId.AnalysisResults,
+            // Same "declared times-area, never actually computed" pattern as MaintenanceCostAnnual
+            // above — neither is in FloorLdsCalculationService's write list. Type scope.
+            PlantingAndFloorType("!_S_PLT_LDS_ProductGWP_Number", GroupTypeId.AnalysisResults,
                 "Embodied product global warming potential, from the WWP landscape data sheet — a component of total GWP, not scaled by area. Metric: kg CO2e/m². (Metric-only — no Imperial conversion.)"),
-            PlantingAndFloorInstance("!_S_PLT_LDS_TransportGWP_Number", GroupTypeId.AnalysisResults,
+            PlantingAndFloorType("!_S_PLT_LDS_TransportGWP_Number", GroupTypeId.AnalysisResults,
                 "Embodied transport global warming potential, from the WWP landscape data sheet — a component of total GWP, not scaled by area. Metric: kg CO2e/m². (Metric-only — no Imperial conversion.)"),
-            PlantingAndFloorInstance("!_S_PLT_LDS_PollenAnnual_Number", GroupTypeId.AnalysisResults,
-                "Estimated annual pollen production, from the WWP landscape data sheet. Metric: kg/m²/yr. (Metric-only — no Imperial conversion.)"),
-            // Output — intrinsic reference values from the WWP landscape data sheet, same bucket as
-            // SurfaceTempReduction/AirTempReduction above (not scaled by area).
-            PlantingAndFloorInstance("!_S_PLT_LDS_MaxHeight_Number", GroupTypeId.AnalysisResults,
+            PlantingAndFloorType("!_S_PLT_LDS_PollenAnnual_Number", GroupTypeId.AnalysisResults,
+                "Estimated annual pollen production for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area. Metric: kg/m²/yr. (Metric-only — no Imperial conversion.)"),
+            // Reference values from the WWP landscape data sheet — every instance of a type shares
+            // the same species-level max height/width, so Type scope (same fix as
+            // AvoidedWaterRunoff/OxygenLevels/CarbonDioxideSequestration above).
+            PlantingAndFloorType("!_S_PLT_LDS_MaxHeight_Number", GroupTypeId.AnalysisResults,
                 "Maximum mature height for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area. Metric: m. (Metric-only — no Imperial conversion.)"),
-            PlantingAndFloorInstance("!_S_PLT_LDS_MaxWidth_Number", GroupTypeId.AnalysisResults,
+            PlantingAndFloorType("!_S_PLT_LDS_MaxWidth_Number", GroupTypeId.AnalysisResults,
                 "Maximum mature width/spread for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area. Metric: m. (Metric-only — no Imperial conversion.)"),
-            PlantingAndFloorInstance("!_S_PLT_LDS_IrrigationDemandFactor_Number", GroupTypeId.AnalysisResults,
-                "Irrigation demand plant factor for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.")
+            // Was Instance scope despite its own description already saying "not scaled by area" —
+            // same fix as AvoidedWaterRunoff/OxygenLevels/CarbonDioxideSequestration above.
+            PlantingAndFloorType("!_S_PLT_LDS_IrrigationDemandFactor_Number", GroupTypeId.AnalysisResults,
+                "Irrigation demand plant factor for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area."),
+
+            // Site & Biodiversity KPI dashboard — new reference data, person-entered directly in
+            // Revit rather than synced from Airtable (no external source exists for any of this).
+            ProjectInfo("!_S_PLT_Site_TotalArea_Area", GroupTypeId.General,
+                "Total site boundary area entered by the project team, used to compute canopy-cover and softscape-surface-ratio percentages."),
+            ProjectInfo("!_S_PLT_Site_HabitatConnectivityScore_Number", GroupTypeId.General,
+                "Habitat continuity score (0-10) from external GIS connectivity modelling against neighbouring ecological assets, recorded here for reporting."),
+            PlantingAndFloorType("!_S_PLT_LDS_SurfaceClass_Text", GroupTypeId.General,
+                "Pervious or Impervious surface classification for this landscape type, used to compute the softscape surface ratio."),
+            PlantingType("!_S_PLT_iTreeSpecies_NativeStatus_Text", GroupTypeId.General,
+                "Native, Adaptive, or Non-native status for this species, used to compute the native species ratio."),
+            PlantingType("!_S_PLT_iTreeSpecies_BloomMonths_Text", GroupTypeId.General,
+                "Comma-separated calendar months (1-12) this species blooms or seeds in, used to compute phenological resilience."),
+            PlantingType("!_S_PLT_iTreeSpecies_EcologicalFunctions_Text", GroupTypeId.General,
+                "Comma-separated ecological function tags for this species (e.g. Pollinator, BirdFood, ErosionControl), used to compute the functional diversity index."),
+            LightingFixtureType("!_S_PLT_Lighting_DarkSkyCompliant_Text", GroupTypeId.General,
+                "Yes or No: whether this lighting fixture type is shielded/full-cutoff and compliant with dark-sky standards, used to compute lighting impact reduction."),
+
+            // Create KPI Schedules — Revit has no native Design Option schedule field/filter, so this
+            // is stamped onto every instance to make per-option schedules possible at all.
+            PlantingAndFloorInstance("!_S_PLT_Schedule_DesignOptionLabel_Text", GroupTypeId.General,
+                "Resolved Design Option label (set name : option name), stamped by Create KPI Schedules so schedules can filter by it since Revit has no native Design Option schedule field."),
+
+            // WWP landscape data sheet columns with no prior parameter — same bucket as
+            // MaintenanceCostAnnual above: imported reference values, never computed by a live API.
+            // Type scope, same reasoning as the rest of this reference-value group.
+            PlantingAndFloorType("!_S_PLT_LDS_OxygenCostSavedAnnual_Currency", GroupTypeId.AnalysisResults,
+                "Estimated annual dollar value of the oxygen benefit for this landscape type, from the WWP landscape data sheet — i-Tree does not monetize oxygen production, so this is always an imported reference value, never a live-calculated result."),
+            PlantingAndFloorType("!_S_PLT_LDS_RunoffCoefficient_Number", GroupTypeId.AnalysisResults,
+                "Dimensionless rainfall-interception/runoff coefficient (f_int / Crg) for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area."),
+            PlantingType("!_S_PLT_iTreeSpecies_Allergenic_Text", GroupTypeId.General,
+                "Yes or No: whether this species is classified as allergenic, from the WWP landscape data sheet.")
         ];
     }
 }

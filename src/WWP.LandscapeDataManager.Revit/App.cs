@@ -11,7 +11,6 @@ public sealed class App : IExternalApplication
 {
     internal static RevitExternalEventDispatcher? Dispatcher { get; private set; }
     internal static RevitPipeServer? PipeServer { get; private set; }
-    internal static CompanionLauncher? CompanionLauncher { get; private set; }
     internal static ToolProcessLauncher? ParametersLauncher { get; private set; }
     internal static ToolProcessLauncher? ImporterLauncher { get; private set; }
     internal static ToolProcessLauncher? ITreeDownloaderLauncher { get; private set; }
@@ -28,7 +27,6 @@ public sealed class App : IExternalApplication
     {
         Dispatcher = new RevitExternalEventDispatcher();
         PipeServer = new RevitPipeServer(Dispatcher);
-        CompanionLauncher = new CompanionLauncher(PipeServer.PipeName);
         ParametersLauncher = new ToolProcessLauncher(
             Path.Combine("Parameters", "WWP.LandscapeDataManager.Parameters.exe"),
             PipeServer.PipeName);
@@ -98,6 +96,13 @@ public sealed class App : IExternalApplication
             "LF",
             "Location Finder",
             "Pick a location on a map (or search an address, or read the project's existing Site Location) and publish it to the i-Tree latitude/longitude parameters.");
+        AddWorkflowButton<CreateKpiSchedulesCommand>(
+            projectSetupPanel,
+            "LIMCreateKpiSchedules",
+            "KPI\nSchedules",
+            "KS",
+            "Create KPI Schedules",
+            "Create a Planting and a Planting Area schedule per Design Option, covering every KPI parameter the Dashboard reports, grouped by species/landscape type with counts and totals.");
 
         AddWorkflowButton<SearchTreesCommand>(
             dataProcessingPanel,
@@ -157,7 +162,6 @@ public sealed class App : IExternalApplication
 
     public Result OnShutdown(UIControlledApplication application)
     {
-        CompanionLauncher?.Dispose();
         ParametersLauncher?.Dispose();
         ImporterLauncher?.Dispose();
         ITreeDownloaderLauncher?.Dispose();
@@ -172,7 +176,6 @@ public sealed class App : IExternalApplication
         PipeServer?.Dispose();
         Dispatcher?.Dispose();
 
-        CompanionLauncher = null;
         ParametersLauncher = null;
         ImporterLauncher = null;
         ITreeDownloaderLauncher = null;

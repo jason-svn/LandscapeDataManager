@@ -12,6 +12,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Spacing="4">
@@ -86,10 +87,12 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBox x:Name="LdsBaseIdBox" Header="Base ID" />
                         <TextBox Grid.Column="1" x:Name="LdsTableIdBox" Header="Table ID or name" />
                         <TextBox Grid.Column="2" x:Name="LdsViewIdBox" Header="View (optional)" />
+                        <Button Grid.Column="3" Content="Browse..." Click="BrowseLdsSource_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Bottom" />
                     </Grid>
                     <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
@@ -103,6 +106,35 @@
             </Border>
 
             <Border Grid.Row="4" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="PLANTING DATA SOURCE (AIRTABLE)" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock
+                        Text="The Airtable base this project imports its planting data from — used by Excel Importer and Refresh &amp; Audit whenever Airtable is the selected source. Each project can point at its own base; there's nothing to fill in if you only ever import from Excel."
+                        Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="ImportBaseIdBox" Header="Base ID" PlaceholderText="appXXXXXXXXXXXXXX" />
+                        <TextBox Grid.Column="1" x:Name="ImportTableIdBox" Header="Table name or ID" />
+                        <TextBox Grid.Column="2" x:Name="ImportViewIdBox" Header="View (optional)" />
+                        <Button Grid.Column="3" Content="Browse..." Click="BrowseImportSource_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Bottom" />
+                    </Grid>
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Content="Save" Click="SaveImportSourceSettings_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
+                        <TextBlock Grid.Column="1" x:Name="ImportSourceStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="5" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">
                     <TextBlock Text="SHARED PARAMETER FILE" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock

@@ -39,11 +39,16 @@ public sealed class RevitPipeClient(string pipeName) : IAsyncDisposable
         object? payload = null,
         CancellationToken cancellationToken = default)
     {
-        await ConnectAsync(cancellationToken);
         await _sendLock.WaitAsync(cancellationToken);
 
         try
         {
+            // Connecting must happen under the same lock as sending: two calls racing to
+            // connect concurrently (e.g. Task.WhenAll of independent SendAsync calls) can
+            // each create their own NamedPipeClientStream and stomp on the shared _pipe/
+            // _reader/_writer fields, leaving one of them talking to a half-connected pipe.
+            await ConnectAsync(cancellationToken);
+
             var requestId = Guid.NewGuid().ToString("N");
             var request = new PipeRequest(
                 requestId,

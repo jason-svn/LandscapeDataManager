@@ -31,6 +31,7 @@ public sealed partial class MainPage : Page
     private string _preferredCurrency = "USD";
     private List<ParameterWriteItem> _typeWriteItems = [];
     private List<InstanceParameterWriteItem> _instanceWriteItems = [];
+    private AirtableApiSettings _airtableSettings = new(string.Empty, string.Empty, null);
 
     public MainPage()
     {
@@ -63,14 +64,15 @@ public sealed partial class MainPage : Page
     {
         var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
         var dataSourceSettings = snapshot?.DataSource ?? new DataSourceSettings(DataSourceKind.Airtable, string.Empty, string.Empty);
-        var airtableSettings = snapshot?.AirtableApi ?? new AirtableApiSettings(string.Empty, string.Empty, null);
+        _airtableSettings = snapshot?.AirtableApi ?? new AirtableApiSettings(string.Empty, string.Empty, null);
         SourceKindBox.SelectedIndex = dataSourceSettings.Kind == DataSourceKind.Excel ? 1 : 0;
         ExcelPathBox.Text = dataSourceSettings.ExcelPath;
-        AirtableBaseIdBox.Text = airtableSettings.BaseId;
-        AirtableTableBox.Text = airtableSettings.TableIdOrName;
         AirtableTokenStatusText.Text = string.IsNullOrWhiteSpace(_airtableCredentialStore.Load())
             ? "No Airtable personal access token saved — open Settings from the LIM ribbon first."
             : "Airtable personal access token: saved (managed in Settings).";
+        AirtableSourceStatusText.Text = string.IsNullOrWhiteSpace(_airtableSettings.BaseId)
+            ? "No planting data source saved yet — open Settings from the LIM ribbon first."
+            : $"Source: base {_airtableSettings.BaseId} / table {_airtableSettings.TableIdOrName} (managed in Settings).";
         UpdateSourceVisibility();
 
         if (snapshot is not null)
@@ -120,8 +122,12 @@ public sealed partial class MainPage : Page
             throw new InvalidOperationException("No Airtable personal access token saved — open Settings from the LIM ribbon first.");
         }
 
-        var settings = new AirtableApiSettings(AirtableBaseIdBox.Text.Trim(), AirtableTableBox.Text.Trim(), null);
-        return await _airtableApiClient.GetRecordsAsync(settings, token);
+        if (string.IsNullOrWhiteSpace(_airtableSettings.BaseId))
+        {
+            throw new InvalidOperationException("No planting data source saved — open Settings from the LIM ribbon first.");
+        }
+
+        return await _airtableApiClient.GetRecordsAsync(_airtableSettings, token);
     }
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>

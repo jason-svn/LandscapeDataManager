@@ -17,7 +17,8 @@ internal static class DashboardReportService
     private static readonly BuiltInCategory[] SupportedCategories =
     [
         BuiltInCategory.OST_Planting,
-        BuiltInCategory.OST_Floors
+        BuiltInCategory.OST_Floors,
+        BuiltInCategory.OST_LightingFixtures
     ];
 
     public static DashboardReportResult GetReport(UIApplication application, DashboardReportRequest request)
@@ -52,6 +53,7 @@ internal static class DashboardReportService
 
         var trees = new List<DashboardTreeItem>();
         var floors = new List<DashboardFloorItem>();
+        var lighting = new List<DashboardLightingItem>();
         foreach (var element in elements)
         {
             if (element.Category?.BuiltInCategory == BuiltInCategory.OST_Planting)
@@ -62,12 +64,33 @@ internal static class DashboardReportService
             {
                 floors.Add(CreateFloorItem(document, element));
             }
+            else if (element.Category?.BuiltInCategory == BuiltInCategory.OST_LightingFixtures)
+            {
+                lighting.Add(CreateLightingItem(document, element));
+            }
         }
 
         var unitPreference = RevitModelScanner.GetPreferredUnitSystemCode(document);
         var currencyPreference = RevitModelScanner.GetPreferredCurrencyCode(document);
+        var siteTotalArea = GetSiteTotalAreaSquareMeters(document);
+        var habitatConnectivityScore = GetHabitatConnectivityScore(document);
 
-        return new DashboardReportResult(document.Title, unitPreference, currencyPreference, trees, floors);
+        return new DashboardReportResult(
+            document.Title, unitPreference, currencyPreference, siteTotalArea, habitatConnectivityScore, trees, floors, lighting);
+    }
+
+    private static double? GetSiteTotalAreaSquareMeters(Document document)
+    {
+        var parameter = document.ProjectInformation.LookupParameter("!_S_PLT_Site_TotalArea_Area");
+        return parameter is { HasValue: true }
+            ? UnitUtils.ConvertFromInternalUnits(parameter.AsDouble(), UnitTypeId.SquareMeters)
+            : null;
+    }
+
+    private static double? GetHabitatConnectivityScore(Document document)
+    {
+        var parameter = document.ProjectInformation.LookupParameter("!_S_PLT_Site_HabitatConnectivityScore_Number");
+        return parameter is { HasValue: true } ? parameter.AsDouble() : null;
     }
 
     private static DashboardTreeItem CreateTreeItem(Document document, Element element)
@@ -92,6 +115,14 @@ internal static class DashboardReportService
                 : 0d;
         }
 
+        var canopyWidthParameter = element.LookupParameter("!_S_PLT_TreeFoliage_Width");
+        var canopyAreaSquareMeters = 0d;
+        if (canopyWidthParameter is { HasValue: true })
+        {
+            var radiusInternal = canopyWidthParameter.AsDouble() / 2d;
+            canopyAreaSquareMeters = UnitUtils.ConvertFromInternalUnits(Math.PI * radiusInternal * radiusInternal, UnitTypeId.SquareMeters);
+        }
+
         return new DashboardTreeItem(
             element.UniqueId,
             element.Id.Value,
@@ -101,6 +132,10 @@ internal static class DashboardReportService
             elementType is null ? null : GetNullableText(elementType, "!_S_PLT_iTreeSpecies_CommonName_Text"),
             elementType is null ? null : GetNullableText(elementType, "!_S_PLT_iTreeSpecies_ScientificName_Text"),
             elementType is null ? null : GetNullableText(elementType, "!_S_PLT_iTreeSpecies_Type_Text"),
+            elementType is null ? null : GetNullableText(elementType, "!_S_PLT_iTreeSpecies_NativeStatus_Text"),
+            elementType is null ? null : GetNullableText(elementType, "!_S_PLT_iTreeSpecies_BloomMonths_Text"),
+            elementType is null ? null : GetNullableText(elementType, "!_S_PLT_iTreeSpecies_EcologicalFunctions_Text"),
+            canopyAreaSquareMeters,
             GetLevelName(document, element),
             GetDesignOptionInfo(document, element),
             GetNullableText(element, "!_S_PLT_iTreeResult_Status_Text") ?? "MissingInput",
@@ -165,6 +200,7 @@ internal static class DashboardReportService
             familyName,
             elementType?.Name ?? element.Name,
             GetNullableText(element, "!_S_PLT_LDS_Type_Text"),
+            GetNullableText(element, "!_S_PLT_LDS_SurfaceClass_Text"),
             GetLevelName(document, element),
             GetDesignOptionInfo(document, element),
             areaSquareMeters,
@@ -178,13 +214,28 @@ internal static class DashboardReportService
             GetDoubleParameter(element, "!_S_PLT_LDS_AirTempReduction_Number"));
     }
 
+    private static DashboardLightingItem CreateLightingItem(Document document, Element element)
+    {
+        var elementType = document.GetElement(element.GetTypeId()) as ElementType;
+        var familyName = elementType is FamilySymbol symbol ? symbol.FamilyName : elementType?.FamilyName ?? string.Empty;
+
+        return new DashboardLightingItem(
+            element.UniqueId,
+            element.Id.Value,
+            familyName,
+            elementType?.Name ?? element.Name,
+            GetLevelName(document, element),
+            GetDesignOptionInfo(document, element),
+            elementType is null ? null : GetNullableText(elementType, "!_S_PLT_Lighting_DarkSkyCompliant_Text"));
+    }
+
     /// <summary>
     /// Resolves the option's own name and its parent set's name via the option's <see cref="BuiltInParameter.OPTION_SET_ID"/>
     /// parameter — no code elsewhere in this repo enumerates actual Design Options (only the primary/
     /// non-primary boolean), so this idiom should be re-checked against a live model with non-primary
     /// options while testing.
     /// </summary>
-    private static DesignOptionInfo GetDesignOptionInfo(Document document, Element element)
+    internal static DesignOptionInfo GetDesignOptionInfo(Document document, Element element)
     {
         var designOption = element.DesignOption;
         if (designOption is null)

@@ -6,14 +6,19 @@ using WWP.LandscapeDataManager.Shared.Models;
 namespace WWP.LandscapeDataManager.Shared.Services;
 
 /// <summary>
-/// Matches Revit types to source records by Family + Type instead of display name alone. The
-/// source's type-name column value is still the primary signal (that's what the spreadsheet
-/// actually has), but when two Revit types of different Families normalize to the same name,
-/// this reports the collision as ambiguous rather than guessing — resolvable by adding a
-/// <see cref="TypeAlias"/> that pins the source's value to one specific Family + Type.
+/// Matches Revit types to source records, preferring a species code (an exact, unambiguous
+/// identity) over Family + Type display name. The source's "Species Code" column is checked
+/// first when the Revit type has one; the type-name column is still the fallback signal for
+/// types with no species code assigned (e.g. non-planting Floor types), or when the source has
+/// no Species Code column at all. When two Revit types of different Families normalize to the
+/// same name, name-based matching reports the collision as ambiguous rather than guessing —
+/// resolvable by adding a <see cref="TypeAlias"/> that pins the source's value to one specific
+/// Family + Type.
 /// </summary>
 public static class StableTypeMatcher
 {
+    private static readonly string[] SpeciesCodeKeyFields = ["Species Code"];
+
     public static IReadOnlyList<TypeMatch> Build(
         IReadOnlyList<ModelScanItem> revitTypes,
         IReadOnlyList<AirtableRecord> sourceRecords,
@@ -21,6 +26,7 @@ public static class StableTypeMatcher
         IReadOnlyList<TypeAlias> aliases)
     {
         var sourceIndex = BuildSourceIndex(sourceRecords, typeKeyFields);
+        var speciesCodeIndex = BuildSourceIndex(sourceRecords, SpeciesCodeKeyFields);
         var typeNameCollisions = revitTypes
             .GroupBy(type => Normalize(type.TypeName))
             .Where(group => group.Select(type => type.FamilyName).Distinct(StringComparer.Ordinal).Count() > 1)
@@ -33,7 +39,7 @@ public static class StableTypeMatcher
         var results = new List<TypeMatch>(revitTypes.Count);
         foreach (var revitType in revitTypes)
         {
-            results.Add(MatchOne(revitType, sourceIndex, typeNameCollisions, aliasByFamilyType));
+            results.Add(MatchOne(revitType, sourceIndex, speciesCodeIndex, typeNameCollisions, aliasByFamilyType));
         }
 
         return results;
@@ -42,9 +48,22 @@ public static class StableTypeMatcher
     private static TypeMatch MatchOne(
         ModelScanItem revitType,
         IReadOnlyDictionary<string, List<AirtableRecord>> sourceIndex,
+        IReadOnlyDictionary<string, List<AirtableRecord>> speciesCodeIndex,
         IReadOnlySet<string> typeNameCollisions,
         IReadOnlyDictionary<(string, string), TypeAlias> aliasByFamilyType)
     {
+        if (!string.IsNullOrWhiteSpace(revitType.SpeciesCode))
+        {
+            var normalizedCode = Normalize(revitType.SpeciesCode);
+            if (speciesCodeIndex.TryGetValue(normalizedCode, out var codeMatches) && codeMatches.Count > 0)
+            {
+                return codeMatches.Count == 1
+                    ? new TypeMatch(revitType, codeMatches[0], "Matched", null)
+                    : new TypeMatch(revitType, null, "Duplicate",
+                        $"More than one source record has Species Code '{revitType.SpeciesCode}'.");
+            }
+        }
+
         if (aliasByFamilyType.TryGetValue((revitType.FamilyName, revitType.TypeName), out var alias))
         {
             var aliasKey = Normalize(alias.SourceTypeName);

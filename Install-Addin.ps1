@@ -22,12 +22,17 @@ $connectorOutput = Join-Path $PSScriptRoot "artifacts\Revit$RevitVersion"
 # One entry per standalone tool executable. Each is published independently and deployed to its
 # own App\<Name>\ subfolder so Revit's ribbon buttons can launch them as separate processes.
 $toolApps = @(
-    @{ Name = 'App'; Project = 'src\WWP.LandscapeDataManager.App\WWP.LandscapeDataManager.App.csproj'; ExeName = 'WWP.LandscapeDataManager.App.exe' }
     @{ Name = 'Parameters'; Project = 'src\WWP.LandscapeDataManager.App.Parameters\WWP.LandscapeDataManager.App.Parameters.csproj'; ExeName = 'WWP.LandscapeDataManager.Parameters.exe' }
     @{ Name = 'Importer'; Project = 'src\WWP.LandscapeDataManager.App.Importer\WWP.LandscapeDataManager.App.Importer.csproj'; ExeName = 'WWP.LandscapeDataManager.Importer.exe' }
     @{ Name = 'ITreeDownloader'; Project = 'src\WWP.LandscapeDataManager.App.ITreeDownloader\WWP.LandscapeDataManager.App.ITreeDownloader.csproj'; ExeName = 'WWP.LandscapeDataManager.ITreeDownloader.exe' }
     @{ Name = 'ITreeCalculator'; Project = 'src\WWP.LandscapeDataManager.App.ITreeCalculator\WWP.LandscapeDataManager.App.ITreeCalculator.csproj'; ExeName = 'WWP.LandscapeDataManager.ITreeCalculator.exe' }
     @{ Name = 'SyncAudit'; Project = 'src\WWP.LandscapeDataManager.App.SyncAudit\WWP.LandscapeDataManager.App.SyncAudit.csproj'; ExeName = 'WWP.LandscapeDataManager.SyncAudit.exe' }
+    @{ Name = 'TreeSearcher'; Project = 'src\WWP.LandscapeDataManager.App.TreeSearcher\WWP.LandscapeDataManager.App.TreeSearcher.csproj'; ExeName = 'WWP.LandscapeDataManager.TreeSearcher.exe' }
+    @{ Name = 'LocationFinder'; Project = 'src\WWP.LandscapeDataManager.App.LocationFinder\WWP.LandscapeDataManager.App.LocationFinder.csproj'; ExeName = 'WWP.LandscapeDataManager.LocationFinder.exe' }
+    @{ Name = 'FloorCalculator'; Project = 'src\WWP.LandscapeDataManager.App.FloorCalculator\WWP.LandscapeDataManager.App.FloorCalculator.csproj'; ExeName = 'WWP.LandscapeDataManager.FloorCalculator.exe' }
+    @{ Name = 'HealthCheck'; Project = 'src\WWP.LandscapeDataManager.App.HealthCheck\WWP.LandscapeDataManager.App.HealthCheck.csproj'; ExeName = 'WWP.LandscapeDataManager.HealthCheck.exe' }
+    @{ Name = 'Dashboard'; Project = 'src\WWP.LandscapeDataManager.App.Dashboard\WWP.LandscapeDataManager.App.Dashboard.csproj'; ExeName = 'WWP.LandscapeDataManager.Dashboard.exe' }
+    @{ Name = 'Settings'; Project = 'src\WWP.LandscapeDataManager.App.Settings\WWP.LandscapeDataManager.App.Settings.csproj'; ExeName = 'WWP.LandscapeDataManager.Settings.exe' }
 )
 
 & dotnet build $connectorProject -c $Configuration "-p:RevitVersion=$RevitVersion"
@@ -46,6 +51,24 @@ foreach ($toolApp in $toolApps) {
     $publishedExecutable = Join-Path $toolApp.OutputPath $toolApp.ExeName
     if (-not (Test-Path -LiteralPath $publishedExecutable)) {
         throw "The '$($toolApp.Name)' executable was not produced at $publishedExecutable."
+    }
+
+    # dotnet publish's file list for these unpackaged (WindowsPackageType=None) WinUI3 apps never
+    # includes the app's own compiled XAML outputs — its per-page .xbf files and its resource
+    # index .pri — into the RID-specific publish folder; only plain `dotnet build`, which just ran
+    # as part of the publish above, writes fresh copies of those into the project's OutputPath
+    # (one level up, shared across RIDs). Without copying them forward, the publish folder keeps
+    # whatever stale .xbf/.pri it had from the last time this happened to work, so a newly
+    # rebuilt .dll (new XAML layout, new event-connection indices) ends up deployed next to
+    # mismatched compiled resources — controls silently missing or events wired to the wrong
+    # element, with no build error to catch it.
+    $buildOutputPath = Join-Path $PSScriptRoot "artifacts\$($toolApp.Name)"
+    Get-ChildItem -LiteralPath $buildOutputPath -File -Filter '*.xbf' |
+        Copy-Item -Destination $toolApp.OutputPath -Force
+    $priName = [IO.Path]::GetFileNameWithoutExtension($toolApp.ExeName) + '.pri'
+    $priPath = Join-Path $buildOutputPath $priName
+    if (Test-Path -LiteralPath $priPath) {
+        Copy-Item -LiteralPath $priPath -Destination $toolApp.OutputPath -Force
     }
 }
 
