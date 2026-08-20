@@ -83,10 +83,13 @@ public sealed partial class MainPage : Page
         _preferredCurrency = code;
         await RunBusyAsync(async () =>
         {
+            var rate = await _exchangeRateService.GetUsdRateAsync(code);
             await GetClient().SendAsync<PublishPreferredCurrencyResult>(
-                PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(code));
+                PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(code, rate.UsdRate));
             await ProjectSettingsSync.PushAsync(GetClient(), preferredCurrency: code, preferredUnitSystem: _preferredUnitSystem);
-            StatusText.Text = $"Preferred currency set to {code}.";
+            StatusText.Text = rate.Success
+                ? $"Preferred currency set to {code} (factor {rate.UsdRate:G6})."
+                : $"Preferred currency set to {code}. {rate.Error}";
         });
     }
 

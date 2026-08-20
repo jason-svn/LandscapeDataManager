@@ -13,6 +13,7 @@ public sealed partial class MainPage : Page
     private static readonly JsonSerializerOptions MessageOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly NominatimGeocodingClient _geocodingClient = new();
+    private readonly ExchangeRateService _exchangeRateService = new();
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
     private string _pipeName = string.Empty;
@@ -137,8 +138,34 @@ public sealed partial class MainPage : Page
             var result = await GetClient().SendAsync<PublishProjectLocationResult>(
                 PipeCommands.PublishProjectLocation,
                 new PublishProjectLocationRequest(latitude, longitude));
-            StatusText.Text = $"Published {result.Latitude:F6}, {result.Longitude:F6} to {result.DocumentTitle}.";
+            var message = $"Published {result.Latitude:F6}, {result.Longitude:F6} to {result.DocumentTitle}.";
+
+            if (MatchCurrencyBox.IsChecked == true)
+            {
+                message += " " + await MatchCurrencyToLocationAsync(latitude, longitude);
+            }
+
+            StatusText.Text = message;
         });
+    }
+
+    /// <summary>Reverse-geocodes to a country, maps it to one of the six LIM currency codes, resolves the current USD exchange rate, and publishes both — best-effort, since not every country maps to a currency this tool supports.</summary>
+    private async Task<string> MatchCurrencyToLocationAsync(double latitude, double longitude)
+    {
+        var countryCode = await _geocodingClient.ReverseCountryCodeAsync(latitude, longitude);
+        var currency = CurrencyByCountryCode.Resolve(countryCode);
+        if (currency is null)
+        {
+            return "Couldn't determine a matching currency for this location — left the current preference as-is.";
+        }
+
+        var rate = await _exchangeRateService.GetUsdRateAsync(currency);
+        await GetClient().SendAsync<PublishPreferredCurrencyResult>(
+            PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(currency, rate.UsdRate));
+        await ProjectSettingsSync.PushAsync(GetClient(), preferredCurrency: currency);
+        return rate.Success
+            ? $"Set preferred currency to {currency} (factor {rate.UsdRate:G6}) to match this location."
+            : $"Set preferred currency to {currency} to match this location. {rate.Error}";
     }
 
     private void SetCoordinateBoxes(double latitude, double longitude)

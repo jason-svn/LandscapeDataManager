@@ -57,7 +57,13 @@ public static class ITreeInstanceResultMapper
         // 1.0 for USD itself, so this is a no-op multiply in the common case).
         double ToPreferredCurrency(double usd) => usd * usdExchangeRate;
 
-        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass",
+        // CO2SequesteredAnnual_Mass used to be written from i-Tree's raw *carbon* mass despite its
+        // name — under-reporting true CO2 by the 3.67 carbon-to-CO2 mass ratio. Rather than keep
+        // patching that name/value mismatch, this now writes to a brand-new, honestly-named
+        // parameter instead: CarbonSequesteredAnnual_Mass holds exactly what it says, i-Tree's raw
+        // carbon figure. CO2SequesteredAnnual_Mass is no longer written by this mapper at all —
+        // its project binding is being retired by hand, not migrated automatically.
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CarbonSequesteredAnnual_Mass",
             FromPounds(GetOrZero("Annual_CarbonSequestered_lb"))));
         items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CORemovedAnnual_Mass", FromOunces(GetOrZero("Annual_CO_oz"))));
         items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_NO2RemovedAnnual_Mass", FromOunces(GetOrZero("Annual_NO2_oz"))));
@@ -80,7 +86,8 @@ public static class ITreeInstanceResultMapper
         // TreeGrowth_Years was set to on this instance (the API's "*_20yr_*" field names are a legacy
         // holdover from when Years defaulted to 20 — they actually sum one entry per requested year,
         // so a tree modeled at Years=25 produces a 25-year total here, not a fixed 20-year one).
-        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Mass",
+        // Same carbon-vs-CO2 retirement as the annual figure above.
+        items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CarbonSequesteredLifetimeTotal_Mass",
             FromPounds(GetOrZero("CarbonSequestered_20yr_lb"))));
         items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CORemovedLifetimeTotal_Mass", FromOunces(GetOrZero("CO_20yr_oz"))));
         items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_NO2RemovedLifetimeTotal_Mass", FromOunces(GetOrZero("NO2_20yr_oz"))));

@@ -14,33 +14,43 @@ public class DashboardAggregationServiceTests
         string storedUnitSystem = "Metric",
         string storedCurrency = "USD",
         double storedExchangeRateUsed = 1d,
-        double co2SequesteredAnnual = 0d,
+        double carbonSequesteredAnnual = 0d,
         double pm25RemovedAnnual = 0d,
         double costSavedAnnual = 0d,
         string? nativeStatus = null,
         string? bloomMonths = null,
         string? ecologicalFunctions = null,
-        double canopyAreaSquareMeters = 0d) =>
+        double canopyAreaSquareMeters = 0d,
+        double carbonCostSavedAnnual = 0d,
+        double stormWaterCostSavedAnnual = 0d,
+        double airPollutionCostSavedAnnual = 0d,
+        double rainfallInterceptedAnnual = 0d,
+        double runoffAvoidedAnnual = 0d,
+        double co2EquivalentAnnual = 0d) =>
         new(
             uniqueId, 1, "Family", "Type", speciesCode, commonName, "Acer platanoides", "Tree",
             nativeStatus, bloomMonths, ecologicalFunctions, canopyAreaSquareMeters,
             "Level 1", new DesignOptionInfo(null, null, true), status, storedUnitSystem, storedCurrency, storedExchangeRateUsed,
-            co2SequesteredAnnual, co2SequesteredAnnual * 20,
+            carbonSequesteredAnnual, carbonSequesteredAnnual * 20,
             0d, 0d, 0d, 0d, 0d, 0d,
             pm25RemovedAnnual, pm25RemovedAnnual * 20,
             0d, 0d,
             costSavedAnnual, costSavedAnnual * 20,
-            0d, 0d, 0d, 0d, 0d, 0d,
-            0d, 0d, 0d, 0d);
+            carbonCostSavedAnnual, carbonCostSavedAnnual * 20,
+            stormWaterCostSavedAnnual, stormWaterCostSavedAnnual * 20,
+            airPollutionCostSavedAnnual, airPollutionCostSavedAnnual * 20,
+            rainfallInterceptedAnnual, rainfallInterceptedAnnual * 20,
+            runoffAvoidedAnnual, runoffAvoidedAnnual * 20,
+            co2EquivalentAnnual, co2EquivalentAnnual * 20);
 
     [Fact]
     public void Same_unit_system_and_currency_passes_values_through_unchanged()
     {
-        var tree = CreateTree(co2SequesteredAnnual: 10d, pm25RemovedAnnual: 0.5d, costSavedAnnual: 25d);
+        var tree = CreateTree(carbonSequesteredAnnual: 10d, pm25RemovedAnnual: 0.5d, costSavedAnnual: 25d);
 
         var normalized = DashboardAggregationService.NormalizeTree(tree, "Metric", "USD", 1d);
 
-        Assert.Equal(10d, normalized.CO2SequesteredAnnual, precision: 6);
+        Assert.Equal(10d, normalized.CarbonSequesteredAnnual, precision: 6);
         Assert.Equal(0.5d, normalized.PM25RemovedAnnual, precision: 6);
         Assert.Equal(25d, normalized.CostSavedAnnual, precision: 6);
         Assert.True(normalized.CountsTowardTotals);
@@ -51,23 +61,23 @@ public class DashboardAggregationServiceTests
     {
         // Mass values arrive from DashboardReportService already in canonical kilograms (Revit-native
         // Mass-spec parameters) — no stored-unit-system history to resolve, unlike currency.
-        var tree = CreateTree(co2SequesteredAnnual: 10d);
+        var tree = CreateTree(carbonSequesteredAnnual: 10d);
 
         var normalized = DashboardAggregationService.NormalizeTree(tree, "Metric", "USD", 1d);
 
-        Assert.Equal(10d, normalized.CO2SequesteredAnnual, precision: 6);
+        Assert.Equal(10d, normalized.CarbonSequesteredAnnual, precision: 6);
     }
 
     [Fact]
     public void Converts_pound_basis_mass_to_pounds_for_an_imperial_display_target()
     {
         // 10 kg displayed as Imperial should read ~22.05 lb.
-        var tree = CreateTree(co2SequesteredAnnual: 10d);
+        var tree = CreateTree(carbonSequesteredAnnual: 10d);
 
         var normalized = DashboardAggregationService.NormalizeTree(tree, "Imperial", "USD", 1d);
 
-        Assert.True(normalized.CO2SequesteredAnnual is > 22.0 and < 22.1,
-            $"Expected ~22.05 lb, got {normalized.CO2SequesteredAnnual}");
+        Assert.True(normalized.CarbonSequesteredAnnual is > 22.0 and < 22.1,
+            $"Expected ~22.05 lb, got {normalized.CarbonSequesteredAnnual}");
     }
 
     [Fact]
@@ -118,35 +128,59 @@ public class DashboardAggregationServiceTests
     public void Aggregates_multiple_trees_of_the_same_species_into_one_subtotal_row()
     {
         var first = DashboardAggregationService.NormalizeTree(
-            CreateTree(uniqueId: "uid-1", co2SequesteredAnnual: 10d, costSavedAnnual: 5d), "Metric", "USD", 1d);
+            CreateTree(
+                uniqueId: "uid-1", carbonSequesteredAnnual: 10d, costSavedAnnual: 5d,
+                carbonCostSavedAnnual: 1d, stormWaterCostSavedAnnual: 2d, airPollutionCostSavedAnnual: 3d,
+                rainfallInterceptedAnnual: 4d, runoffAvoidedAnnual: 5d, co2EquivalentAnnual: 36.7d),
+            "Metric", "USD", 1d);
         var second = DashboardAggregationService.NormalizeTree(
-            CreateTree(uniqueId: "uid-2", co2SequesteredAnnual: 20d, costSavedAnnual: 7d), "Metric", "USD", 1d);
+            CreateTree(
+                uniqueId: "uid-2", carbonSequesteredAnnual: 20d, costSavedAnnual: 7d,
+                carbonCostSavedAnnual: 10d, stormWaterCostSavedAnnual: 20d, airPollutionCostSavedAnnual: 30d,
+                rainfallInterceptedAnnual: 40d, runoffAvoidedAnnual: 50d, co2EquivalentAnnual: 73.4d),
+            "Metric", "USD", 1d);
 
         var subtotals = DashboardAggregationService.AggregateTreesBySpecies([first, second]);
 
         var subtotal = Assert.Single(subtotals);
         Assert.Equal("ACPL", subtotal.SpeciesCode);
         Assert.Equal(2, subtotal.TreeCount);
-        Assert.Equal(30d, subtotal.CO2SequesteredAnnual, precision: 6);
+        Assert.Equal(30d, subtotal.CarbonSequesteredAnnual, precision: 6);
         Assert.Equal(12d, subtotal.CostSavedAnnual, precision: 6);
+        Assert.Equal(11d, subtotal.CarbonCostSavedAnnual, precision: 6);
+        Assert.Equal(22d, subtotal.StormWaterCostSavedAnnual, precision: 6);
+        Assert.Equal(33d, subtotal.AirPollutionCostSavedAnnual, precision: 6);
+        Assert.Equal(44d, subtotal.RainfallInterceptedAnnual, precision: 6);
+        Assert.Equal(55d, subtotal.RunoffAvoidedAnnual, precision: 6);
+        Assert.Equal(110.1d, subtotal.CO2EquivalentAnnual, precision: 6);
     }
 
     [Fact]
     public void Grand_total_keeps_tree_and_floor_benefits_in_separate_fields()
     {
         var tree = DashboardAggregationService.NormalizeTree(
-            CreateTree(co2SequesteredAnnual: 10d, costSavedAnnual: 5d), "Metric", "USD", 1d);
+            CreateTree(
+                carbonSequesteredAnnual: 10d, costSavedAnnual: 5d,
+                carbonCostSavedAnnual: 1d, stormWaterCostSavedAnnual: 2d, airPollutionCostSavedAnnual: 3d,
+                rainfallInterceptedAnnual: 4d, runoffAvoidedAnnual: 6d, co2EquivalentAnnual: 36.7d),
+            "Metric", "USD", 1d);
         var floor = new DashboardFloorItem(
             "floor-1", 2, "FloorFamily", "FloorType", "WWP_Wetland", null, "Level 1",
             new DesignOptionInfo(null, null, true), 100d, 15d, 8d, 3d, 30d, 2d, 40d, 0.5d, 0.5d);
 
         var total = DashboardAggregationService.BuildGrandTotal([tree], [floor]);
 
-        Assert.Equal(10d, total.CO2SequesteredAnnual, precision: 6);
+        Assert.Equal(10d, total.CarbonSequesteredAnnual, precision: 6);
         Assert.Equal(5d, total.TreeCostSavedAnnual, precision: 6);
+        Assert.Equal(1d, total.CarbonCostSavedAnnual, precision: 6);
+        Assert.Equal(2d, total.StormWaterCostSavedAnnual, precision: 6);
+        Assert.Equal(3d, total.AirPollutionCostSavedAnnual, precision: 6);
+        Assert.Equal(4d, total.RainfallInterceptedAnnual, precision: 6);
+        Assert.Equal(6d, total.RunoffAvoidedAnnual, precision: 6);
+        Assert.Equal(36.7d, total.CO2EquivalentAnnual, precision: 6);
         Assert.Equal(1, total.FloorCount);
         Assert.Equal(100d, total.FloorAreaSquareMeters, precision: 6);
-        Assert.Equal(15d, total.FloorCO2SequesteredAnnual, precision: 6);
+        Assert.Equal(15d, total.FloorCarbonSequesteredAnnual, precision: 6);
         Assert.Equal(8d, total.FloorRunoffAvoidedAnnual, precision: 6);
         Assert.Equal(3d, total.FloorPollutionMassRemovedAnnual, precision: 6);
         Assert.Equal(40d, total.FloorTotalGwp, precision: 6);

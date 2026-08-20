@@ -10,6 +10,8 @@ internal static class RevitModelScanner
         "!_S_PLT_iTreeUnits_PreferredSystem_Text";
     private const string PreferredCurrencyParameter =
         "!_S_PLT_iTreeUnits_PreferredCurrency_Text";
+    private const string PreferredCurrencyFactorParameter =
+        "!_S_PLT_iTreeUnits_PreferredCurrencyFactor_Number";
     private const string SpeciesCodeParameter =
         "!_S_PLT_iTreeSpecies_Code_Text";
 
@@ -120,7 +122,8 @@ internal static class RevitModelScanner
             unitPreference.Warning,
             currencyPreference.Code,
             currencyPreference.Source,
-            currencyPreference.Warning);
+            currencyPreference.Warning,
+            currencyPreference.Factor);
     }
 
     public static ITreeInputScanResult GetITreeInputs(
@@ -199,7 +202,9 @@ internal static class RevitModelScanner
     /// whatever external record ID a previous sync wrote back) — never by display name — so
     /// callers can match source rows to Revit elements safely.
     /// </summary>
-    public static PlantingInstanceScanResult ScanPlantingInstances(UIApplication application)
+    public static PlantingInstanceScanResult ScanPlantingInstances(
+        UIApplication application,
+        PlantingInstanceScanOptions options)
     {
         var document = application.ActiveUIDocument?.Document
                        ?? throw new InvalidOperationException("Open a Revit project before scanning planting instances.");
@@ -217,7 +222,10 @@ internal static class RevitModelScanner
                     elementType is not null ? GetFamilyName(elementType) : string.Empty,
                     elementType?.Name ?? element.Name,
                     elementType?.Id.Value ?? element.GetTypeId().Value,
-                    GetParameterText(element, SourceRecordIdParameter)?.Trim() ?? string.Empty);
+                    GetParameterText(element, SourceRecordIdParameter)?.Trim() ?? string.Empty,
+                    string.IsNullOrWhiteSpace(options.KeyParameterName)
+                        ? null
+                        : GetParameterText(element, options.KeyParameterName)?.Trim());
             })
             .OrderBy(item => item.FamilyName)
             .ThenBy(item => item.TypeName)
@@ -412,7 +420,7 @@ internal static class RevitModelScanner
             string.Equals(code, configuredValue, StringComparison.OrdinalIgnoreCase));
         if (match is not null)
         {
-            return new CurrencyPreference(match, "Project Information", null);
+            return new CurrencyPreference(match, "Project Information", null, GetPreferredCurrencyFactor(document));
         }
 
         const string fallback = "USD";
@@ -420,7 +428,14 @@ internal static class RevitModelScanner
             ? $"Project Information parameter '{PreferredCurrencyParameter}' is missing. Using {fallback}."
             : $"Project Information parameter '{PreferredCurrencyParameter}' must be one of {string.Join(", ", SupportedCurrencyCodes)}. " +
               $"Its current value is '{configuredValue ?? string.Empty}'; using {fallback}.";
-        return new CurrencyPreference(fallback, "Default", warning);
+        return new CurrencyPreference(fallback, "Default", warning, 1d);
+    }
+
+    /// <summary>1.0 whenever the factor parameter is missing/unset — matches the "no conversion" default everywhere else this project defaults to USD.</summary>
+    private static double GetPreferredCurrencyFactor(Document document)
+    {
+        var parameter = document.ProjectInformation.LookupParameter(PreferredCurrencyFactorParameter);
+        return parameter is { HasValue: true, StorageType: StorageType.Double } ? parameter.AsDouble() : 1d;
     }
 
     private static bool IsInPrimaryDesignOption(Element element)
@@ -461,5 +476,6 @@ internal static class RevitModelScanner
     private sealed record CurrencyPreference(
         string Code,
         string Source,
-        string? Warning);
+        string? Warning,
+        double Factor);
 }

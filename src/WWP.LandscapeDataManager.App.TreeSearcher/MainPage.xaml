@@ -35,15 +35,21 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="CatalogueStatusText" VerticalAlignment="Center" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
                 <Button Grid.Column="1" Content="Load selected trees" Click="LoadSelectedTrees_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
                 <Button Grid.Column="2"
+                        Content="Select all trees in project"
+                        Click="LoadAllTrees_Click"
+                        ToolTipService.ToolTip="Loads every distinct Planting type in the project, regardless of the current Revit selection."
+                        Style="{StaticResource LimSecondaryButtonStyle}" />
+                <Button Grid.Column="3"
                         Content="Push codes to Airtable"
                         Click="PushSpeciesCodes_Click"
                         ToolTipService.ToolTip="Matches every Planting type with an assigned species code to its Airtable record (by Species Code, falling back to Family + Type name) and writes the code into that record's Species Code column."
                         Style="{StaticResource LimSecondaryButtonStyle}" />
-                <Button Grid.Column="3"
+                <Button Grid.Column="4"
                         x:Name="AssignAllButton"
                         Content="Assign all matched"
                         Click="AssignAll_Click"

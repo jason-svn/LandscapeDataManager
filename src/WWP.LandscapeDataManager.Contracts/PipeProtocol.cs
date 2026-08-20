@@ -25,6 +25,7 @@ public static class PipeCommands
     public const string ApplyStatusColourOverrides = "apply-status-colour-overrides";
     public const string ResetColourOverrides = "reset-colour-overrides";
     public const string GetSelectedPlantingTypes = "get-selected-planting-types";
+    public const string GetAllPlantingTypes = "get-all-planting-types";
     public const string AssignSpeciesBatch = "assign-species-batch";
     public const string GetProjectSiteLocation = "get-project-site-location";
     public const string PublishProjectLocation = "publish-project-location";
@@ -83,7 +84,8 @@ public sealed record ParameterCatalogResult(
     string? UnitSystemWarning = null,
     string PreferredCurrency = "USD",
     string PreferredCurrencySource = "Default",
-    string? CurrencyWarning = null);
+    string? CurrencyWarning = null,
+    double PreferredCurrencyFactor = 1d);
 
 public sealed record ParameterMappingDefinition(
     string AirtableField,
@@ -91,6 +93,13 @@ public sealed record ParameterMappingDefinition(
     string Scope,
     string Conversion,
     bool Enabled = true);
+
+/// <summary>
+/// Bulk instance-matching by value equality: every Planting instance's <see cref="RevitParameter"/>
+/// value is matched against every source record's <see cref="SourceField"/> value, instead of
+/// requiring each instance to be paired to a source record one at a time.
+/// </summary>
+public sealed record InstanceMatchKeySettings(string RevitParameter, string SourceField);
 
 public sealed record ParameterWriteItem(
     long TypeId,
@@ -176,7 +185,9 @@ public sealed record SharedParameterSetupResult(
 /// One Planting instance's stable identity for source-data matching. <see cref="UniqueId"/> is
 /// Revit's own stable per-element identifier; <see cref="SourceRecordId"/> is whatever external
 /// record ID was written to it by a previous sync (empty until the first successful match).
-/// Neither is a display name, by design.
+/// Neither is a display name, by design. <see cref="KeyParameterValue"/> is this instance's value
+/// for whichever Revit parameter <see cref="PlantingInstanceScanOptions.KeyParameterName"/> named,
+/// if any — the bulk alternative to pairing instances one at a time.
 /// </summary>
 public sealed record PlantingInstanceScanItem(
     string UniqueId,
@@ -184,7 +195,15 @@ public sealed record PlantingInstanceScanItem(
     string FamilyName,
     string TypeName,
     long TypeId,
-    string SourceRecordId);
+    string SourceRecordId,
+    string? KeyParameterValue = null);
+
+/// <summary>
+/// <see cref="KeyParameterName"/> is an arbitrary Revit parameter (e.g. "Mark") whose per-instance
+/// value should be read back alongside the usual scan fields, so it can be matched against a
+/// source column instead of requiring every instance to be paired one at a time.
+/// </summary>
+public sealed record PlantingInstanceScanOptions(string? KeyParameterName = null);
 
 public sealed record PlantingInstanceScanResult(
     string DocumentTitle,
@@ -274,10 +293,18 @@ public sealed record PublishProjectLocationRequest(double Latitude, double Longi
 
 public sealed record PublishProjectLocationResult(string DocumentTitle, double Latitude, double Longitude);
 
-/// <summary>The project's ISO 4217 currency code (see <c>RevitModelScanner.SupportedCurrencyCodes</c> for the offered list) for reporting i-Tree monetary benefits — same role as <see cref="ParameterCatalogResult.PreferredUnitSystem"/>, just for currency instead of Metric/Imperial.</summary>
-public sealed record PublishPreferredCurrencyRequest(string CurrencyCode);
+/// <summary>
+/// The project's ISO 4217 currency code (see <c>RevitModelScanner.SupportedCurrencyCodes</c> for
+/// the offered list) for reporting i-Tree monetary benefits — same role as
+/// <see cref="ParameterCatalogResult.PreferredUnitSystem"/>, just for currency instead of
+/// Metric/Imperial. <see cref="CurrencyFactor"/> is the USD-to-<see cref="CurrencyCode"/> rate the
+/// caller has already resolved (1.0 for USD) — this call only writes it, it never looks up rates
+/// itself, so every currency-setting call site (i-Tree Calculator's dropdown, Location Finder's
+/// auto-match) stays in control of where that rate comes from.
+/// </summary>
+public sealed record PublishPreferredCurrencyRequest(string CurrencyCode, double CurrencyFactor = 1d);
 
-public sealed record PublishPreferredCurrencyResult(string DocumentTitle, string CurrencyCode);
+public sealed record PublishPreferredCurrencyResult(string DocumentTitle, string CurrencyCode, double CurrencyFactor);
 
 /// <summary>
 /// Raw JSON stored on <c>!_S_PLT_Settings_Json_Text</c> (a multiline text Project Information
@@ -455,8 +482,8 @@ public sealed record DashboardTreeItem(
     string StoredUnitSystem,
     string StoredCurrency,
     double StoredExchangeRateUsed,
-    double CO2SequesteredAnnual,
-    double CO2SequesteredLifetimeTotal,
+    double CarbonSequesteredAnnual,
+    double CarbonSequesteredLifetimeTotal,
     double CORemovedAnnual,
     double CORemovedLifetimeTotal,
     double NO2RemovedAnnual,
@@ -478,7 +505,9 @@ public sealed record DashboardTreeItem(
     double RainfallInterceptedAnnual,
     double RainfallInterceptedLifetimeTotal,
     double RunoffAvoidedAnnual,
-    double RunoffAvoidedLifetimeTotal);
+    double RunoffAvoidedLifetimeTotal,
+    double CO2EquivalentAnnual,
+    double CO2EquivalentLifetimeTotal);
 
 /// <summary>
 /// One Floor (planted/paved landscape area) instance's identity, placement, and stored LDS/i-Tree
@@ -496,7 +525,7 @@ public sealed record DashboardFloorItem(
     string? LevelName,
     DesignOptionInfo DesignOption,
     double AreaSquareMeters,
-    double CO2SequesteredAnnual,
+    double CarbonSequesteredAnnual,
     double RunoffAvoidedAnnual,
     double PollutionMassRemovedAnnual,
     double CostSavedAnnual,

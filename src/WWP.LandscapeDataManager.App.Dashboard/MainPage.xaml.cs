@@ -255,7 +255,7 @@ public sealed partial class MainPage : Page
         }
 
         var grandTotal = DashboardAggregationService.BuildGrandTotal(filteredTrees, filteredFloors);
-        var co2Unit = DashboardUnitLabels.Co2Unit(unitSystem);
+        var carbonUnit = DashboardUnitLabels.CarbonUnit(unitSystem);
         var pollutantUnit = DashboardUnitLabels.PollutantUnit(unitSystem);
         var period = _showAnnual ? "Annual" : "Lifetime";
 
@@ -263,19 +263,32 @@ public sealed partial class MainPage : Page
         TreeExcludedText.Text = grandTotal.TreesExcludedFromTotals > 0
             ? $"{grandTotal.TreesExcludedFromTotals:N0} excluded (not yet Calculated)"
             : string.Empty;
-        PollutionMassText.Text = _showAnnual
-            ? $"{grandTotal.TotalPollutionMassRemovedAnnual:N2} {pollutantUnit}"
-            : $"{grandTotal.TotalPollutionMassRemovedLifetimeTotal:N2} {pollutantUnit}";
-        CO2SequesteredText.Text = _showAnnual
-            ? $"{grandTotal.CO2SequesteredAnnual:N1} {co2Unit}"
-            : $"{grandTotal.CO2SequesteredLifetimeTotal:N1} {co2Unit}";
-        TreeCostSavedText.Text = _showAnnual
-            ? $"{grandTotal.TreeCostSavedAnnual:N2} {_preferredCurrency}"
-            : $"{grandTotal.TreeCostSavedLifetimeTotal:N2} {_preferredCurrency}";
+        // Grouped to match the public i-Tree "MyTree Benefits" report's own three categories —
+        // each card leads with that category's dollar value, then the metrics behind it.
+        CarbonUptakeCostText.Text = _showAnnual
+            ? $"{grandTotal.CarbonCostSavedAnnual:N2} {_preferredCurrency}"
+            : $"{grandTotal.CarbonCostSavedLifetimeTotal:N2} {_preferredCurrency}";
+        CarbonUptakeDetailText.Text = _showAnnual
+            ? $"{grandTotal.CarbonSequesteredAnnual:N1} {carbonUnit} carbon · {grandTotal.CO2EquivalentAnnual:N1} {carbonUnit} CO2e"
+            : $"{grandTotal.CarbonSequesteredLifetimeTotal:N1} {carbonUnit} carbon · {grandTotal.CO2EquivalentLifetimeTotal:N1} {carbonUnit} CO2e";
+
+        StormWaterCostText.Text = _showAnnual
+            ? $"{grandTotal.StormWaterCostSavedAnnual:N2} {_preferredCurrency}"
+            : $"{grandTotal.StormWaterCostSavedLifetimeTotal:N2} {_preferredCurrency}";
+        StormWaterDetailText.Text = _showAnnual
+            ? $"{grandTotal.RunoffAvoidedAnnual:N1} m³ runoff · {grandTotal.RainfallInterceptedAnnual:N1} m³ rainfall"
+            : $"{grandTotal.RunoffAvoidedLifetimeTotal:N1} m³ runoff · {grandTotal.RainfallInterceptedLifetimeTotal:N1} m³ rainfall";
+
+        AirPollutionCostText.Text = _showAnnual
+            ? $"{grandTotal.AirPollutionCostSavedAnnual:N2} {_preferredCurrency}"
+            : $"{grandTotal.AirPollutionCostSavedLifetimeTotal:N2} {_preferredCurrency}";
+        AirPollutionDetailText.Text = _showAnnual
+            ? $"{grandTotal.TotalPollutionMassRemovedAnnual:N2} {pollutantUnit} removed"
+            : $"{grandTotal.TotalPollutionMassRemovedLifetimeTotal:N2} {pollutantUnit} removed";
 
         FloorCountText.Text = grandTotal.FloorCount.ToString("N0");
         FloorAreaText.Text = $"{grandTotal.FloorAreaSquareMeters:N1} m²";
-        FloorCO2Text.Text = $"{grandTotal.FloorCO2SequesteredAnnual:N1} kg";
+        FloorCarbonText.Text = $"{grandTotal.FloorCarbonSequesteredAnnual:N1} kg";
         FloorRunoffText.Text = $"{grandTotal.FloorRunoffAvoidedAnnual:N1} m³";
         FloorPollutionText.Text = $"{grandTotal.FloorPollutionMassRemovedAnnual:N2} kg";
         FloorGwpText.Text = grandTotal.FloorTotalGwp.ToString("N1");
@@ -307,23 +320,23 @@ public sealed partial class MainPage : Page
         Func<NormalizedTreeMetrics, bool> matchesSearch)
     {
         var metric = string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
-        var co2Unit = DashboardUnitLabels.Co2Unit(unitSystem);
+        var carbonUnit = DashboardUnitLabels.CarbonUnit(unitSystem);
         var pollutantUnit = DashboardUnitLabels.PollutantUnit(unitSystem);
         var waterUnit = metric ? "m³" : "gal";
         var areaUnit = metric ? "m²" : "ft²";
 
-        double FloorCo2(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerPound;
+        double FloorCarbon(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerPound;
         double FloorPollution(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerOunce;
         double Water(double cubicMetres) => metric ? cubicMetres : cubicMetres / UnitConversions.CubicMetresPerGallon;
         double Area(double squareMetres) => metric ? squareMetres : squareMetres * 10.7639104167d;
 
         var countedTrees = filteredTrees.Where(tree => tree.CountsTowardTotals).ToList();
         var treeRunoffAnnual = countedTrees.Sum(tree => tree.RunoffAvoidedAnnual);
-        var floorCo2Annual = FloorCo2(grandTotal.FloorCO2SequesteredAnnual);
+        var floorCarbonAnnual = FloorCarbon(grandTotal.FloorCarbonSequesteredAnnual);
         var floorPollutionAnnual = FloorPollution(grandTotal.FloorPollutionMassRemovedAnnual);
         var floorRunoffAnnual = Water(grandTotal.FloorRunoffAvoidedAnnual);
         var treeRunoffDisplay = Water(treeRunoffAnnual);
-        var projectedCarbon = (grandTotal.CO2SequesteredAnnual + floorCo2Annual) * _projectionYears;
+        var projectedCarbon = (grandTotal.CarbonSequesteredAnnual + floorCarbonAnnual) * _projectionYears;
         var projectedPollution = (grandTotal.TotalPollutionMassRemovedAnnual + floorPollutionAnnual) * _projectionYears;
         var projectedWater = (treeRunoffDisplay + floorRunoffAnnual) * _projectionYears;
         var projectedValue = grandTotal.TreeCostSavedAnnual * _projectionYears;
@@ -333,7 +346,7 @@ public sealed partial class MainPage : Page
         ScenarioBadgeText.Text = scenarioLabel.ToUpperInvariant();
         OutlookText.Text = $"{_projectionYears}-year outlook · current annual stored results × {_projectionYears}";
         KpiEcosystemValueText.Text = $"{Compact(projectedValue)} {_preferredCurrency}";
-        KpiCarbonText.Text = $"{Compact(projectedCarbon)} {co2Unit}";
+        KpiCarbonText.Text = $"{Compact(projectedCarbon)} {carbonUnit}";
         KpiWaterText.Text = $"{Compact(projectedWater)} {waterUnit}";
         KpiPollutionText.Text = $"{Compact(projectedPollution)} {pollutantUnit}";
         KpiTreeCountText.Text = grandTotal.TreeCount.ToString("N0");
@@ -350,12 +363,12 @@ public sealed partial class MainPage : Page
         ProjectionTrendRows.Clear();
         foreach (var years in new[] { 5, 10, 20, 25 })
         {
-            var value = (grandTotal.CO2SequesteredAnnual + floorCo2Annual) * years;
-            ProjectionTrendRows.Add(new KpiBarRow($"{years} yr", $"{Compact(value)} {co2Unit}", 100d * years / 25d));
+            var value = (grandTotal.CarbonSequesteredAnnual + floorCarbonAnnual) * years;
+            ProjectionTrendRows.Add(new KpiBarRow($"{years} yr", $"{Compact(value)} {carbonUnit}", 100d * years / 25d));
         }
 
         ImpactProfileRows.Clear();
-        AddImpactShare("Carbon", grandTotal.CO2SequesteredAnnual, floorCo2Annual, co2Unit);
+        AddImpactShare("Carbon", grandTotal.CarbonSequesteredAnnual, floorCarbonAnnual, carbonUnit);
         AddImpactShare("Pollution", grandTotal.TotalPollutionMassRemovedAnnual, floorPollutionAnnual, pollutantUnit);
         AddImpactShare("Runoff", treeRunoffDisplay, floorRunoffAnnual, waterUnit);
 
@@ -408,8 +421,8 @@ public sealed partial class MainPage : Page
         }
 
         var metric = string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
-        var co2Unit = DashboardUnitLabels.Co2Unit(unitSystem);
-        double FloorCo2(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerPound;
+        var carbonUnit = DashboardUnitLabels.CarbonUnit(unitSystem);
+        double FloorCarbon(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerPound;
 
         var treeGroups = allTrees
             .Where(tree => matchesLevel(tree.Source.LevelName) && matchesSearch(tree))
@@ -427,7 +440,7 @@ public sealed partial class MainPage : Page
             var floors = floorGroups.GetValueOrDefault(option) ?? [];
             var total = DashboardAggregationService.BuildGrandTotal(trees, floors);
             var years = ExtractProjectionYears(option) ?? _projectionYears;
-            var carbon = (total.CO2SequesteredAnnual + FloorCo2(total.FloorCO2SequesteredAnnual)) * years;
+            var carbon = (total.CarbonSequesteredAnnual + FloorCarbon(total.FloorCarbonSequesteredAnnual)) * years;
             var speciesCount = trees
                 .Select(tree => tree.Source.SpeciesCode ?? tree.Source.CommonName ?? "Unassigned")
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -456,7 +469,7 @@ public sealed partial class MainPage : Page
                 value.Option,
                 $"{value.Total.TreeCount:N0} trees · {value.Total.FloorCount:N0} areas",
                 speciesCountText,
-                $"{Compact(value.Carbon)} {co2Unit} / {value.Years} yr",
+                $"{Compact(value.Carbon)} {carbonUnit} / {value.Years} yr",
                 maximum <= 0d ? 0d : 100d * value.Carbon / maximum));
         }
     }

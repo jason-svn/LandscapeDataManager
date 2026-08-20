@@ -29,8 +29,49 @@
                 <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
             </Grid>
 
-            <!-- Step 1: Connect -->
+            <!-- Instance pairing -->
             <Border Grid.Row="1" Margin="0,20,0,0" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="INSTANCE PAIRING" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock
+                        Text="An instance with no prior sync has no stable link to a source row yet — this tool never guesses a first match by name. Match many at once below by a value both sides share (e.g. a Mark/tag number), or pair one Revit selection at a time further down."
+                        Style="{StaticResource LimMutedTextStyle}" />
+
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="InstanceKeyParameterBox" Header="Match Revit instances by parameter"
+                                  ItemsSource="{x:Bind InstanceKeyParameterOptions}" DisplayMemberPath="DisplayName"
+                                  PlaceholderText="Select a Revit parameter" HorizontalAlignment="Stretch" />
+                        <ComboBox Grid.Column="1" x:Name="InstanceKeySourceFieldBox" Header="...to this source column"
+                                  ItemsSource="{x:Bind SourceHeaderOptions}"
+                                  PlaceholderText="Select a source column" HorizontalAlignment="Stretch" />
+                        <Button Grid.Column="2" Content="Save matching" Click="SaveInstanceMatchKey_Click"
+                                VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
+                        <Button Grid.Column="3" Content="Clear" Click="ClearInstanceMatchKey_Click"
+                                VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    </Grid>
+                    <TextBlock x:Name="InstanceMatchKeyStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="PairSourceRecordIdBox" Header="Or pair one: source record ID for the current Revit selection" />
+                        <Button Grid.Column="1" Content="Pair selected Revit element" Click="PairSelected_Click"
+                                VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    </Grid>
+                    <TextBlock x:Name="PairingStatusText" Style="{StaticResource LimMutedTextStyle}" Text="—" />
+                </StackPanel>
+            </Border>
+
+            <!-- Step 1: Connect -->
+            <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="12">
                     <TextBlock Text="STEP 1 — CONNECT A SOURCE" Style="{StaticResource LimSectionHeaderStyle}" />
                     <ComboBox x:Name="SourceKindBox" Header="Data source" SelectedIndex="0"
@@ -62,7 +103,7 @@
             </Border>
 
             <!-- Step 2: Map -->
-            <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Row="3" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="12">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -104,7 +145,7 @@
             </Border>
 
             <!-- Step 3: Preview & Apply -->
-            <Border Grid.Row="3" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Row="4" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="12">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -183,26 +224,6 @@
                         <Button Grid.Column="3" Content="Reset colours" Click="ResetFailedColours_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
                         <TextBlock Grid.Column="4" x:Name="InstanceActionStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
                     </Grid>
-                </StackPanel>
-            </Border>
-
-            <!-- Manual pairing -->
-            <Border Grid.Row="4" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="FIRST-SYNC PAIRING" Style="{StaticResource LimSectionHeaderStyle}" />
-                    <TextBlock
-                        Text="An instance with no prior sync has no stable link to a source row yet. Select it in Revit, then pair it explicitly — this tool never guesses a first match by name."
-                        Style="{StaticResource LimMutedTextStyle}" />
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="PairSourceRecordIdBox" Header="Source record ID to pair with the current Revit selection" />
-                        <Button Grid.Column="1" Content="Pair selected Revit element" Click="PairSelected_Click"
-                                VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
-                    </Grid>
-                    <TextBlock x:Name="PairingStatusText" Style="{StaticResource LimMutedTextStyle}" Text="—" />
                 </StackPanel>
             </Border>
 

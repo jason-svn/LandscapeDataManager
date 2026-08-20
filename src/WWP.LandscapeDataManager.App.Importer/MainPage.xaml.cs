@@ -31,6 +31,9 @@ public sealed partial class MainPage : Page
     private IReadOnlyList<TypeAlias> _typeAliases = [];
     private IReadOnlyList<ParameterMappingDefinition> _savedMappings = [];
     private AirtableApiSettings _airtableSettings = new(string.Empty, string.Empty, null);
+    private InstanceMatchKeySettings? _instanceMatchKey;
+
+    private const string SourceRecordIdParameter = "!_S_PLT_DataSync_SourceRecordId_Text";
 
     public MainPage()
     {
@@ -40,6 +43,8 @@ public sealed partial class MainPage : Page
     public ObservableCollection<MappingRow> MappingRows { get; } = [];
     public ObservableCollection<TypeSyncRow> TypeSyncRows { get; } = [];
     public ObservableCollection<InstanceSyncRow> InstanceSyncRows { get; } = [];
+    public ObservableCollection<ParameterOption> InstanceKeyParameterOptions { get; } = [];
+    public ObservableCollection<string> SourceHeaderOptions { get; } = [];
 
     public void Initialize(string pipeName, nint windowHandle)
     {
@@ -68,6 +73,7 @@ public sealed partial class MainPage : Page
         _airtableSettings = snapshot?.AirtableApi ?? new AirtableApiSettings(string.Empty, string.Empty, null);
         _typeAliases = snapshot?.TypeAliases ?? [];
         _savedMappings = snapshot?.ParameterMappings ?? [];
+        _instanceMatchKey = snapshot?.InstanceMatchKey;
         SourceKindBox.SelectedIndex = dataSourceSettings.Kind == DataSourceKind.Excel ? 1 : 0;
         ExcelPathBox.Text = dataSourceSettings.ExcelPath;
         AirtableTokenStatusText.Text = string.IsNullOrWhiteSpace(_airtableCredentialStore.Load())
@@ -179,6 +185,37 @@ public sealed partial class MainPage : Page
         var instanceOptions = _parameterCatalog.Where(p => p.IsWritable && p.Scope == "Instance").Select(p => new ParameterOption(p)).ToList();
 
         ApplyMappings(sourceHeaders, typeOptions, instanceOptions, _savedMappings);
+        RestoreInstanceMatchKeyOptions(sourceHeaders);
+    }
+
+    /// <summary>
+    /// Populates the pickers for bulk instance matching (any Instance-scope parameter, not just
+    /// writable ones — the chosen parameter is only ever read, never written to) and restores the
+    /// previously saved choice, if any.
+    /// </summary>
+    private void RestoreInstanceMatchKeyOptions(IReadOnlyList<string> sourceHeaders)
+    {
+        InstanceKeyParameterOptions.Clear();
+        foreach (var option in _parameterCatalog.Where(p => p.Scope == "Instance").Select(p => new ParameterOption(p)))
+        {
+            InstanceKeyParameterOptions.Add(option);
+        }
+
+        SourceHeaderOptions.Clear();
+        foreach (var header in sourceHeaders)
+        {
+            SourceHeaderOptions.Add(header);
+        }
+
+        if (!HasInstanceMatchKey)
+        {
+            return;
+        }
+
+        InstanceKeyParameterBox.SelectedItem = InstanceKeyParameterOptions.FirstOrDefault(option =>
+            string.Equals(option.Descriptor.Name, _instanceMatchKey!.RevitParameter, StringComparison.OrdinalIgnoreCase));
+        InstanceKeySourceFieldBox.SelectedItem = SourceHeaderOptions.FirstOrDefault(header =>
+            string.Equals(header, _instanceMatchKey!.SourceField, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -312,9 +349,9 @@ public sealed partial class MainPage : Page
                     typeWriteItems.Where((_, index) => applicable.Contains(index)).ToList());
             }
 
-            var instanceMatchPlan = InstanceMatchPlanBuilder.Build(_instanceScan.Items, _sourceRecords);
-            var (instanceWriteItems, skippedInstanceFields) = BuildInstanceWriteItems(instanceMatchPlan);
-            foreach (var match in instanceMatchPlan.Instances.Where(m => m.Status != "Matched"))
+            var instanceMatches = await BuildInstanceMatchesAsync();
+            var (instanceWriteItems, skippedInstanceFields) = BuildInstanceWriteItems(instanceMatches);
+            foreach (var match in instanceMatches.Where(m => m.Status != "Matched"))
             {
                 InstanceSyncRows.Add(InstanceSyncRow.FromIssue(match));
             }
@@ -384,13 +421,55 @@ public sealed partial class MainPage : Page
         return (items, skipped);
     }
 
-    private (List<InstanceParameterWriteItem> Items, List<InstanceSyncRow> Skipped) BuildInstanceWriteItems(InstanceMatchPlan plan)
+    /// <summary>
+    /// Re-scans planting instances (reading the configured match parameter's live value, if any),
+    /// then matches each to a source record: an instance already carrying a stable pairing from a
+    /// previous sync keeps that pairing; only instances with none yet fall back to matching by the
+    /// configured Revit-parameter/source-column pair, so a bulk match never overrides an existing
+    /// explicit "Pair selected" pairing.
+    /// </summary>
+    /// <summary>True only when both halves of the bulk-match key are actually set — an empty <see cref="InstanceMatchKeySettings"/> (as written by "Clear") means "not configured," not null, since <see cref="ProjectSettingsSync.PushAsync"/> only ever merges supplied fields in, never clears one back to null.</summary>
+    private bool HasInstanceMatchKey =>
+        !string.IsNullOrWhiteSpace(_instanceMatchKey?.RevitParameter) && !string.IsNullOrWhiteSpace(_instanceMatchKey?.SourceField);
+
+    private async Task<IReadOnlyList<InstanceMatch>> BuildInstanceMatchesAsync()
+    {
+        var scan = await GetClient().SendAsync<PlantingInstanceScanResult>(
+            PipeCommands.ScanPlantingInstances,
+            new PlantingInstanceScanOptions(HasInstanceMatchKey ? _instanceMatchKey!.RevitParameter : null));
+        _instanceScan = scan;
+
+        var idMatches = InstanceMatchPlanBuilder.Build(scan.Items, _sourceRecords).Instances;
+        if (!HasInstanceMatchKey)
+        {
+            return idMatches;
+        }
+
+        var keyMatchesByUniqueId = InstanceKeyMatchPlanBuilder
+            .Build(scan.Items, _sourceRecords, _instanceMatchKey!.SourceField)
+            .ToDictionary(match => match.Instance.UniqueId);
+
+        return idMatches
+            .Select(match => match.Status == "NotPaired" && keyMatchesByUniqueId.TryGetValue(match.Instance.UniqueId, out var keyMatch)
+                ? keyMatch
+                : match)
+            .ToList();
+    }
+
+    private (List<InstanceParameterWriteItem> Items, List<InstanceSyncRow> Skipped) BuildInstanceWriteItems(IReadOnlyList<InstanceMatch> matches)
     {
         var enabledMappings = MappingRows.Where(row => row.Enabled && row.Scope == "Instance" && row.SelectedTarget is not null).ToList();
         var items = new List<InstanceParameterWriteItem>();
         var skipped = new List<InstanceSyncRow>();
-        foreach (var match in plan.Instances.Where(m => m.Status == "Matched"))
+        foreach (var match in matches.Where(m => m.Status == "Matched"))
         {
+            if (string.IsNullOrEmpty(match.Instance.SourceRecordId))
+            {
+                items.Add(new InstanceParameterWriteItem(
+                    match.Instance.UniqueId, SourceRecordIdParameter, "Text", match.Record!.Id,
+                    "Paired automatically — matched by parameter value."));
+            }
+
             foreach (var mapping in enabledMappings)
             {
                 var target = mapping.SelectedTarget!.Descriptor;
@@ -585,6 +664,38 @@ public sealed partial class MainPage : Page
         {
             var result = await GetClient().SendAsync<OperationResult>(PipeCommands.ResetColourOverrides, new ElementSelectionRequest(allIds));
             InstanceActionStatusText.Text = result.Message ?? "Colour overrides reset.";
+        });
+    }
+
+    private async void SaveInstanceMatchKey_Click(object sender, RoutedEventArgs e)
+    {
+        var parameterName = (InstanceKeyParameterBox.SelectedItem as ParameterOption)?.Descriptor.Name;
+        var sourceField = InstanceKeySourceFieldBox.SelectedItem as string;
+        if (string.IsNullOrWhiteSpace(parameterName) || string.IsNullOrWhiteSpace(sourceField))
+        {
+            InstanceMatchKeyStatusText.Text = "Select both a Revit parameter and a source column first.";
+            return;
+        }
+
+        await RunBusyAsync(async () =>
+        {
+            _instanceMatchKey = new InstanceMatchKeySettings(parameterName, sourceField);
+            await ProjectSettingsSync.PushAsync(GetClient(), instanceMatchKey: _instanceMatchKey);
+            InstanceMatchKeyStatusText.Text =
+                $"Matching instances where '{parameterName}' equals source column '{sourceField}'. Select Preview changes to apply it.";
+        });
+    }
+
+    private async void ClearInstanceMatchKey_Click(object sender, RoutedEventArgs e)
+    {
+        InstanceKeyParameterBox.SelectedItem = null;
+        InstanceKeySourceFieldBox.SelectedItem = null;
+
+        await RunBusyAsync(async () =>
+        {
+            _instanceMatchKey = new InstanceMatchKeySettings(string.Empty, string.Empty);
+            await ProjectSettingsSync.PushAsync(GetClient(), instanceMatchKey: _instanceMatchKey);
+            InstanceMatchKeyStatusText.Text = "Bulk instance matching cleared — unpaired instances need pairing one at a time again.";
         });
     }
 

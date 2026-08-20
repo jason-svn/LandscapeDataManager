@@ -26,7 +26,21 @@ internal static class FloorLdsCalculationService
     private const string TotalGwpParameter = "!_S_PLT_LDS_TotalGWP_Mass";
     private const string SurfaceTempReductionParameter = "!_S_PLT_LDS_SurfaceTempReduction_Number";
     private const string AirTempReductionParameter = "!_S_PLT_LDS_AirTempReduction_Number";
-    private const string Co2SequesteredParameter = "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass";
+    // Redirected from the retired CO2SequesteredAnnual_Mass to the new CarbonSequesteredAnnual_Mass
+    // (see ITreeInstanceResultMapper for the same move on the tree side). The WWP landscape data
+    // sheet's own coefficient is explicitly "kgCO2e" (CO2-equivalent), so it's divided by the
+    // standard carbon-to-CO2 mass ratio before writing, so this parameter means the same physical
+    // quantity — elemental carbon — for both Planting and Floor instances.
+    private const string CarbonSequesteredParameter = "!_S_PLT_iTreeResult_CarbonSequesteredAnnual_Mass";
+
+    /// <summary>
+    /// Mirrors <c>WWP.LandscapeDataManager.Shared.Services.UnitConversions.CarbonToCo2MassRatio</c> —
+    /// duplicated rather than referenced because this project targets net8.0-windows7.0 (Revit API
+    /// compatibility) while Shared targets net8.0-windows10.0.19041, an incompatible pairing for a
+    /// direct ProjectReference. Mass ratio between CO2 (molecular weight 44.01) and elemental carbon
+    /// (atomic weight 12.011).
+    /// </summary>
+    private const double CarbonToCo2MassRatio = 3.67d;
     private const string RunoffAvoidedParameter = "!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume";
     private const string PollutionMassRemovedParameter = "!_S_PLT_LDS_PollutantsRemovedAnnual_Mass";
 
@@ -94,7 +108,11 @@ internal static class FloorLdsCalculationService
         SetIfWritable(floor.LookupParameter(ResultSourceParameter), values.ResultSource);
         SetIfWritable(floor.LookupParameter(LastCalculatedParameter), FormatLocalTimestamp());
 
-        SetIfWritable(floor.LookupParameter(Co2SequesteredParameter), UnitUtils.ConvertToInternalUnits(values.Co2SequesteredAnnual, UnitTypeId.Kilograms));
+        // values.Co2SequesteredAnnual is the WWP landscape data sheet's own "kgCO2e" coefficient
+        // times area — genuinely CO2-equivalent, not carbon. Divide by the same ratio the tree
+        // side multiplies by, so CarbonSequesteredParameter means elemental carbon here too.
+        var carbonSequesteredAnnual = values.Co2SequesteredAnnual / CarbonToCo2MassRatio;
+        SetIfWritable(floor.LookupParameter(CarbonSequesteredParameter), UnitUtils.ConvertToInternalUnits(carbonSequesteredAnnual, UnitTypeId.Kilograms));
         SetIfWritable(floor.LookupParameter(RunoffAvoidedParameter), UnitUtils.ConvertToInternalUnits(values.RunoffAvoidedAnnual, UnitTypeId.CubicMeters));
         SetIfWritable(floor.LookupParameter(PollutionMassRemovedParameter), UnitUtils.ConvertToInternalUnits(values.PollutionMassRemovedAnnual, UnitTypeId.Kilograms));
         SetIfWritable(floor.LookupParameter(CostSavedParameter), values.CostSavedAnnual);

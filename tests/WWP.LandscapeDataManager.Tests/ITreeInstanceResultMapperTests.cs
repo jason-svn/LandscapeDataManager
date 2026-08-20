@@ -18,15 +18,20 @@ public class ITreeInstanceResultMapperTests
     }
 
     [Fact]
-    public void Converts_carbon_from_pounds_to_kilograms()
+    public void Writes_raw_carbon_to_the_new_carbon_sequestered_parameter()
     {
+        // CarbonSequesteredAnnual_Mass is the new, honestly-named parameter that replaces
+        // CO2SequesteredAnnual_Mass (retired — see ITreeInstanceResultMapper's own comment). It
+        // holds i-Tree's raw carbon figure as-is, not the CO2-equivalent (that's a separate,
+        // already-correct value on CO2EquivalentAnnual_Mass).
         var outcome = new ITreeInstanceCalculationOutcome(
             new Dictionary<string, object?> { ["Annual_CarbonSequestered_lb"] = 10d }, null);
 
         var items = ITreeInstanceResultMapper.BuildWriteItems(
             "uid-1", "Calculated", null, "sig-1", outcome, "Metric");
 
-        var carbon = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass");
+        Assert.DoesNotContain(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass");
+        var carbon = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CarbonSequesteredAnnual_Mass");
         Assert.Equal("Auto (Revit spec)", carbon.Conversion);
         var value = double.Parse(carbon.SourceValue);
         Assert.True(value is > 4.5 and < 4.6, $"Expected ~4.54 kg, got {value}");
@@ -48,7 +53,7 @@ public class ITreeInstanceResultMapperTests
             "uid-1", "Calculated", null, "sig-1", outcome, "Imperial");
 
         double Value(IReadOnlyList<InstanceParameterWriteItem> items) =>
-            double.Parse(Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass").SourceValue);
+            double.Parse(Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CarbonSequesteredAnnual_Mass").SourceValue);
 
         Assert.Equal(Value(metricItems), Value(imperialItems), precision: 6);
     }
@@ -130,7 +135,8 @@ public class ITreeInstanceResultMapperTests
         var items = ITreeInstanceResultMapper.BuildWriteItems(
             "uid-1", "Calculated", null, "sig-1", outcome, "Imperial");
 
-        var carbonLifetimeTotal = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Mass");
+        Assert.DoesNotContain(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Mass");
+        var carbonLifetimeTotal = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CarbonSequesteredLifetimeTotal_Mass");
         var carbonValue = double.Parse(carbonLifetimeTotal.SourceValue);
         Assert.True(carbonValue is > 4.5 and < 4.6, $"Expected ~4.54 kg, got {carbonValue}");
 
@@ -153,7 +159,7 @@ public class ITreeInstanceResultMapperTests
         var items = ITreeInstanceResultMapper.BuildWriteItems(
             "uid-1", "Calculated", null, "sig-1", outcome, "Imperial");
 
-        var carbonLifetimeTotal = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Mass");
+        var carbonLifetimeTotal = Assert.Single(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_CarbonSequesteredLifetimeTotal_Mass");
         var expectedKilograms = 999d * UnitConversions.KilogramsPerPound;
         Assert.Equal(expectedKilograms, double.Parse(carbonLifetimeTotal.SourceValue), precision: 6);
     }

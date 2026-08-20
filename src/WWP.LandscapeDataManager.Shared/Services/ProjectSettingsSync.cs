@@ -37,7 +37,8 @@ public static class ProjectSettingsSync
         WwpLdsAirtableSettings? wwpLdsSource = null,
         string? sharedParameterFilePath = null,
         string? preferredUnitSystem = null,
-        string? preferredCurrency = null)
+        string? preferredCurrency = null,
+        InstanceMatchKeySettings? instanceMatchKey = null)
     {
         var existingResult = await client.SendAsync<GetProjectSettingsJsonResult>(PipeCommands.GetProjectSettingsJson);
         var existing = ProjectSettingsJson.Deserialize(existingResult.SettingsJson) ?? new ProjectSettingsSnapshot();
@@ -66,7 +67,8 @@ public static class ProjectSettingsSync
             parameterMappings ?? existing.ParameterMappings,
             typeAliases ?? existing.TypeAliases,
             wwpLdsSource ?? existing.WwpLdsSource,
-            sharedParameterFilePath ?? existing.SharedParameterFilePath);
+            sharedParameterFilePath ?? existing.SharedParameterFilePath,
+            instanceMatchKey ?? existing.InstanceMatchKey);
 
         await client.SendAsync<PublishProjectSettingsJsonResult>(
             PipeCommands.PublishProjectSettingsJson,

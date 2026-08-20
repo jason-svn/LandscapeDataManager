@@ -6,8 +6,8 @@ namespace WWP.LandscapeDataManager.Shared.Services;
 public sealed record NormalizedTreeMetrics(
     DashboardTreeItem Source,
     bool CountsTowardTotals,
-    double CO2SequesteredAnnual,
-    double CO2SequesteredLifetimeTotal,
+    double CarbonSequesteredAnnual,
+    double CarbonSequesteredLifetimeTotal,
     double CORemovedAnnual,
     double CORemovedLifetimeTotal,
     double NO2RemovedAnnual,
@@ -29,14 +29,16 @@ public sealed record NormalizedTreeMetrics(
     double RainfallInterceptedAnnual,
     double RainfallInterceptedLifetimeTotal,
     double RunoffAvoidedAnnual,
-    double RunoffAvoidedLifetimeTotal);
+    double RunoffAvoidedLifetimeTotal,
+    double CO2EquivalentAnnual,
+    double CO2EquivalentLifetimeTotal);
 
 public sealed record SpeciesSubtotal(
     string SpeciesCode,
     string CommonName,
     int TreeCount,
-    double CO2SequesteredAnnual,
-    double CO2SequesteredLifetimeTotal,
+    double CarbonSequesteredAnnual,
+    double CarbonSequesteredLifetimeTotal,
     double CORemovedAnnual,
     double CORemovedLifetimeTotal,
     double NO2RemovedAnnual,
@@ -48,14 +50,26 @@ public sealed record SpeciesSubtotal(
     double SO2RemovedAnnual,
     double SO2RemovedLifetimeTotal,
     double CostSavedAnnual,
-    double CostSavedLifetimeTotal);
+    double CostSavedLifetimeTotal,
+    double CarbonCostSavedAnnual,
+    double CarbonCostSavedLifetimeTotal,
+    double StormWaterCostSavedAnnual,
+    double StormWaterCostSavedLifetimeTotal,
+    double AirPollutionCostSavedAnnual,
+    double AirPollutionCostSavedLifetimeTotal,
+    double RainfallInterceptedAnnual,
+    double RainfallInterceptedLifetimeTotal,
+    double RunoffAvoidedAnnual,
+    double RunoffAvoidedLifetimeTotal,
+    double CO2EquivalentAnnual,
+    double CO2EquivalentLifetimeTotal);
 
 /// <summary><see cref="CostSavedAnnual"/> is reported as-calculated, not currency-normalized — Floor Calculator never records which currency (or exchange rate) it used, so there's nothing reliable to convert from.</summary>
 public sealed record FloorTypeSubtotal(
     string LdsType,
     int FloorCount,
     double AreaSquareMeters,
-    double CO2SequesteredAnnual,
+    double CarbonSequesteredAnnual,
     double RunoffAvoidedAnnual,
     double PollutionMassRemovedAnnual,
     double CostSavedAnnual,
@@ -82,13 +96,25 @@ public sealed record DashboardGrandTotal(
     double CORemovedLifetimeTotal,
     double TotalPollutionMassRemovedAnnual,
     double TotalPollutionMassRemovedLifetimeTotal,
-    double CO2SequesteredAnnual,
-    double CO2SequesteredLifetimeTotal,
+    double CarbonSequesteredAnnual,
+    double CarbonSequesteredLifetimeTotal,
+    double CO2EquivalentAnnual,
+    double CO2EquivalentLifetimeTotal,
     double TreeCostSavedAnnual,
     double TreeCostSavedLifetimeTotal,
+    double CarbonCostSavedAnnual,
+    double CarbonCostSavedLifetimeTotal,
+    double StormWaterCostSavedAnnual,
+    double StormWaterCostSavedLifetimeTotal,
+    double AirPollutionCostSavedAnnual,
+    double AirPollutionCostSavedLifetimeTotal,
+    double RainfallInterceptedAnnual,
+    double RainfallInterceptedLifetimeTotal,
+    double RunoffAvoidedAnnual,
+    double RunoffAvoidedLifetimeTotal,
     int FloorCount,
     double FloorAreaSquareMeters,
-    double FloorCO2SequesteredAnnual,
+    double FloorCarbonSequesteredAnnual,
     double FloorRunoffAvoidedAnnual,
     double FloorPollutionMassRemovedAnnual,
     double FloorTotalGwp,
@@ -136,7 +162,7 @@ public static class DashboardAggregationService
     /// via <c>UnitUtils.ConvertFromInternalUnits</c> now that they're Revit-native Mass-spec parameters,
     /// so (unlike currency) there's no "what basis was this calculated under" history to resolve, just
     /// a display-basis conversion to whatever the dashboard's own unit toggle currently wants. Two
-    /// separate mass bases are still needed, not one: <c>CO2Sequestered</c> displays on a
+    /// separate mass bases are still needed, not one: <c>CarbonSequestered</c> displays on a
     /// pounds-per-kilogram basis while the five pollutant-removed fields display on an
     /// ounces-per-kilogram basis (see <c>ITreeInstanceResultMapper.FromPounds</c>/<c>FromOunces</c>) —
     /// collapsing them into one factor would silently misconvert one or the other.
@@ -156,7 +182,7 @@ public static class DashboardAggregationService
         return new NormalizedTreeMetrics(
             item,
             string.Equals(item.Status, "Calculated", StringComparison.OrdinalIgnoreCase),
-            PoundBasis(item.CO2SequesteredAnnual), PoundBasis(item.CO2SequesteredLifetimeTotal),
+            PoundBasis(item.CarbonSequesteredAnnual), PoundBasis(item.CarbonSequesteredLifetimeTotal),
             OunceBasis(item.CORemovedAnnual), OunceBasis(item.CORemovedLifetimeTotal),
             OunceBasis(item.NO2RemovedAnnual), OunceBasis(item.NO2RemovedLifetimeTotal),
             OunceBasis(item.O3RemovedAnnual), OunceBasis(item.O3RemovedLifetimeTotal),
@@ -170,7 +196,8 @@ public static class DashboardAggregationService
             // Imperial display, see FloorLdsCalculationService/DashboardReportService) — no manual
             // conversion needed here, unlike the mass and currency fields above.
             item.RainfallInterceptedAnnual, item.RainfallInterceptedLifetimeTotal,
-            item.RunoffAvoidedAnnual, item.RunoffAvoidedLifetimeTotal);
+            item.RunoffAvoidedAnnual, item.RunoffAvoidedLifetimeTotal,
+            PoundBasis(item.CO2EquivalentAnnual), PoundBasis(item.CO2EquivalentLifetimeTotal));
     }
 
     public static IReadOnlyList<SpeciesSubtotal> AggregateTreesBySpecies(IEnumerable<NormalizedTreeMetrics> trees) =>
@@ -183,13 +210,19 @@ public static class DashboardAggregationService
                 group.Key.Code,
                 group.Key.Name,
                 group.Count(),
-                group.Sum(tree => tree.CO2SequesteredAnnual), group.Sum(tree => tree.CO2SequesteredLifetimeTotal),
+                group.Sum(tree => tree.CarbonSequesteredAnnual), group.Sum(tree => tree.CarbonSequesteredLifetimeTotal),
                 group.Sum(tree => tree.CORemovedAnnual), group.Sum(tree => tree.CORemovedLifetimeTotal),
                 group.Sum(tree => tree.NO2RemovedAnnual), group.Sum(tree => tree.NO2RemovedLifetimeTotal),
                 group.Sum(tree => tree.O3RemovedAnnual), group.Sum(tree => tree.O3RemovedLifetimeTotal),
                 group.Sum(tree => tree.PM25RemovedAnnual), group.Sum(tree => tree.PM25RemovedLifetimeTotal),
                 group.Sum(tree => tree.SO2RemovedAnnual), group.Sum(tree => tree.SO2RemovedLifetimeTotal),
-                group.Sum(tree => tree.CostSavedAnnual), group.Sum(tree => tree.CostSavedLifetimeTotal)))
+                group.Sum(tree => tree.CostSavedAnnual), group.Sum(tree => tree.CostSavedLifetimeTotal),
+                group.Sum(tree => tree.CarbonCostSavedAnnual), group.Sum(tree => tree.CarbonCostSavedLifetimeTotal),
+                group.Sum(tree => tree.StormWaterCostSavedAnnual), group.Sum(tree => tree.StormWaterCostSavedLifetimeTotal),
+                group.Sum(tree => tree.AirPollutionCostSavedAnnual), group.Sum(tree => tree.AirPollutionCostSavedLifetimeTotal),
+                group.Sum(tree => tree.RainfallInterceptedAnnual), group.Sum(tree => tree.RainfallInterceptedLifetimeTotal),
+                group.Sum(tree => tree.RunoffAvoidedAnnual), group.Sum(tree => tree.RunoffAvoidedLifetimeTotal),
+                group.Sum(tree => tree.CO2EquivalentAnnual), group.Sum(tree => tree.CO2EquivalentLifetimeTotal)))
             .OrderByDescending(subtotal => subtotal.TreeCount)
             .ToList();
 
@@ -200,7 +233,7 @@ public static class DashboardAggregationService
                 group.Key,
                 group.Count(),
                 group.Sum(floor => floor.AreaSquareMeters),
-                group.Sum(floor => floor.CO2SequesteredAnnual),
+                group.Sum(floor => floor.CarbonSequesteredAnnual),
                 group.Sum(floor => floor.RunoffAvoidedAnnual),
                 group.Sum(floor => floor.PollutionMassRemovedAnnual),
                 group.Sum(floor => floor.CostSavedAnnual),
@@ -227,11 +260,17 @@ public static class DashboardAggregationService
             SumTrees(tree => tree.CORemovedAnnual), SumTrees(tree => tree.CORemovedLifetimeTotal),
             SumTrees(tree => tree.PM25RemovedAnnual + tree.NO2RemovedAnnual + tree.O3RemovedAnnual + tree.SO2RemovedAnnual + tree.CORemovedAnnual),
             SumTrees(tree => tree.PM25RemovedLifetimeTotal + tree.NO2RemovedLifetimeTotal + tree.O3RemovedLifetimeTotal + tree.SO2RemovedLifetimeTotal + tree.CORemovedLifetimeTotal),
-            SumTrees(tree => tree.CO2SequesteredAnnual), SumTrees(tree => tree.CO2SequesteredLifetimeTotal),
+            SumTrees(tree => tree.CarbonSequesteredAnnual), SumTrees(tree => tree.CarbonSequesteredLifetimeTotal),
+            SumTrees(tree => tree.CO2EquivalentAnnual), SumTrees(tree => tree.CO2EquivalentLifetimeTotal),
             SumTrees(tree => tree.CostSavedAnnual), SumTrees(tree => tree.CostSavedLifetimeTotal),
+            SumTrees(tree => tree.CarbonCostSavedAnnual), SumTrees(tree => tree.CarbonCostSavedLifetimeTotal),
+            SumTrees(tree => tree.StormWaterCostSavedAnnual), SumTrees(tree => tree.StormWaterCostSavedLifetimeTotal),
+            SumTrees(tree => tree.AirPollutionCostSavedAnnual), SumTrees(tree => tree.AirPollutionCostSavedLifetimeTotal),
+            SumTrees(tree => tree.RainfallInterceptedAnnual), SumTrees(tree => tree.RainfallInterceptedLifetimeTotal),
+            SumTrees(tree => tree.RunoffAvoidedAnnual), SumTrees(tree => tree.RunoffAvoidedLifetimeTotal),
             floors.Count,
             floors.Sum(floor => floor.AreaSquareMeters),
-            floors.Sum(floor => floor.CO2SequesteredAnnual),
+            floors.Sum(floor => floor.CarbonSequesteredAnnual),
             floors.Sum(floor => floor.RunoffAvoidedAnnual),
             floors.Sum(floor => floor.PollutionMassRemovedAnnual),
             floors.Sum(floor => floor.TotalGwp),

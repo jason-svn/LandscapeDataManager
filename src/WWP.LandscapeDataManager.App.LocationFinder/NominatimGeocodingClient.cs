@@ -41,10 +41,29 @@ public sealed class NominatimGeocodingClient
             first.DisplayName);
     }
 
+    /// <summary>Country only (zoom=3) — the coarsest, lightest reverse-geocode lookup Nominatim offers, since that's all currency-matching needs.</summary>
+    public async Task<string?> ReverseCountryCodeAsync(double latitude, double longitude, CancellationToken cancellationToken = default)
+    {
+        var url = "https://nominatim.openstreetmap.org/reverse?format=json&zoom=3&addressdetails=1" +
+                  $"&lat={latitude.ToString(CultureInfo.InvariantCulture)}&lon={longitude.ToString(CultureInfo.InvariantCulture)}";
+        using var response = await HttpClient.GetAsync(url, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var result = await JsonSerializer.DeserializeAsync<NominatimReverseResult>(stream, cancellationToken: cancellationToken);
+        return result?.Address?.CountryCode;
+    }
+
     private sealed record NominatimEntry(
         [property: JsonPropertyName("lat")] string Lat,
         [property: JsonPropertyName("lon")] string Lon,
         [property: JsonPropertyName("display_name")] string DisplayName);
+
+    private sealed record NominatimReverseResult(
+        [property: JsonPropertyName("address")] NominatimAddress? Address);
+
+    private sealed record NominatimAddress(
+        [property: JsonPropertyName("country_code")] string? CountryCode);
 }
 
 public sealed record GeocodeResult(double Latitude, double Longitude, string DisplayName);

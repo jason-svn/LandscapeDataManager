@@ -72,7 +72,7 @@ public static class DashboardExcelExportService
 
         WriteRow("Trees counted in totals", total.TreeCount.ToString("N0"));
         WriteRow("Trees excluded (not yet Calculated)", total.TreesExcludedFromTotals.ToString("N0"));
-        WriteRow($"CO2 sequestered ({massUnit})", total.CO2SequesteredAnnual.ToString("N1"));
+        WriteRow($"Carbon sequestered ({massUnit})", total.CarbonSequesteredAnnual.ToString("N1"));
         WriteRow($"Total pollution mass removed ({massUnit})", total.TotalPollutionMassRemovedAnnual.ToString("N2"));
         WriteRow($"  PM2.5 removed ({massUnit})", total.PM25RemovedAnnual.ToString("N2"));
         WriteRow($"  NO2 removed ({massUnit})", total.NO2RemovedAnnual.ToString("N2"));
@@ -83,7 +83,7 @@ public static class DashboardExcelExportService
         row += 1;
         WriteRow("Planting areas — count", total.FloorCount.ToString("N0"));
         WriteRow("Planting areas — area (m2)", total.FloorAreaSquareMeters.ToString("N1"));
-        WriteRow("Planting areas — CO2 sequestered (kg)", total.FloorCO2SequesteredAnnual.ToString("N1"));
+        WriteRow("Planting areas — Carbon sequestered (kg)", total.FloorCarbonSequesteredAnnual.ToString("N1"));
         WriteRow("Planting areas — runoff avoided (m3)", total.FloorRunoffAvoidedAnnual.ToString("N1"));
         WriteRow("Planting areas — pollution mitigated (kg)", total.FloorPollutionMassRemovedAnnual.ToString("N2"));
         WriteRow("Planting areas — total GWP", total.FloorTotalGwp.ToString("N1"));
@@ -99,7 +99,7 @@ public static class DashboardExcelExportService
         string[] headers =
         [
             "Species code", "Common name", "Tree count",
-            "CO2 sequestered", "PM2.5 removed", "NO2 removed", "O3 removed", "SO2 removed", "CO removed",
+            "Carbon sequestered", "PM2.5 removed", "NO2 removed", "O3 removed", "SO2 removed", "CO removed",
             "Cost saved"
         ];
         WriteHeaderRow(sheet, headers);
@@ -111,7 +111,7 @@ public static class DashboardExcelExportService
             sheet.Cell(row, 1).Value = subtotal.SpeciesCode;
             sheet.Cell(row, 2).Value = subtotal.CommonName;
             sheet.Cell(row, 3).Value = subtotal.TreeCount;
-            sheet.Cell(row, 4).Value = isAnnual ? subtotal.CO2SequesteredAnnual : subtotal.CO2SequesteredLifetimeTotal;
+            sheet.Cell(row, 4).Value = isAnnual ? subtotal.CarbonSequesteredAnnual : subtotal.CarbonSequesteredLifetimeTotal;
             sheet.Cell(row, 5).Value = isAnnual ? subtotal.PM25RemovedAnnual : subtotal.PM25RemovedLifetimeTotal;
             sheet.Cell(row, 6).Value = isAnnual ? subtotal.NO2RemovedAnnual : subtotal.NO2RemovedLifetimeTotal;
             sheet.Cell(row, 7).Value = isAnnual ? subtotal.O3RemovedAnnual : subtotal.O3RemovedLifetimeTotal;
@@ -129,7 +129,7 @@ public static class DashboardExcelExportService
         var sheet = workbook.AddWorksheet("Planting Areas");
         string[] headers =
         [
-            "Landscape data sheet type", "Planting area count", "Area (m2)", "CO2 sequestered (kg)",
+            "Landscape data sheet type", "Planting area count", "Area (m2)", "Carbon sequestered (kg)",
             "Runoff avoided (m3)", "Pollution mitigated (kg)", "Total GWP", "Cost saved (as calculated)"
         ];
         WriteHeaderRow(sheet, headers);
@@ -140,7 +140,7 @@ public static class DashboardExcelExportService
             sheet.Cell(row, 1).Value = subtotal.LdsType;
             sheet.Cell(row, 2).Value = subtotal.FloorCount;
             sheet.Cell(row, 3).Value = subtotal.AreaSquareMeters;
-            sheet.Cell(row, 4).Value = subtotal.CO2SequesteredAnnual;
+            sheet.Cell(row, 4).Value = subtotal.CarbonSequesteredAnnual;
             sheet.Cell(row, 5).Value = subtotal.RunoffAvoidedAnnual;
             sheet.Cell(row, 6).Value = subtotal.PollutionMassRemovedAnnual;
             sheet.Cell(row, 7).Value = subtotal.TotalGwp;
@@ -157,7 +157,7 @@ public static class DashboardExcelExportService
         string[] headers =
         [
             "Category", "Family : Type", "Species code", "Level", "Design option", "Status",
-            "CO2 sequestered", "PM2.5 removed", "NO2 removed", "O3 removed", "SO2 removed", "CO removed",
+            "Carbon sequestered", "PM2.5 removed", "NO2 removed", "O3 removed", "SO2 removed", "CO removed",
             "Cost saved"
         ];
         WriteHeaderRow(sheet, headers);
@@ -173,7 +173,7 @@ public static class DashboardExcelExportService
             sheet.Cell(row, 4).Value = item.LevelName ?? string.Empty;
             sheet.Cell(row, 5).Value = FormatDesignOption(item.DesignOption);
             sheet.Cell(row, 6).Value = item.Status;
-            sheet.Cell(row, 7).Value = isAnnual ? tree.CO2SequesteredAnnual : tree.CO2SequesteredLifetimeTotal;
+            sheet.Cell(row, 7).Value = isAnnual ? tree.CarbonSequesteredAnnual : tree.CarbonSequesteredLifetimeTotal;
             sheet.Cell(row, 8).Value = isAnnual ? tree.PM25RemovedAnnual : tree.PM25RemovedLifetimeTotal;
             sheet.Cell(row, 9).Value = isAnnual ? tree.NO2RemovedAnnual : tree.NO2RemovedLifetimeTotal;
             sheet.Cell(row, 10).Value = isAnnual ? tree.O3RemovedAnnual : tree.O3RemovedLifetimeTotal;
@@ -191,7 +191,7 @@ public static class DashboardExcelExportService
             sheet.Cell(row, 4).Value = floor.LevelName ?? string.Empty;
             sheet.Cell(row, 5).Value = FormatDesignOption(floor.DesignOption);
             sheet.Cell(row, 6).Value = "n/a";
-            sheet.Cell(row, 7).Value = floor.CO2SequesteredAnnual;
+            sheet.Cell(row, 7).Value = floor.CarbonSequesteredAnnual;
             sheet.Cell(row, 8).Value = "n/a";
             sheet.Cell(row, 9).Value = "n/a";
             sheet.Cell(row, 10).Value = "n/a";

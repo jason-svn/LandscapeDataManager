@@ -430,12 +430,12 @@
                                 <ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Border Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="TREES" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="TreeCountText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="TreeExcludedText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" /></StackPanel></Border>
-                            <Border Grid.Column="1" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="TREE POLLUTION" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="PollutionMassText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel></Border>
-                            <Border Grid.Column="2" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="TREE CO₂" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="CO2SequesteredText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel></Border>
-                            <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="TREE BENEFIT" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="TreeCostSavedText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border Grid.Column="1" Style="{StaticResource KpiMetricCardStyle}" ToolTipService.ToolTip="Carbon dioxide uptake: dollar benefit from carbon sequestration, plus the carbon sequestered and its CO2 equivalent."><StackPanel Spacing="2"><TextBlock Text="CARBON DIOXIDE UPTAKE" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" /><TextBlock x:Name="CarbonUptakeCostText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="CarbonUptakeDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" /></StackPanel></Border>
+                            <Border Grid.Column="2" Style="{StaticResource KpiMetricCardStyle}" ToolTipService.ToolTip="Storm water mitigation: dollar benefit from runoff avoided and rainfall intercepted."><StackPanel Spacing="2"><TextBlock Text="STORM WATER MITIGATION" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" /><TextBlock x:Name="StormWaterCostText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="StormWaterDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" /></StackPanel></Border>
+                            <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}" ToolTipService.ToolTip="Air pollution removal: dollar benefit from CO, O3, NO2, SO2, and PM2.5 removed."><StackPanel Spacing="2"><TextBlock Text="AIR POLLUTION REMOVAL" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" /><TextBlock x:Name="AirPollutionCostText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="AirPollutionDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" /></StackPanel></Border>
                             <Border Grid.Column="4" Width="1" Background="#FFDDE4DA" Margin="2,4" />
                             <Border Grid.Column="5" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA / COUNT" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="FloorCountText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorAreaText" FontSize="10" Foreground="#FF69736A" /></StackPanel></Border>
-                            <Border Grid.Column="6" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA CO₂ / GWP" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="FloorCO2Text" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorGwpText" FontSize="10" Foreground="#FF69736A" /></StackPanel></Border>
+                            <Border Grid.Column="6" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA CARBON / GWP" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="FloorCarbonText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorGwpText" FontSize="10" Foreground="#FF69736A" /></StackPanel></Border>
                             <Border Grid.Column="7" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA RUNOFF / POLLUTION" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" /><TextBlock x:Name="FloorRunoffText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorPollutionText" FontSize="10" Foreground="#FF69736A" /></StackPanel></Border>
                             <Border Grid.Column="8" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA BENEFIT" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="FloorCostSavedText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel></Border>
                             <Border Grid.Column="9" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="CURRENCY" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="CurrencyText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel></Border>
@@ -448,26 +448,30 @@
                                 <Grid RowSpacing="10">
                                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                                     <TextBlock Text="By species (trees)" Style="{StaticResource KpiCardTitleStyle}" />
-                                    <Grid Grid.Row="1" ColumnSpacing="8" Padding="5,0">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="75" /><ColumnDefinition Width="*" /><ColumnDefinition Width="45" /><ColumnDefinition Width="105" /><ColumnDefinition Width="105" /><ColumnDefinition Width="105" /></Grid.ColumnDefinitions>
+                                    <Grid Grid.Row="1" ColumnSpacing="6" Padding="5,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="55" /><ColumnDefinition Width="*" /><ColumnDefinition Width="32" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /></Grid.ColumnDefinitions>
                                         <TextBlock Text="Code" Style="{StaticResource KpiEyebrowStyle}" />
                                         <TextBlock Grid.Column="1" Text="Common name" Style="{StaticResource KpiEyebrowStyle}" />
                                         <TextBlock Grid.Column="2" Text="Count" Style="{StaticResource KpiEyebrowStyle}" />
-                                        <TextBlock Grid.Column="3" Text="CO2" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="3" Text="Carbon" Style="{StaticResource KpiEyebrowStyle}" />
                                         <TextBlock Grid.Column="4" Text="Pollution" Style="{StaticResource KpiEyebrowStyle}" />
-                                        <TextBlock Grid.Column="5" Text="Cost saved" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="5" Text="Carbon $" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Column="6" Text="Storm water $" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Column="7" Text="Air pollution $" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
                                     </Grid>
                                     <ListView Grid.Row="2" ItemsSource="{x:Bind SpeciesSubtotals}" SelectionMode="None" Padding="0">
                                         <ListView.ItemTemplate>
                                             <DataTemplate x:DataType="local:SpeciesSubtotalRow">
-                                                <Grid Padding="5,7" ColumnSpacing="8">
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="75" /><ColumnDefinition Width="*" /><ColumnDefinition Width="45" /><ColumnDefinition Width="105" /><ColumnDefinition Width="105" /><ColumnDefinition Width="105" /></Grid.ColumnDefinitions>
+                                                <Grid Padding="5,7" ColumnSpacing="6">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="55" /><ColumnDefinition Width="*" /><ColumnDefinition Width="32" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /></Grid.ColumnDefinitions>
                                                     <TextBlock Text="{x:Bind SpeciesCode}" FontWeight="SemiBold" />
                                                     <TextBlock Grid.Column="1" Text="{x:Bind CommonName}" TextTrimming="CharacterEllipsis" />
                                                     <TextBlock Grid.Column="2" Text="{x:Bind TreeCount}" />
-                                                    <TextBlock Grid.Column="3" Text="{x:Bind CO2Sequestered}" />
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind CarbonSequestered}" />
                                                     <TextBlock Grid.Column="4" Text="{x:Bind PollutionMassRemoved}" />
-                                                    <TextBlock Grid.Column="5" Text="{x:Bind CostSaved}" />
+                                                    <TextBlock Grid.Column="5" Text="{x:Bind CarbonCostSaved}" />
+                                                    <TextBlock Grid.Column="6" Text="{x:Bind StormWaterCostSaved}" />
+                                                    <TextBlock Grid.Column="7" Text="{x:Bind AirPollutionCostSaved}" />
                                                 </Grid>
                                             </DataTemplate>
                                         </ListView.ItemTemplate>
@@ -484,7 +488,7 @@
                                         <TextBlock Text="Type" Style="{StaticResource KpiEyebrowStyle}" />
                                         <TextBlock Grid.Column="1" Text="Count" Style="{StaticResource KpiEyebrowStyle}" />
                                         <TextBlock Grid.Column="2" Text="Area" Style="{StaticResource KpiEyebrowStyle}" />
-                                        <TextBlock Grid.Column="3" Text="CO2" Style="{StaticResource KpiEyebrowStyle}" />
+                                        <TextBlock Grid.Column="3" Text="Carbon" Style="{StaticResource KpiEyebrowStyle}" />
                                         <TextBlock Grid.Column="4" Text="Runoff" Style="{StaticResource KpiEyebrowStyle}" />
                                         <TextBlock Grid.Column="5" Text="Pollution" Style="{StaticResource KpiEyebrowStyle}" />
                                     </Grid>
@@ -496,7 +500,7 @@
                                                     <TextBlock Text="{x:Bind LdsType}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                                     <TextBlock Grid.Column="1" Text="{x:Bind FloorCount}" />
                                                     <TextBlock Grid.Column="2" Text="{x:Bind AreaSquareMeters}" />
-                                                    <TextBlock Grid.Column="3" Text="{x:Bind CO2Sequestered}" />
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind CarbonSequestered}" />
                                                     <TextBlock Grid.Column="4" Text="{x:Bind RunoffAvoided}" />
                                                     <TextBlock Grid.Column="5" Text="{x:Bind PollutionMassRemoved}" />
                                                 </Grid>

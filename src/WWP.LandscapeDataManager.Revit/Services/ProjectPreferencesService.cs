@@ -12,6 +12,7 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 internal static class ProjectPreferencesService
 {
     private const string PreferredCurrencyParameter = "!_S_PLT_iTreeUnits_PreferredCurrency_Text";
+    private const string PreferredCurrencyFactorParameter = "!_S_PLT_iTreeUnits_PreferredCurrencyFactor_Number";
     private const string SettingsJsonParameter = "!_S_PLT_Settings_Json_Text";
 
     /// <summary>
@@ -56,6 +57,12 @@ internal static class ProjectPreferencesService
                 parameter.Set(request.CurrencyCode);
             }
 
+            var factorParameter = projectInfo.LookupParameter(PreferredCurrencyFactorParameter);
+            if (factorParameter is { IsReadOnly: false })
+            {
+                factorParameter.Set(request.CurrencyFactor);
+            }
+
             SetCurrencySymbol(document, request.CurrencyCode);
 
             transaction.Commit();
@@ -70,7 +77,7 @@ internal static class ProjectPreferencesService
             throw;
         }
 
-        return new PublishPreferredCurrencyResult(document.Title, request.CurrencyCode);
+        return new PublishPreferredCurrencyResult(document.Title, request.CurrencyCode, request.CurrencyFactor);
     }
 
     /// <summary>

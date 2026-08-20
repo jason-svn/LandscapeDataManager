@@ -491,6 +491,12 @@ internal static class SharedParameterSetupService
             PlantingAndFloorInstance("!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass", GroupTypeId.AnalysisResults,
                 "Annual carbon-dioxide sequestration (Revit Mass parameter — displays per the project's Mass unit settings).",
                 legacyAliases: ["!_S_PLT_iTreeResult_CO2SequesteredAnnual_Number"]),
+            // Deliberately a new parameter, not a rename of the one above (see its own comment
+            // just below — it holds a genuinely different quantity: raw elemental carbon, not
+            // CO2). No legacyAliases here — nothing migrates automatically; the project owner is
+            // retiring the CO2SequesteredAnnual_Mass binding by hand.
+            PlantingAndFloorInstance("!_S_PLT_iTreeResult_CarbonSequesteredAnnual_Mass", GroupTypeId.AnalysisResults,
+                "Annual elemental carbon sequestered — i-Tree's raw measured figure. Distinct from CO2SequesteredAnnual_Mass/CO2EquivalentAnnual_Mass, which are that same figure × 3.67 (Revit Mass parameter — displays per the project's Mass unit settings)."),
             PlantingInstance("!_S_PLT_iTreeResult_RainfallInterceptedAnnual_Volume", GroupTypeId.AnalysisResults,
                 "Annual rainfall interception for the modeled tree instance. Metric: m³. Imperial: ft³ (Revit Volume parameter — displays per the project's Volume unit settings)."),
             PlantingAndFloorInstance("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume", GroupTypeId.AnalysisResults,
@@ -525,6 +531,10 @@ internal static class SharedParameterSetupService
             PlantingInstance("!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Mass", GroupTypeId.AnalysisResults,
                 "Lifetime cumulative carbon-dioxide sequestration, summed over the instance's modeled TreeGrowth_Years (Revit Mass parameter).",
                 legacyAliases: ["!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Number"]),
+            // New parameter, same reasoning as CarbonSequesteredAnnual_Mass above — raw carbon,
+            // not CO2, and no automatic migration from the old parameter.
+            PlantingInstance("!_S_PLT_iTreeResult_CarbonSequesteredLifetimeTotal_Mass", GroupTypeId.AnalysisResults,
+                "Lifetime cumulative elemental carbon sequestered, summed over the instance's modeled TreeGrowth_Years — i-Tree's raw measured figure, distinct from CO2SequesteredLifetimeTotal_Mass/CO2EquivalentLifetimeTotal_Mass (Revit Mass parameter)."),
             PlantingInstance("!_S_PLT_iTreeResult_CORemovedLifetimeTotal_Mass", GroupTypeId.AnalysisResults,
                 "Lifetime cumulative carbon-monoxide removal, summed over the instance's modeled TreeGrowth_Years (Revit Mass parameter).",
                 legacyAliases: ["!_S_PLT_iTreeResult_CORemovedLifetimeTotal_Number"]),
@@ -575,6 +585,15 @@ internal static class SharedParameterSetupService
             // reading Properties without the tool open.
             ProjectInfo("!_S_PLT_iTreeUnits_PreferredCurrency_Text", GroupTypeId.General,
                 "Project Information preference for reporting i-Tree monetary benefits in USD, GBP, EUR, CAD, AUD, or NZD."),
+            // Written alongside PreferredCurrency by the same PublishPreferredCurrency call — the
+            // resolved USD-to-preferred-currency rate, refreshed each time the currency preference
+            // is set. A project-wide "current rate" any tool or hand-built schedule formula can
+            // multiply a USD figure by directly, without needing its own exchange-rate lookup.
+            // Distinct from the per-instance iTreeResult_ExchangeRateUsed_Number above, which is a
+            // historical record of the rate baked into one specific tree's already-calculated
+            // results, not necessarily this project-wide preference's current value.
+            ProjectInfo("!_S_PLT_iTreeUnits_PreferredCurrencyFactor_Number", GroupTypeId.General,
+                "USD-to-preferred-currency exchange rate (e.g. 0.78 for GBP), refreshed whenever the preferred currency is set. Multiply a USD figure by this to report it in the preferred currency; 1.0 when the preference is USD."),
             // Multiline text — a JSON blob, not a human-typed value. Apps read/write this through
             // GetProjectSettingsJson/PublishProjectSettingsJson; see Shared.Services.ProjectSettingsSnapshot
             // for the shape. Project-wins by design: apps overwrite their own local machine settings

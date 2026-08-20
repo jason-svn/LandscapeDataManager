@@ -53,12 +53,13 @@ public sealed partial class MainPage : Page
         _allSpecies = await _catalogueDatabase.GetAllAsync();
         var metadata = await _catalogueDatabase.GetMetadataAsync();
         var lastUpdated = metadata.FormatDownloadedAtLocal();
+        var version = string.IsNullOrEmpty(metadata.Version) ? "unknown" : $"{metadata.Version[..Math.Min(8, metadata.Version.Length)]}...";
 
         CatalogueStatusText.Text = _allSpecies.Count == 0
             ? "No species catalogue has been downloaded yet — run the i-Tree Downloader tool first, then come back here."
             : lastUpdated is null
-                ? $"{_allSpecies.Count:N0} species cached locally (catalogue version {metadata.Version ?? "unknown"})."
-                : $"{_allSpecies.Count:N0} species cached locally, last updated {lastUpdated} (catalogue version {metadata.Version ?? "unknown"}).";
+                ? $"{_allSpecies.Count:N0} species cached locally (catalogue version {version})."
+                : $"{_allSpecies.Count:N0} species cached locally, last updated {lastUpdated} (catalogue version {version}).";
 
         try
         {
@@ -80,11 +81,18 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private async void LoadSelectedTrees_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(LoadSelectedTreesAsync);
+    private async void LoadSelectedTrees_Click(object sender, RoutedEventArgs e) =>
+        await RunBusyAsync(() => LoadTreesAsync(PipeCommands.GetSelectedPlantingTypes, "loaded from the current Revit selection"));
 
-    private async Task LoadSelectedTreesAsync()
+    private async void LoadAllTrees_Click(object sender, RoutedEventArgs e) =>
+        await RunBusyAsync(() => LoadTreesAsync(PipeCommands.GetAllPlantingTypes, "loaded from the project"));
+
+    private async Task LoadSelectedTreesAsync() =>
+        await LoadTreesAsync(PipeCommands.GetSelectedPlantingTypes, "loaded from the current Revit selection");
+
+    private async Task LoadTreesAsync(string command, string sourceDescription)
     {
-        var result = await GetClient().SendAsync<SelectedPlantingTypesResult>(PipeCommands.GetSelectedPlantingTypes, null);
+        var result = await GetClient().SendAsync<SelectedPlantingTypesResult>(command, null);
 
         Rows.Clear();
         foreach (var item in result.Items)
@@ -94,7 +102,7 @@ public sealed partial class MainPage : Page
             ApplyAutoMatch(row);
         }
 
-        RowsCountText.Text = $"{Rows.Count:N0} distinct planting type(s) loaded from the current Revit selection.";
+        RowsCountText.Text = $"{Rows.Count:N0} distinct planting type(s) {sourceDescription}.";
         UpdateAssignAllEnabled();
 
         var autoMatched = Rows.Count(row => row.MatchStatus == "Auto-matched");

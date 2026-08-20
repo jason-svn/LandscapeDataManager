@@ -143,6 +143,36 @@ internal static class SpeciesCatalogueWriter
         return new SelectedPlantingTypesResult(document.Title, items);
     }
 
+    /// <summary>Reports one row per distinct Planting ElementType in the whole project, for Tree Searcher to review/match.</summary>
+    public static SelectedPlantingTypesResult GetAllTypes(UIApplication application)
+    {
+        var document = application.ActiveUIDocument?.Document
+                       ?? throw new InvalidOperationException("Open a Revit project before working with planting types.");
+
+        var types = new FilteredElementCollector(document)
+            .OfCategory(BuiltInCategory.OST_Planting)
+            .WhereElementIsElementType()
+            .Cast<ElementType>()
+            .OrderBy(GetFamilyName)
+            .ThenBy(type => type.Name)
+            .ToList();
+
+        if (types.Count == 0)
+        {
+            throw new InvalidOperationException("The project has no Planting types.");
+        }
+
+        var items = types
+            .Select(type => new SelectedPlantingTypeItem(
+                type.UniqueId,
+                GetFamilyName(type),
+                type.Name,
+                GetNullableText(type, CodeParameter)))
+            .ToList();
+
+        return new SelectedPlantingTypesResult(document.Title, items);
+    }
+
     /// <summary>
     /// Writes each assignment's chosen species record onto its target ElementType, in one
     /// transaction. Unlike <see cref="Update"/>, this never matches by an existing Species_Code —

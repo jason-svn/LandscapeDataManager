@@ -128,6 +128,7 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.ApplyStatusColourOverrides => await ApplyStatusColourOverridesAsync(request).ConfigureAwait(false),
                 PipeCommands.ResetColourOverrides => await ResetColourOverridesAsync(request).ConfigureAwait(false),
                 PipeCommands.GetSelectedPlantingTypes => await GetSelectedPlantingTypesAsync(request).ConfigureAwait(false),
+                PipeCommands.GetAllPlantingTypes => await GetAllPlantingTypesAsync(request).ConfigureAwait(false),
                 PipeCommands.AssignSpeciesBatch => await AssignSpeciesBatchAsync(request).ConfigureAwait(false),
                 PipeCommands.GetProjectSiteLocation => await GetProjectSiteLocationAsync(request).ConfigureAwait(false),
                 PipeCommands.PublishProjectLocation => await PublishProjectLocationAsync(request).ConfigureAwait(false),
@@ -228,7 +229,10 @@ internal sealed class RevitPipeServer : IDisposable
 
     private async Task<PipeResponse> ScanPlantingInstancesAsync(PipeRequest request)
     {
-        var result = await _dispatcher.RunAsync(RevitModelScanner.ScanPlantingInstances).ConfigureAwait(false);
+        var options = request.Payload?.Deserialize<PlantingInstanceScanOptions>(JsonDefaults.Options)
+                      ?? new PlantingInstanceScanOptions();
+        var result = await _dispatcher.RunAsync(application =>
+            RevitModelScanner.ScanPlantingInstances(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 
@@ -271,6 +275,12 @@ internal sealed class RevitPipeServer : IDisposable
     private async Task<PipeResponse> GetSelectedPlantingTypesAsync(PipeRequest request)
     {
         var result = await _dispatcher.RunAsync(SpeciesCatalogueWriter.GetSelectedTypes).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetAllPlantingTypesAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(SpeciesCatalogueWriter.GetAllTypes).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

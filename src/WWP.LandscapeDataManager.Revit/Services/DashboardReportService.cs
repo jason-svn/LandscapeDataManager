@@ -142,8 +142,8 @@ internal static class DashboardReportService
             GetNullableText(element, "!_S_PLT_iTreeResult_UnitSystem_Text") ?? "Metric",
             GetNullableText(element, "!_S_PLT_iTreeResult_CurrencyUsed_Text") ?? "USD",
             element.LookupParameter("!_S_PLT_iTreeResult_ExchangeRateUsed_Number") is { HasValue: true } rateParam ? rateParam.AsDouble() : 1d,
-            GetMassKilograms("!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass"),
-            GetMassKilograms("!_S_PLT_iTreeResult_CO2SequesteredLifetimeTotal_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_CarbonSequesteredAnnual_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_CarbonSequesteredLifetimeTotal_Mass"),
             GetMassKilograms("!_S_PLT_iTreeResult_CORemovedAnnual_Mass"),
             GetMassKilograms("!_S_PLT_iTreeResult_CORemovedLifetimeTotal_Mass"),
             GetMassKilograms("!_S_PLT_iTreeResult_NO2RemovedAnnual_Mass"),
@@ -165,7 +165,9 @@ internal static class DashboardReportService
             GetVolumeCubicMeters("!_S_PLT_iTreeResult_RainfallInterceptedAnnual_Volume"),
             GetVolumeCubicMeters("!_S_PLT_iTreeResult_RainfallInterceptedLifetimeTotal_Volume"),
             GetVolumeCubicMeters("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume"),
-            GetVolumeCubicMeters("!_S_PLT_iTreeResult_RunoffAvoidedLifetimeTotal_Volume"));
+            GetVolumeCubicMeters("!_S_PLT_iTreeResult_RunoffAvoidedLifetimeTotal_Volume"),
+            GetMassKilograms("!_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_CO2EquivalentLifetimeTotal_Mass"));
     }
 
     private static DashboardFloorItem CreateFloorItem(Document document, Element element)
@@ -204,7 +206,7 @@ internal static class DashboardReportService
             GetLevelName(document, element),
             GetDesignOptionInfo(document, element),
             areaSquareMeters,
-            GetMassKilograms("!_S_PLT_iTreeResult_CO2SequesteredAnnual_Mass"),
+            GetMassKilograms("!_S_PLT_iTreeResult_CarbonSequesteredAnnual_Mass"),
             GetVolumeCubicMeters("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume"),
             GetMassKilograms("!_S_PLT_LDS_PollutantsRemovedAnnual_Mass"),
             GetDoubleParameter(element, "!_S_PLT_iTreeResult_CostSavedAnnual_Currency"),

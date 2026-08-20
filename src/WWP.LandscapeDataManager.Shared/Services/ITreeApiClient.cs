@@ -1,6 +1,8 @@
 ﻿using System.Collections.Concurrent;
 using System.Globalization;
+using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using WWP.LandscapeDataManager.Contracts;
 
 namespace WWP.LandscapeDataManager.Shared.Services;
@@ -34,8 +36,16 @@ public sealed class ITreeApiClient
 {
     private const string ApiUrl = "https://api.itreetools.org/v3/benefit/";
     private const string SpeciesCatalogUrl = "https://dtbe-api.daveyinstitute.com/v2/getSpecies/";
-    private const double CarbonToCo2MassRatio = 3.67d;
-    private static readonly HttpClient HttpClient = new() { Timeout = TimeSpan.FromSeconds(90) };
+    private static readonly HttpClient HttpClient = CreateClient();
+
+    private static HttpClient CreateClient()
+    {
+        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(90) };
+        // Some API front-ends treat a missing User-Agent as bot traffic and reject it with a
+        // branded HTML error page instead of a JSON error — this call previously sent none.
+        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("WWP.LandscapeDataManager.ITreeCalculator", "1.0"));
+        return client;
+    }
 
     public async Task<ITreeDownloadResult> DownloadAsync(
         IReadOnlyList<ITreeRevitInput> inputs,
@@ -311,7 +321,7 @@ public sealed class ITreeApiClient
         if (!response.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(
-                $"HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).");
+                $"HTTP {(int)response.StatusCode} ({response.ReasonPhrase}): {DescribeErrorBody(json)}");
         }
 
         using var document = JsonDocument.Parse(json);
@@ -412,8 +422,8 @@ public sealed class ITreeApiClient
             // Derived directly from sequestered carbon (standard 3.67 mass ratio of CO2 to C) rather
             // than a separate API "storage" path, so it always matches the public i-Tree "MyTree
             // Benefits" report's CO2 Equivalent figure (which tracks Carbon Sequestered x 3.67).
-            fields["Annual_CO2Equivalent_lb"] = Math.Round(sequesteredAnnualLb * CarbonToCo2MassRatio, 6);
-            fields["CO2Equivalent_20yr_lb"] = Math.Round(sequestered20yrLb * CarbonToCo2MassRatio, 6);
+            fields["Annual_CO2Equivalent_lb"] = Math.Round(sequesteredAnnualLb * UnitConversions.CarbonToCo2MassRatio, 6);
+            fields["CO2Equivalent_20yr_lb"] = Math.Round(sequestered20yrLb * UnitConversions.CarbonToCo2MassRatio, 6);
         }
 
         if (profile.Hydrology)
@@ -608,6 +618,49 @@ public sealed class ITreeApiClient
         }
 
         return "The i-Tree API returned an error.";
+    }
+
+    /// <summary>
+    /// A non-2xx response's body is usually the only place the actual reason (invalid/expired key,
+    /// quota exceeded, etc.) shows up — surfacing it instead of just the HTTP status turns a bare
+    /// "HTTP 403 (Forbidden)" into something a user can actually act on.
+    /// </summary>
+    private static string DescribeErrorBody(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return "The i-Tree API returned no further detail.";
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            return ReadApiError(document.RootElement);
+        }
+        catch (JsonException)
+        {
+            // An HTML response (rather than the API's usual JSON) means something in front of the
+            // calculation engine rejected the request outright — a bot-protection block, an
+            // invalid-key page, a proxy/WAF error, etc. i-Tree Engine's own rejection pages (e.g.
+            // "Permission Denied — Sorry, not authorized to access this." for an invalid/expired
+            // key) put the actually-useful headline in the first <h1>, with a generic <title> like
+            // "Error - i-Tree Engine" that doesn't say much on its own — so prefer <h1> when present.
+            var headline =
+                Regex.Match(body, "<h1[^>]*>(.*?)</h1>", RegexOptions.IgnoreCase | RegexOptions.Singleline) is { Success: true } h1Match
+                    ? h1Match.Groups[1].Value
+                    : Regex.Match(body, "<title[^>]*>(.*?)</title>", RegexOptions.IgnoreCase | RegexOptions.Singleline) is { Success: true } titleMatch
+                        ? titleMatch.Groups[1].Value
+                        : null;
+            var cleanHeadline = headline is null ? null : Regex.Replace(headline, "<[^>]+>", " ").Trim();
+            if (!string.IsNullOrWhiteSpace(cleanHeadline))
+            {
+                return $"The server returned an HTML page (\"{cleanHeadline}\") instead of a JSON response " +
+                       "— likely an invalid/expired API key or a bot-protection block, not the calculation itself.";
+            }
+
+            const int maxLength = 300;
+            return body.Length > maxLength ? body[..maxLength] + "…" : body;
+        }
     }
 
     private static object? ReadScalar(JsonElement value) => value.ValueKind switch
