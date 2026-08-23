@@ -133,6 +133,7 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.GetProjectSiteLocation => await GetProjectSiteLocationAsync(request).ConfigureAwait(false),
                 PipeCommands.PublishProjectLocation => await PublishProjectLocationAsync(request).ConfigureAwait(false),
                 PipeCommands.PublishPreferredCurrency => await PublishPreferredCurrencyAsync(request).ConfigureAwait(false),
+                PipeCommands.PublishPreferredUnitSystem => await PublishPreferredUnitSystemAsync(request).ConfigureAwait(false),
                 PipeCommands.GetProjectSettingsJson => await GetProjectSettingsJsonAsync(request).ConfigureAwait(false),
                 PipeCommands.PublishProjectSettingsJson => await PublishProjectSettingsJsonAsync(request).ConfigureAwait(false),
                 PipeCommands.GetSelectedFloors => await GetSelectedFloorsAsync(request).ConfigureAwait(false),
@@ -314,6 +315,15 @@ internal sealed class RevitPipeServer : IDisposable
                       ?? throw new InvalidDataException("The currency preference was empty.");
         var result = await _dispatcher.RunAsync(application =>
             ProjectPreferencesService.PublishPreferredCurrency(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> PublishPreferredUnitSystemAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<PublishPreferredUnitSystemRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The unit system preference was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            ProjectPreferencesService.PublishPreferredUnitSystem(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

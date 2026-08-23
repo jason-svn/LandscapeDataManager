@@ -13,6 +13,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Spacing="4">
@@ -23,6 +24,41 @@
             </StackPanel>
 
             <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="UNITS &amp; CURRENCY" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock
+                        Text="Project-wide display preferences: Metric/Imperial for i-Tree's Mass and Volume benefit results, and which currency to report monetary benefits in. Changing currency also rescales every already-calculated planting instance's and floor's cost-saved figures to the new currency."
+                        Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <RadioButtons x:Name="UnitSystemBox" Header="Unit system" MaxColumns="2">
+                            <RadioButton Content="Metric" />
+                            <RadioButton Content="Imperial" />
+                        </RadioButtons>
+                        <ComboBox Grid.Column="1" x:Name="CurrencyBox" Header="Currency" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="USD" />
+                            <ComboBoxItem Content="GBP" />
+                            <ComboBoxItem Content="EUR" />
+                            <ComboBoxItem Content="CAD" />
+                            <ComboBoxItem Content="AUD" />
+                            <ComboBoxItem Content="NZD" />
+                        </ComboBox>
+                    </Grid>
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Content="Save" Click="SaveUnitsAndCurrency_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
+                        <TextBlock Grid.Column="1" x:Name="UnitsAndCurrencyStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">
                     <TextBlock Text="i-TREE API KEY" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock
@@ -49,7 +85,7 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Row="3" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">
                     <TextBlock Text="AIRTABLE PERSONAL ACCESS TOKEN" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock
@@ -76,7 +112,7 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Row="3" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Row="4" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">
                     <TextBlock Text="WWP LANDSCAPE DATA SHEET SOURCE" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock
@@ -105,7 +141,7 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Row="4" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Row="5" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">
                     <TextBlock Text="PLANTING DATA SOURCE (AIRTABLE)" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock
@@ -134,7 +170,7 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Row="5" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Row="6" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">
                     <TextBlock Text="SHARED PARAMETER FILE" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock

@@ -66,7 +66,7 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private async void Page_Loaded(object sender, RoutedEventArgs e)
+    private async void Page_Loaded(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
     {
         var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
         var dataSourceSettings = snapshot?.DataSource ?? new DataSourceSettings(DataSourceKind.Airtable, string.Empty, string.Empty);
@@ -84,11 +84,13 @@ public sealed partial class MainPage : Page
             : $"Source: base {_airtableSettings.BaseId} / table {_airtableSettings.TableIdOrName} (managed in Settings).";
         UpdateSourceVisibility();
 
-        if (snapshot is not null)
-        {
-            ConnectStatusText.Text = "Data source, Airtable, mapping, and type-alias settings loaded from this project's saved settings.";
-        }
-    }
+        // Auto-connect on launch so the instance-pairing "matching box" (SourceHeaderOptions) is
+        // already populated before the user does anything — previously it stayed empty until the
+        // user manually clicked "Load source & Revit catalogs" first. Runs inside the same
+        // RunBusyAsync as the settings pull above so a failure here (or above) always reaches
+        // ConnectStatusText instead of leaving Page_Loaded's async void silently dying mid-load.
+        await ConnectAsync();
+    });
 
     private void SourceKindBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateSourceVisibility();
 
@@ -119,37 +121,36 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private async void Connect_Click(object sender, RoutedEventArgs e)
+    private async void Connect_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(ConnectAsync);
+
+    private async Task ConnectAsync()
     {
-        await RunBusyAsync(async () =>
-        {
-            _sourceRecords = await LoadSourceRecordsAsync();
+        _sourceRecords = await LoadSourceRecordsAsync();
 
-            var options = new ModelScanOptions();
-            var typeScanTask = GetClient().SendAsync<ModelScanResult>(PipeCommands.ScanModel, options);
-            var instanceScanTask = GetClient().SendAsync<PlantingInstanceScanResult>(PipeCommands.ScanPlantingInstances);
-            var catalogTask = GetClient().SendAsync<ParameterCatalogResult>(PipeCommands.GetParameterCatalog, options);
-            await Task.WhenAll(typeScanTask, instanceScanTask, catalogTask);
+        var options = new ModelScanOptions();
+        var typeScanTask = GetClient().SendAsync<ModelScanResult>(PipeCommands.ScanModel, options);
+        var instanceScanTask = GetClient().SendAsync<PlantingInstanceScanResult>(PipeCommands.ScanPlantingInstances);
+        var catalogTask = GetClient().SendAsync<ParameterCatalogResult>(PipeCommands.GetParameterCatalog, options);
+        await Task.WhenAll(typeScanTask, instanceScanTask, catalogTask);
 
-            _typeScan = await typeScanTask;
-            _instanceScan = await instanceScanTask;
-            var catalog = await catalogTask;
-            _parameterCatalog = catalog.Parameters;
-            _preferredUnitSystem = catalog.PreferredUnitSystem;
+        _typeScan = await typeScanTask;
+        _instanceScan = await instanceScanTask;
+        var catalog = await catalogTask;
+        _parameterCatalog = catalog.Parameters;
+        _preferredUnitSystem = catalog.PreferredUnitSystem;
 
-            var dataSourceSettings = SourceKindBox.SelectedIndex == 1
-                ? new DataSourceSettings(DataSourceKind.Excel, string.Empty, ExcelPathBox.Text.Trim())
-                : new DataSourceSettings(DataSourceKind.Airtable, string.Empty, string.Empty);
-            await ProjectSettingsSync.PushAsync(
-                GetClient(), dataSource: dataSourceSettings,
-                preferredUnitSystem: _preferredUnitSystem);
+        var dataSourceSettings = SourceKindBox.SelectedIndex == 1
+            ? new DataSourceSettings(DataSourceKind.Excel, string.Empty, ExcelPathBox.Text.Trim())
+            : new DataSourceSettings(DataSourceKind.Airtable, string.Empty, string.Empty);
+        await ProjectSettingsSync.PushAsync(
+            GetClient(), dataSource: dataSourceSettings,
+            preferredUnitSystem: _preferredUnitSystem);
 
-            RestoreMappings();
+        RestoreMappings();
 
-            ConnectStatusText.Text =
-                $"{_sourceRecords.Count:N0} source records · {_typeScan.Items.Count:N0} Revit types · " +
-                $"{_instanceScan.Items.Count:N0} planting instances · {catalog.Parameters.Count(p => p.IsWritable):N0} writable parameters.";
-        });
+        ConnectStatusText.Text =
+            $"{_sourceRecords.Count:N0} source records · {_typeScan.Items.Count:N0} Revit types · " +
+            $"{_instanceScan.Items.Count:N0} planting instances · {catalog.Parameters.Count(p => p.IsWritable):N0} writable parameters.";
     }
 
     private async Task<IReadOnlyList<AirtableRecord>> LoadSourceRecordsAsync()

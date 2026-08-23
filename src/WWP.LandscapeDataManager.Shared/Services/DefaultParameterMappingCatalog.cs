@@ -51,9 +51,9 @@ public static class DefaultParameterMappingCatalog
     /// <summary>Candidate parameter names to try for a source header, in priority order, always ending with the header itself as a last-ditch exact/normalized match.</summary>
     public static IReadOnlyList<string> GetCandidates(string header) => header.Trim() switch
     {
-        "Avoided runoff m3/yr (16/18 girth)" => ["!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Number", header],
-        "Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth)" => ["!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Number", header],
-        "Oxygen levels O2 kg/yr (16/18 girth)" => ["!_S_PLT_LDS_OxygenLevelsAnnual_Number", header],
+        "Avoided runoff m3/yr (16/18 girth)" => ["!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Volume", header],
+        "Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth)" => ["!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Mass", header],
+        "Oxygen levels O2 kg/yr (16/18 girth)" => ["!_S_PLT_LDS_OxygenLevelsAnnual_Mass", header],
         // MaintenanceCost/PollutantsRemoved are Floor Calculator's own coefficient-times-area outputs
         // (see FloorLdsCalculationService) — but the raw WWP sheet columns are still useful direct
         // mapping targets for Types, matching the same "map raw WWP_* column onto its !_S_PLT_
@@ -83,8 +83,8 @@ public static class DefaultParameterMappingCatalog
         "Surface_Temperature_Reduction_Min" => ["!_S_PLT_LDS_SurfaceTempReduction_Number", header],
         "Air temperature reduction (1.5m height)" => ["!_S_PLT_LDS_AirTempReduction_Number", header],
         "Irrigation_Demand_Plant Factor" => ["!_S_PLT_LDS_IrrigationDemandFactor_Number", header],
-        "Max_Height" => ["!_S_PLT_LDS_MaxHeight_Number", header],
-        "Max_Width" => ["!_S_PLT_LDS_MaxWidth_Number", header],
+        "Max_Height" => ["!_S_PLT_LDS_MaxHeight_Length", header],
+        "Max_Width" => ["!_S_PLT_LDS_MaxWidth_Length", header],
         "Height year annual growth rate (m/yr)" => ["!_S_PLT_GrowthRatio_HeightbyYear_Number", header],
         "Width annual growth rate (m/yr)" => ["!_S_PLT_GrowthRatio_WidthbyYear_Number", header],
         // Species identity columns — the most common headers on a fresh Airtable base, not present

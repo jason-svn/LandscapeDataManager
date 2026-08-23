@@ -12,6 +12,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0">
@@ -37,7 +38,6 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="CatalogueStatusText" VerticalAlignment="Center" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
                 <Button Grid.Column="1" Content="Load selected trees" Click="LoadSelectedTrees_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
                 <Button Grid.Column="2"
                         Content="Select all trees in project"
@@ -113,10 +113,16 @@
                    Margin="0,12,0,0"
                    Text="Select trees in Revit, then click &quot;Load selected trees&quot;."
                    Style="{StaticResource LimMutedTextStyle}"
-                   TextWrapping="Wrap" />
+                   TextTrimming="CharacterEllipsis" />
+
+        <TextBlock Grid.Row="6"
+                   x:Name="CatalogueStatusText"
+                   Margin="0,4,0,0"
+                   Style="{StaticResource LimMutedTextStyle}"
+                   TextTrimming="CharacterEllipsis" />
 
         <ProgressRing x:Name="BusyIndicator"
-                      Grid.RowSpan="6"
+                      Grid.RowSpan="7"
                       Width="40"
                       Height="40"
                       IsActive="False"

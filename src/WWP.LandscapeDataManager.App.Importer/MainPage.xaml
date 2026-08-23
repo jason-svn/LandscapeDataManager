@@ -29,8 +29,40 @@
                 <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
             </Grid>
 
-            <!-- Instance pairing -->
+            <!-- Step 1: Connect -->
             <Border Grid.Row="1" Margin="0,20,0,0" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="STEP 1 — CONNECT A SOURCE" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <ComboBox x:Name="SourceKindBox" Header="Data source" SelectedIndex="0"
+                              SelectionChanged="SourceKindBox_SelectionChanged" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="Airtable (API token)" />
+                        <ComboBoxItem Content="Excel workbook" />
+                    </ComboBox>
+
+                    <StackPanel x:Name="AirtablePanel" Spacing="6">
+                        <TextBlock x:Name="AirtableTokenStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="AirtableSourceStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Grid x:Name="ExcelPanel" ColumnSpacing="8" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="ExcelPathBox" Header="Excel workbook" PlaceholderText="Select an .xlsx or .xlsm file" />
+                        <Button Grid.Column="1" Content="Browse..." Click="BrowseExcel_Click"
+                                VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    </Grid>
+
+                    <Button x:Name="ConnectButton" Content="Reload source &amp; Revit catalogs" Click="Connect_Click"
+                            Style="{StaticResource LimPrimaryButtonStyle}" />
+                    <TextBlock x:Name="ConnectStatusText" Style="{StaticResource LimMutedTextStyle}"
+                               Text="Loading the source and Revit catalogs automatically..." />
+                </StackPanel>
+            </Border>
+
+            <!-- Instance pairing -->
+            <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">
                     <TextBlock Text="INSTANCE PAIRING" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock
@@ -67,38 +99,6 @@
                                 VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
                     </Grid>
                     <TextBlock x:Name="PairingStatusText" Style="{StaticResource LimMutedTextStyle}" Text="—" />
-                </StackPanel>
-            </Border>
-
-            <!-- Step 1: Connect -->
-            <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="STEP 1 — CONNECT A SOURCE" Style="{StaticResource LimSectionHeaderStyle}" />
-                    <ComboBox x:Name="SourceKindBox" Header="Data source" SelectedIndex="0"
-                              SelectionChanged="SourceKindBox_SelectionChanged" HorizontalAlignment="Stretch">
-                        <ComboBoxItem Content="Airtable (API token)" />
-                        <ComboBoxItem Content="Excel workbook" />
-                    </ComboBox>
-
-                    <StackPanel x:Name="AirtablePanel" Spacing="6">
-                        <TextBlock x:Name="AirtableTokenStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
-                        <TextBlock x:Name="AirtableSourceStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
-                    </StackPanel>
-
-                    <Grid x:Name="ExcelPanel" ColumnSpacing="8" Visibility="Collapsed">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="ExcelPathBox" Header="Excel workbook" PlaceholderText="Select an .xlsx or .xlsm file" />
-                        <Button Grid.Column="1" Content="Browse..." Click="BrowseExcel_Click"
-                                VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
-                    </Grid>
-
-                    <Button x:Name="ConnectButton" Content="Load source &amp; Revit catalogs" Click="Connect_Click"
-                            Style="{StaticResource LimPrimaryButtonStyle}" />
-                    <TextBlock x:Name="ConnectStatusText" Style="{StaticResource LimMutedTextStyle}"
-                               Text="Not connected yet." />
                 </StackPanel>
             </Border>
 

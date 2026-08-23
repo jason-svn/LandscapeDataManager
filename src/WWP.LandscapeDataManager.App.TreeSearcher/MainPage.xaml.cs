@@ -44,7 +44,7 @@ public sealed partial class MainPage : Page
         }
         catch (Exception exception)
         {
-            StatusText.Text = $"Failed to open Settings: {exception.Message}";
+            SetTextWithTooltip(StatusText, $"Failed to open Settings: {exception.Message}");
         }
     }
 
@@ -55,11 +55,11 @@ public sealed partial class MainPage : Page
         var lastUpdated = metadata.FormatDownloadedAtLocal();
         var version = string.IsNullOrEmpty(metadata.Version) ? "unknown" : $"{metadata.Version[..Math.Min(8, metadata.Version.Length)]}...";
 
-        CatalogueStatusText.Text = _allSpecies.Count == 0
+        SetTextWithTooltip(CatalogueStatusText, _allSpecies.Count == 0
             ? "No species catalogue has been downloaded yet — run the i-Tree Downloader tool first, then come back here."
             : lastUpdated is null
                 ? $"{_allSpecies.Count:N0} species cached locally (catalogue version {version})."
-                : $"{_allSpecies.Count:N0} species cached locally, last updated {lastUpdated} (catalogue version {version}).";
+                : $"{_allSpecies.Count:N0} species cached locally, last updated {lastUpdated} (catalogue version {version}).");
 
         try
         {
@@ -68,7 +68,7 @@ public sealed partial class MainPage : Page
         }
         catch (Exception exception)
         {
-            StatusText.Text = exception.Message;
+            SetTextWithTooltip(StatusText, exception.Message);
         }
 
         try
@@ -77,7 +77,7 @@ public sealed partial class MainPage : Page
         }
         catch (Exception exception)
         {
-            StatusText.Text = exception.Message;
+            SetTextWithTooltip(StatusText, exception.Message);
         }
     }
 
@@ -106,9 +106,9 @@ public sealed partial class MainPage : Page
         UpdateAssignAllEnabled();
 
         var autoMatched = Rows.Count(row => row.MatchStatus == "Auto-matched");
-        StatusText.Text = Rows.Count == 0
+        SetTextWithTooltip(StatusText, Rows.Count == 0
             ? "Nothing to load."
-            : $"Auto-matched {autoMatched:N0} of {Rows.Count:N0} row(s). Search and pick a species manually for the rest, then assign.";
+            : $"Auto-matched {autoMatched:N0} of {Rows.Count:N0} row(s). Search and pick a species manually for the rest, then assign.");
     }
 
     private void ApplyAutoMatch(TreeAssignmentRow row)
@@ -195,7 +195,7 @@ public sealed partial class MainPage : Page
 
         if (row.SelectedSpecies is null)
         {
-            StatusText.Text = $"Search and pick a species for '{row.DisplayName}' first.";
+            SetTextWithTooltip(StatusText, $"Search and pick a species for '{row.DisplayName}' first.");
             return;
         }
 
@@ -212,9 +212,9 @@ public sealed partial class MainPage : Page
                 row.MatchStatus = "Assigned";
             }
 
-            StatusText.Text = result.UpdatedTypeNames.Count > 0
+            SetTextWithTooltip(StatusText, result.UpdatedTypeNames.Count > 0
                 ? $"Assigned {species.CommonName} ({species.SpeciesCode}) to '{row.DisplayName}'."
-                : "Nothing was updated.";
+                : "Nothing was updated.");
         });
     }
 
@@ -223,7 +223,7 @@ public sealed partial class MainPage : Page
         var toAssign = Rows.Where(row => row.SelectedSpecies is not null).ToList();
         if (toAssign.Count == 0)
         {
-            StatusText.Text = "No rows have a species selected yet.";
+            SetTextWithTooltip(StatusText, "No rows have a species selected yet.");
             return;
         }
 
@@ -242,9 +242,9 @@ public sealed partial class MainPage : Page
             }
 
             var remaining = Rows.Count(row => row.SelectedSpecies is null);
-            StatusText.Text = remaining == 0
+            SetTextWithTooltip(StatusText, remaining == 0
                 ? $"Assigned {result.UpdatedTypeNames.Count:N0} type(s)."
-                : $"Assigned {result.UpdatedTypeNames.Count:N0} type(s). {remaining:N0} still need a manual match — search and pick a species for the highlighted rows.";
+                : $"Assigned {result.UpdatedTypeNames.Count:N0} type(s). {remaining:N0} still need a manual match — search and pick a species for the highlighted rows.");
         });
     }
 
@@ -255,13 +255,13 @@ public sealed partial class MainPage : Page
         var token = _airtableCredentialStore.Load().Trim();
         if (string.IsNullOrWhiteSpace(token))
         {
-            StatusText.Text = "No Airtable personal access token saved — open Settings from the LIM ribbon first.";
+            SetTextWithTooltip(StatusText, "No Airtable personal access token saved — open Settings from the LIM ribbon first.");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_airtableSettings.BaseId))
         {
-            StatusText.Text = "No planting data source saved — open Settings from the LIM ribbon first.";
+            SetTextWithTooltip(StatusText, "No planting data source saved — open Settings from the LIM ribbon first.");
             return;
         }
 
@@ -271,7 +271,7 @@ public sealed partial class MainPage : Page
             .ToList();
         if (codedTypes.Count == 0)
         {
-            StatusText.Text = "No Planting types have a species code assigned yet — assign one above first.";
+            SetTextWithTooltip(StatusText, "No Planting types have a species code assigned yet — assign one above first.");
             return;
         }
 
@@ -305,10 +305,10 @@ public sealed partial class MainPage : Page
             await Task.Delay(210);
         }
 
-        StatusText.Text = problems.Count == 0
+        SetTextWithTooltip(StatusText, problems.Count == 0
             ? $"Pushed {pushed:N0} species code(s) to Airtable."
             : $"Pushed {pushed:N0} species code(s) to Airtable. {problems.Count:N0} skipped: " +
-              $"{string.Join("; ", problems.Take(5))}{(problems.Count > 5 ? $" (+{problems.Count - 5} more)" : ".")}";
+              $"{string.Join("; ", problems.Take(5))}{(problems.Count > 5 ? $" (+{problems.Count - 5} more)" : ".")}");
     }
 
     private void UpdateAssignAllEnabled() => AssignAllButton.IsEnabled = Rows.Any(row => row.SelectedSpecies is not null);
@@ -323,7 +323,7 @@ public sealed partial class MainPage : Page
         }
         catch (Exception exception)
         {
-            StatusText.Text = $"Failed: {exception.Message}";
+            SetTextWithTooltip(StatusText, $"Failed: {exception.Message}");
         }
         finally
         {
@@ -331,6 +331,12 @@ public sealed partial class MainPage : Page
             BusyIndicator.Visibility = Visibility.Collapsed;
             UpdateAssignAllEnabled();
         }
+    }
+
+    private static void SetTextWithTooltip(TextBlock block, string text)
+    {
+        block.Text = text;
+        ToolTipService.SetToolTip(block, text);
     }
 
     private RevitPipeClient GetClient() =>

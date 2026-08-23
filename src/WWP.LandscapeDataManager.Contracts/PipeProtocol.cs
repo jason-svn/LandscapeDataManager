@@ -30,6 +30,7 @@ public static class PipeCommands
     public const string GetProjectSiteLocation = "get-project-site-location";
     public const string PublishProjectLocation = "publish-project-location";
     public const string PublishPreferredCurrency = "publish-preferred-currency";
+    public const string PublishPreferredUnitSystem = "publish-preferred-unit-system";
     public const string GetProjectSettingsJson = "get-project-settings-json";
     public const string PublishProjectSettingsJson = "publish-project-settings-json";
     public const string GetSelectedFloors = "get-selected-floors";
@@ -307,6 +308,17 @@ public sealed record PublishPreferredCurrencyRequest(string CurrencyCode, double
 public sealed record PublishPreferredCurrencyResult(string DocumentTitle, string CurrencyCode, double CurrencyFactor);
 
 /// <summary>
+/// The project's Metric/Imperial preference for displaying i-Tree's Mass/Volume benefit results —
+/// same role as <see cref="PublishPreferredCurrencyRequest"/>, just for units instead of currency.
+/// Unlike currency, this never rewrites any stored value: Mass/Volume result parameters are always
+/// written in raw SI (kg/m³) and displayed per Revit's own project unit settings, so flipping this
+/// preference only changes Document Units — see <c>ProjectPreferencesService.PublishPreferredUnitSystem</c>.
+/// </summary>
+public sealed record PublishPreferredUnitSystemRequest(string UnitSystem);
+
+public sealed record PublishPreferredUnitSystemResult(string DocumentTitle, string UnitSystem, string? Warning = null);
+
+/// <summary>
 /// Raw JSON stored on <c>!_S_PLT_Settings_Json_Text</c> (a multiline text Project Information
 /// parameter) — opaque at this layer by design, so the Revit side never needs to know the shape of
 /// <c>ProjectSettingsSnapshot</c> (defined in the Shared project, which this Contracts project
@@ -363,6 +375,8 @@ public sealed record SelectedFloorsResult(string DocumentTitle, IReadOnlyList<Se
 /// separate override parameter to check, since "manual" only ever means "the tool sent a
 /// different number than the coefficient table would have."
 /// </summary>
+/// <param name="CurrencyUsed">ISO code (USD, GBP, EUR, CAD, AUD, or NZD) <see cref="CostSavedAnnual"/> was converted into — the caller has already resolved the project's currency preference and applied its rate before sending, the same way i-Tree Calculator does for trees.</param>
+/// <param name="ExchangeRateUsed">USD exchange rate applied to <see cref="CostSavedAnnual"/> (1.0 for USD) — recorded so a later currency switch can rescale this floor's cost-saved figure from its own stored rate.</param>
 public sealed record FloorLdsValues(
     string LdsType,
     string MatchKey,
@@ -374,7 +388,9 @@ public sealed record FloorLdsValues(
     double OxygenProducedAnnual,
     double TotalGwp,
     double SurfaceTempReduction,
-    double AirTempReduction);
+    double AirTempReduction,
+    string CurrencyUsed = "USD",
+    double ExchangeRateUsed = 1d);
 
 public sealed record FloorLdsAssignment(string FloorUniqueId, FloorLdsValues Values);
 

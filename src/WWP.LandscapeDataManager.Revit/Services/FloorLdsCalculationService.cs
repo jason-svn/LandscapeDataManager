@@ -43,6 +43,8 @@ internal static class FloorLdsCalculationService
     private const double CarbonToCo2MassRatio = 3.67d;
     private const string RunoffAvoidedParameter = "!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume";
     private const string PollutionMassRemovedParameter = "!_S_PLT_LDS_PollutantsRemovedAnnual_Mass";
+    private const string CurrencyUsedParameter = "!_S_PLT_iTreeResult_CurrencyUsed_Text";
+    private const string ExchangeRateUsedParameter = "!_S_PLT_iTreeResult_ExchangeRateUsed_Number";
 
     public static SelectedFloorsResult GetSelectedFloors(UIApplication application)
     {
@@ -116,6 +118,8 @@ internal static class FloorLdsCalculationService
         SetIfWritable(floor.LookupParameter(RunoffAvoidedParameter), UnitUtils.ConvertToInternalUnits(values.RunoffAvoidedAnnual, UnitTypeId.CubicMeters));
         SetIfWritable(floor.LookupParameter(PollutionMassRemovedParameter), UnitUtils.ConvertToInternalUnits(values.PollutionMassRemovedAnnual, UnitTypeId.Kilograms));
         SetIfWritable(floor.LookupParameter(CostSavedParameter), values.CostSavedAnnual);
+        SetIfWritable(floor.LookupParameter(CurrencyUsedParameter), values.CurrencyUsed);
+        SetIfWritable(floor.LookupParameter(ExchangeRateUsedParameter), values.ExchangeRateUsed);
         SetIfWritable(floor.LookupParameter(OxygenProducedParameter), UnitUtils.ConvertToInternalUnits(values.OxygenProducedAnnual, UnitTypeId.Kilograms));
         SetIfWritable(floor.LookupParameter(TotalGwpParameter), UnitUtils.ConvertToInternalUnits(values.TotalGwp, UnitTypeId.Kilograms));
         SetIfWritable(floor.LookupParameter(SurfaceTempReductionParameter), values.SurfaceTempReduction);

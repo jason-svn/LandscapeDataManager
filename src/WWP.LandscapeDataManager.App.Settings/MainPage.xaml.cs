@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Storage.Pickers;
+using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
 
 namespace WWP.LandscapeDataManager.App.Settings;
@@ -9,6 +10,7 @@ public sealed partial class MainPage : Page
 {
     private readonly ITreeCredentialStore _iTreeCredentialStore = new();
     private readonly AirtableCredentialStore _airtableCredentialStore = new();
+    private readonly ExchangeRateService _exchangeRateService = new();
 
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
@@ -42,6 +44,56 @@ public sealed partial class MainPage : Page
         ImportViewIdBox.Text = importSource.ViewName ?? string.Empty;
 
         SharedParameterFilePathBox.Text = snapshot?.SharedParameterFilePath ?? string.Empty;
+
+        try
+        {
+            var catalog = await GetClient().SendAsync<ParameterCatalogResult>(PipeCommands.GetParameterCatalog, new ModelScanOptions());
+            UnitSystemBox.SelectedIndex = string.Equals(catalog.PreferredUnitSystem, "Imperial", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            SelectComboBoxItem(CurrencyBox, catalog.PreferredCurrency);
+        }
+        catch (Exception exception)
+        {
+            UnitsAndCurrencyStatusText.Text = $"Could not read the current unit/currency preference: {exception.Message}";
+        }
+    }
+
+    private static void SelectComboBoxItem(ComboBox comboBox, string content) =>
+        comboBox.SelectedItem = comboBox.Items
+            .OfType<ComboBoxItem>()
+            .FirstOrDefault(item => string.Equals((string)item.Content, content, StringComparison.OrdinalIgnoreCase))
+            ?? comboBox.Items.OfType<ComboBoxItem>().First();
+
+    private async void SaveUnitsAndCurrency_Click(object sender, RoutedEventArgs e)
+    {
+        if (UnitSystemBox.SelectedItem is not RadioButton { Content: string unitSystem } ||
+            CurrencyBox.SelectedItem is not ComboBoxItem { Content: string currencyCode })
+        {
+            return;
+        }
+
+        UnitsAndCurrencyStatusText.Text = "Saving...";
+        try
+        {
+            var unitResult = await GetClient().SendAsync<PublishPreferredUnitSystemResult>(
+                PipeCommands.PublishPreferredUnitSystem, new PublishPreferredUnitSystemRequest(unitSystem));
+
+            var rate = await _exchangeRateService.GetUsdRateAsync(currencyCode);
+            await GetClient().SendAsync<PublishPreferredCurrencyResult>(
+                PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(currencyCode, rate.UsdRate));
+
+            await ProjectSettingsSync.PushAsync(GetClient(), preferredUnitSystem: unitSystem, preferredCurrency: currencyCode);
+
+            var currencyNote = rate.Success
+                ? $"{currencyCode} (factor {rate.UsdRate:G6}). Already-calculated cost-saved values were rescaled to {currencyCode}."
+                : $"{currencyCode}. {rate.Error}";
+            UnitsAndCurrencyStatusText.Text = unitResult.Warning is null
+                ? $"Saved: {unitSystem} units, {currencyNote}"
+                : $"Saved: {unitSystem} units, {currencyNote} {unitResult.Warning}";
+        }
+        catch (Exception exception)
+        {
+            UnitsAndCurrencyStatusText.Text = $"Failed to save: {exception.Message}";
+        }
     }
 
     private void SaveITreeKey_Click(object sender, RoutedEventArgs e)

@@ -448,10 +448,13 @@ internal static class SharedParameterSetupService
                 "Calculation state such as Ready, MissingInput, InvalidInput, Calculated, APIWarning, APIError, or Stale."),
             PlantingInstance("!_S_PLT_iTreeResult_UnitSystem_Text", GroupTypeId.AnalysisResults,
                 "Unit system currently applied to the numeric i-Tree results: Metric or Imperial."),
-            PlantingInstance("!_S_PLT_iTreeResult_CurrencyUsed_Text", GroupTypeId.AnalysisResults,
-                "Currency the numeric i-Tree monetary results (CostSaved and its three category components, annual and lifetime) were converted into for this instance's latest calculation: USD, GBP, EUR, CAD, AUD, or NZD."),
-            PlantingInstance("!_S_PLT_iTreeResult_ExchangeRateUsed_Number", GroupTypeId.AnalysisResults,
-                "USD exchange rate applied to this instance's latest monetary results (1.0 when CurrencyUsed is USD). Recorded so a historical calculation's dollar figures can be reconstructed even as rates change."),
+            // Bound to both Planting and Floors, same reuse pattern as CostSavedAnnual_Currency
+            // below: needed on Floors too so a currency switch can rescale a floor's own cost-saved
+            // figure from its own last-applied rate, the same way it already does for trees.
+            PlantingAndFloorInstance("!_S_PLT_iTreeResult_CurrencyUsed_Text", GroupTypeId.AnalysisResults,
+                "Currency the numeric monetary results (CostSaved and, for trees, its three category components, annual and lifetime) were converted into for this element's latest calculation: USD, GBP, EUR, CAD, AUD, or NZD."),
+            PlantingAndFloorInstance("!_S_PLT_iTreeResult_ExchangeRateUsed_Number", GroupTypeId.AnalysisResults,
+                "USD exchange rate applied to this element's latest monetary results (1.0 when CurrencyUsed is USD). Recorded so a historical calculation's dollar figures can be reconstructed, or rescaled to a new currency, even as rates change."),
             // Calculated — computed by the planting family's formulas (driven by the growth ratios
             // above and the modeled tree age), not typed directly onto the instance.
             PlantingInstance("!_S_PLT_TreeFoliage_Height", GroupTypeId.Geometry,
@@ -697,15 +700,20 @@ internal static class SharedParameterSetupService
             // per-square-metre rate. Type scope matches what they actually are (and lets them
             // populate via the Importer's automatic Family+Type name matching, with no per-instance
             // pairing required — same as MaxHeight/MaxWidth below).
-            PlantingAndFloorType("!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Number", GroupTypeId.AnalysisResults,
+            // Volume/Mass now that a real Revit spec exists for them — was "_Number" (dimensionless),
+            // so it never responded to the project's Metric/Imperial display preference the way
+            // !_S_PLT_iTreeResult_*_Mass/_Volume result parameters already do. New GUID/name since a
+            // shared parameter's data type can't change in place; the old "_Number" binding is
+            // retired automatically via legacyAliases + RemoveStaleBindings above.
+            PlantingAndFloorType("!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Volume", GroupTypeId.AnalysisResults,
                 "Estimated annual avoided water runoff for a standard starter tree of this species (WWP sheet's \"16/18 girth\" reference), from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.",
-                legacyAliases: ["WWP_Avoided_Water_Runoff"]),
-            PlantingAndFloorType("!_S_PLT_LDS_OxygenLevelsAnnual_Number", GroupTypeId.AnalysisResults,
+                legacyAliases: ["WWP_Avoided_Water_Runoff", "!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Number"]),
+            PlantingAndFloorType("!_S_PLT_LDS_OxygenLevelsAnnual_Mass", GroupTypeId.AnalysisResults,
                 "Estimated annual oxygen levels for a standard starter tree of this species (WWP sheet's \"16/18 girth\" reference), from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.",
-                legacyAliases: ["WWP_Oxygen_Levels"]),
-            PlantingAndFloorType("!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Number", GroupTypeId.AnalysisResults,
+                legacyAliases: ["WWP_Oxygen_Levels", "!_S_PLT_LDS_OxygenLevelsAnnual_Number"]),
+            PlantingAndFloorType("!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Mass", GroupTypeId.AnalysisResults,
                 "Estimated annual carbon dioxide sequestration for a standard starter tree of this species (WWP sheet's \"16/18 girth\" reference), from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.",
-                legacyAliases: ["WWP_Carbon_Dioxide_Sequestration"]),
+                legacyAliases: ["WWP_Carbon_Dioxide_Sequestration", "!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Number"]),
             // Same "declared times-area, never actually computed" pattern as MaintenanceCostAnnual
             // above — neither is in FloorLdsCalculationService's write list. Type scope.
             PlantingAndFloorType("!_S_PLT_LDS_ProductGWP_Number", GroupTypeId.AnalysisResults,
@@ -717,10 +725,15 @@ internal static class SharedParameterSetupService
             // Reference values from the WWP landscape data sheet — every instance of a type shares
             // the same species-level max height/width, so Type scope (same fix as
             // AvoidedWaterRunoff/OxygenLevels/CarbonDioxideSequestration above).
-            PlantingAndFloorType("!_S_PLT_LDS_MaxHeight_Number", GroupTypeId.AnalysisResults,
-                "Maximum mature height for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area. Metric: m. (Metric-only — no Imperial conversion.)"),
-            PlantingAndFloorType("!_S_PLT_LDS_MaxWidth_Number", GroupTypeId.AnalysisResults,
-                "Maximum mature width/spread for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area. Metric: m. (Metric-only — no Imperial conversion.)"),
+            // Length now that a real Revit spec exists — was "_Number" (Metric-only, no Imperial
+            // conversion by design); same new-GUID/legacyAliases retirement as the Mass/Volume
+            // fields above.
+            PlantingAndFloorType("!_S_PLT_LDS_MaxHeight_Length", GroupTypeId.AnalysisResults,
+                "Maximum mature height for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.",
+                legacyAliases: ["!_S_PLT_LDS_MaxHeight_Number"]),
+            PlantingAndFloorType("!_S_PLT_LDS_MaxWidth_Length", GroupTypeId.AnalysisResults,
+                "Maximum mature width/spread for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.",
+                legacyAliases: ["!_S_PLT_LDS_MaxWidth_Number"]),
             // Was Instance scope despite its own description already saying "not scaled by area" —
             // same fix as AvoidedWaterRunoff/OxygenLevels/CarbonDioxideSequestration above.
             PlantingAndFloorType("!_S_PLT_LDS_IrrigationDemandFactor_Number", GroupTypeId.AnalysisResults,

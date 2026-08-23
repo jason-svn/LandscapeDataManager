@@ -29,3 +29,4 @@ artifacts/
 *.log
 Thumbs.db
 desktop.ini
+.code-graph/

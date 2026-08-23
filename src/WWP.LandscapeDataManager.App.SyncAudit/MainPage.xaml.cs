@@ -2,6 +2,8 @@
 using System.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Windows.Storage.Pickers;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Models;
@@ -32,6 +34,7 @@ public sealed partial class MainPage : Page
     private List<ParameterWriteItem> _typeWriteItems = [];
     private List<InstanceParameterWriteItem> _instanceWriteItems = [];
     private AirtableApiSettings _airtableSettings = new(string.Empty, string.Empty, null);
+    private string? _activeFilter;
 
     public MainPage()
     {
@@ -39,6 +42,9 @@ public sealed partial class MainPage : Page
     }
 
     public ObservableCollection<AuditRow> ReportRows { get; } = [];
+
+    /// <summary>The subset of <see cref="ReportRows"/> currently shown in the list — everything when <see cref="_activeFilter"/> is null, or just one category when a summary card is active.</summary>
+    public ObservableCollection<AuditRow> FilteredRows { get; } = [];
 
     public void Initialize(string pipeName, nint windowHandle)
     {
@@ -163,7 +169,9 @@ public sealed partial class MainPage : Page
         CompareCalculationStaleness(validation);
         await CompareCatalogueStalenessAsync();
 
+        _activeFilter = null;
         UpdateCounts();
+        ApplyFilter();
         StatusText.Text = $"{ReportRows.Count:N0} audit rows. Source records disappearing from a previous sync are reported, never deleted from Revit.";
     });
 
@@ -423,6 +431,44 @@ public sealed partial class MainPage : Page
         UnchangedCountText.Text = Count("Unchanged").ToString("N0");
         ConflictCountText.Text = Count("Conflict").ToString("N0");
     }
+
+    /// <summary>Clicking the active card again clears the filter; clicking a different one switches to it.</summary>
+    private void StatusCard_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        var category = (string)((FrameworkElement)sender).Tag;
+        _activeFilter = _activeFilter == category ? null : category;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        FilteredRows.Clear();
+        foreach (var row in ReportRows.Where(row => _activeFilter is null || row.Category == _activeFilter))
+        {
+            FilteredRows.Add(row);
+        }
+
+        foreach (var card in new[] { AddedCard, ChangedCard, ConflictCard, RemovedCard, CalcStaleCard, CatalogueStaleCard, UnchangedCard })
+        {
+            var isActive = _activeFilter is not null && (string)card.Tag == _activeFilter;
+            if (isActive)
+            {
+                card.BorderBrush = (Brush)Application.Current.Resources["LimAccentBrush"];
+                card.BorderThickness = new Thickness(2);
+            }
+            else
+            {
+                card.ClearValue(Border.BorderBrushProperty);
+                card.ClearValue(Border.BorderThicknessProperty);
+            }
+        }
+
+        StatusText.Text = _activeFilter is null
+            ? $"Showing all {ReportRows.Count:N0} row(s) — click a card above to filter the list to just that category."
+            : $"Showing {FilteredRows.Count:N0} {_activeFilter} row(s) — click the card again to show all.";
+    }
+
+    private void SelectAllFiltered_Click(object sender, RoutedEventArgs e) => ReportList.SelectAll();
 
     private async void SyncLatest_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
     {

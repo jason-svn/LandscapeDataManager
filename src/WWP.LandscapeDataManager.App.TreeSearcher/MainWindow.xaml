@@ -5,9 +5,5 @@
     xmlns:local="using:WWP.LandscapeDataManager.App.TreeSearcher"
     Title="Tree Searcher — LIM Landscape Data">
 
-    <Window.SystemBackdrop>
-        <MicaBackdrop Kind="BaseAlt" />
-    </Window.SystemBackdrop>
-
     <local:MainPage x:Name="MainContent" />
 </Window>

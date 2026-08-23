@@ -72,8 +72,8 @@ public sealed class DefaultParameterMappingCatalogTests
     [InlineData("Origin", "!_S_PLT_LDS_Origin_Text")]
     [InlineData("WWP_LDS_Category", "!_S_PLT_LDS_Category_Text")]
     [InlineData("WWP_Pollutants_Removed", "!_S_PLT_LDS_PollutantsRemovedAnnual_Mass")]
-    [InlineData("Max_Height", "!_S_PLT_LDS_MaxHeight_Number")]
-    [InlineData("Max_Width", "!_S_PLT_LDS_MaxWidth_Number")]
+    [InlineData("Max_Height", "!_S_PLT_LDS_MaxHeight_Length")]
+    [InlineData("Max_Width", "!_S_PLT_LDS_MaxWidth_Length")]
     [InlineData("Height year annual growth rate (m/yr)", "!_S_PLT_GrowthRatio_HeightbyYear_Number")]
     [InlineData("Width annual growth rate (m/yr)", "!_S_PLT_GrowthRatio_WidthbyYear_Number")]
     [InlineData(

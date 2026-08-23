@@ -29,7 +29,6 @@ public sealed partial class MainPage : Page
     private string _pipeName = string.Empty;
     private string _preferredUnitSystem = "Metric";
     private string _preferredCurrency = "USD";
-    private bool _suppressCurrencyChange;
     private string? _activeFilter;
 
     public MainPage()
@@ -72,27 +71,6 @@ public sealed partial class MainPage : Page
 
     private async void Validate_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(RefreshReportAsync);
 
-    /// <summary>Persists the currency choice to Project Information immediately, the same way it's read back on every Refresh — so it travels with the project file for the next person who opens it.</summary>
-    private async void CurrencyBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressCurrencyChange || CurrencyBox.SelectedItem is not ComboBoxItem { Content: string code })
-        {
-            return;
-        }
-
-        _preferredCurrency = code;
-        await RunBusyAsync(async () =>
-        {
-            var rate = await _exchangeRateService.GetUsdRateAsync(code);
-            await GetClient().SendAsync<PublishPreferredCurrencyResult>(
-                PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(code, rate.UsdRate));
-            await ProjectSettingsSync.PushAsync(GetClient(), preferredCurrency: code, preferredUnitSystem: _preferredUnitSystem);
-            StatusText.Text = rate.Success
-                ? $"Preferred currency set to {code} (factor {rate.UsdRate:G6})."
-                : $"Preferred currency set to {code}. {rate.Error}";
-        });
-    }
-
     private async Task RefreshReportAsync()
     {
         var selectedOnly = ValidationScopeBox.SelectedIndex == 1;
@@ -105,19 +83,6 @@ public sealed partial class MainPage : Page
         _preferredUnitSystem = catalog.PreferredUnitSystem;
         _preferredCurrency = catalog.PreferredCurrency;
         var validation = await validationTask;
-
-        _suppressCurrencyChange = true;
-        try
-        {
-            CurrencyBox.SelectedItem = CurrencyBox.Items
-                .OfType<ComboBoxItem>()
-                .FirstOrDefault(item => string.Equals((string)item.Content, _preferredCurrency, StringComparison.OrdinalIgnoreCase))
-                ?? CurrencyBox.Items.OfType<ComboBoxItem>().First();
-        }
-        finally
-        {
-            _suppressCurrencyChange = false;
-        }
 
         ReportRows.Clear();
         foreach (var item in validation.Items)
@@ -214,6 +179,8 @@ public sealed partial class MainPage : Page
 
     private async void RecalculateSelected_Click(object sender, RoutedEventArgs e) =>
         await RunBusyAsync(() => CalculateAsync(ReportList.SelectedItems.Cast<InstanceReportRow>().ToList()));
+
+    private void SelectAllRows_Click(object sender, RoutedEventArgs e) => ReportList.SelectAll();
 
     private async Task CalculateAsync(IReadOnlyList<InstanceReportRow> rows)
     {

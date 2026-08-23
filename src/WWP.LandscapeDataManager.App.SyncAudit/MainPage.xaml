@@ -68,25 +68,25 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Border Style="{StaticResource LimCardStyle}" Padding="10">
+            <Border x:Name="AddedCard" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Added" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="ADDED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="AddedCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
             </Border>
-            <Border Grid.Column="1" Style="{StaticResource LimCardStyle}" Padding="10">
+            <Border x:Name="ChangedCard" Grid.Column="1" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Changed" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="CHANGED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ChangedCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
             </Border>
-            <Border Grid.Column="2" Style="{StaticResource LimCardStyle}" Padding="10">
+            <Border x:Name="ConflictCard" Grid.Column="2" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Conflict" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="CONFLICT" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ConflictCountText" Text="—" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource LimWarningBrush}" /></StackPanel>
             </Border>
-            <Border Grid.Column="3" Style="{StaticResource LimCardStyle}" Padding="10">
+            <Border x:Name="RemovedCard" Grid.Column="3" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Removed from source" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="REMOVED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="RemovedCountText" Text="—" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource LimErrorBrush}" /></StackPanel>
             </Border>
-            <Border Grid.Column="4" Style="{StaticResource LimCardStyle}" Padding="10">
+            <Border x:Name="CalcStaleCard" Grid.Column="4" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Calculation stale" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="CALC STALE" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="CalcStaleCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
             </Border>
-            <Border Grid.Column="5" Style="{StaticResource LimCardStyle}" Padding="10">
+            <Border x:Name="CatalogueStaleCard" Grid.Column="5" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Catalogue stale" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="CATALOGUE" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="CatalogueStaleCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
             </Border>
-            <Border Grid.Column="6" Style="{StaticResource LimCardStyle}" Padding="10">
+            <Border x:Name="UnchangedCard" Grid.Column="6" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Unchanged" Tapped="StatusCard_Tapped">
                 <StackPanel Spacing="2"><TextBlock Text="UNCHANGED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="UnchangedCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
             </Border>
         </Grid>
@@ -115,7 +115,7 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <ListView x:Name="ReportList" Grid.Row="0" ItemsSource="{x:Bind ReportRows}" SelectionMode="Multiple">
+            <ListView x:Name="ReportList" Grid.Row="0" ItemsSource="{x:Bind FilteredRows}" SelectionMode="Multiple">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="local:AuditRow">
                         <Grid Padding="6" ColumnSpacing="8">
@@ -147,10 +147,16 @@
             <Grid Grid.Row="1" ColumnSpacing="10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Button Content="Sync latest source data (apply all Changed; Conflicts need a decision)" Click="SyncLatest_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
-                <TextBlock Grid.Column="1" x:Name="ActionStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
+                <Button Grid.Column="1"
+                        Content="Select all filtered"
+                        ToolTipService.ToolTip="Selects every row currently shown below (respects the category filter above)."
+                        Click="SelectAllFiltered_Click"
+                        Style="{StaticResource LimSecondaryButtonStyle}" />
+                <TextBlock Grid.Column="2" x:Name="ActionStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
             </Grid>
         </Grid>
 

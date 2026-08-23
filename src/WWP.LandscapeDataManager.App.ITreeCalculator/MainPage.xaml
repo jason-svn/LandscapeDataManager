@@ -25,7 +25,6 @@
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="220" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
@@ -37,20 +36,8 @@
                     <ComboBoxItem Content="All planting instances in model" />
                     <ComboBoxItem Content="Current Revit selection only" />
                 </ComboBox>
-                <ComboBox Grid.Column="1"
-                          x:Name="CurrencyBox"
-                          Header="Currency"
-                          HorizontalAlignment="Stretch"
-                          SelectionChanged="CurrencyBox_SelectionChanged">
-                    <ComboBoxItem Content="USD" />
-                    <ComboBoxItem Content="GBP" />
-                    <ComboBoxItem Content="EUR" />
-                    <ComboBoxItem Content="CAD" />
-                    <ComboBoxItem Content="AUD" />
-                    <ComboBoxItem Content="NZD" />
-                </ComboBox>
-                <Button Grid.Column="2" Content="Validate" Click="Validate_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
-                <Button Grid.Column="3" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Bottom" />
+                <Button Grid.Column="1" Content="Validate" Click="Validate_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom" />
+                <Button Grid.Column="2" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Bottom" />
             </Grid>
         </Border>
 
@@ -150,11 +137,15 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Button Content="Calculate valid" Click="CalculateValid_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
-                <Button Grid.Column="1" Content="Recalculate selected" Click="RecalculateSelected_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                <TextBlock Grid.Column="2" x:Name="CalculateStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="Select all"
+                        ToolTipService.ToolTip="Selects every row currently shown below (respects the status-card filter above)."
+                        Click="SelectAllRows_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                <Button Grid.Column="2" Content="Recalculate selected" Click="RecalculateSelected_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                <TextBlock Grid.Column="3" x:Name="CalculateStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
             </Grid>
         </Grid>
 

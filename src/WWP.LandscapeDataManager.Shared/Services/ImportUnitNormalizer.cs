@@ -239,6 +239,11 @@ public static class ImportUnitNormalizer
             return UnitDimension.Volume;
         }
 
+        if (dataTypeId.Contains(":mass-", StringComparison.OrdinalIgnoreCase))
+        {
+            return UnitDimension.Mass;
+        }
+
         return null;
     }
 

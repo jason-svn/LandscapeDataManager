@@ -15,12 +15,15 @@ public sealed partial class MainPage : Page
     private readonly WwpLdsCoefficientDatabase _coefficientDatabase = new();
     private readonly AirtableCredentialStore _credentialStore = new();
     private readonly AirtableApiClient _airtableClient = new();
+    private readonly ExchangeRateService _exchangeRateService = new();
 
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
     private string _pipeName = string.Empty;
     private IReadOnlyList<WwpLdsCoefficientRecord> _allCoefficients = [];
     private WwpLdsAirtableSettings _wwpLdsSettings = WwpLdsAirtableSettings.CompanyDefault;
+    private string _preferredCurrency = "USD";
+    private double _preferredCurrencyFactor = 1d;
 
     public MainPage()
     {
@@ -61,6 +64,18 @@ public sealed partial class MainPage : Page
             : $"Source: base {_wwpLdsSettings.BaseId} / table {_wwpLdsSettings.TableIdOrName} (managed in Settings).";
 
         await RefreshCatalogueStatusAsync();
+
+        try
+        {
+            var catalog = await GetClient().SendAsync<ParameterCatalogResult>(PipeCommands.GetParameterCatalog, new ModelScanOptions());
+            var rate = await _exchangeRateService.GetUsdRateAsync(catalog.PreferredCurrency);
+            _preferredCurrency = rate.CurrencyCode;
+            _preferredCurrencyFactor = rate.UsdRate;
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Could not resolve the preferred currency, defaulting to USD: {exception.Message}";
+        }
 
         try
         {
@@ -194,8 +209,14 @@ public sealed partial class MainPage : Page
         UpdateComputedValues(row);
     }
 
-    /// <summary>Recomputes each metric's coefficient-derived default (coefficient × area, or as-is for the two intrinsic temperature metrics) without touching any metric already flagged Manual.</summary>
-    private static void UpdateComputedValues(FloorAssignmentRow row)
+    /// <summary>
+    /// Recomputes each metric's coefficient-derived default (coefficient × area, or as-is for the
+    /// two intrinsic temperature metrics) without touching any metric already flagged Manual. The
+    /// cost-saved coefficient is the WWP landscape data sheet's raw USD figure, so it's converted to
+    /// the project's preferred currency here — the same point i-Tree Calculator applies its rate —
+    /// so a manual override afterward starts from (and edits) the already-converted number.
+    /// </summary>
+    private void UpdateComputedValues(FloorAssignmentRow row)
     {
         var record = row.SelectedRecord;
         var area = row.AreaSquareMeters;
@@ -204,14 +225,14 @@ public sealed partial class MainPage : Page
         metrics[FloorAssignmentRow.Co2Index].ComputedValue = (record?.Co2SequesteredAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.RunoffIndex].ComputedValue = (record?.RunoffAvoidedAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.PollutionIndex].ComputedValue = (record?.PollutionMassRemovedAnnual ?? 0) * area;
-        metrics[FloorAssignmentRow.CostSavedIndex].ComputedValue = (record?.CostSavedAnnual ?? 0) * area;
+        metrics[FloorAssignmentRow.CostSavedIndex].ComputedValue = (record?.CostSavedAnnual ?? 0) * area * _preferredCurrencyFactor;
         metrics[FloorAssignmentRow.OxygenIndex].ComputedValue = (record?.OxygenProducedAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.GwpIndex].ComputedValue = (record?.TotalGwp ?? 0) * area;
         metrics[FloorAssignmentRow.SurfaceTempIndex].ComputedValue = record?.SurfaceTempReduction ?? 0;
         metrics[FloorAssignmentRow.AirTempIndex].ComputedValue = record?.AirTempReduction ?? 0;
     }
 
-    private static FloorLdsValues BuildValues(FloorAssignmentRow row)
+    private FloorLdsValues BuildValues(FloorAssignmentRow row)
     {
         var record = row.SelectedRecord ?? throw new InvalidOperationException("No landscape type selected.");
         var metrics = row.Metrics;
@@ -234,7 +255,9 @@ public sealed partial class MainPage : Page
             metrics[FloorAssignmentRow.OxygenIndex].FinalValue,
             metrics[FloorAssignmentRow.GwpIndex].FinalValue,
             metrics[FloorAssignmentRow.SurfaceTempIndex].FinalValue,
-            metrics[FloorAssignmentRow.AirTempIndex].FinalValue);
+            metrics[FloorAssignmentRow.AirTempIndex].FinalValue,
+            _preferredCurrency,
+            _preferredCurrencyFactor);
     }
 
     private async void ReviewValues_Click(object sender, RoutedEventArgs e)

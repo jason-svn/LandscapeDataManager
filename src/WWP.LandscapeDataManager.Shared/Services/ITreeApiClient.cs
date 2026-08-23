@@ -390,18 +390,21 @@ public sealed class ITreeApiClient
 
         if (profile.Monetary)
         {
-            // Carbon and storm-water worth are confirmed against the API's own JSON paths (both were
-            // already relied on before this benefit total existed). Air-pollution worth's path is our
-            // best-effort guess by analogy with the other two categories' "<metric>-worth" siblings —
-            // it hasn't been confirmed against a live response. If it ever reads back as 0 while the
-            // public i-Tree "MyTree Benefits" report shows a non-zero Air Pollution Removal $ figure
-            // for the same tree, the path below needs correcting.
-            var carbonWorthAnnual = ReadNumber(first, "pollution-avoided", "co2-worth");
-            var carbonWorth20yr = annual.Sum(year => ReadNumber(year, "pollution-avoided", "co2-worth"));
+            // Confirmed against a live response cross-checked against the public i-Tree "MyTree
+            // Benefits" report for the same species/diameter/location (see PR discussion): the
+            // previous "pollution-avoided.co2-worth" path under-reported the carbon dollar benefit
+            // by roughly 3x (it's a different i-Tree accounting bucket, not this tree's own carbon
+            // benefit) — "carbon.sequestration-worth" is the field that actually matches MyTree's
+            // "Carbon Dioxide Uptake $" line, both annually and summed across years. Likewise,
+            // "pollution-removed.worth" never existed on a real response (always silently read as
+            // 0) — MyTree's "Air Pollution Removal $" is the sum of that category's six per-pollutant
+            // "<gas>-worth" siblings, not one combined field.
+            var carbonWorthAnnual = ReadNumber(first, "carbon", "sequestration-worth");
+            var carbonWorth20yr = annual.Sum(year => ReadNumber(year, "carbon", "sequestration-worth"));
             var stormWaterWorthAnnual = ReadNumber(first, "hydrology", "runoff-avoided-worth");
             var stormWaterWorth20yr = annual.Sum(year => ReadNumber(year, "hydrology", "runoff-avoided-worth"));
-            var airPollutionWorthAnnual = ReadNumber(first, "pollution-removed", "worth");
-            var airPollutionWorth20yr = annual.Sum(year => ReadNumber(year, "pollution-removed", "worth"));
+            var airPollutionWorthAnnual = SumPollutionRemovedWorth(first);
+            var airPollutionWorth20yr = annual.Sum(SumPollutionRemovedWorth);
 
             fields["Annual_CarbonBenefit_USD"] = carbonWorthAnnual;
             fields["CarbonBenefit_20yr_USD"] = carbonWorth20yr;
@@ -585,6 +588,15 @@ public sealed class ITreeApiClient
         TryGetPath(element, out var value, path) && value.ValueKind == JsonValueKind.Number
             ? value.GetDouble()
             : 0d;
+
+    /// <summary>One year's total air-pollution dollar benefit — "pollution-removed" has no combined "worth" field of its own, only one per pollutant.</summary>
+    private static double SumPollutionRemovedWorth(JsonElement year) =>
+        ReadNumber(year, "pollution-removed", "co-worth") +
+        ReadNumber(year, "pollution-removed", "no2-worth") +
+        ReadNumber(year, "pollution-removed", "o3-worth") +
+        ReadNumber(year, "pollution-removed", "pm25-worth") +
+        ReadNumber(year, "pollution-removed", "so2-worth") +
+        ReadNumber(year, "pollution-removed", "voc-worth");
 
     private static void AddTopLevelScalar(
         JsonElement root,
