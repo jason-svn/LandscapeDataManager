@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LIM Landscape Data Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="How to install and use the LIM Landscape Data Revit add-in.">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  :root {
+    --paper: #f6f8f3;
+    --surface: #ffffff;
+    --ink: #1c281f;
+    --muted: #56655a;
+    --accent: #1f6b2e;
+    --accent-soft: #e4f1df;
+    --line: #dee6d9;
+    --code-ink: #2c4a30;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10140f;
+      --surface: #171d14;
+      --ink: #ecf2e8;
+      --muted: #93a594;
+      --accent: #74d485;
+      --accent-soft: rgba(116, 212, 133, 0.16);
+      --line: #283124;
+      --code-ink: #b7e6bf;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #10140f;
+    --surface: #171d14;
+    --ink: #ecf2e8;
+    --muted: #93a594;
+    --accent: #74d485;
+    --accent-soft: rgba(116, 212, 133, 0.16);
+    --line: #283124;
+    --code-ink: #b7e6bf;
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Public Sans", -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.55;
+    padding: 56px 24px 72px;
+    margin: 0;
+  }
+  main {
+    max-width: 740px;
+    margin: 0 auto;
+  }
+  h1, h2 {
+    font-family: "Fraunces", Georgia, serif;
+    text-wrap: balance;
+    margin: 0;
+  }
+  p { margin: 0; }
+  img { max-width: 100%; }
+
+  /* ── Masthead ── */
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  h1 {
+    font-size: 34px;
+    font-weight: 600;
+    margin-top: 8px;
+  }
+  .lede {
+    color: var(--muted);
+    font-size: 15.5px;
+    max-width: 58ch;
+    margin-top: 10px;
+  }
+  .locate {
+    margin-top: 22px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14.5px;
+  }
+  .locate strong { font-weight: 600; }
+  .path {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13px;
+    color: var(--code-ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 2px 8px;
+  }
+
+  /* ── Install ── */
+  .install {
+    margin-top: 30px;
+    padding: 20px 22px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+  .install-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .install-head h2 {
+    font-size: 19px;
+    font-weight: 600;
+  }
+  .btn {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--surface);
+    font-weight: 600;
+    font-size: 14px;
+    padding: 2px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+  }
+  .steps {
+    list-style: none;
+    margin: 18px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .steps li {
+    display: grid;
+    grid-template-columns: 26px 1fr;
+    gap: 14px;
+  }
+  .step-num {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--surface);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step-title {
+    font-weight: 600;
+    font-size: 14.5px;
+  }
+  .step-body {
+    margin-top: 4px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .step-body a { color: var(--code-ink); }
+  .code {
+    margin: 8px 0 0;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13px;
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 14px;
+    color: var(--code-ink);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .code + .code { margin-top: 6px; }
+
+  /* ── Setup note ── */
+  .setup {
+    margin-top: 28px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    font-size: 14.5px;
+    color: var(--muted);
+  }
+  .setup strong { color: var(--ink); font-weight: 600; }
+
+  /* ── Panels ── */
+  .panel {
+    margin-top: 40px;
+  }
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px;
+  }
+  .panel-num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .panel-head h2 {
+    font-size: 21px;
+    font-weight: 600;
+  }
+  .panel-role {
+    margin-top: 6px;
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+
+  .tool-list {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  .tool {
+    display: grid;
+    grid-template-columns: 52px 150px 1fr;
+    gap: 16px;
+    align-items: start;
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+  }
+  .tool:first-child { border-top: none; }
+  .chip {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: block;
+    box-shadow: 0 0 0 1px var(--line);
+  }
+  .tool-name {
+    font-weight: 600;
+    font-size: 15px;
+    padding-top: 1px;
+  }
+  .tool-desc {
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  /* ── Footer ── */
+  footer {
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 13.5px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  @media (max-width: 560px) {
+    .tool { grid-template-columns: 40px 1fr; }
+    .tool-name { grid-column: 2; }
+    .tool-desc { grid-column: 2; }
+    .chip { grid-row: span 2; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="eyebrow">Quick start</div>
+  <h1>Using LIM Landscape Data</h1>
+  <p class="lede">
+    A Revit add-in for planting and floor environmental data — i-Tree benefit calculations,
+    landscape data-sheet coefficients, and a rolled-up benefits dashboard — with each step
+    as its own tool on the ribbon.
+  </p>
+
+  <section class="install">
+    <div class="install-head">
+      <h2>Getting the app onto your computer</h2>
+    </div>
+    <p class="lede" style="margin-top: 8px;">
+      Works with Revit 2025 and Revit 2026. Takes about five minutes, and you won't need
+      an IT department or an admin password — it installs just for your own Windows account.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <span class="step-num">1</span>
+        <div>
+          <p class="step-title">Download the installer</p>
+          <p class="step-body">
+            Open the <a class="btn" href="https://github.com/jason-svn/LandscapeDataManager/releases/latest" target="_blank" rel="noopener">download page</a>
+            and click the file named <span class="path">LIM-Landscape-Data-2025plus.zip</span>.
+            It's a large file, so it may take a few minutes to finish.
+          </p>
+        </div>
+      </li>
+      <li>
+        <span class="step-num">2</span>
+        <div>
+          <p class="step-title">Unzip the downloaded file</p>
+          <p class="step-body">
+            Find the file — it's usually in your <strong>Downloads</strong> folder. Right-click it,
+            choose <strong>Extract All…</strong>, then click <strong>Extract</strong> in the window
+            that pops up. A new folder appears with the same name — open it.
+          </p>
+        </div>
+      </li>
+      <li>
+        <span class="step-num">3</span>
+        <div>
+          <p class="step-title">Open a text-command window inside that folder</p>
+          <p class="step-body">
+            Hold down <strong>Shift</strong> on your keyboard, then right-click on an empty part of
+            the folder (not on any file) and choose <strong>Open PowerShell window here</strong>
+            (on some computers it says <strong>Open in Terminal</strong>). A blue or black window
+            full of text opens — that's expected, not an error.
+          </p>
+        </div>
+      </li>
+      <li>
+        <span class="step-num">4</span>
+        <div>
+          <p class="step-title">Type one line, then press Enter</p>
+          <p class="step-body">Copy the line below, click inside that text window, right-click to paste it in, then press <strong>Enter</strong>:</p>
+          <pre class="code">.\Deploy-BinaryPackage.ps1 -RevitVersion 2025</pre>
+          <p class="step-body">Using Revit 2026 instead? Type this line instead:</p>
+          <pre class="code">.\Deploy-BinaryPackage.ps1 -RevitVersion 2026</pre>
+          <p class="step-body">
+            If a blue screen appears saying <em>"Windows protected your PC"</em>, click
+            <strong>More info</strong>, then <strong>Run anyway</strong>. This is normal for a new
+            tool that isn't from the Microsoft Store — it does not mean anything is wrong.
+          </p>
+        </div>
+      </li>
+      <li>
+        <span class="step-num">5</span>
+        <div>
+          <p class="step-title">Restart Revit</p>
+          <p class="step-body">
+            If Revit is already open, close it completely and open it again. Look for a new tab
+            along the top called <strong>LIM</strong> — everything below starts there.
+          </p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <div class="locate">
+    <span>📍</span>
+    <span>Everything lives under the <strong>LIM</strong> ribbon tab, in five panels, left to right — that order is the suggested workflow below.</span>
+  </div>
+
+  <div class="setup">
+    <strong>Before anything else:</strong> open <strong>Settings</strong> and save your i-Tree API key,
+    Airtable token, and data-sheet source once. Every other tool reads them from there — nothing
+    to re-enter per project.
+  </div>
+
+  <!-- 1 — Project Setup -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="panel-num">01</span>
+      <h2>Project Setup</h2>
+    </div>
+    <p class="panel-role">Get the model ready — parameters, species reference data, and site location.</p>
+    <div class="tool-list">
+      <div class="tool">
+        <img class="chip" alt="Settings icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAFrSURBVFhH7ZexbcNADEV/mUJFymgBIWUALaAJNIGKlAHUpAxUpUuhAVJ6A7UZQEV20AIpU7pU8A+gcaEo27B1rEzgwQZJkf+oOwEH2PYI4BnA+4aw3pNupI1JvwDmhOwBvOnGtC8jOSXfAO6k+YuR4MGHCOBYdNCLsDG00xO8Gk5PwhHRTk9uAk4LKMtybtv2QFVVc5ZlIVbX9b+YBXN0zbMEFEUxT9M0W8bCzBmGQYcWxhxd+ywBcfO+70NT/tIvAuIJMKbzL54Axx4X03FOR/viZ/hfx1c4LYArzvN8kaPZVAAZx/FQkMZJWCsXNhfAVVubrOu6RS7ZXIDAYlqIJSKZACFuQDsWv1oAx29tPDcBUoyjl/Mcb0rraCYRYBlFyad47ZmrBRC+gvhL1zTN0WPIfMm1Xt8K6wKcuAkIlwTt9ASV4fQk3E6005Ngn0bAA14Hg3EKP0ZCSngJfhABtHsAOyMxBVx5aP4HZ57jEMPTtHQAAAAASUVORK5CYII=" />
+        <span class="tool-name">Settings</span>
+        <span class="tool-desc">Save the i-Tree API key, Airtable token, and data-sheet source in one place.</span>
+      </div>
+      <div class="tool">
+        <img class="chip" alt="Import Shared Parameter icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAF8SURBVFhH7ZehTsRAEIZ/iTiBpC/QIEn6An2CakQFkqQGSapwiD4Aph5Xi0RU8AiX1CCRSGTJv8lctnO72Ta53QsJf/KJm9l2/p3ZJreAX9cAbgE8nYA7ADe6gEsXAJ4B/ACYI/EK4EoXpuhw73ggBl8ASrs4d/7pWBiTb7sTL44FKXiT3ceceQgzex1MCe4dwZSY71QHU/IHDAzDsKDrujnP80N+t9vNdV178wHCBnwqisIUH8dRp+amaY7e42G9ARYsy3Kepsn85k6rqjrkmeOatm3jGJDffDnFdrP1oizLjp5dwXYD3DnV970paou5jUbWG+CO7Xmz5czzwMlYRNEPIWev13H+YoTd0XkP6w2wgJx8ybELdsvlULJb+j0e1hvQcSIHkqNhUVGUDug4sT9DEY3YXQoQNiCt13HXmo1fAAkbiMy/gfMbeHQEU2L+n+tgSnDpCKbE6N2RSAEvQ0a8iJ7jbrC4nvEmnNLEg11cxE58OBafksXF9BehvqKU5xhZkgAAAABJRU5ErkJggg==" />
+        <span class="tool-name">Import Shared Parameter</span>
+        <span class="tool-desc">Load the shared-parameter file and bind the planting/i-Tree parameters to Project Information and Planting.</span>
+      </div>
+      <div class="tool">
+        <img class="chip" alt="iTree Database Cacher icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAF3SURBVFhH7ZehTsRAEIZ/iahA0he4IEn6An2CaiSSpAZJqnCIPgCmHleLRFTwCEgkEoks+TeZy3Q6ew131z0Ef/KJnU53/t12mi4Q1yWAawAPR+AGwJUt4OkMwCOAbwDjSjwDuLCFKTp8d25Yg08ApS7OlX84iWvypXfiyUlIwYusfs1nvkR49jaYEtw6wZSEPrXBlPxRA1mWjV3XjU3TbGN930/g9aqqQq6+V67bOSP4BjabzSiSWEzDMExMiOycEXwDhCbyPN+ORUVRBLg7orZtZ3l2vgi+ARa3W+lNXNf1LG7HC/gGuEI7kR0T7pCN2/EChxnQcXkPYnkRDjNQluUsbscL7G+A288OoNiSsbwFfm9AXk4tr1v0N4PfC1tjbwNanJwdo+/1xG6xNXYa4Asl/S4xGQt61Rqbtys3aiAh/wZOb+DeCaYk/J/bYEpw7gRTEvTqXEgBD0NBPIie4mwwOZ7xJJzSxJ0uLuJOvDnJx2RyMP0BOrjVfDPcZWsAAAAASUVORK5CYII=" />
+        <span class="tool-name">iTree Database Cacher</span>
+        <span class="tool-desc">Download the i-Tree species catalog (code, common and scientific name, type) and cache it locally for Tree Searcher.</span>
+      </div>
+      <div class="tool">
+        <img class="chip" alt="Location Finder icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAEqSURBVFhH7ZchDsJAEEW/RFQg6QUaJEkvwAmqkUiSGiQSxxE4Aq4WieQISCQSiYTsJpvMTqdlm+xOQ8JPnvkzm/ntloQBujUHsAKwj8AawIIPkDQBcADwAvBOxAnAjA82MglvwoEUPAAs6XDz5HehMSVP+iaOQoMGZ/f0Ke/8G/buuakJNoKpif2dclOTHwnQNI2F+7RGKYqi1ddBWAAn7tMaVVmWrb4O4gUwQx1ZlrX6OogXgPuBxAtAvwHe00O8AFS8p4d4Aeg3wHt6iBeA+4EMC0Dvuaoqr8bPBDIsAFVd116NnwkkLAC9X0ee516NnwkkLEBC/gHGD7ATTE3s/3NuaoKpYGpidREKGphlyMosomPsBt56ZjZhzRBbOtzJvImr0BwTbzH9AH3dZPlgyQgBAAAAAElFTkSuQmCC" />
+        <span class="tool-name">Location Finder</span>
+        <span class="tool-desc">Pick a location on a map, search an address, or reuse the project's Site Location — publishes it to the i-Tree lat/long parameters.</span>
+      </div>
+      <div class="tool">
+        <img class="chip" alt="KPI Schedules icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAFSSURBVFhH7ZctUgQxEIWfRCL3CEgkEhnJEZBIRAQSxxEwqdpjICO5RhwSiWzqJfOTTRpqZmoSNV317dbW651+6SRV04AeNwAeAbzuBJ91WxbRgonfAKQRPwBeyqJjfCh/aMUngKu8+JOS1Jq33ABbUyb04MTiPByl0IsHGnhWhF7whsSPUujFYeAwsMKAcRJEJDiTflsvMYITA4hxVOfwVnlGzVYDVlJ5L5baYGYqapy4lgZSvSDOJG1c/cJV52wwEFKxaSsybWh+6soy1huQEIbvtPdzjpH8GCzsxnoDXPnY8osuFHniba3VbDMwH8J0Dozz03mobsv/bDWQXUMJ4v3lFay3509WGGjDYeAwEA3wPb0UehEN3CtCLzgIxQGhFHrBETDGuyK2hpPYFOzCl5LUCs6fcSjJ4xrAWUneG668Kp4HJyXOijyhe8IB6K4s9gtxmETSaAsWrwAAAABJRU5ErkJggg==" />
+        <span class="tool-name">KPI Schedules</span>
+        <span class="tool-desc">Generate Planting and Planting-Area schedules per Design Option, covering every KPI the Dashboard reports.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 — Data Processing -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="panel-num">02</span>
+      <h2>Data Processing</h2>
+    </div>
+    <p class="panel-role">Get species and source data onto the model's elements.</p>
+    <div class="tool-list">
+      <div class="tool">
+        <img class="chip" alt="Tree Searcher icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAF2SURBVFhH7ZehTsRAEIZ/iahA0hdokCR9gT5BNaICSVKDJFU4RB8AU4+rRSIqeIRLapDIkydL/kmWbOd2eyVt9xD8ySdudrrz7+y2uQX8ugZwC+BpBe4A3OgCLl0AeAZwADBsxCuAK12YosOd44Et+AKQ2cW58k9H4pbs7U68OBJC8GZWv+Wen0L2XgdDgntHMCTynupgSP64gaqqhrZtneR5LjlRFA1FUfzE67oekiQ5msvDtAFO6FNZllK86zo9JGN6Lg/TBriSNE1lhRSL8TeJ41i6YJRlmcTZtdUMGDgxxY7YcWOMoiH93AyWGWBRW9z/XxpZZoBwm/q+HxlZ7RAapgzYOcZI0zRH4x6WGeDBs1tuDqXOm2CZAZ52im+H/coG64D9Ghoxh98HPYeHeQY4IU34Dpf9bdBjJ5hnYEP+DZzfwKMjGBL5f66DIcGlIxgS0btjIAS8DIl4ET3H3WB0PeNNOKSJB7u4ETvx4Uhek9HF9BtYDX6Lkvbx0wAAAABJRU5ErkJggg==" />
+        <span class="tool-name">Tree Searcher</span>
+        <span class="tool-desc">Search the cached species catalog and assign a species straight onto the selected Planting instances or types.</span>
+      </div>
+      <div class="tool">
+        <img class="chip" alt="Excel Importer icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAF6SURBVFhH7ZehTsRAEIZ/iahA0hdokCR9gT5BNRJJUoNE4hB9AEw9rhaJqOARSGpOIpHII/8m08xt5+iQtHsh4U++XG922vl3d3q5BY7rEsA1gIcVuAFwFRewdAbgEcAXgP1GPAO4iAtTdPhu3LAFHwAqXZwz3xmJW/KpV+LJSEjBi8x+yz1fIux9HEwJbo1gSsJ7GgdT8gcM9H0/oyiKfVVV4brruik3y7IpJ8/z2bMMlg1YKssyFBPVdR1ym6YJ37WpBfwGWFRgcY5JQc5YG3LOnvgNxHGii7ZtO33GeT/gN6B7QI/LKohkdZz4DWjpcTajaBzH2f0L+A3oHtDjXBEpTklDOvEbiOOExahhGIIxMfKLbfAb0D3AwiwSz1q+sy/i5xzBb0CLBaT59L7LilDOVVg2oPde4HvOX0O5tvJXM7Ax/wZOb+DeCKYk/D+PgynBuRFMSdCrMZACHoaCeBA9xdng4HjGk3BKE3e6uIgr8WYkr8nBwfQb2kCirz1ZcIUAAAAASUVORK5CYII=" />
+        <span class="tool-name">Excel Importer</span>
+        <span class="tool-desc">Import Excel or Airtable records, detect source units, preview changes, and write mapped Planting values.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 — Data Calculation -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="panel-num">03</span>
+      <h2>Data Calculation</h2>
+    </div>
+    <p class="panel-role">Turn the model's inputs into benefit results.</p>
+    <div class="tool-list">
+      <div class="tool">
+        <img class="chip" alt="Tree Calculator icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAGBSURBVFhH7ZehTsRAFEWvRKxAsj/QIEn2B/oFqxEVSJI1SFKFQ/QDMOtxa5GICj6BZA0SiUSWnEleM307LIJ2QPQmN9Pcvnnvzrxp0pG+x7mkS0l3I/BK0oUvkMKJpHtJn5K6ifgo6cwXBjh8TUyYgu+Syrg4K39LBE7Jj3gnHhIBOfhkq5+y5z8x9N6LOanrhJiT4Tv1Yk7OBv6hgcVi0a1WKx8YNFgURa8tl8ugMfr5sXaEhwbKsux2u12fYL1ed2C/3we9rus+tmma8K5t216jONhsNr5YiocGbAWMmABx0TgOYAqY4V8bsASMJAEU83G2M7QEVFU1mD+qAR8DWTltIY4W8BzPH8UAqwL+QFlrKIwRRsBujGrA+kwBDicaRcyYfRHxWbH5HFCeoa9x1ABJWZUlxwSJ0SArI/l2ux3MQ4M2P6avcdRAZs4GZgO6TYg5Gf7PvZiTOk2IORnwnHiRg1yGAriI/sXdYHA94yac08RNXNzATrwkgsfk4GL6BammZMx132pbAAAAAElFTkSuQmCC" />
+        <span class="tool-name">Tree Calculator</span>
+        <span class="tool-desc">Validate tree inputs, calculate i-Tree benefits, write the output parameters, and report anything missing.</span>
+      </div>
+      <div class="tool">
+        <img class="chip" alt="Floor Calculator icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAFsSURBVFhH7ZetTsRAFIWPRFSs5AkaJElfgCeoRlQgSWqQpAqH6ANg6nG1SEQFj0BSsxKJRHZzJplm9nYmnZKduyHhJl82OXdm7pm/ZgcIxxWAWwBPJ+AOwLUs4IsLAM8AfgBMiXgFcCkLM+jw09MhBV8AbtzinPne0zAl3+5KvHgaaPBmZ59yz9cwey9FTXDvETUx91SKmvwBA33fL8jzfM5nWTZVVTV1XWdy/C2KYjFOgHUDvrAFWHwYBpme6rpejBMg3gCLWliYOc7YRlmWJsfiXBE5ToB4A1LnNthwt2Qj8QbcM0CdM7W67LOBeANuUFc34J4B6txnxjiOiz4biDcgdfcMuKeeB3TDmfi9AdK27ZznSthbkeQaSp1wtk3TzG1s8ErKtgHWDbj7HoJG5DciknUDifk3cH4Djx5RE/P/XIqaYOcRNTHx7klowMeQCT5Ez/E2OHqe8SWsaeLBLW6DK/HhaXxKjh6mB5oGfD8wVmFMAAAAAElFTkSuQmCC" />
+        <span class="tool-name">Floor Calculator</span>
+        <span class="tool-desc">Match Floor instances to the landscape data sheet and calculate cost, carbon, air, water, and temperature benefits.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 — Diagnosis -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="panel-num">04</span>
+      <h2>Diagnosis</h2>
+    </div>
+    <p class="panel-role">Catch what changed or what's still incomplete.</p>
+    <div class="tool-list">
+      <div class="tool">
+        <img class="chip" alt="Refresh and Audit icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAGNSURBVFhH7VehTsRAEH0ScQJJf6BBkvQH+gXViAokSQ2SVOEQ/QBMPa4WiajgEy6pQSKRyCNvk2mm2+3eNrnuIXjJS25ntrNv3rTJLbCMawC3AJ5OwDsAN/YBLlwAeAbwA+CwEV8BXNkHE1S4dzywBb8A5Ppwdv7p2Lglv7UTL44NMfgm3W8582M0s7eDMYl7RzAmzXdqB2Pyjwvoum7Ctm0PeZ7P9tV1Pebt3BH6BSxBi9jtdpNcmqazOh6GCciyzLDve7PWnRZFYWKSoxt2HQ/DBMiaxYmmacYYxRB0hRiGYVbHwzABnK90SIjNYr8cKntWjCFMgIAH6eJivzgiDq0YQ5gAPX9dXOynMO3SijGECeDvJEnGNV2w334bgWMIF0CKxexWv/3ylZDMEWVZzuo5uE6A7lrsr6pq8owWZtdz0C9AutIxWqs7piid59r13AL9AiLwX8D5BTw6gjFp/p/bwZjEpSMYkwbvjkQM8jJkwIvoOe4Gk+sZb8IxRTzowwV04sOx+ZScXEx/AQmAw81z+dlqAAAAAElFTkSuQmCC" />
+        <span class="tool-name">Refresh and Audit</span>
+        <span class="tool-desc">Compare against the last pull, reapply changed data, and flag stale or incomplete planting elements.</span>
+      </div>
+      <div class="tool">
+        <img class="chip" alt="Health Check icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAFdSURBVFhH7ZehTsRAFEWvRFQg6Q80SJL+QL+gGlGBr0GSKhyiH8An4GqRiAo+AYlEIpFL7iTTvL6+LZPQvkVwk5Pt3nnt3L5pNzvAcV0CuAFwvwG8zpWewNIZgAcAXwAOO/EE4EJPTDHhm3HCHnwAqOTkvPN3o3BPPmUnHo0CD57j3e+55j8R1l6bnuDWMD0J76k2PfnjAdq2DUgvz3PTJ0VRHJqmCWP8ZK2uUawHiJJeWZam3/f95EdZIRXbBOi6bvIYhBMPw+ATgG2Oqut6Vptl2eKairQAcc2JbDVruNbUOI6L8xNIC3BMrGEoii3X5yeQFmCtAzHArh2Qnn4G5Hcey9rNngHp6QCEdx/l/hYQvgkyRNSvA8R1l97aL2FVVdMYj/W4wXoAB/4DnD7AnWF6Ev6fa9MTnBumJ0EvxoAH3AwFcSN6ir3BbHt27RyC24GF2IlXo3hLZhvTb/kUrcB181nZAAAAAElFTkSuQmCC" />
+        <span class="tool-name">Health Check</span>
+        <span class="tool-desc">Scan every Planting and Floor element for missing results, list what needs attention, and colour the active view red or green.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 — Reporting -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="panel-num">05</span>
+      <h2>Reporting</h2>
+    </div>
+    <p class="panel-role">See the results.</p>
+    <div class="tool-list">
+      <div class="tool">
+        <img class="chip" alt="Benefits Dashboard icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAFtSURBVFhH7Vc7TsUwEJySIgUluUBEiZQL5AQ5AyVSGkqUio4iB6CJxA3ScoAU3CEXoKR8pdFYWFrtW+fzhF29kaZZ72e8XlsyYOMewCOA138k8z3oQhp0+gHgEvIE4EUXJj4N55T8AnATij8ZDjn4FgSwLXoxF/1gaGNO4tkw5qS/ItqYk1cB5wLatnVd152xaRpXlqVOsBmjfTcFTNPk1jAMgyuKYnfMsiyuqipdeJ+AsBMWlZjneTOGhQPGcdSF9wmQdu6ahQPY9rUY+gdwXdc5LICs69pMasVIAeygzvXHYwJICStGHwHX9MwkFaDR930aAXIQrQ7IwdVDe7EA3usAea6xGO4+gPOj8x0SwEdIXi2ZMBYju3CRAKudwX40JjIH6wIsyPu/N+bQSxh71yMtXI3hzER2HheQmVcB/pOgjTmJxjDmpP+daGNOerwbCznI76AHu/BtOKQkP8F3QQBxC+DDcExB7twX/wVIM4xRI12LhwAAAABJRU5ErkJggg==" />
+        <span class="tool-name">Benefits Dashboard</span>
+        <span class="tool-desc">Roll up i-Tree and data-sheet results into per-species and per-area subtotals and a project grand total — filter by Design Option or level, export as an image or Excel workbook.</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Revit 2025 / 2026 · installs per-user, no admin rights</span>
+    <span>Data stays local — cached results live under your Windows user profile</span>
+  </footer>
+
+</main>
+</body>
+</html>
