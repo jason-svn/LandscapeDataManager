@@ -68,27 +68,34 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Border x:Name="AddedCard" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Added" Tapped="StatusCard_Tapped">
+            <ToggleButton x:Name="AddedCard" Style="{StaticResource LimCardToggleButtonStyle}" Tag="Added" Click="StatusCard_Click"
+                          AutomationProperties.Name="Filter to Added rows">
                 <StackPanel Spacing="2"><TextBlock Text="ADDED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="AddedCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
-            </Border>
-            <Border x:Name="ChangedCard" Grid.Column="1" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Changed" Tapped="StatusCard_Tapped">
+            </ToggleButton>
+            <ToggleButton x:Name="ChangedCard" Grid.Column="1" Style="{StaticResource LimCardToggleButtonStyle}" Tag="Changed" Click="StatusCard_Click"
+                          AutomationProperties.Name="Filter to Changed rows">
                 <StackPanel Spacing="2"><TextBlock Text="CHANGED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ChangedCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
-            </Border>
-            <Border x:Name="ConflictCard" Grid.Column="2" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Conflict" Tapped="StatusCard_Tapped">
+            </ToggleButton>
+            <ToggleButton x:Name="ConflictCard" Grid.Column="2" Style="{StaticResource LimCardToggleButtonStyle}" Tag="Conflict" Click="StatusCard_Click"
+                          AutomationProperties.Name="Filter to Conflict rows">
                 <StackPanel Spacing="2"><TextBlock Text="CONFLICT" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ConflictCountText" Text="—" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource LimWarningBrush}" /></StackPanel>
-            </Border>
-            <Border x:Name="RemovedCard" Grid.Column="3" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Removed from source" Tapped="StatusCard_Tapped">
+            </ToggleButton>
+            <ToggleButton x:Name="RemovedCard" Grid.Column="3" Style="{StaticResource LimCardToggleButtonStyle}" Tag="Removed from source" Click="StatusCard_Click"
+                          AutomationProperties.Name="Filter to Removed rows">
                 <StackPanel Spacing="2"><TextBlock Text="REMOVED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="RemovedCountText" Text="—" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource LimErrorBrush}" /></StackPanel>
-            </Border>
-            <Border x:Name="CalcStaleCard" Grid.Column="4" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Calculation stale" Tapped="StatusCard_Tapped">
+            </ToggleButton>
+            <ToggleButton x:Name="CalcStaleCard" Grid.Column="4" Style="{StaticResource LimCardToggleButtonStyle}" Tag="Calculation stale" Click="StatusCard_Click"
+                          AutomationProperties.Name="Filter to Calculation stale rows">
                 <StackPanel Spacing="2"><TextBlock Text="CALC STALE" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="CalcStaleCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
-            </Border>
-            <Border x:Name="CatalogueStaleCard" Grid.Column="5" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Catalogue stale" Tapped="StatusCard_Tapped">
+            </ToggleButton>
+            <ToggleButton x:Name="CatalogueStaleCard" Grid.Column="5" Style="{StaticResource LimCardToggleButtonStyle}" Tag="Catalogue stale" Click="StatusCard_Click"
+                          AutomationProperties.Name="Filter to Catalogue stale rows">
                 <StackPanel Spacing="2"><TextBlock Text="CATALOGUE" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="CatalogueStaleCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
-            </Border>
-            <Border x:Name="UnchangedCard" Grid.Column="6" Style="{StaticResource LimCardStyle}" Padding="10" Tag="Unchanged" Tapped="StatusCard_Tapped">
+            </ToggleButton>
+            <ToggleButton x:Name="UnchangedCard" Grid.Column="6" Style="{StaticResource LimCardToggleButtonStyle}" Tag="Unchanged" Click="StatusCard_Click"
+                          AutomationProperties.Name="Filter to Unchanged rows">
                 <StackPanel Spacing="2"><TextBlock Text="UNCHANGED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="UnchangedCountText" Text="—" FontSize="16" FontWeight="SemiBold" /></StackPanel>
-            </Border>
+            </ToggleButton>
         </Grid>
 
         <Grid Grid.Row="3" Margin="0,14,0,10" ColumnSpacing="10">

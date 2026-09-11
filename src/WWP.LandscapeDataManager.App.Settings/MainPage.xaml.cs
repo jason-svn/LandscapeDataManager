@@ -9,6 +9,7 @@ namespace WWP.LandscapeDataManager.App.Settings;
 public sealed partial class MainPage : Page
 {
     private readonly ITreeCredentialStore _iTreeCredentialStore = new();
+    private readonly ITreeMyTreeKeyFetcher _myTreeKeyFetcher = new();
     private readonly AirtableCredentialStore _airtableCredentialStore = new();
     private readonly ExchangeRateService _exchangeRateService = new();
 
@@ -118,6 +119,29 @@ public sealed partial class MainPage : Page
         _iTreeCredentialStore.Delete();
         ITreeApiKeyBox.Password = string.Empty;
         ITreeStatusText.Text = "i-Tree API key cleared.";
+    }
+
+    private async void FetchITreeKey_Click(object sender, RoutedEventArgs e)
+    {
+        FetchITreeKeyButton.IsEnabled = false;
+        ITreeStatusText.Text = "Fetching the public key from MyTree...";
+        try
+        {
+            var result = await _myTreeKeyFetcher.FetchAsync();
+            if (result is { Success: true, Key: { Length: > 0 } key })
+            {
+                ITreeApiKeyBox.Password = key;
+                ITreeStatusText.Text = "Fetched MyTree's public key. Review it, then Save to store it for every LIM tool.";
+            }
+            else
+            {
+                ITreeStatusText.Text = result.Error ?? "Could not fetch the MyTree key.";
+            }
+        }
+        finally
+        {
+            FetchITreeKeyButton.IsEnabled = true;
+        }
     }
 
     private void SaveAirtableToken_Click(object sender, RoutedEventArgs e)

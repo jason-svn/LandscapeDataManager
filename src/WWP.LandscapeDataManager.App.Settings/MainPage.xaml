@@ -62,8 +62,8 @@
                 <StackPanel Spacing="10">
                     <TextBlock Text="i-TREE API KEY" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock
-                        Text="Used by i-Tree Calculator, i-Tree Downloader, and Refresh &amp; Audit."
-                        Style="{StaticResource LimMutedTextStyle}" />
+                        Text="Used by i-Tree Calculator, i-Tree Downloader, and Refresh &amp; Audit. Use Fetch from MyTree to pull the free public key straight from the i-Tree website — no browser or login needed. For a client-billed production job, paste an org key issued by Davey instead."
+                        Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
                     <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -76,11 +76,13 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Button Content="Save" Click="SaveITreeKey_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
                         <Button Grid.Column="1" Content="Clear" Click="ClearITreeKey_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                        <TextBlock Grid.Column="2" x:Name="ITreeStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
+                        <Button Grid.Column="2" x:Name="FetchITreeKeyButton" Content="Fetch from MyTree" Click="FetchITreeKey_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                        <TextBlock Grid.Column="3" x:Name="ITreeStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" TextWrapping="Wrap" />
                     </Grid>
                 </StackPanel>
             </Border>

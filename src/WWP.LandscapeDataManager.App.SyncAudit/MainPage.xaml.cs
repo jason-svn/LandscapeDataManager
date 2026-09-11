@@ -2,8 +2,7 @@
 using System.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Windows.Storage.Pickers;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Models;
@@ -432,11 +431,12 @@ public sealed partial class MainPage : Page
         ConflictCountText.Text = Count("Conflict").ToString("N0");
     }
 
-    /// <summary>Clicking the active card again clears the filter; clicking a different one switches to it.</summary>
-    private void StatusCard_Tapped(object sender, TappedRoutedEventArgs e)
+    /// <summary>Clicking the active card again clears the filter; clicking a different one switches to it. Reads the ToggleButton's own post-click IsChecked rather than tracking a separate flag.</summary>
+    private void StatusCard_Click(object sender, RoutedEventArgs e)
     {
-        var category = (string)((FrameworkElement)sender).Tag;
-        _activeFilter = _activeFilter == category ? null : category;
+        var card = (ToggleButton)sender;
+        var category = (string)card.Tag;
+        _activeFilter = card.IsChecked == true ? category : null;
         ApplyFilter();
     }
 
@@ -450,17 +450,7 @@ public sealed partial class MainPage : Page
 
         foreach (var card in new[] { AddedCard, ChangedCard, ConflictCard, RemovedCard, CalcStaleCard, CatalogueStaleCard, UnchangedCard })
         {
-            var isActive = _activeFilter is not null && (string)card.Tag == _activeFilter;
-            if (isActive)
-            {
-                card.BorderBrush = (Brush)Application.Current.Resources["LimAccentBrush"];
-                card.BorderThickness = new Thickness(2);
-            }
-            else
-            {
-                card.ClearValue(Border.BorderBrushProperty);
-                card.ClearValue(Border.BorderThicknessProperty);
-            }
+            card.IsChecked = _activeFilter is not null && (string)card.Tag == _activeFilter;
         }
 
         StatusText.Text = _activeFilter is null

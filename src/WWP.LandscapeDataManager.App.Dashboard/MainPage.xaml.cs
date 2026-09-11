@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices.WindowsRuntime;
-using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -39,6 +38,15 @@ public sealed partial class MainPage : Page
     private string _selectedDesignOption = AllDesignOptions;
     private string _selectedLevel = AllLevels;
     private bool _suppressFilterEvents;
+
+    // Growth-year design options (e.g. "Growth Timeline : 5/10/15/20/25 Years") model the same
+    // planted layout at different tree ages, not independent alternatives — "All design options"
+    // silently blends every age together into a meaningless total. Never auto-select it: default to
+    // whichever option is flagged Primary, else the earliest growth-year stage, so the KPI view
+    // opens on one real scenario. This flag is set only by an actual user pick in
+    // DesignOptionBox_SelectionChanged, so a deliberate "All design options" choice still sticks
+    // across a Refresh — it's only the initial/no-selection state that gets the smart default.
+    private bool _designOptionExplicitlyChosen;
 
     public MainPage()
     {
@@ -169,9 +177,12 @@ public sealed partial class MainPage : Page
                 DesignOptionBox.Items.Add(option);
             }
 
-            DesignOptionBox.SelectedItem = DesignOptionBox.Items.Contains(_selectedDesignOption)
+            var selection = _designOptionExplicitlyChosen && DesignOptionBox.Items.Contains(_selectedDesignOption)
                 ? _selectedDesignOption
-                : AllDesignOptions;
+                : ResolveDefaultDesignOption(designOptions);
+            DesignOptionBox.SelectedItem = selection;
+            _selectedDesignOption = selection;
+            SyncProjectionYearsFromDesignOption(selection);
 
             var levels = _lastReport.Trees.Select(tree => tree.LevelName)
                 .Concat(_lastReport.Floors.Select(floor => floor.LevelName))
@@ -340,7 +351,9 @@ public sealed partial class MainPage : Page
         FloorGwpText.Text = grandTotal.FloorTotalGwp.ToString("N1");
         FloorCostSavedText.Text = $"{grandTotal.FloorCostSavedAnnual:N2} (as calculated)";
 
-        PeriodLabelText.Text = $"Showing {period} benefits.";
+        PeriodLabelText.Text = _selectedDesignOption == AllDesignOptions
+            ? $"Showing {period} benefits across all design options."
+            : $"Showing {period} benefits for design option: {_selectedDesignOption}.";
 
         RebuildGraphicDashboard(
             normalizedTrees,
@@ -496,14 +509,14 @@ public sealed partial class MainPage : Page
             .Where(floor => matchesLevel(floor.LevelName))
             .GroupBy(floor => DashboardUnitLabels.FormatDesignOption(floor.DesignOption))
             .ToDictionary(group => group.Key, group => group.ToList());
-        var optionNames = treeGroups.Keys.Concat(floorGroups.Keys).Distinct().OrderBy(ExtractProjectionYears).ThenBy(name => name).ToList();
+        var optionNames = treeGroups.Keys.Concat(floorGroups.Keys).Distinct().OrderBy(DashboardUnitLabels.ExtractProjectionYears).ThenBy(name => name).ToList();
 
         var values = optionNames.Select(option =>
         {
             var trees = treeGroups.GetValueOrDefault(option) ?? [];
             var floors = floorGroups.GetValueOrDefault(option) ?? [];
             var total = DashboardAggregationService.BuildGrandTotal(trees, floors);
-            var years = ExtractProjectionYears(option) ?? _projectionYears;
+            var years = DashboardUnitLabels.ExtractProjectionYears(option) ?? _projectionYears;
             var carbon = (total.CarbonSequesteredAnnual + FloorCarbon(total.FloorCarbonSequesteredAnnual)) * years;
             var speciesCount = trees
                 .Select(tree => tree.Source.SpeciesCode ?? tree.Source.CommonName ?? "Unassigned")
@@ -683,12 +696,6 @@ public sealed partial class MainPage : Page
         };
     }
 
-    private static int? ExtractProjectionYears(string value)
-    {
-        var match = Regex.Match(value, @"(?<!\d)(5|10|20|25)\s*(?:years?|yrs?)?", RegexOptions.IgnoreCase);
-        return match.Success && int.TryParse(match.Groups[1].Value, out var years) ? years : null;
-    }
-
     private void UpdateStatusCounts(IReadOnlyList<NormalizedTreeMetrics> treesInScope)
     {
         int Count(string status) => treesInScope.Count(tree => tree.Source.Status == status);
@@ -748,25 +755,52 @@ public sealed partial class MainPage : Page
         }
 
         _selectedDesignOption = value;
+        _designOptionExplicitlyChosen = true;
 
-        var optionYears = ExtractProjectionYears(value);
-        if (optionYears is not null)
+        _suppressFilterEvents = true;
+        try
         {
-            _projectionYears = optionYears.Value;
-            _suppressFilterEvents = true;
-            try
-            {
-                ProjectionBox.SelectedItem = ProjectionBox.Items
-                    .OfType<ComboBoxItem>()
-                    .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), optionYears.Value.ToString(), StringComparison.Ordinal));
-            }
-            finally
-            {
-                _suppressFilterEvents = false;
-            }
+            SyncProjectionYearsFromDesignOption(value);
+        }
+        finally
+        {
+            _suppressFilterEvents = false;
         }
 
         RebuildRows();
+    }
+
+    /// <summary>Picks which design option the KPI view opens on when the user hasn't chosen one: whichever
+    /// option Revit has flagged Primary, else the earliest growth-year stage (by <see cref="DashboardUnitLabels.ExtractProjectionYears"/>),
+    /// else the first alphabetically. Deliberately never "All design options" — see <see cref="_designOptionExplicitlyChosen"/>.</summary>
+    private static string ResolveDefaultDesignOption(IReadOnlyList<string> designOptions)
+    {
+        if (designOptions.Count == 0)
+        {
+            return AllDesignOptions;
+        }
+
+        return designOptions.FirstOrDefault(option => option.Contains("(Primary)", StringComparison.Ordinal))
+            ?? designOptions
+                .OrderBy(option => DashboardUnitLabels.ExtractProjectionYears(option) ?? int.MaxValue)
+                .ThenBy(option => option, StringComparer.Ordinal)
+                .First();
+    }
+
+    /// <summary>Keeps the Outlook projection dropdown in step with a growth-year design option pick — assumes the
+    /// caller already holds <see cref="_suppressFilterEvents"/> if it doesn't want <see cref="ProjectionBox_SelectionChanged"/> to fire.</summary>
+    private void SyncProjectionYearsFromDesignOption(string designOptionLabel)
+    {
+        var optionYears = DashboardUnitLabels.ExtractProjectionYears(designOptionLabel);
+        if (optionYears is null)
+        {
+            return;
+        }
+
+        _projectionYears = optionYears.Value;
+        ProjectionBox.SelectedItem = ProjectionBox.Items
+            .OfType<ComboBoxItem>()
+            .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), optionYears.Value.ToString(), StringComparison.Ordinal));
     }
 
     private void LevelBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -939,6 +973,59 @@ public sealed partial class MainPage : Page
             await DashboardSvgExportService.ExportAsync(file.Path, snapshot);
             StatusText.Text = $"Exported vector dashboard to {file.Name}.";
         });
+    }
+
+    private async void ExportJson_Click(object sender, RoutedEventArgs e)
+    {
+        if (_lastReport is null)
+        {
+            StatusText.Text = "Refresh the dashboard or load a cached snapshot before exporting.";
+            return;
+        }
+
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            SuggestedFileName = $"Landscape Dashboard {DateTime.Now:yyyy-MM-dd}"
+        };
+        picker.FileTypeChoices.Add("JSON data", [".json"]);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+        {
+            return;
+        }
+
+        await RunBusyAsync(async () =>
+        {
+            var location = await ResolveLocationAsync();
+            var export = DashboardJsonExportService.Build(_lastReport, _preferredCurrency, _usdExchangeRate, location);
+            await DashboardJsonExportService.ExportAsync(file.Path, export);
+            StatusText.Text = $"Exported dashboard data to {file.Name}.";
+        });
+    }
+
+    /// <summary>Best-effort — the pipe may be unavailable (e.g. viewing a cached snapshot with Revit closed), in which case the export simply ships without a location.</summary>
+    private async Task<DashboardJsonLocation> ResolveLocationAsync()
+    {
+        if (_revitClient is null)
+        {
+            return new DashboardJsonLocation(null, null, null);
+        }
+
+        try
+        {
+            var result = await _revitClient.SendAsync<ProjectSiteLocationResult>(PipeCommands.GetProjectSiteLocation);
+            return new DashboardJsonLocation(result.Latitude, result.Longitude, result.PlaceName);
+        }
+        catch (IOException)
+        {
+            return new DashboardJsonLocation(null, null, null);
+        }
+        catch (TimeoutException)
+        {
+            return new DashboardJsonLocation(null, null, null);
+        }
     }
 
     private async Task RunBusyAsync(Func<Task> operation)

@@ -25,6 +25,7 @@ WinUI 3 cannot be inserted directly into a Revit dockable pane because Revit req
 - Preserves unmatched worksheet rows and user-added columns; only selected i-Tree fields are overwritten on matching rows.
 - Can append new species, create a timestamped backup, and export summary groups, timelines, or the full API response.
 - Stores the optional remembered i-Tree API key in Windows Credential Manager for the current user.
+- Can fetch MyTree's free public i-Tree key directly from the website (Settings > i-Tree API key > **Fetch from MyTree**), so a machine that has never opened i-Tree can obtain a working key with only an internet connection; a client-billed production job should still use an org key issued by Davey.
 - Compares normalized Revit type names against the selected source using the current Dynamo field conventions.
 - Provides a Parameter Mapper that pairs live source columns with writable Revit instance/type parameters.
 - Captures a conversion policy for every mapping and can suggest the known WWP environmental mappings.

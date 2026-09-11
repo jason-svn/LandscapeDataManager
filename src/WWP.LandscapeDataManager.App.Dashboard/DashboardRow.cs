@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
 
@@ -22,6 +23,18 @@ internal static class DashboardUnitLabels
             ? option.OptionName ?? "Unnamed option"
             : $"{option.SetName} : {option.OptionName ?? "Unnamed option"}";
         return option.IsPrimary ? $"{name} (Primary)" : name;
+    }
+
+    /// <summary>
+    /// Parses a growth-year figure (5/10/15/20/25) out of a design option's formatted label, e.g.
+    /// "Growth Timeline : 15 Years" -> 15. Shared by the Outlook projection dropdown and the
+    /// per-design-option scenario breakdown (<see cref="DashboardJsonExportService"/>) so both agree
+    /// on which years a project's growth-stage design options can carry.
+    /// </summary>
+    public static int? ExtractProjectionYears(string designOptionLabel)
+    {
+        var match = Regex.Match(designOptionLabel, @"(?<!\d)(5|10|15|20|25)\s*(?:years?|yrs?)?", RegexOptions.IgnoreCase);
+        return match.Success && int.TryParse(match.Groups[1].Value, out var years) ? years : null;
     }
 
     private static bool IsMetric(string unitSystem) => string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
