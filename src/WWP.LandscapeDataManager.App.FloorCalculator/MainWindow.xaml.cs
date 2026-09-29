@@ -15,7 +15,8 @@ public sealed partial class MainWindow : Window
         MainContent.Initialize(pipeName, windowHandle);
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(windowHandle);
         var appWindow = AppWindow.GetFromWindowId(windowId);
-        appWindow.Resize(new SizeInt32(1000, 720));
+        // Wide enough for the BNG tab's A-2 row without scrolling the first dozen columns.
+        appWindow.Resize(new SizeInt32(1440, 860));
         appWindow.SetPresenter(AppWindowPresenterKind.Default);
 
         Closed += OnClosed;

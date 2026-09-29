@@ -16,6 +16,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Golden cases calculated by the official BNG metric workbook (tools/BngMetricExtractor/Export-BngGoldenCases.ps1). -->
+    <None Include="TestData\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\WWP.LandscapeDataManager.Shared\WWP.LandscapeDataManager.Shared.csproj" />
   </ItemGroup>
 </Project>

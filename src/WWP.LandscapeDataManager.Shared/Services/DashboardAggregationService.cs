@@ -147,6 +147,54 @@ public sealed record SiteKpiSummary(
     int DarkSkyCompliantFixtureCount,
     double? LightingCompliancePercent);
 
+public sealed record BngGroupSubtotal(string Name, int FloorCount, double AreaHectares, double HabitatUnits);
+
+/// <summary>
+/// The Statutory Biodiversity Metric's on-site headline for the floors in scope, from the BNG
+/// results Floor Calculator wrote. Baseline = A-1 total units of Existing-phase floors; post-
+/// intervention = retained (A-1 U) + enhanced (A-3) + created (A-2) units — the Headline Results
+/// sheet's own sums. Only current floors count (a written Calculated/CheckData result whose inputs,
+/// area and phase role still match its stored signature), like <see cref="DashboardGrandTotal"/>
+/// only totals Calculated trees; <see cref="IsComplete"/> is false while any baseline or new floor
+/// is stale or unassessed, since the % change then isn't the whole site's.
+/// </summary>
+public sealed record BngSummary(
+    int FloorCount,
+    int CurrentFloorCount,
+    int CheckDataFloorCount,
+    int StaleFloorCount,
+    int NotAssessedFloorCount,
+    int ExcludedFloorCount,
+    int RetainedFloorCount,
+    int EnhancedFloorCount,
+    int LostFloorCount,
+    int CreatedFloorCount,
+    double TotalAreaHectares,
+    double AssessedAreaHectares,
+    double BaselineUnits,
+    double RetainedUnits,
+    double EnhancedUnits,
+    double CreatedUnits,
+    double LostUnits,
+    string? MetricVersion,
+    IReadOnlyList<BngGroupSubtotal> ByBroadHabitat,
+    IReadOnlyList<BngGroupSubtotal> ByDistinctiveness)
+{
+    public double PostInterventionUnits => RetainedUnits + EnhancedUnits + CreatedUnits;
+
+    public double NetChangeUnits => PostInterventionUnits - BaselineUnits;
+
+    /// <summary>Null without a baseline to compare against (no Existing-phase floors assessed).</summary>
+    public double? NetChangePercent => BaselineUnits > 0 ? NetChangeUnits / BaselineUnits * 100d : null;
+
+    /// <summary>The statutory 10% biodiversity net gain requirement, on-site habitat units only.</summary>
+    public const double StatutoryNetGainPercent = 10d;
+
+    public bool? MeetsStatutoryNetGain => NetChangePercent is { } percent ? percent >= StatutoryNetGainPercent : null;
+
+    public bool IsComplete => StaleFloorCount == 0 && NotAssessedFloorCount == 0;
+}
+
 /// <summary>
 /// Normalizes stored per-instance i-Tree results onto one unit-system/currency basis and sums across
 /// instances — pure/testable, no Revit or IO dependency, mirroring <see cref="PlantingInstanceStatusEvaluator"/>
@@ -358,6 +406,102 @@ public static class DashboardAggregationService
             darkSkyCompliantFixtureCount,
             lightingCompliancePercent);
     }
+
+    /// <summary>
+    /// Totals the BNG results stored on <paramref name="floors"/> into the metric's on-site headline
+    /// (see <see cref="BngSummary"/>). A floor counts as current when Floor Calculator wrote a
+    /// Calculated/CheckData result and the signature of its current inputs, area and phase role
+    /// still matches the stored one; a mismatch is Stale (excluded, needs a recalculation), and a
+    /// floor never written — or written as NeedsInfo — is Not assessed. Floors demolished in the
+    /// phase they were created (Excluded) are counted separately and never affect the totals.
+    /// </summary>
+    public static BngSummary BuildBngSummary(IReadOnlyList<DashboardFloorItem> floors, BngMetricCatalog catalog)
+    {
+        var current = new List<(DashboardFloorItem Floor, DashboardFloorBng Bng, string Role)>();
+        int checkData = 0, stale = 0, excluded = 0;
+        foreach (var floor in floors)
+        {
+            if (floor.Bng is { PhaseRole: BngPhaseRoles.Excluded })
+            {
+                excluded++;
+                continue;
+            }
+
+            if (floor.Bng is not { } bng ||
+                string.IsNullOrEmpty(bng.StoredInputSignature) ||
+                !(string.Equals(bng.StoredStatus, nameof(BngCalculationOutcome.Calculated), StringComparison.Ordinal) ||
+                  string.Equals(bng.StoredStatus, nameof(BngCalculationOutcome.CheckData), StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            var input = ToFloorInput(floor, bng, catalog);
+            if (!string.Equals(BngFloorCalculator.ComputeSignature(input, catalog), bng.StoredInputSignature, StringComparison.Ordinal))
+            {
+                stale++;
+                continue;
+            }
+
+            if (string.Equals(bng.StoredStatus, nameof(BngCalculationOutcome.CheckData), StringComparison.Ordinal))
+            {
+                checkData++;
+            }
+
+            current.Add((floor, bng, input.Role));
+        }
+
+        static double Hectares(DashboardFloorItem floor) => floor.AreaSquareMeters / BngFloorStatusEvaluator.SquareMetresPerHectare;
+        int CountRole(string role) => current.Count(pair => pair.Role == role);
+        double SumPost(string role) => current.Where(pair => pair.Role == role).Sum(pair => pair.Bng.HabitatUnits);
+
+        // Post-intervention habitat on site: lost floors deliver nothing, so they're left out of the breakdowns.
+        var onSite = current.Where(pair => pair.Role != BngPhaseRoles.Lost).ToList();
+        IReadOnlyList<BngGroupSubtotal> GroupBy(Func<DashboardFloorBng, string?> key) =>
+            onSite
+                .GroupBy(pair => string.IsNullOrWhiteSpace(key(pair.Bng)) ? "Unassigned" : key(pair.Bng)!.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(group => new BngGroupSubtotal(
+                    group.Key,
+                    group.Count(),
+                    group.Sum(pair => Hectares(pair.Floor)),
+                    group.Sum(pair => pair.Bng.HabitatUnits)))
+                .OrderByDescending(subtotal => subtotal.HabitatUnits)
+                .ToList();
+
+        return new BngSummary(
+            floors.Count,
+            current.Count,
+            checkData,
+            stale,
+            floors.Count - current.Count - stale - excluded,
+            excluded,
+            CountRole(BngPhaseRoles.Retained),
+            CountRole(BngPhaseRoles.Enhanced),
+            CountRole(BngPhaseRoles.Lost),
+            CountRole(BngPhaseRoles.Created),
+            floors.Where(floor => floor.Bng is not { PhaseRole: BngPhaseRoles.Excluded }).Sum(Hectares),
+            current.Sum(pair => Hectares(pair.Floor)),
+            current.Where(pair => pair.Role != BngPhaseRoles.Created).Sum(pair => pair.Bng.BaselineUnits),
+            SumPost(BngPhaseRoles.Retained),
+            SumPost(BngPhaseRoles.Enhanced),
+            SumPost(BngPhaseRoles.Created),
+            current.Where(pair => pair.Role == BngPhaseRoles.Lost).Sum(pair => pair.Bng.BaselineUnits),
+            current.Select(pair => pair.Bng.MetricVersion).FirstOrDefault(version => !string.IsNullOrWhiteSpace(version)),
+            GroupBy(bng => bng.BroadHabitat),
+            GroupBy(bng => bng.Distinctiveness));
+    }
+
+    /// <summary>The same floor input Floor Calculator signed when it wrote the result, rebuilt from what's stored on the floor now.</summary>
+    public static BngFloorInput ToFloorInput(DashboardFloorItem floor, DashboardFloorBng bng, BngMetricCatalog catalog) => new(
+        bng.PhaseRole,
+        bng.Enhanced,
+        bng.BaselineHabitat,
+        string.IsNullOrWhiteSpace(bng.BaselineCondition) ? null : bng.BaselineCondition.Trim(),
+        bng.Irreplaceable,
+        bng.ProposedHabitat,
+        string.IsNullOrWhiteSpace(bng.Condition) ? null : bng.Condition.Trim(),
+        catalog.FindStrategicSignificance(bng.StrategicSignificance)?.Description ?? bng.StrategicSignificance,
+        bng.YearOffset,
+        floor.AreaSquareMeters / BngFloorStatusEvaluator.SquareMetresPerHectare);
 
     /// <summary>The explicit <c>!_S_PLT_LDS_SurfaceClass_Text</c> tag always wins; otherwise inferred from the floor's LDS Type (see <see cref="SurfaceClassCatalog"/>).</summary>
     private static string? ResolveSurfaceClass(DashboardFloorItem floor) =>

@@ -89,6 +89,42 @@ internal sealed record DashboardJsonSiteKpi(
     int DarkSkyCompliantFixtureCount,
     double? LightingCompliancePercent);
 
+internal sealed record DashboardJsonBngGroup(string Name, int FloorCount, double AreaHectares, double HabitatUnits);
+
+/// <summary>
+/// The metric's on-site habitat headline — see <see cref="BngSummary"/>. Baseline = Existing-phase
+/// floors (A-1); post-intervention = retained + enhanced (A-3) + created (A-2) units.
+/// <see cref="NetChangePercent"/> is null without a baseline; <see cref="IsComplete"/> is false
+/// while floors are stale or unassessed (the figures then don't cover the whole site).
+/// </summary>
+internal sealed record DashboardJsonBng(
+    string? MetricVersion,
+    double BaselineUnits,
+    double PostInterventionUnits,
+    double NetChangeUnits,
+    double? NetChangePercent,
+    double StatutoryNetGainPercent,
+    bool? MeetsStatutoryNetGain,
+    bool IsComplete,
+    double RetainedUnits,
+    double EnhancedUnits,
+    double CreatedUnits,
+    double LostUnits,
+    int FloorCount,
+    int CurrentFloorCount,
+    int RetainedFloorCount,
+    int EnhancedFloorCount,
+    int LostFloorCount,
+    int CreatedFloorCount,
+    int CheckDataFloorCount,
+    int StaleFloorCount,
+    int NotAssessedFloorCount,
+    int ExcludedFloorCount,
+    double TotalAreaHectares,
+    double AssessedAreaHectares,
+    IReadOnlyList<DashboardJsonBngGroup> ByBroadHabitat,
+    IReadOnlyList<DashboardJsonBngGroup> ByDistinctiveness);
+
 /// <summary>
 /// One design option's worth of the project — e.g. this WWP project's "Growth Timeline : 5/10/15/20/25
 /// Years" options, each modeling the same planted layout at a different tree age. Kept separate rather
@@ -102,6 +138,7 @@ internal sealed record DashboardJsonScenario(
     bool IsPrimary,
     DashboardJsonTotals Totals,
     DashboardJsonSiteKpi SiteKpi,
+    DashboardJsonBng Bng,
     IReadOnlyList<DashboardJsonSpecies> Species,
     IReadOnlyList<DashboardJsonFloorType> FloorTypes);
 
@@ -113,7 +150,7 @@ internal sealed record DashboardJsonExport(
 
 internal static class DashboardJsonExportService
 {
-    private const int SchemaVersion = 2;
+    private const int SchemaVersion = 3;
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     /// <summary>
@@ -225,8 +262,22 @@ internal static class DashboardJsonExportService
             siteKpi.DistinctEcologicalFunctionsCount, siteKpi.HabitatConnectivityScore,
             siteKpi.LightingFixtureCount, siteKpi.DarkSkyCompliantFixtureCount, siteKpi.LightingCompliancePercent);
 
+        var bng = DashboardAggregationService.BuildBngSummary(floors, BngMetricCatalog.Default);
+        static IReadOnlyList<DashboardJsonBngGroup> Groups(IReadOnlyList<BngGroupSubtotal> groups) =>
+            groups.Select(g => new DashboardJsonBngGroup(g.Name, g.FloorCount, g.AreaHectares, g.HabitatUnits)).ToList();
+        var bngJson = new DashboardJsonBng(
+            bng.MetricVersion,
+            bng.BaselineUnits, bng.PostInterventionUnits, bng.NetChangeUnits, bng.NetChangePercent,
+            BngSummary.StatutoryNetGainPercent, bng.MeetsStatutoryNetGain, bng.IsComplete,
+            bng.RetainedUnits, bng.EnhancedUnits, bng.CreatedUnits, bng.LostUnits,
+            bng.FloorCount, bng.CurrentFloorCount,
+            bng.RetainedFloorCount, bng.EnhancedFloorCount, bng.LostFloorCount, bng.CreatedFloorCount,
+            bng.CheckDataFloorCount, bng.StaleFloorCount, bng.NotAssessedFloorCount, bng.ExcludedFloorCount,
+            bng.TotalAreaHectares, bng.AssessedAreaHectares,
+            Groups(bng.ByBroadHabitat), Groups(bng.ByDistinctiveness));
+
         return new DashboardJsonScenario(
-            label, DashboardUnitLabels.ExtractProjectionYears(label), isPrimary, totals, siteKpiJson, species, floorTypes);
+            label, DashboardUnitLabels.ExtractProjectionYears(label), isPrimary, totals, siteKpiJson, bngJson, species, floorTypes);
     }
 
     public static async Task ExportAsync(string path, DashboardJsonExport export)

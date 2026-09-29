@@ -187,6 +187,93 @@ public class DashboardAggregationServiceTests
         Assert.Equal(30d, total.FloorCostSavedAnnual, precision: 6);
     }
 
+    /// <summary>
+    /// A floor as Floor Calculator leaves it after a write: its inputs, the calculated units and
+    /// status, and the signature of those inputs — optionally signed against a different area, to
+    /// simulate a floor resized since.
+    /// </summary>
+    private static DashboardFloorItem CreateBngFloor(
+        string uniqueId, string phaseRole, double areaSquareMeters, bool enhanced = false,
+        double? signedAreaSquareMeters = null, string? statusOverride = null)
+    {
+        var catalog = BngMetricCatalog.Default;
+        var significance = catalog.StrategicSignificance[2].Description;
+        var input = new BngFloorInput(
+            phaseRole, enhanced,
+            BaselineHabitat: "Modified grassland", BaselineCondition: "Poor", Irreplaceable: null,
+            ProposedHabitat: phaseRole == BngPhaseRoles.Created ? "Other neutral grassland" : enhanced ? "Other neutral grassland" : null,
+            Condition: phaseRole == BngPhaseRoles.Created || enhanced ? "Moderate" : null,
+            StrategicSignificance: significance, YearOffset: 0,
+            AreaHectares: areaSquareMeters / 10_000d);
+        var result = BngFloorCalculator.Calculate(input, catalog);
+        var signature = BngFloorCalculator.ComputeSignature(input with { AreaHectares = (signedAreaSquareMeters ?? areaSquareMeters) / 10_000d }, catalog);
+
+        return new DashboardFloorItem(
+            uniqueId, 1, "FloorFamily", "FloorType", "Lawn", null, "Level 1",
+            new DesignOptionInfo(null, null, true), areaSquareMeters, 0d, 0d, 0d, 0d, 0d, 0d, 0d, 0d,
+            new DashboardFloorBng(input.ProposedHabitat, input.Condition, significance, 0, result.BroadHabitat, result.Distinctiveness,
+                result.HabitatUnits ?? 0, statusOverride ?? result.Outcome.ToString(), signature, catalog.DisplayVersion,
+                phaseRole, input.BaselineHabitat, input.BaselineCondition, null, enhanced, result.BaselineUnits ?? 0));
+    }
+
+    [Fact]
+    public void Bng_summary_follows_the_metric_headline_across_phase_roles()
+    {
+        var retained = CreateBngFloor("retained", BngPhaseRoles.Retained, 2_000d);
+        var enhanced = CreateBngFloor("enhanced", BngPhaseRoles.Retained, 1_000d, enhanced: true);
+        var lost = CreateBngFloor("lost", BngPhaseRoles.Lost, 3_000d);
+        var created = CreateBngFloor("created", BngPhaseRoles.Created, 1_500d);
+        var excluded = CreateBngFloor("temporary", BngPhaseRoles.Excluded, 500d);
+
+        var summary = DashboardAggregationService.BuildBngSummary([retained, enhanced, lost, created, excluded], BngMetricCatalog.Default);
+
+        var catalog = BngMetricCatalog.Default;
+        double Baseline(double squareMetres) => BngHabitatBaselineCalculator.Calculate(
+            new BngBaselineInput("Modified grassland", null, "Poor", catalog.StrategicSignificance[2].Description, squareMetres / 10_000d, BngBaselineFate.Retained),
+            catalog).BaselineUnits!.Value;
+
+        Assert.Equal(4, summary.CurrentFloorCount);
+        Assert.Equal(1, summary.ExcludedFloorCount);
+        Assert.Equal((1, 1, 1, 1), (summary.RetainedFloorCount, summary.EnhancedFloorCount, summary.LostFloorCount, summary.CreatedFloorCount));
+        Assert.Equal(Baseline(2_000d) + Baseline(1_000d) + Baseline(3_000d), summary.BaselineUnits, precision: 9);
+        Assert.Equal(Baseline(2_000d), summary.RetainedUnits, precision: 9);
+        Assert.Equal(Baseline(3_000d), summary.LostUnits, precision: 9);
+        Assert.True(summary.EnhancedUnits > 0 && summary.CreatedUnits > 0);
+        Assert.Equal(summary.RetainedUnits + summary.EnhancedUnits + summary.CreatedUnits - summary.BaselineUnits, summary.NetChangeUnits, precision: 9);
+        Assert.Equal(summary.NetChangeUnits / summary.BaselineUnits * 100d, summary.NetChangePercent!.Value, precision: 9);
+        Assert.True(summary.IsComplete);
+        // Post-intervention habitat on site: retained + enhanced + created, never the lost floor.
+        var grassland = Assert.Single(summary.ByBroadHabitat);
+        Assert.Equal(("Grassland", 3), (grassland.Name, grassland.FloorCount));
+        Assert.Equal(summary.PostInterventionUnits, grassland.HabitatUnits, precision: 9);
+    }
+
+    [Fact]
+    public void Bng_summary_excludes_stale_and_unassessed_floors_and_flags_the_result_provisional()
+    {
+        var current = CreateBngFloor("current", BngPhaseRoles.Created, 5_000d);
+        // Area has changed since the result was written, so the stored signature no longer matches.
+        var stale = CreateBngFloor("stale", BngPhaseRoles.Created, 8_000d, signedAreaSquareMeters: 6_000d);
+        // A floor moved from New Construction into Existing is a different row of the metric now.
+        var rePhased = CreateBngFloor("re-phased", BngPhaseRoles.Created, 1_000d) is var floor
+            ? floor with { Bng = floor.Bng! with { PhaseRole = BngPhaseRoles.Retained } }
+            : null!;
+        var needsInfo = CreateBngFloor("needs-info", BngPhaseRoles.Created, 1_000d, statusOverride: "NeedsInfo");
+        var unbound = new DashboardFloorItem(
+            "unbound", 2, "FloorFamily", "FloorType", "Paving", null, "Level 1",
+            new DesignOptionInfo(null, null, true), 1_000d, 0d, 0d, 0d, 0d, 0d, 0d, 0d, 0d);
+
+        var summary = DashboardAggregationService.BuildBngSummary([current, stale, rePhased, needsInfo, unbound], BngMetricCatalog.Default);
+
+        Assert.Equal(1, summary.CurrentFloorCount);
+        Assert.Equal(2, summary.StaleFloorCount);
+        Assert.Equal(2, summary.NotAssessedFloorCount);
+        Assert.Equal(current.Bng!.HabitatUnits, summary.CreatedUnits, precision: 9);
+        Assert.Null(summary.NetChangePercent);
+        Assert.False(summary.IsComplete);
+        Assert.Equal(0.5d, summary.AssessedAreaHectares, precision: 6);
+    }
+
     private static DashboardLightingItem CreateLighting(string uniqueId, string? darkSkyCompliant) =>
         new(uniqueId, 3, "LightingFamily", "LightingType", "Level 1", new DesignOptionInfo(null, null, true), darkSkyCompliant);
 

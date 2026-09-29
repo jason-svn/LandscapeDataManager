@@ -61,6 +61,7 @@ public sealed partial class MainPage : Page
     public ObservableCollection<KpiBarRow> ImpactProfileRows { get; } = [];
     public ObservableCollection<KpiBarRow> SpeciesMixRows { get; } = [];
     public ObservableCollection<KpiBarRow> FloorMixRows { get; } = [];
+    public ObservableCollection<KpiBarRow> BngHabitatRows { get; } = [];
     public ObservableCollection<KpiBarRow> StatusBreakdownRows { get; } = [];
     public ObservableCollection<KpiBarRow> AirPollutantRows { get; } = [];
     public ObservableCollection<ScenarioComparisonRow> ScenarioRows { get; } = [];
@@ -601,6 +602,66 @@ public sealed partial class MainPage : Page
             $"{summary.DarkSkyCompliantFixtureCount:N0} of {summary.LightingFixtureCount:N0} fixtures compliant",
             "Tag !_S_PLT_Lighting_DarkSkyCompliant_Text on Lighting Fixture Types to see a percentage.",
             high: 80d, medium: 50d);
+
+        UpdateBngCards(filteredFloors);
+    }
+
+    private void UpdateBngCards(IReadOnlyList<DashboardFloorItem> filteredFloors)
+    {
+        var bng = DashboardAggregationService.BuildBngSummary(filteredFloors, BngMetricCatalog.Default);
+
+        static string Floors(int count) => $"{count:N0} floor{(count == 1 ? "" : "s")}";
+
+        if (bng.NetChangePercent is { } percent)
+        {
+            BngNetChangeText.Text = $"{percent:+0.0;-0.0;0.0}%";
+            BngNetChangeText.Foreground = Tier(percent, high: BngSummary.StatutoryNetGainPercent, medium: 0d);
+            BngNetChangeDetailText.Text =
+                $"{bng.NetChangeUnits:+0.00;-0.00;0.00} HU · {(bng.MeetsStatutoryNetGain == true ? "meets" : "below")} the statutory {BngSummary.StatutoryNetGainPercent:0}% gain" +
+                (bng.IsComplete ? "." : " — provisional: some floors are stale or not assessed.");
+        }
+        else
+        {
+            BngNetChangeText.Text = "—";
+            BngNetChangeText.ClearValue(TextBlock.ForegroundProperty);
+            BngNetChangeDetailText.Text = bng.CurrentFloorCount > 0
+                ? "No baseline yet — assess the Existing-phase floors in Floor Calculator's BNG tab."
+                : "No current BNG results — calculate floors in Floor Calculator's BNG tab.";
+        }
+
+        var baselineFloors = bng.RetainedFloorCount + bng.EnhancedFloorCount + bng.LostFloorCount;
+        BngBaselineText.Text = baselineFloors > 0 ? $"{bng.BaselineUnits:N2} HU" : "—";
+        BngBaselineDetailText.Text = baselineFloors > 0
+            ? $"{Floors(bng.RetainedFloorCount)} retained, {bng.EnhancedFloorCount:N0} enhanced, {bng.LostFloorCount:N0} lost ({bng.LostUnits:N2} HU lost). {bng.MetricVersion}"
+            : "No assessed Existing-phase floors in the current filter.";
+
+        BngPostText.Text = bng.CurrentFloorCount > 0 ? $"{bng.PostInterventionUnits:N2} HU" : "—";
+        BngPostDetailText.Text = bng.CurrentFloorCount > 0
+            ? $"Retained {bng.RetainedUnits:N2} + enhanced {bng.EnhancedUnits:N2} + created {bng.CreatedUnits:N2} ({Floors(bng.CreatedFloorCount)} new)."
+            : "Retained + enhanced + created habitat units.";
+
+        var attention = bng.StaleFloorCount + bng.CheckDataFloorCount + bng.NotAssessedFloorCount;
+        BngAttentionText.Text = attention.ToString("N0");
+        BngAttentionText.Foreground = attention == 0
+            ? new SolidColorBrush(Color.FromArgb(0xFF, 0x17, 0x6B, 0x2B))
+            : new SolidColorBrush(Color.FromArgb(0xFF, 0xB2, 0x5E, 0x00));
+        BngAttentionDetailText.Text =
+            $"{bng.StaleFloorCount:N0} stale (inputs, area or phases changed — excluded), {bng.CheckDataFloorCount:N0} flagged Check data, {bng.NotAssessedFloorCount:N0} not assessed" +
+            (bng.ExcludedFloorCount > 0 ? $"; {bng.ExcludedFloorCount:N0} excluded (demolished in the phase they were created)." : ".");
+
+        BngHabitatRows.Clear();
+        var postTotal = bng.ByBroadHabitat.Sum(group => group.HabitatUnits);
+        foreach (var group in bng.ByBroadHabitat)
+        {
+            BngHabitatRows.Add(new KpiBarRow(
+                group.Name,
+                $"{group.HabitatUnits:N2} HU",
+                postTotal <= 0d ? 0d : 100d * group.HabitatUnits / postTotal,
+                $"{Floors(group.FloorCount)} · {group.AreaHectares:N3} ha"));
+        }
+
+        BngHabitatEmptyText.Visibility = BngHabitatRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        BngHabitatEmptyText.Text = "No current BNG results in the current filter.";
     }
 
     private static void SetPercentCard(TextBlock valueText, TextBlock detailText, double? percent, string detailWithValue, string detailWithoutValue, double high, double medium)

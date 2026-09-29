@@ -370,6 +370,12 @@ internal static class SharedParameterSetupService
         private static ParameterOwnership PlantingAndFloorType(string name, ForgeTypeId group, string description, IReadOnlyList<string>? legacyAliases = null) =>
             new(name, "Type", [BuiltInCategory.OST_Planting, BuiltInCategory.OST_Floors], group, description, legacyAliases ?? []);
 
+        private static ParameterOwnership FloorInstance(string name, ForgeTypeId group, string description, IReadOnlyList<string>? legacyAliases = null) =>
+            new(name, "Instance", [BuiltInCategory.OST_Floors], group, description, legacyAliases ?? []);
+
+        private static ParameterOwnership FloorType(string name, ForgeTypeId group, string description, IReadOnlyList<string>? legacyAliases = null) =>
+            new(name, "Type", [BuiltInCategory.OST_Floors], group, description, legacyAliases ?? []);
+
         private static ParameterOwnership LightingFixtureType(string name, ForgeTypeId group, string description, IReadOnlyList<string>? legacyAliases = null) =>
             new(name, "Type", [BuiltInCategory.OST_LightingFixtures], group, description, legacyAliases ?? []);
 
@@ -431,8 +437,11 @@ internal static class SharedParameterSetupService
             // Required manual input — typed per instance, and fed straight to the i-Tree API.
             PlantingInstance("!_S_PLT_TreeGrowth_Years_Number", GroupTypeId.Constraints,
                 "Instance-specific modeled tree age used by family growth formulas."),
-            PlantingInstance("!_S_PLT_iTreeInput_Condition_Text", GroupTypeId.Constraints,
-                "Tree condition: Excellent, Good, Fair, Poor, Critical, Dying, or Dead."),
+            // Also bound to Floors: the same "condition" input feeds Floor Calculator's BNG tab, where
+            // it holds the Statutory Biodiversity Metric's condition instead (each category is
+            // validated against its own vocabulary).
+            PlantingAndFloorInstance("!_S_PLT_iTreeInput_Condition_Text", GroupTypeId.Constraints,
+                "Tree condition: Excellent, Good, Fair, Poor, Critical, Dying, or Dead. On floors, the BNG habitat condition: Good, Fairly Good, Moderate, Fairly Poor, Poor, Condition Assessment N/A, or N/A - Other."),
             PlantingInstance("!_S_PLT_iTreeInput_CrownExposure_Number", GroupTypeId.Constraints,
                 "Crown light exposure from 0 fully shaded to 5 fully exposed."),
             // Output — the calculation's own status/tracking fields, written by i-Tree Calculator.
@@ -769,7 +778,78 @@ internal static class SharedParameterSetupService
             PlantingAndFloorType("!_S_PLT_LDS_RunoffCoefficient_Number", GroupTypeId.AnalysisResults,
                 "Dimensionless rainfall-interception/runoff coefficient (f_int / Crg) for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area."),
             PlantingType("!_S_PLT_iTreeSpecies_Allergenic_Text", GroupTypeId.General,
-                "Yes or No: whether this species is classified as allergenic, from the WWP landscape data sheet.")
+                "Yes or No: whether this species is classified as allergenic, from the WWP landscape data sheet."),
+
+            // Biodiversity Net Gain — Floor Calculator's BNG tab, mirroring one row of the Statutory
+            // Biodiversity Metric's "A-2 On-Site Habitat Creation" sheet per floor. Same grouping
+            // as i-Tree: inputs (plus the reused iTreeInput_Condition_Text above) in Constraints,
+            // everything the calculator writes back in Analysis Results.
+            FloorInstance("!_S_PLT_BNGInput_ProposedHabitat_Text", GroupTypeId.Constraints,
+                "BNG proposed habitat as the metric's habitat description, e.g. \"Grassland - Floodplain wetland mosaic and CFGM\" (A-2 column F)."),
+            FloorInstance("!_S_PLT_BNGInput_StrategicSignificance_Text", GroupTypeId.Constraints,
+                "BNG strategic significance (A-2 column L): Formally identified in local strategy, Location ecologically desirable but not in local strategy, or Area/compensation not in local strategy/ no local strategy."),
+            FloorInstance("!_S_PLT_BNGInput_CreationYearOffset_Number", GroupTypeId.Constraints,
+                "Years the habitat is created in advance (positive, A-2 column P) or delayed (negative, A-2 column Q); 0 for the standard time to target condition."),
+            FloorType("!_S_PLT_BNGInput_HabitatMapping_Text", GroupTypeId.Constraints,
+                "BNG habitat remembered for this floor type, used to pre-fill ProposedHabitat on new floors of the type."),
+            FloorInstance("!_S_PLT_BNGResult_BroadHabitat_Text", GroupTypeId.AnalysisResults,
+                "BNG broad habitat of the proposed habitat (A-2 column D)."),
+            FloorInstance("!_S_PLT_BNGResult_AreaHectares_Text", GroupTypeId.AnalysisResults,
+                "Floor area in hectares used for the BNG calculation (A-2 column G)."),
+            FloorInstance("!_S_PLT_BNGResult_Distinctiveness_Text", GroupTypeId.AnalysisResults,
+                "BNG distinctiveness band of the proposed habitat (A-2 column H)."),
+            FloorInstance("!_S_PLT_BNGResult_DistinctivenessScore_Text", GroupTypeId.AnalysisResults,
+                "BNG distinctiveness score (A-2 column I)."),
+            FloorInstance("!_S_PLT_BNGResult_ConditionScore_Text", GroupTypeId.AnalysisResults,
+                "BNG condition score (A-2 column K)."),
+            FloorInstance("!_S_PLT_BNGResult_StrategicSignificanceCategory_Text", GroupTypeId.AnalysisResults,
+                "BNG strategic significance category (A-2 column M)."),
+            FloorInstance("!_S_PLT_BNGResult_StrategicSignificanceMultiplier_Text", GroupTypeId.AnalysisResults,
+                "BNG strategic significance multiplier (A-2 column N)."),
+            FloorInstance("!_S_PLT_BNGResult_StandardTimeToTarget_Text", GroupTypeId.AnalysisResults,
+                "BNG standard time to target condition in years (A-2 column O)."),
+            FloorInstance("!_S_PLT_BNGResult_TimeToTargetStatus_Text", GroupTypeId.AnalysisResults,
+                "BNG standard or adjusted time to target condition message (A-2 column R)."),
+            FloorInstance("!_S_PLT_BNGResult_FinalTimeToTarget_Text", GroupTypeId.AnalysisResults,
+                "BNG final time to target condition in years (A-2 column S)."),
+            FloorInstance("!_S_PLT_BNGResult_FinalTimeToTargetMultiplier_Text", GroupTypeId.AnalysisResults,
+                "BNG final time to target multiplier (A-2 column T)."),
+            FloorInstance("!_S_PLT_BNGResult_StandardDifficulty_Text", GroupTypeId.AnalysisResults,
+                "BNG standard difficulty of creation (A-2 column U)."),
+            FloorInstance("!_S_PLT_BNGResult_AppliedDifficulty_Text", GroupTypeId.AnalysisResults,
+                "BNG applied difficulty multiplier message (A-2 column V)."),
+            FloorInstance("!_S_PLT_BNGResult_FinalDifficulty_Text", GroupTypeId.AnalysisResults,
+                "BNG final difficulty of creation (A-2 column W)."),
+            FloorInstance("!_S_PLT_BNGResult_DifficultyMultiplier_Text", GroupTypeId.AnalysisResults,
+                "BNG difficulty multiplier applied (A-2 column X)."),
+            FloorInstance("!_S_PLT_BNGResult_HabitatUnits_Number", GroupTypeId.AnalysisResults,
+                "BNG habitat units delivered by this floor (A-2 column Y) -- a number so schedules can total it."),
+            FloorInstance("!_S_PLT_BNGResult_Status_Text", GroupTypeId.AnalysisResults,
+                "BNG calculation state: Calculated, CheckData, NeedsInfo, or Stale."),
+            FloorInstance("!_S_PLT_BNGResult_Details_Text", GroupTypeId.AnalysisResults,
+                "Missing-input or metric warning details for the latest BNG calculation."),
+            FloorInstance("!_S_PLT_BNGResult_InputSignature_Text", GroupTypeId.AnalysisResults,
+                "Application-managed signature used to detect stale BNG results."),
+            FloorInstance("!_S_PLT_BNGResult_LastUpdated_Text", GroupTypeId.AnalysisResults,
+                "ISO 8601 date and time of the last BNG calculation."),
+            FloorInstance("!_S_PLT_BNGResult_MetricVersion_Text", GroupTypeId.AnalysisResults,
+                "Statutory Biodiversity Metric release used for the latest BNG calculation."),
+            // Baseline (A-1) and enhancement (A-3): a floor's Revit phases decide its BNG role —
+            // created in the project's first phase = baseline habitat (retained, or lost if
+            // demolished), created later = new habitat (A-2). A retained floor flagged Enhanced is
+            // calculated on A-3, with ProposedHabitat/Condition as its post-enhancement target.
+            FloorInstance("!_S_PLT_BNGInput_BaselineHabitat_Text", GroupTypeId.Constraints,
+                "BNG baseline (existing) habitat of an Existing-phase floor, as the metric's habitat description (A-1 column F)."),
+            FloorInstance("!_S_PLT_BNGInput_BaselineCondition_Text", GroupTypeId.Constraints,
+                "BNG baseline condition of an Existing-phase floor (A-1 column K): Good, Fairly Good, Moderate, Fairly Poor, Poor, Condition Assessment N/A, or N/A - Other."),
+            FloorInstance("!_S_PLT_BNGInput_Irreplaceable_Text", GroupTypeId.Constraints,
+                "BNG irreplaceable habitat status of the baseline habitat, Yes or No (A-1 column G) -- only needed where the metric allows either."),
+            FloorInstance("!_S_PLT_BNGInput_Enhanced_YesNo", GroupTypeId.Constraints,
+                "Yes when a retained Existing-phase floor's habitat is enhanced (metric sheet A-3); its ProposedHabitat and Condition are then the enhanced target."),
+            FloorInstance("!_S_PLT_BNGResult_Role_Text", GroupTypeId.AnalysisResults,
+                "BNG role from the floor's phases: Retained, Enhanced, Lost, Created, or Excluded."),
+            FloorInstance("!_S_PLT_BNGResult_BaselineUnits_Number", GroupTypeId.AnalysisResults,
+                "BNG baseline habitat units of an Existing-phase floor (A-1 column Q); 0 for new floors.")
         ];
     }
 }

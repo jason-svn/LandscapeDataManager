@@ -138,6 +138,8 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.PublishProjectSettingsJson => await PublishProjectSettingsJsonAsync(request).ConfigureAwait(false),
                 PipeCommands.GetSelectedFloors => await GetSelectedFloorsAsync(request).ConfigureAwait(false),
                 PipeCommands.CalculateFloorsBatch => await CalculateFloorsBatchAsync(request).ConfigureAwait(false),
+                PipeCommands.GetBngFloors => await GetBngFloorsAsync(request).ConfigureAwait(false),
+                PipeCommands.WriteBngFloors => await WriteBngFloorsAsync(request).ConfigureAwait(false),
                 PipeCommands.RunHealthCheck => await RunHealthCheckAsync(request).ConfigureAwait(false),
                 PipeCommands.GetDashboardReport => await GetDashboardReportAsync(request).ConfigureAwait(false),
                 _ => new PipeResponse(request.RequestId, false, Error: $"Unknown command: {request.Command}")
@@ -354,6 +356,21 @@ internal sealed class RevitPipeServer : IDisposable
                       ?? throw new InvalidDataException("The floor calculation batch was empty.");
         var result = await _dispatcher.RunAsync(application =>
             FloorLdsCalculationService.CalculateBatch(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetBngFloorsAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<BngFloorsRequest>(JsonDefaults.Options) ?? new BngFloorsRequest();
+        var result = await _dispatcher.RunAsync(application => BngFloorService.GetFloors(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> WriteBngFloorsAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<WriteBngFloorsRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The BNG write request was empty.");
+        var result = await _dispatcher.RunAsync(application => BngFloorService.Write(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

@@ -701,7 +701,7 @@
             <PivotItem Header="Site &amp; Biodiversity">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <Grid Background="{StaticResource KpiCanvasBrush}" Padding="22" CornerRadius="20" RowSpacing="16">
-                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                         <StackPanel Spacing="4">
                             <TextBlock Text="Site &amp; Biodiversity KPIs" FontSize="24" FontWeight="Bold" />
                             <TextBlock Text="Canopy Cover and Softscape Surface Ratio need a total site area on Project Information (!_S_PLT_Site_TotalArea_Area) to compute a percentage; Habitat Connectivity Score is entered after external GIS connectivity modelling, not calculated here." Foreground="#FF687269" TextWrapping="Wrap" />
@@ -771,10 +771,61 @@
                             </Border>
                         </Grid>
 
-                        <Border Grid.Row="3" Style="{StaticResource KpiSurfaceStyle}">
+                        <Grid Grid.Row="3" ColumnSpacing="10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="BNG NET CHANGE (ON-SITE HABITAT)" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="BngNetChangeText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="BngNetChangeDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="BNG BASELINE UNITS" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="BngBaselineText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="BngBaselineDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="BNG POST-INTERVENTION UNITS" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="BngPostText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="BngPostDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="BNG NEEDS ATTENTION" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="BngAttentionText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="BngAttentionDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Border Grid.Row="4" Style="{StaticResource KpiSurfaceStyle}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="BNG post-intervention habitat units by broad habitat" Style="{StaticResource KpiCardTitleStyle}" />
+                                <TextBlock x:Name="BngHabitatEmptyText" Foreground="#FF586359" TextWrapping="Wrap" Visibility="Collapsed" />
+                                <ItemsControl ItemsSource="{x:Bind BngHabitatRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="local:KpiBarRow">
+                                            <Grid Margin="0,3" ColumnSpacing="10">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="*" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
+                                                <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Detail}" />
+                                                <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="10" Foreground="{StaticResource KpiLeafBrush}" Background="#FFE1E8DE" />
+                                                <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" FontWeight="SemiBold" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="5" Style="{StaticResource KpiSurfaceStyle}">
                             <StackPanel Spacing="6">
                                 <TextBlock Text="Data entry" Style="{StaticResource KpiCardTitleStyle}" />
-                                <TextBlock TextWrapping="Wrap" Foreground="#FF586359" Text="Tag each Planting Type's !_S_PLT_iTreeSpecies_NativeStatus_Text, _BloomMonths_Text, and _EcologicalFunctions_Text; each Lighting Fixture Type's !_S_PLT_Lighting_DarkSkyCompliant_Text (Yes/No); and Project Information's !_S_PLT_Site_TotalArea_Area and !_S_PLT_Site_HabitatConnectivityScore_Number. Softscape Surface Ratio infers Pervious/Impervious automatically from each floor's LDS Type — tag !_S_PLT_LDS_SurfaceClass_Text only to override that guess. Run &quot;Import Shared Parameter&quot; first if these parameters aren't bound yet." />
+                                <TextBlock TextWrapping="Wrap" Foreground="#FF586359" Text="Tag each Planting Type's !_S_PLT_iTreeSpecies_NativeStatus_Text, _BloomMonths_Text, and _EcologicalFunctions_Text; each Lighting Fixture Type's !_S_PLT_Lighting_DarkSkyCompliant_Text (Yes/No); and Project Information's !_S_PLT_Site_TotalArea_Area and !_S_PLT_Site_HabitatConnectivityScore_Number. Softscape Surface Ratio infers Pervious/Impervious automatically from each floor's LDS Type — tag !_S_PLT_LDS_SurfaceClass_Text only to override that guess. BNG units come from Floor Calculator's BNG tab and each floor's Revit phases: floors created in the first phase (e.g. Existing) are the baseline (metric sheet A-1) — retained, or lost if demolished, and enhanced (A-3) when !_S_PLT_BNGInput_Enhanced_YesNo is ticked; floors created later (e.g. New Construction) are new habitat (A-2). Net change = post-intervention (retained + enhanced + created) − baseline; recalculate in Floor Calculator if a floor shows as stale. Run &quot;Import Shared Parameter&quot; first if these parameters aren't bound yet." />
                             </StackPanel>
                         </Border>
                     </Grid>

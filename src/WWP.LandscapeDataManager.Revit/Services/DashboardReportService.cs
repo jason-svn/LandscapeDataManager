@@ -213,7 +213,39 @@ internal static class DashboardReportService
             GetMassKilograms("!_S_PLT_LDS_OxygenProducedAnnual_Mass"),
             GetMassKilograms("!_S_PLT_LDS_TotalGWP_Mass"),
             GetDoubleParameter(element, "!_S_PLT_LDS_SurfaceTempReduction_Number"),
-            GetDoubleParameter(element, "!_S_PLT_LDS_AirTempReduction_Number"));
+            GetDoubleParameter(element, "!_S_PLT_LDS_AirTempReduction_Number"),
+            CreateFloorBng(document, element));
+    }
+
+    /// <summary>Reads back what <see cref="BngFloorService"/> wrote; null when the BNG parameters aren't bound in this project.</summary>
+    private static DashboardFloorBng? CreateFloorBng(Document document, Element element)
+    {
+        if (element.LookupParameter("!_S_PLT_BNGInput_ProposedHabitat_Text") is null)
+        {
+            return null;
+        }
+
+        var yearOffset = element.LookupParameter("!_S_PLT_BNGInput_CreationYearOffset_Number") is { HasValue: true, StorageType: StorageType.Integer } offset
+            ? offset.AsInteger()
+            : 0;
+
+        return new DashboardFloorBng(
+            GetNullableText(element, "!_S_PLT_BNGInput_ProposedHabitat_Text"),
+            GetNullableText(element, "!_S_PLT_iTreeInput_Condition_Text"),
+            GetNullableText(element, "!_S_PLT_BNGInput_StrategicSignificance_Text"),
+            yearOffset,
+            GetNullableText(element, "!_S_PLT_BNGResult_BroadHabitat_Text"),
+            GetNullableText(element, "!_S_PLT_BNGResult_Distinctiveness_Text"),
+            GetDoubleParameter(element, "!_S_PLT_BNGResult_HabitatUnits_Number"),
+            GetNullableText(element, "!_S_PLT_BNGResult_Status_Text"),
+            GetNullableText(element, "!_S_PLT_BNGResult_InputSignature_Text"),
+            GetNullableText(element, "!_S_PLT_BNGResult_MetricVersion_Text"),
+            BngFloorService.GetPhaseRole(document, element).Role,
+            GetNullableText(element, BngFloorService.BaselineHabitatParameter),
+            GetNullableText(element, BngFloorService.BaselineConditionParameter),
+            GetNullableText(element, BngFloorService.IrreplaceableParameter),
+            BngFloorService.IsEnhanced(element),
+            GetDoubleParameter(element, BngFloorService.BaselineUnitsParameter));
     }
 
     private static DashboardLightingItem CreateLightingItem(Document document, Element element)

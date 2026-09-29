@@ -40,7 +40,17 @@ public sealed partial class MainPage : Page
         _revitClient = new RevitPipeClient(pipeName);
         _pipeName = pipeName;
         _windowHandle = windowHandle;
+        BngTabContent.Initialize(GetClient, pipeName);
         Loaded += Page_Loaded;
+    }
+
+    /// <summary>The BNG tab loads the current Revit selection the first time it's opened.</summary>
+    private async void CalculatorTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CalculatorTabs.SelectedIndex == 1)
+        {
+            await BngTabContent.LoadOnFirstShowAsync();
+        }
     }
 
     private void OpenSettings_Click(object sender, RoutedEventArgs e)

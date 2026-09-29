@@ -28,6 +28,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Statutory Biodiversity Metric lookup tables, extracted by tools/BngMetricExtractor. -->
+    <EmbeddedResource Include="Resources\BngMetric_*.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="WWP.LandscapeDataManager.Tests" />
   </ItemGroup>
 </Project>

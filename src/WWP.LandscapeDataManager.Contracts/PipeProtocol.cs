@@ -35,6 +35,8 @@ public static class PipeCommands
     public const string PublishProjectSettingsJson = "publish-project-settings-json";
     public const string GetSelectedFloors = "get-selected-floors";
     public const string CalculateFloorsBatch = "calculate-floors-batch";
+    public const string GetBngFloors = "get-bng-floors";
+    public const string WriteBngFloors = "write-bng-floors";
     public const string RunHealthCheck = "run-health-check";
     public const string GetDashboardReport = "get-dashboard-report";
 }
@@ -400,6 +402,116 @@ public sealed record FloorCalculationRow(string UniqueId, string ResultSource);
 
 public sealed record CalculateFloorsBatchResult(string DocumentTitle, IReadOnlyList<FloorCalculationRow> Rows);
 
+/// <summary>Which floors Floor Calculator's BNG tab loads: the current Revit selection, or every Floor instance in the model.</summary>
+public sealed record BngFloorsRequest(bool SelectionOnly = true);
+
+/// <summary>
+/// A floor's BNG role from its Revit phases, relative to the project's first phase (the baseline,
+/// e.g. "Existing") and last phase (the proposal, e.g. "New Construction"). A retained floor
+/// flagged <c>!_S_PLT_BNGInput_Enhanced_YesNo</c> becomes <see cref="Enhanced"/> client-side.
+/// </summary>
+public static class BngPhaseRoles
+{
+    /// <summary>Created in the first phase and never demolished — baseline habitat kept (A-1 retained).</summary>
+    public const string Retained = "Retained";
+
+    /// <summary>A retained floor whose habitat is enhanced (A-1 enhanced + A-3).</summary>
+    public const string Enhanced = "Enhanced";
+
+    /// <summary>Created in the first phase, demolished in a later one — baseline habitat lost (A-1).</summary>
+    public const string Lost = "Lost";
+
+    /// <summary>Created after the first phase and never demolished — new habitat (A-2).</summary>
+    public const string Created = "Created";
+
+    /// <summary>Demolished in the same phase it was created — never on site at baseline or after development.</summary>
+    public const string Excluded = "Excluded";
+}
+
+/// <summary>
+/// One Floor instance with its stored BNG inputs (<c>!_S_PLT_BNGInput_*</c> plus the shared
+/// <c>!_S_PLT_iTreeInput_Condition_Text</c>), its type's remembered habitat, and the bookkeeping
+/// of its last BNG write — enough for the client to recalculate and to tell a current result
+/// from a stale one. <see cref="ParametersBound"/> is false when the BNG parameters haven't been
+/// set up in this project yet.
+/// </summary>
+public sealed record BngFloorItem(
+    string UniqueId,
+    string FamilyName,
+    string TypeName,
+    long TypeId,
+    double AreaSquareMeters,
+    bool ParametersBound,
+    string? ProposedHabitat,
+    string? Condition,
+    string? StrategicSignificance,
+    int YearOffset,
+    string? TypeHabitatMapping,
+    string? StoredStatus,
+    string? StoredInputSignature,
+    string? StoredLastUpdated,
+    string PhaseRole = BngPhaseRoles.Created,
+    string? PhaseCreated = null,
+    string? PhaseDemolished = null,
+    string? BaselineHabitat = null,
+    string? BaselineCondition = null,
+    string? Irreplaceable = null,
+    bool Enhanced = false);
+
+public sealed record BngFloorsResult(string DocumentTitle, IReadOnlyList<BngFloorItem> Items);
+
+/// <summary>
+/// Everything to write onto one Floor for the BNG tab — the inputs as edited in the tool, and
+/// the A-2 row results already calculated client-side against the Statutory Biodiversity Metric
+/// (Revit-side only writes). Result texts are exactly what the metric workbook displays.
+/// </summary>
+public sealed record BngFloorValues(
+    string ProposedHabitat,
+    string Condition,
+    string StrategicSignificance,
+    int YearOffset,
+    string BroadHabitat,
+    string AreaHectares,
+    string Distinctiveness,
+    string DistinctivenessScore,
+    string ConditionScore,
+    string StrategicSignificanceCategory,
+    string StrategicSignificanceMultiplier,
+    string StandardTimeToTarget,
+    string TimeToTargetStatus,
+    string FinalTimeToTarget,
+    string FinalTimeToTargetMultiplier,
+    string StandardDifficulty,
+    string AppliedDifficulty,
+    string FinalDifficulty,
+    string DifficultyMultiplier,
+    double HabitatUnits,
+    string Status,
+    string Details,
+    string InputSignature,
+    string MetricVersion,
+    string Role = BngPhaseRoles.Created,
+    string BaselineHabitat = "",
+    string BaselineCondition = "",
+    string Irreplaceable = "",
+    bool Enhanced = false,
+    double BaselineUnits = 0);
+
+public sealed record BngFloorWrite(string FloorUniqueId, BngFloorValues Values);
+
+/// <summary>A habitat to remember on a Floor type (<c>!_S_PLT_BNGInput_HabitatMapping_Text</c>) so new floors of that type pre-fill it.</summary>
+public sealed record BngTypeMappingWrite(long TypeId, string Habitat);
+
+public sealed record WriteBngFloorsRequest(IReadOnlyList<BngFloorWrite> Floors, IReadOnlyList<BngTypeMappingWrite> TypeMappings);
+
+public sealed record BngWriteFailure(string UniqueId, string Error);
+
+public sealed record WriteBngFloorsResult(
+    string DocumentTitle,
+    IReadOnlyList<string> WrittenUniqueIds,
+    IReadOnlyList<BngWriteFailure> Failures,
+    string LastUpdated);
+
 /// <summary>
 /// One Planting or Floor instance reduced to a single Success/NeedsAttention verdict for the
 /// Health Check tool — Status is one of "Success" or "NeedsAttention", matching the colour keys
@@ -529,7 +641,8 @@ public sealed record DashboardTreeItem(
 /// One Floor (planted/paved landscape area) instance's identity, placement, and stored LDS/i-Tree
 /// results, per <c>FloorLdsCalculationService</c>. Floor cost is reported as-calculated (no currency
 /// provenance is tracked for Floors today; see <c>WWP.LandscapeDataManager.App.FloorCalculator</c>,
-/// which never calls <c>ExchangeRateService</c>).
+/// which never calls <c>ExchangeRateService</c>). <see cref="Bng"/> is null when the BNG
+/// parameters aren't bound in this project yet.
 /// </summary>
 public sealed record DashboardFloorItem(
     string UniqueId,
@@ -548,7 +661,31 @@ public sealed record DashboardFloorItem(
     double OxygenProducedAnnual,
     double TotalGwp,
     double SurfaceTempReduction,
-    double AirTempReduction);
+    double AirTempReduction,
+    DashboardFloorBng? Bng = null);
+
+/// <summary>
+/// A Floor's stored BNG inputs and headline A-2 results, as written by Floor Calculator's BNG tab —
+/// the inputs travel alongside so the Dashboard can recompute the input signature and tell a
+/// current result from one whose area or inputs changed since (see <c>BngFloorStatusEvaluator</c>).
+/// </summary>
+public sealed record DashboardFloorBng(
+    string? ProposedHabitat,
+    string? Condition,
+    string? StrategicSignificance,
+    int YearOffset,
+    string? BroadHabitat,
+    string? Distinctiveness,
+    double HabitatUnits,
+    string? StoredStatus,
+    string? StoredInputSignature,
+    string? MetricVersion,
+    string PhaseRole = BngPhaseRoles.Created,
+    string? BaselineHabitat = null,
+    string? BaselineCondition = null,
+    string? Irreplaceable = null,
+    bool Enhanced = false,
+    double BaselineUnits = 0);
 
 /// <summary>
 /// One Lighting Fixture instance's identity, placement, and dark-sky compliance tag — the compliance

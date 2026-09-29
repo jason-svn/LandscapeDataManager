@@ -1,0 +1,426 @@
+<UserControl
+    x:Class="WWP.LandscapeDataManager.App.FloorCalculator.BngTab"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WWP.LandscapeDataManager.App.FloorCalculator">
+
+    <Grid Padding="0,12,0,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock
+            x:Name="IntroText"
+            Style="{StaticResource LimPageSubtitleStyle}"
+            Text="Each floor becomes one row of the Statutory Biodiversity Metric, using the floor's own area and its Revit phases: a floor created in the first phase (e.g. Existing) is baseline habitat on sheet A-1 — retained, or lost if demolished — and a retained floor ticked Enhanced is also a row of A-3; a floor created later (e.g. New Construction) is new habitat on A-2. Fill the baseline or proposed habitat, condition, strategic significance and year offset (+ years in advance, − years of delay); the rest is calculated exactly as the metric workbook does, then written to the floor's BNG parameters." />
+
+        <!-- Toolbar, with a banner above it when the project lacks the BNG parameters -->
+        <StackPanel Grid.Row="1" Margin="0,12,0,0" Spacing="8">
+            <InfoBar x:Name="ParametersInfoBar"
+                     Severity="Warning"
+                     IsOpen="False"
+                     IsClosable="False"
+                     Title="BNG parameters aren't set up in this project"
+                     Message="Floors can be calculated here, but writing to Revit will fail until the BNGInput/BNGResult parameters exist. Open Parameters, create them, then load the floors again.">
+                <InfoBar.ActionButton>
+                    <Button Content="Open Parameters" Click="OpenParameters_Click" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+            <Border Style="{StaticResource LimCardStyle}">
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button Content="Load selected floors" Click="LoadSelected_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    <Button Grid.Column="1" Content="Load all floors" Click="LoadAll_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    <Button Grid.Column="2"
+                            x:Name="ConfirmAutoMatchesButton"
+                            Content="✓ Confirm auto-matches"
+                            Click="ConfirmAutoMatches_Click"
+                            IsEnabled="False"
+                            Style="{StaticResource LimSecondaryButtonStyle}"
+                            ToolTipService.ToolTip="Accept the habitat guessed from the family/type name for the selected rows (or every shown row if none are selected). Guessed habitats aren't written to Revit until confirmed.">
+                        <Button.Resources>
+                            <SolidColorBrush x:Key="ButtonBackground" Color="#6A4FB6" />
+                            <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#5B41A3" />
+                            <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#4C3591" />
+                            <SolidColorBrush x:Key="ButtonForeground" Color="White" />
+                            <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
+                            <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
+                            <SolidColorBrush x:Key="ButtonBorderBrush" Color="#6A4FB6" />
+                            <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#5B41A3" />
+                            <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#4C3591" />
+                        </Button.Resources>
+                    </Button>
+                    <Button Grid.Column="3" Content="Bulk edit..." Click="BulkEdit_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                            ToolTipService.ToolTip="Set habitat, condition, strategic significance or year offset for the selected rows (or every shown row if none are selected)." />
+                    <Button Grid.Column="4" Content="Select in Revit" Click="SelectInRevit_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    <CheckBox Grid.Column="6"
+                              x:Name="RememberTypeCheckBox"
+                              Content="Remember habitat per floor type"
+                              IsChecked="True"
+                              ToolTipService.ToolTip="When writing, store each floor type's habitat in its BNGInput_HabitatMapping parameter so new floors of that type pre-fill it." />
+                    <Button Grid.Column="7"
+                            x:Name="WriteButton"
+                            Content="Write to Revit"
+                            Click="Write_Click"
+                            IsEnabled="False"
+                            Style="{StaticResource LimPrimaryButtonStyle}" />
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <!-- Status cards: click to filter, click again to show all -->
+        <Grid Grid.Row="2" Margin="0,12,0,0" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border x:Name="CalculatedCard" Style="{StaticResource LimCardStyle}" Padding="12" Tag="Calculated" Tapped="StatusCard_Tapped"
+                    ToolTipService.ToolTip="Written to Revit and still current.">
+                <StackPanel Spacing="2"><TextBlock Text="CALCULATED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="CalculatedCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+            </Border>
+            <Border x:Name="ReadyCard" Grid.Column="1" Style="{StaticResource LimCardStyle}" Padding="12" Tag="Ready" Tapped="StatusCard_Tapped"
+                    ToolTipService.ToolTip="Calculated here but not written to Revit yet.">
+                <StackPanel Spacing="2"><TextBlock Text="READY TO WRITE" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ReadyCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+            </Border>
+            <Border x:Name="AutoMatchedCard" Grid.Column="2" Style="{StaticResource LimCardStyle}" Padding="12" Tag="AutoMatched" Tapped="StatusCard_Tapped"
+                    ToolTipService.ToolTip="Habitat guessed from the family/type name — confirm or change it.">
+                <StackPanel Spacing="2"><TextBlock Text="AUTO-MATCHED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="AutoMatchedCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+            </Border>
+            <Border x:Name="NeedsInfoCard" Grid.Column="3" Style="{StaticResource LimCardStyle}" Padding="12" Tag="NeedsInfo" Tapped="StatusCard_Tapped"
+                    ToolTipService.ToolTip="Habitat, condition or strategic significance is missing.">
+                <StackPanel Spacing="2"><TextBlock Text="NEEDS INFO" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="NeedsInfoCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+            </Border>
+            <Border x:Name="CheckDataCard" Grid.Column="4" Style="{StaticResource LimCardStyle}" Padding="12" Tag="CheckData" Tapped="StatusCard_Tapped"
+                    ToolTipService.ToolTip="The metric flags this row (Check details ⚠ / Check Data ⚠).">
+                <StackPanel Spacing="2"><TextBlock Text="CHECK DATA" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="CheckDataCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+            </Border>
+            <Border x:Name="StaleCard" Grid.Column="5" Style="{StaticResource LimCardStyle}" Padding="12" Tag="Stale" Tapped="StatusCard_Tapped"
+                    ToolTipService.ToolTip="Written before, but the floor's area or inputs changed since.">
+                <StackPanel Spacing="2"><TextBlock Text="STALE" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="StaleCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+            </Border>
+            <Border x:Name="FailedCard" Grid.Column="6" Style="{StaticResource LimCardStyle}" Padding="12" Tag="Failed" Tapped="StatusCard_Tapped"
+                    ToolTipService.ToolTip="The last write to Revit failed — hover the row's status for why.">
+                <StackPanel Spacing="2"><TextBlock Text="FAILED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="FailedCountText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="0,8,0,6" ColumnSpacing="12" RowSpacing="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="FilterStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
+                       Text="Load floors to start — click a card above to filter the list to just that status." />
+            <TextBlock Grid.Column="1" x:Name="TotalUnitsText" FontWeight="SemiBold" />
+
+            <!-- The A-2 row is far wider than the window; this strip makes sideways scrolling obvious. -->
+            <Border Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource LimCardStyle}" Padding="12,6">
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="COLUMNS" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="◀  Inputs" Click="ScrollLeft_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                            ToolTipService.ToolTip="Scroll back toward the habitat, condition and strategic significance columns." />
+                    <Slider Grid.Column="2" x:Name="ColumnScrollSlider" Minimum="0" Maximum="1" StepFrequency="1" IsThumbToolTipEnabled="False"
+                            VerticalAlignment="Center" ValueChanged="ColumnScrollSlider_ValueChanged"
+                            ToolTipService.ToolTip="Drag to scroll the table sideways." />
+                    <Button Grid.Column="3" Content="Results  ▶" Click="ScrollRight_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                            ToolTipService.ToolTip="Scroll toward the time, difficulty and habitat units columns." />
+                    <TextBlock Grid.Column="4" x:Name="ColumnScrollText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" MinWidth="190" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- The A-2 row, one floor per line. Wide, so it scrolls horizontally with its header. -->
+        <ScrollViewer Grid.Row="4"
+                      x:Name="TableScroller"
+                      ViewChanged="TableScroller_ViewChanged"
+                      SizeChanged="TableScroller_SizeChanged"
+                      HorizontalScrollMode="Enabled"
+                      HorizontalScrollBarVisibility="Visible"
+                      VerticalScrollMode="Disabled"
+                      VerticalScrollBarVisibility="Disabled">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid Padding="12,0,12,4" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="230" />
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="300" />
+                        <ColumnDefinition Width="170" />
+                        <ColumnDefinition Width="90" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="320" />
+                        <ColumnDefinition Width="130" />
+                        <ColumnDefinition Width="95" />
+                        <ColumnDefinition Width="50" />
+                        <ColumnDefinition Width="170" />
+                        <ColumnDefinition Width="50" />
+                        <ColumnDefinition Width="260" />
+                        <ColumnDefinition Width="170" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="240" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="85" />
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="85" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="90" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Family : Type" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
+                    <TextBlock Grid.Column="1" Text="Area" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
+                    <TextBlock Grid.Column="2" Text="Status" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
+                    <TextBlock Grid.Column="3" Text="Role (from phases)" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="4" Text="Baseline habitat (Existing floors)" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="5" Text="Baseline condition" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="6" Text="Irreplaceable" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
+                    <TextBlock Grid.Column="7" Text="Baseline units" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="8" Text="Proposed / enhanced habitat" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="9" Text="Broad habitat" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
+                    <TextBlock Grid.Column="10" Text="Distinctiveness" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="11" Text="Score" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
+                    <TextBlock Grid.Column="12" Text="Condition" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
+                    <TextBlock Grid.Column="13" Text="Score" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
+                    <TextBlock Grid.Column="14" Text="Strategic significance" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
+                    <TextBlock Grid.Column="15" Text="Significance category" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="16" Text="Significance multiplier" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="17" Text="Standard time (yrs)" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="18" Text="Year offset (+ advance / − delay)" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="19" Text="Standard or adjusted time to target" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="20" Text="Final time (yrs)" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="21" Text="Time multiplier" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="22" Text="Standard difficulty" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="23" Text="Applied difficulty" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
+                    <TextBlock Grid.Column="24" Text="Final difficulty" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="25" Text="Difficulty multiplier" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="26" Text="Habitat units (post-intervention)" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
+                </Grid>
+
+                <ListView Grid.Row="1" x:Name="RowsList" ItemsSource="{x:Bind FilteredRows}" SelectionMode="Extended">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:BngFloorRow">
+                            <Grid Padding="0,6" ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="220" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="230" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="300" />
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="90" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="320" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="95" />
+                                    <ColumnDefinition Width="50" />
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="50" />
+                                    <ColumnDefinition Width="260" />
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="240" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="85" />
+                                    <ColumnDefinition Width="200" />
+                                    <ColumnDefinition Width="85" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="90" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind DisplayName}" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind AreaDisplay}" Opacity="0.75" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind StatusDetails, Mode=OneWay}">
+                                    <TextBlock Text="{x:Bind StatusDisplay, Mode=OneWay}"
+                                               Foreground="{x:Bind StatusBrush, Mode=OneWay}"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="{x:Bind StatusReason, Mode=OneWay}"
+                                               FontSize="12"
+                                               Opacity="0.75"
+                                               TextWrapping="Wrap"
+                                               MaxLines="2"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <Button Content="✓ Confirm"
+                                            Margin="0,4,0,0"
+                                            Padding="10,2"
+                                            FontSize="12"
+                                            Visibility="{x:Bind ConfirmVisibility, Mode=OneWay}"
+                                            Click="RowConfirm_Click"
+                                            ToolTipService.ToolTip="Accept this guessed habitat.">
+                                        <Button.Resources>
+                                            <SolidColorBrush x:Key="ButtonBackground" Color="#6A4FB6" />
+                                            <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#5B41A3" />
+                                            <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#4C3591" />
+                                            <SolidColorBrush x:Key="ButtonForeground" Color="White" />
+                                            <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
+                                            <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
+                                            <SolidColorBrush x:Key="ButtonBorderBrush" Color="#6A4FB6" />
+                                            <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#5B41A3" />
+                                            <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#4C3591" />
+                                        </Button.Resources>
+                                    </Button>
+                                </StackPanel>
+                                <StackPanel Grid.Column="3" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind RoleDetails}">
+                                    <TextBlock Text="{x:Bind RoleDisplay, Mode=OneWay}" Foreground="{x:Bind RoleBrush, Mode=OneWay}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <CheckBox Content="Enhanced (A-3)"
+                                              MinWidth="0"
+                                              IsChecked="{x:Bind Enhanced, Mode=OneWay}"
+                                              Visibility="{x:Bind EnhanceVisibility}"
+                                              Click="RowEnhanced_Click"
+                                              ToolTipService.ToolTip="This retained floor's habitat is enhanced — set the enhanced habitat and condition under Proposed. Stored in !_S_PLT_BNGInput_Enhanced_YesNo." />
+                                </StackPanel>
+                                <AutoSuggestBox Grid.Column="4"
+                                                IsEnabled="{x:Bind IsBaselineRow, Mode=OneWay}"
+                                                Text="{x:Bind BaselineQuery, Mode=TwoWay}"
+                                                PlaceholderText="Search baseline habitat..."
+                                                ItemsSource="{x:Bind BaselineHabitatSuggestions}"
+                                                DisplayMemberPath="Display"
+                                                ToolTipService.ToolTip="{x:Bind BaselineQuery, Mode=OneWay}"
+                                                TextChanged="BaselineHabitatBox_TextChanged"
+                                                SuggestionChosen="BaselineHabitatBox_SuggestionChosen"
+                                                QuerySubmitted="BaselineHabitatBox_QuerySubmitted" />
+                                <ComboBox Grid.Column="5"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="{x:Bind IsBaselineRow, Mode=OneWay}"
+                                          PlaceholderText="Condition"
+                                          ItemsSource="{x:Bind BaselineConditionOptions}"
+                                          SelectedItem="{x:Bind BaselineConditionSelection, Mode=TwoWay}" />
+                                <ComboBox Grid.Column="6"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="{x:Bind IrreplaceableIsChoice, Mode=OneWay}"
+                                          PlaceholderText="—"
+                                          ItemsSource="{x:Bind IrreplaceableOptions, Mode=OneWay}"
+                                          SelectedItem="{x:Bind IrreplaceableSelection, Mode=TwoWay}"
+                                          ToolTipService.ToolTip="Irreplaceable habitat (A-1 column G) — only a choice where the metric allows either." />
+                                <TextBlock Grid.Column="7" Text="{x:Bind BaselineUnitsDisplay, Mode=OneWay}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <AutoSuggestBox Grid.Column="8"
+                                                IsEnabled="{x:Bind UsesProposedHabitat, Mode=OneWay}"
+                                                Text="{x:Bind HabitatQuery, Mode=TwoWay}"
+                                                PlaceholderText="Search habitat..."
+                                                ItemsSource="{x:Bind HabitatSuggestions}"
+                                                DisplayMemberPath="Display"
+                                                ToolTipService.ToolTip="{x:Bind HabitatQuery, Mode=OneWay}"
+                                                TextChanged="HabitatBox_TextChanged"
+                                                SuggestionChosen="HabitatBox_SuggestionChosen"
+                                                QuerySubmitted="HabitatBox_QuerySubmitted" />
+                                <TextBlock Grid.Column="9" Text="{x:Bind Result.BroadHabitat, Mode=OneWay}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <TextBlock Grid.Column="10" Text="{x:Bind Result.Distinctiveness, Mode=OneWay}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="11" Text="{x:Bind Result.DistinctivenessScore, Mode=OneWay}" VerticalAlignment="Center" />
+                                <ComboBox Grid.Column="12"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="{x:Bind UsesProposedHabitat, Mode=OneWay}"
+                                          PlaceholderText="Condition"
+                                          ItemsSource="{x:Bind ConditionOptions}"
+                                          SelectedItem="{x:Bind ConditionSelection, Mode=TwoWay}" />
+                                <TextBlock Grid.Column="13" Text="{x:Bind Result.ConditionScore, Mode=OneWay}" VerticalAlignment="Center" />
+                                <ComboBox Grid.Column="14"
+                                          HorizontalAlignment="Stretch"
+                                          PlaceholderText="Strategic significance"
+                                          ItemsSource="{x:Bind StrategicSignificanceOptions}"
+                                          SelectedItem="{x:Bind StrategicSignificanceSelection, Mode=TwoWay}"
+                                          ToolTipService.ToolTip="{x:Bind StrategicSignificance, Mode=OneWay}" />
+                                <TextBlock Grid.Column="15" Text="{x:Bind Result.StrategicSignificance, Mode=OneWay}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <TextBlock Grid.Column="16" Text="{x:Bind Result.StrategicSignificanceMultiplier, Mode=OneWay}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="17" Text="{x:Bind Result.StandardTimeToTarget, Mode=OneWay}" VerticalAlignment="Center" />
+                                <NumberBox Grid.Column="18"
+                                           IsEnabled="{x:Bind UsesProposedHabitat, Mode=OneWay}"
+                                           Value="{x:Bind YearOffsetValue, Mode=TwoWay}"
+                                           SpinButtonPlacementMode="Compact"
+                                           SmallChange="1"
+                                           Minimum="-60"
+                                           Maximum="60" />
+                                <TextBlock Grid.Column="19" Text="{x:Bind Result.TimeToTargetStatus, Mode=OneWay}" VerticalAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                           ToolTipService.ToolTip="{x:Bind Result.TimeToTargetStatus, Mode=OneWay}" />
+                                <TextBlock Grid.Column="20" Text="{x:Bind Result.FinalTimeToTarget, Mode=OneWay}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="21" Text="{x:Bind Result.FinalTimeToTargetMultiplier, Mode=OneWay}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="22" Text="{x:Bind Result.StandardDifficulty, Mode=OneWay}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="23" Text="{x:Bind Result.AppliedDifficulty, Mode=OneWay}" VerticalAlignment="Center" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                           ToolTipService.ToolTip="{x:Bind Result.AppliedDifficulty, Mode=OneWay}" />
+                                <TextBlock Grid.Column="24" Text="{x:Bind Result.FinalDifficulty, Mode=OneWay}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="25" Text="{x:Bind Result.DifficultyMultiplier, Mode=OneWay}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="26" Text="{x:Bind HabitatUnitsDisplay, Mode=OneWay}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </ScrollViewer>
+
+        <TextBlock Grid.Row="5"
+                   x:Name="StatusText"
+                   Margin="0,10,0,0"
+                   Style="{StaticResource LimMutedTextStyle}"
+                   TextWrapping="Wrap"
+                   Text="Select floors in Revit, then click &quot;Load selected floors&quot; — or load every floor in the model." />
+
+        <ProgressRing x:Name="BusyIndicator"
+                      Grid.RowSpan="6"
+                      Width="40"
+                      Height="40"
+                      IsActive="False"
+                      Visibility="Collapsed"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center" />
+
+        <ContentDialog x:Name="BulkEditDialog"
+                       Title="Bulk edit"
+                       PrimaryButtonText="Apply"
+                       CloseButtonText="Cancel"
+                       DefaultButton="Primary">
+            <StackPanel Spacing="12" MinWidth="460">
+                <TextBlock x:Name="BulkTargetText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                <ComboBox x:Name="BulkTargetBox" Header="Set habitat and condition on" HorizontalAlignment="Stretch" />
+                <AutoSuggestBox x:Name="BulkHabitatBox"
+                                Header="Habitat (leave blank to keep each row's)"
+                                PlaceholderText="Search habitat..."
+                                DisplayMemberPath="Display"
+                                TextChanged="BulkHabitatBox_TextChanged"
+                                SuggestionChosen="BulkHabitatBox_SuggestionChosen" />
+                <ComboBox x:Name="BulkConditionBox" Header="Condition" HorizontalAlignment="Stretch" />
+                <ComboBox x:Name="BulkStrategicBox" Header="Strategic significance" HorizontalAlignment="Stretch" />
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <CheckBox x:Name="BulkSetYearOffsetCheckBox" Content="Set year offset to" VerticalAlignment="Center" Checked="BulkSetYearOffset_Changed" Unchecked="BulkSetYearOffset_Changed" />
+                    <NumberBox x:Name="BulkYearOffsetBox" Value="0" SmallChange="1" Minimum="-60" Maximum="60" SpinButtonPlacementMode="Compact" MinWidth="110" IsEnabled="False" />
+                </StackPanel>
+                <CheckBox x:Name="BulkSameTypeCheckBox" Content="Also apply to every loaded floor of the same type(s)" />
+            </StackPanel>
+        </ContentDialog>
+    </Grid>
+</UserControl>
