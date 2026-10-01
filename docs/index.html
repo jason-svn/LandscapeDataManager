@@ -186,6 +186,16 @@
   }
   .code + .code { margin-top: 6px; }
 
+  /* ── Manual install (collapsed by default) ── */
+  .manual { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .manual summary { cursor: pointer; font-weight: 600; color: var(--ink); font-size: 15px; }
+  .manual summary:focus-visible { outline: 2px solid var(--code-ink); outline-offset: 3px; border-radius: 4px; }
+  .manual .steps { margin-top: 14px; }
+  /* Long Windows paths must wrap here, or they push the card past the page edge */
+  .manual .steps > li > div { min-width: 0; }
+  .manual .path { white-space: normal; overflow-wrap: anywhere; }
+  .manual .code { white-space: pre-wrap; overflow-wrap: anywhere; }
+
   /* ── Setup note ── */
   .setup {
     margin-top: 28px;
@@ -356,6 +366,97 @@
         </div>
       </li>
     </ol>
+
+    <details class="manual">
+      <summary>Can't run the script? Install it by hand instead</summary>
+      <p class="step-body" style="margin-top: 10px;">
+        Some work computers block PowerShell scripts. The script only copies files into your own
+        Revit add-ins folder, so you can do the same with File Explorer — still no admin rights needed.
+        The steps below are for Revit 2025; for Revit 2026, use <strong>2026</strong> wherever you see 2025.
+      </p>
+      <ol class="steps">
+        <li>
+          <span class="step-num">1</span>
+          <div>
+            <p class="step-title">Unblock the ZIP, then extract it</p>
+            <p class="step-body">
+              Before extracting, right-click <span class="path">LIM-Landscape-Data-2025plus.zip</span>, choose
+              <strong>Properties</strong>, tick <strong>Unblock</strong> at the bottom and click <strong>OK</strong>.
+              Then extract it as in step 2 above. (Skipping this marks every file as downloaded from the
+              internet, which causes extra warnings later.)
+            </p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <div>
+            <p class="step-title">Open your Revit add-ins folder</p>
+            <p class="step-body">Click in File Explorer's address bar, paste this line and press <strong>Enter</strong>:</p>
+            <pre class="code">%APPDATA%\Autodesk\Revit\Addins\2025</pre>
+            <p class="step-body">Create a new folder there named <span class="path">WWP.LandscapeDataManager</span>.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <div>
+            <p class="step-title">Copy the add-in files</p>
+            <p class="step-body">
+              In the extracted folder, open <span class="path">Connectors\Revit2025</span>, select everything
+              inside it, and copy it into the new <span class="path">WWP.LandscapeDataManager</span> folder.
+            </p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">4</span>
+          <div>
+            <p class="step-title">Copy the tools</p>
+            <p class="step-body">
+              Back in the extracted folder, open <span class="path">App</span> and copy every folder inside it
+              (Dashboard, FloorCalculator, Parameters, …) into <span class="path">WWP.LandscapeDataManager</span> too,
+              so each tool sits in its own subfolder.
+            </p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">5</span>
+          <div>
+            <p class="step-title">Create the file that tells Revit to load it</p>
+            <p class="step-body">
+              Copy <span class="path">LIMLandscapeData.addin.template</span> from the extracted folder into the
+              <span class="path">Addins\2025</span> folder (next to <span class="path">WWP.LandscapeDataManager</span>, not inside it)
+              and rename it to <span class="path">LIMLandscapeData.addin</span>. If Windows hides file extensions,
+              turn on <strong>View &gt; Show &gt; File name extensions</strong> first so the name really ends in
+              <span class="path">.addin</span>.
+            </p>
+            <p class="step-body">
+              Right-click it, open it with <strong>Notepad</strong>, and replace <span class="path">{{ASSEMBLY_PATH}}</span>
+              with the full path to the add-in, using your own Windows user name:
+            </p>
+            <pre class="code">C:\Users\YOUR-NAME\AppData\Roaming\Autodesk\Revit\Addins\2025\WWP.LandscapeDataManager\WWP.LandscapeDataManager.Revit.dll</pre>
+            <p class="step-body">
+              Save and close. If an older <span class="path">WWPLandscapeDataManager.addin</span> or
+              <span class="path">WWP.LandscapeDataManager.addin</span> is in the same folder, delete it.
+            </p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">6</span>
+          <div>
+            <p class="step-title">Restart Revit</p>
+            <p class="step-body">
+              If Revit asks whether to load an add-in it can't verify, choose <strong>Always Load</strong>.
+              The <strong>LIM</strong> tab should then appear.
+            </p>
+          </div>
+        </li>
+      </ol>
+      <p class="step-body">
+        <strong>Tools still won't open?</strong> Some companies block every program that isn't digitally
+        signed (for example with AppLocker or Smart App Control). Installing by hand can't get around that:
+        the LIM tab may appear, but tools like Floor Calculator and Dashboard won't start. Ask your IT team to
+        allow the folder <span class="path">%APPDATA%\Autodesk\Revit\Addins\2025\WWP.LandscapeDataManager</span>.
+      </p>
+    </details>
   </section>
 
   <div class="locate">

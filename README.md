@@ -80,6 +80,23 @@ Choose **Entire i-Tree species catalog (no Revit data required)** to download th
 
 The default benefit selection uses the established Revit/Dynamo input and output parameter names. Annual timelines, cumulative timelines, and the entire raw response are opt-in because a 20-year full response can produce thousands of columns.
 
+## Installing a release
+
+Download `LIM-Landscape-Data-2025plus.zip` from the [latest release](https://github.com/jason-svn/LandscapeDataManager/releases/latest), extract it, open PowerShell in the extracted folder and run `.\Deploy-BinaryPackage.ps1 -RevitVersion 2025` (or `2026`). It installs for the current Windows user only — no admin rights needed. Restart Revit and open the **LIM** tab.
+
+### Manual install (when scripts are blocked)
+
+The script only copies files, so the same can be done by hand. For Revit 2025 (use `2026` throughout for Revit 2026):
+
+1. Before extracting, right-click the ZIP > **Properties** > tick **Unblock** > **OK**, then extract it.
+2. Open `%APPDATA%\Autodesk\Revit\Addins\2025` in File Explorer and create a folder named `WWP.LandscapeDataManager`.
+3. Copy everything inside the ZIP's `Connectors\Revit2025\` into `WWP.LandscapeDataManager`.
+4. Copy every folder inside the ZIP's `App\` (Dashboard, FloorCalculator, Parameters, …) into `WWP.LandscapeDataManager` as subfolders.
+5. Copy `LIMLandscapeData.addin.template` into `%APPDATA%\Autodesk\Revit\Addins\2025\` (next to the folder, not inside it), rename it `LIMLandscapeData.addin`, open it in Notepad and replace `{{ASSEMBLY_PATH}}` with the full path, e.g. `C:\Users\YOUR-NAME\AppData\Roaming\Autodesk\Revit\Addins\2025\WWP.LandscapeDataManager\WWP.LandscapeDataManager.Revit.dll`. Delete any older `WWPLandscapeDataManager.addin` or `WWP.LandscapeDataManager.addin` there.
+6. Restart Revit and choose **Always Load** if it asks about the unsigned add-in.
+
+If the company blocks all unsigned programs (AppLocker, Smart App Control, etc.), installing by hand won't get around it — the tools' `.exe` files still won't start. Ask IT to allow `%APPDATA%\Autodesk\Revit\Addins\<year>\WWP.LandscapeDataManager`.
+
 ## Build and install
 
 Revit 2025:
