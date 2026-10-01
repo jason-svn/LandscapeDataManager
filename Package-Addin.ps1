@@ -85,6 +85,8 @@ foreach ($version in $RevitVersions) {
 
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Deployment\Deploy-BinaryPackage.ps1') -Destination $resolvedStagingRoot -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Deployment\README.txt') -Destination $resolvedStagingRoot -Force
+# Import Shared Parameter binds from this file, so ship the copy that matches this build's parameters.
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Shared_Parameters_WWP.txt') -Destination $resolvedStagingRoot -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Manifest\LIMLandscapeData.addin.template') -Destination $resolvedStagingRoot -Force
 
 Compress-Archive -Path (Join-Path $resolvedStagingRoot '*') -DestinationPath $zipPath -CompressionLevel Optimal

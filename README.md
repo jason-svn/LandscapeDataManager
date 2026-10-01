@@ -2,6 +2,10 @@
 
 A `.NET 8` Revit 2025+ connector with a separate WinUI 3 interface for replacing the Dynamo-based landscape data workflows.
 
+- **Quick-start guide:** <https://jason-svn.github.io/LandscapeDataManager/>
+- **Download:** [latest release](https://github.com/jason-svn/LandscapeDataManager/releases/latest) (`LIM-Landscape-Data-2025plus.zip`)
+- **Online co-benefits dashboard:** <https://jason-svn.github.io/LandscapeCoBenefitsDashboard/> — load a Dashboard **Export JSON** file to view and share the results in a browser ([source](https://github.com/jason-svn/LandscapeCoBenefitsDashboard))
+
 ## Architecture
 
 - `WWP.LandscapeDataManager.Revit` runs inside Revit and is the only component allowed to access the Revit API.
@@ -31,6 +35,31 @@ WinUI 3 cannot be inserted directly into a Revit dockable pane because Revit req
 - Captures a conversion policy for every mapping and can suggest the known WWP environmental mappings.
 - Saves mappings to `%LocalAppData%\EGIS\WWP.LandscapeDataManager\parameter-mappings.json`.
 - Keeps all Revit operations read-only. Parameter writes are intentionally not enabled yet.
+
+## Biodiversity Net Gain (BNG)
+
+Floor Calculator's **Biodiversity (BNG)** tab calculates each Floor's habitat units with the Statutory Biodiversity Metric (23.07.2024 release), ported formula-for-formula and pinned to the official workbook by golden test cases (`tools/BngMetricExtractor`). Each floor's Revit phases decide which metric sheet it belongs to, relative to the project's first phase (e.g. *Existing*) and last phase (e.g. *New Construction*):
+
+| Floor's phases | Role | Metric sheet |
+| --- | --- | --- |
+| Created in the first phase, never demolished | Retained | A-1 baseline |
+| …and `!_S_PLT_BNGInput_Enhanced_YesNo` ticked | Enhanced | A-1 + A-3 enhancement |
+| Created in the first phase, demolished later | Lost | A-1 baseline |
+| Created later, never demolished | Created | A-2 creation |
+| Demolished in the phase it was created | Excluded | not counted |
+
+To use it:
+
+1. Run **Import Shared Parameter** so the `!_S_PLT_BNGInput_*` / `!_S_PLT_BNGResult_*` floor parameters are bound (re-run after updating — new parameters only appear once bound).
+2. Set each floor's Phase Created / Phase Demolished, and tick **Enhanced** on retained floors whose habitat is improved.
+3. In Floor Calculator > **Biodiversity (BNG)**, click **Load all floors**, fill in the baseline habitat and condition for Existing floors, the proposed (or enhanced) habitat and condition for new and enhanced floors, and strategic significance, then **Write to Revit**.
+4. Open the **Dashboard**: the Site & Biodiversity tab shows baseline units, post-intervention units (retained + enhanced + created) and the net change against the statutory 10%. Floors whose area, inputs or phases changed since they were written are flagged stale and excluded until recalculated.
+
+Only on-site area habitats are covered — hedgerows, watercourses, off-site units and the trading-rules check aren't modelled.
+
+## Online co-benefits dashboard
+
+In the Dashboard, click **Export JSON**, then open <https://jason-svn.github.io/LandscapeCoBenefitsDashboard/> and drop the file in. The page runs entirely in the browser (nothing is uploaded) and shows the same project as a shareable report: everyday equivalents for the carbon, storm water and air-quality results, a growth-year slider across design options, species and floor breakdowns, and the BNG summary. Exports use schema version 3; older exports still load without the BNG panel.
 
 ## Data-source configuration
 

@@ -385,7 +385,7 @@
       <div class="tool">
         <img class="chip" alt="Import Shared Parameter icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAF8SURBVFhH7ZehTsRAEIZ/iTiBpC/QIEn6An2CakQFkqQGSapwiD4Aph5Xi0RU8AiX1CCRSGTJv8lctnO72Ta53QsJf/KJm9l2/p3ZJreAX9cAbgE8nYA7ADe6gEsXAJ4B/ACYI/EK4EoXpuhw73ggBl8ASrs4d/7pWBiTb7sTL44FKXiT3ceceQgzex1MCe4dwZSY71QHU/IHDAzDsKDrujnP80N+t9vNdV178wHCBnwqisIUH8dRp+amaY7e42G9ARYsy3Kepsn85k6rqjrkmeOatm3jGJDffDnFdrP1oizLjp5dwXYD3DnV970paou5jUbWG+CO7Xmz5czzwMlYRNEPIWev13H+YoTd0XkP6w2wgJx8ybELdsvlULJb+j0e1hvQcSIHkqNhUVGUDug4sT9DEY3YXQoQNiCt13HXmo1fAAkbiMy/gfMbeHQEU2L+n+tgSnDpCKbE6N2RSAEvQ0a8iJ7jbrC4nvEmnNLEg11cxE58OBafksXF9BehvqKU5xhZkgAAAABJRU5ErkJggg==" />
         <span class="tool-name">Import Shared Parameter</span>
-        <span class="tool-desc">Load the shared-parameter file and bind the planting/i-Tree parameters to Project Information and Planting.</span>
+        <span class="tool-desc">Load the shared-parameter file and bind the planting/i-Tree and BNG parameters to Project Information, Planting and Floors. Re-run it after updating — new BNG parameters (baseline habitat, Enhanced, …) only appear once bound.</span>
       </div>
       <div class="tool">
         <img class="chip" alt="iTree Database Cacher icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAF3SURBVFhH7ZehTsRAEIZ/iahA0he4IEn6An2CaiSSpAZJqnCIPgCmHleLRFTwCEgkEoks+TeZy3Q6ew131z0Ef/KJnU53/t12mi4Q1yWAawAPR+AGwJUt4OkMwCOAbwDjSjwDuLCFKTp8d25Yg08ApS7OlX84iWvypXfiyUlIwYusfs1nvkR49jaYEtw6wZSEPrXBlPxRA1mWjV3XjU3TbGN930/g9aqqQq6+V67bOSP4BjabzSiSWEzDMExMiOycEXwDhCbyPN+ORUVRBLg7orZtZ3l2vgi+ARa3W+lNXNf1LG7HC/gGuEI7kR0T7pCN2/EChxnQcXkPYnkRDjNQluUsbscL7G+A288OoNiSsbwFfm9AXk4tr1v0N4PfC1tjbwNanJwdo+/1xG6xNXYa4Asl/S4xGQt61Rqbtys3aiAh/wZOb+DeCaYk/J/bYEpw7gRTEvTqXEgBD0NBPIie4mwwOZ7xJJzSxJ0uLuJOvDnJx2RyMP0BOrjVfDPcZWsAAAAASUVORK5CYII=" />
@@ -442,8 +442,20 @@
       <div class="tool">
         <img class="chip" alt="Floor Calculator icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAFsSURBVFhH7ZetTsRAFIWPRFSs5AkaJElfgCeoRlQgSWqQpAqH6ANg6nG1SEQFj0BSsxKJRHZzJplm9nYmnZKduyHhJl82OXdm7pm/ZgcIxxWAWwBPJ+AOwLUs4IsLAM8AfgBMiXgFcCkLM+jw09MhBV8AbtzinPne0zAl3+5KvHgaaPBmZ59yz9cwey9FTXDvETUx91SKmvwBA33fL8jzfM5nWTZVVTV1XWdy/C2KYjFOgHUDvrAFWHwYBpme6rpejBMg3gCLWliYOc7YRlmWJsfiXBE5ToB4A1LnNthwt2Qj8QbcM0CdM7W67LOBeANuUFc34J4B6txnxjiOiz4biDcgdfcMuKeeB3TDmfi9AdK27ZznSthbkeQaSp1wtk3TzG1s8ErKtgHWDbj7HoJG5DciknUDifk3cH4Djx5RE/P/XIqaYOcRNTHx7klowMeQCT5Ez/E2OHqe8SWsaeLBLW6DK/HhaXxKjh6mB5oGfD8wVmFMAAAAAElFTkSuQmCC" />
         <span class="tool-name">Floor Calculator</span>
-        <span class="tool-desc">Match Floor instances to the landscape data sheet and calculate cost, carbon, air, water, and temperature benefits.</span>
+        <span class="tool-desc">Match Floor instances to the landscape data sheet and calculate cost, carbon, air, water, and temperature benefits. Its <strong>Biodiversity (BNG)</strong> tab calculates each floor's habitat units with the Statutory Biodiversity Metric.</span>
       </div>
+    </div>
+    <div class="setup" style="margin-top: 14px;">
+      <strong>Biodiversity Net Gain uses Revit phases.</strong> A floor's <em>Phase Created</em> and
+      <em>Phase Demolished</em> decide its row of the metric:
+      floors created in <strong>Existing</strong> are the <strong>baseline</strong> — <em>retained</em> if never
+      demolished, <em>lost</em> if demolished in New Construction, and <em>enhanced</em> when you tick
+      <strong>Enhanced</strong> (parameter <span class="path">!_S_PLT_BNGInput_Enhanced_YesNo</span>);
+      floors created in <strong>New Construction</strong> are <strong>new habitat</strong>.
+      In the BNG tab, click <strong>Load all floors</strong>, fill in the baseline habitat and condition
+      for Existing floors, the proposed habitat (or enhanced target) for new and enhanced floors, and
+      strategic significance, then <strong>Write to Revit</strong>. The tab's total line shows
+      baseline → post-intervention units and the net change.
     </div>
   </section>
 
@@ -479,8 +491,14 @@
       <div class="tool">
         <img class="chip" alt="Benefits Dashboard icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAFtSURBVFhH7Vc7TsUwEJySIgUluUBEiZQL5AQ5AyVSGkqUio4iB6CJxA3ScoAU3CEXoKR8pdFYWFrtW+fzhF29kaZZ72e8XlsyYOMewCOA138k8z3oQhp0+gHgEvIE4EUXJj4N55T8AnATij8ZDjn4FgSwLXoxF/1gaGNO4tkw5qS/ItqYk1cB5wLatnVd152xaRpXlqVOsBmjfTcFTNPk1jAMgyuKYnfMsiyuqipdeJ+AsBMWlZjneTOGhQPGcdSF9wmQdu6ahQPY9rUY+gdwXdc5LICs69pMasVIAeygzvXHYwJICStGHwHX9MwkFaDR930aAXIQrQ7IwdVDe7EA3usAea6xGO4+gPOj8x0SwEdIXi2ZMBYju3CRAKudwX40JjIH6wIsyPu/N+bQSxh71yMtXI3hzER2HheQmVcB/pOgjTmJxjDmpP+daGNOerwbCznI76AHu/BtOKQkP8F3QQBxC+DDcExB7twX/wVIM4xRI12LhwAAAABJRU5ErkJggg==" />
         <span class="tool-name">Benefits Dashboard</span>
-        <span class="tool-desc">Roll up i-Tree and data-sheet results into per-species and per-area subtotals and a project grand total — filter by Design Option or level, export as an image or Excel workbook.</span>
+        <span class="tool-desc">Roll up i-Tree and data-sheet results into per-species and per-area subtotals and a project grand total — filter by Design Option or level, export as an image or Excel workbook. The Site &amp; Biodiversity tab shows BNG baseline and post-intervention units and the net change against the statutory 10%.</span>
       </div>
+    </div>
+    <div class="setup" style="margin-top: 14px;">
+      <strong>Share it online:</strong> in the Dashboard, click <strong>Export JSON</strong>, then open the
+      <a class="btn" href="https://jason-svn.github.io/LandscapeCoBenefitsDashboard/" target="_blank" rel="noopener">online co-benefits dashboard</a>
+      and drop the file in. It runs entirely in your browser — nothing is uploaded — and adds everyday
+      equivalents, a growth-year slider and the BNG summary. Use <strong>Load sample data</strong> there to preview it.
     </div>
   </section>
 
