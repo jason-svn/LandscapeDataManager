@@ -834,12 +834,14 @@
         </Pivot>
 
         <Grid Grid.Row="3" Margin="0,8,0,0" ColumnSpacing="8">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <Button Grid.Column="4" Content="Show original data" Click="ShowOriginalData_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                    ToolTipService.ToolTip="One row per tree (or planting area) with every value exactly as stored in Revit" />
             <Button Content="Export PNG" Click="ExportImage_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
             <Button Grid.Column="1" Content="Export SVG" Click="ExportSvg_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
             <Button Grid.Column="2" Content="Export Excel" Click="ExportExcel_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
             <Button Grid.Column="3" Content="Export JSON" Click="ExportJson_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-            <TextBlock Grid.Column="4" x:Name="StatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" Text="Refresh from Revit or open the last cached snapshot." />
+            <TextBlock Grid.Column="5" x:Name="StatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" Text="Refresh from Revit or open the last cached snapshot." />
         </Grid>
 
         <ProgressRing x:Name="BusyIndicator" Grid.RowSpan="4" Width="44" Height="44" IsActive="False" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" />

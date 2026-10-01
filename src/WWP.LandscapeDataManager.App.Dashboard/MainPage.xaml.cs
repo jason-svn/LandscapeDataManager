@@ -48,6 +48,8 @@ public sealed partial class MainPage : Page
     // across a Refresh — it's only the initial/no-selection state that gets the smart default.
     private bool _designOptionExplicitlyChosen;
 
+    private OriginalDataWindow? _originalDataWindow;
+
     public MainPage()
     {
         InitializeComponent();
@@ -150,6 +152,7 @@ public sealed partial class MainPage : Page
 
         RebuildFilterOptions();
         RebuildRows();
+        _originalDataWindow?.ShowReport(report);
     }
 
     private string EffectiveUnitSystem() =>
@@ -906,6 +909,23 @@ public sealed partial class MainPage : Page
         RebuildRows();
     }
 
+    private void ShowOriginalData_Click(object sender, RoutedEventArgs e)
+    {
+        if (_lastReport is null)
+        {
+            StatusText.Text = "Refresh the dashboard or load a cached snapshot first.";
+            return;
+        }
+
+        if (_originalDataWindow is null)
+        {
+            _originalDataWindow = new OriginalDataWindow(_lastReport, _revitClient);
+            _originalDataWindow.Closed += (_, _) => _originalDataWindow = null;
+        }
+
+        _originalDataWindow.Activate();
+    }
+
     private async void ExportExcel_Click(object sender, RoutedEventArgs e)
     {
         if (_lastReport is null)
@@ -1113,6 +1133,7 @@ public sealed partial class MainPage : Page
 
     public async ValueTask DisposeAsync()
     {
+        _originalDataWindow?.Close();
         if (_revitClient is not null)
         {
             await _revitClient.DisposeAsync();

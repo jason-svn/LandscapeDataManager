@@ -42,6 +42,18 @@ foreach ($toolApp in $toolApps) {
     if ($LASTEXITCODE -ne 0) {
         throw "The '$($toolApp.Name)' tool publish failed."
     }
+
+    # dotnet publish never refreshes these unpackaged WinUI apps' compiled XAML (.xbf) or resource
+    # index (.pri) in the publish folder — only the build step writes fresh copies, one level up.
+    # Without this, a package ships a new .dll beside stale or missing .xbf/.pri, and windows fail
+    # with XamlParseException "Cannot create instance of type ..." (see the same step in
+    # Install-Addin.ps1).
+    $buildOutputPath = Join-Path $PSScriptRoot "artifacts\$($toolApp.Name)"
+    $publishPath = Join-Path $buildOutputPath 'win-x64\publish'
+    Get-ChildItem -LiteralPath $buildOutputPath -File -Filter '*.xbf' |
+        Copy-Item -Destination $publishPath -Force
+    Get-ChildItem -LiteralPath $buildOutputPath -File -Filter 'WWP.LandscapeDataManager.*.pri' |
+        Copy-Item -Destination $publishPath -Force
 }
 
 foreach ($version in $RevitVersions) {
