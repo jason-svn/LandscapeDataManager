@@ -2,8 +2,11 @@ using System.IO;
 using System.Reflection;
 using System.Windows.Media.Imaging;
 using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Events;
+using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Revit.Commands;
 using WWP.LandscapeDataManager.Revit.Infrastructure;
+using WWP.LandscapeDataManager.Revit.Services;
 
 namespace WWP.LandscapeDataManager.Revit;
 
@@ -22,6 +25,10 @@ public sealed class App : IExternalApplication
     internal static ToolProcessLauncher? HealthCheckLauncher { get; private set; }
     internal static ToolProcessLauncher? DashboardLauncher { get; private set; }
     internal static ToolProcessLauncher? SettingsLauncher { get; private set; }
+
+    private static UIControlledApplication? _application;
+    private static string _revitVersion = string.Empty;
+    private static volatile LimRelease? _pendingUpdate;
 
     public Result OnStartup(UIControlledApplication application)
     {
@@ -103,6 +110,13 @@ public sealed class App : IExternalApplication
             "KS",
             "Create KPI Schedules",
             "Create a Planting and a Planting Area schedule per Design Option, covering every KPI parameter the Dashboard reports, grouped by species/landscape type with counts and totals.");
+        AddWorkflowButton<CheckForUpdatesCommand>(
+            projectSetupPanel,
+            "LIMCheckForUpdates",
+            "Check for\nUpdates",
+            "UP",
+            $"Check for Updates (installed: {UpdateService.InstalledVersionText})",
+            "Check GitHub for a newer LIM- Landscape Data release. The update downloads in its own window while you keep working, then installs once Revit closes.");
 
         AddWorkflowButton<SearchTreesCommand>(
             dataProcessingPanel,
@@ -157,11 +171,14 @@ public sealed class App : IExternalApplication
             "Landscape Benefits Dashboard",
             "Roll up the i-Tree and landscape data sheet results already stored on Planting and Floor elements into per-species and planting-area subtotals and a grand total, filterable by Design Option and level, exportable as an image or Excel workbook.");
 
+        StartBackgroundUpdateCheck(application);
         return Result.Succeeded;
     }
 
     public Result OnShutdown(UIControlledApplication application)
     {
+        application.Idling -= OnIdlingShowUpdate;
+        _application = null;
         ParametersLauncher?.Dispose();
         ImporterLauncher?.Dispose();
         ITreeDownloaderLauncher?.Dispose();
@@ -190,6 +207,42 @@ public sealed class App : IExternalApplication
         PipeServer = null;
         Dispatcher = null;
         return Result.Succeeded;
+    }
+
+    /// <summary>
+    /// Asks GitHub off the UI thread; Revit only allows dialogs on its own thread, so a newer
+    /// release is shown from the next Idling event instead.
+    /// </summary>
+    private static void StartBackgroundUpdateCheck(UIControlledApplication application)
+    {
+        _application = application;
+        _revitVersion = application.ControlledApplication.VersionNumber;
+        _ = Task.Run(async () =>
+        {
+            var release = await UpdateService.CheckInBackgroundAsync();
+            if (release is not null)
+            {
+                _pendingUpdate = release;
+            }
+        });
+        application.Idling += OnIdlingShowUpdate;
+    }
+
+    private static void OnIdlingShowUpdate(object? sender, IdlingEventArgs e)
+    {
+        var release = _pendingUpdate;
+        if (release is null)
+        {
+            return;
+        }
+
+        _pendingUpdate = null;
+        if (_application is not null)
+        {
+            _application.Idling -= OnIdlingShowUpdate;
+        }
+
+        UpdatePrompt.Show(release, _revitVersion, offerSkip: true);
     }
 
     private static RibbonPanel GetOrCreatePanel(UIControlledApplication application, string panelName)

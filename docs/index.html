@@ -331,44 +331,46 @@
       <li>
         <span class="step-num">3</span>
         <div>
-          <p class="step-title">Open a text-command window inside that folder</p>
+          <p class="step-title">Double-click Install.cmd</p>
           <p class="step-body">
-            Hold down <strong>Shift</strong> on your keyboard, then right-click on an empty part of
-            the folder (not on any file) and choose <strong>Open PowerShell window here</strong>
-            (on some computers it says <strong>Open in Terminal</strong>). A blue or black window
-            full of text opens — that's expected, not an error.
+            Close Revit first (the installer stops if Revit is open). Then, in the extracted folder,
+            double-click <span class="path">Install.cmd</span>. A black window
+            opens and asks which Revit version you use — type <strong>2025</strong> (or <strong>2026</strong>)
+            and press <strong>Enter</strong>. When it says <em>"Installed LIM- LANDSCAPE DATA"</em>, press any key to close it.
           </p>
-        </div>
-      </li>
-      <li>
-        <span class="step-num">4</span>
-        <div>
-          <p class="step-title">Type one line, then press Enter</p>
-          <p class="step-body">Copy the line below, click inside that text window, right-click to paste it in, then press <strong>Enter</strong>:</p>
-          <pre class="code">.\Deploy-BinaryPackage.ps1 -RevitVersion 2025</pre>
-          <p class="step-body">Using Revit 2026 instead? Type this line instead:</p>
-          <pre class="code">.\Deploy-BinaryPackage.ps1 -RevitVersion 2026</pre>
           <p class="step-body">
             If a blue screen appears saying <em>"Windows protected your PC"</em>, click
             <strong>More info</strong>, then <strong>Run anyway</strong>. This is normal for a new
             tool that isn't from the Microsoft Store — it does not mean anything is wrong.
           </p>
+          <p class="step-body">
+            Prefer PowerShell? Don't run <span class="path">.\Deploy-BinaryPackage.ps1</span> directly — Windows
+            blocks downloaded scripts with <em>"is not digitally signed"</em>. Use this line instead:
+          </p>
+          <pre class="code">powershell -ExecutionPolicy Bypass -File .\Deploy-BinaryPackage.ps1 -RevitVersion 2025</pre>
         </div>
       </li>
       <li>
-        <span class="step-num">5</span>
+        <span class="step-num">4</span>
         <div>
-          <p class="step-title">Restart Revit</p>
+          <p class="step-title">Start Revit</p>
           <p class="step-body">
-            If Revit is already open, close it completely and open it again. Look for a new tab
-            along the top called <strong>LIM</strong> — everything below starts there.
+            Open Revit and look for a new tab along the top called <strong>LIM</strong> —
+            everything below starts there.
           </p>
         </div>
       </li>
     </ol>
 
+    <p class="step-body">
+      <strong>Updating:</strong> from v1.2.0, LIM tells you when a new version is out, or click
+      <strong>LIM &gt; Check for Updates</strong>. Choose <em>Download and install when Revit closes</em>:
+      the update downloads in its own window while you keep working, and installs when you close Revit.
+      On v1.1.0 or older? Run <span class="path">Install.cmd</span> from the new ZIP once — it installs over the old version.
+    </p>
+
     <details class="manual">
-      <summary>Can't run the script? Install it by hand instead</summary>
+      <summary>Install.cmd blocked too? Install it by hand instead</summary>
       <p class="step-body" style="margin-top: 10px;">
         Some work computers block PowerShell scripts. The script only copies files into your own
         Revit add-ins folder, so you can do the same with File Explorer — still no admin rights needed.

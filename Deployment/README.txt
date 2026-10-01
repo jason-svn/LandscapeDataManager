@@ -6,14 +6,31 @@ Runtime: .NET 8 with a self-contained WinUI 3 application payload
 INSTALL
 
 1. Extract the complete ZIP file.
-2. Open PowerShell in the extracted directory.
-3. Run one of the following commands:
+2. Close Revit (the installer stops if Revit is open).
+3. Double-click Install.cmd and enter 2025 or 2026 when asked.
+   (If Windows shows "Windows protected your PC", click More info > Run anyway.)
+4. Start Revit and open EGIS > LIM- LANDSCAPE DATA.
 
-   .\Deploy-BinaryPackage.ps1 -RevitVersion 2025
-   .\Deploy-BinaryPackage.ps1 -RevitVersion 2026
+Install.cmd runs Deploy-BinaryPackage.ps1 for you. Running the .ps1 directly from PowerShell
+fails with "is not digitally signed" on most computers, because Windows blocks unsigned scripts
+that came from a download. If you prefer PowerShell, use:
 
-4. Restart Revit.
-5. Open EGIS > LIM- LANDSCAPE DATA.
+   powershell -ExecutionPolicy Bypass -File .\Deploy-BinaryPackage.ps1 -RevitVersion 2025
+
+UPDATING
+
+From v1.2.0 on, LIM checks for a new release once a day when Revit starts, and
+LIM > Project Setup > Check for Updates checks on demand. Choose "Download and install when
+Revit closes": a separate window downloads the update while you keep working, then installs it
+as soon as you close Revit.
+
+Upgrading from v1.1.0 or older (no Check for Updates button yet): close Revit and run
+Install.cmd from this ZIP once. It installs over the old version - nothing needs uninstalling.
+
+MANUAL INSTALL (if scripts are blocked by company policy)
+
+See "Manual install" at https://jason-svn.github.io/LandscapeDataManager/ - it copies the same
+files by hand.
 
 DATA SOURCE CONFIGURATION
 

@@ -321,6 +321,7 @@ public sealed partial class MainPage : Page
             _pendingTypeBatch = null;
             _pendingInstanceBatch = null;
             ApplyButton.IsEnabled = false;
+            var hiddenUnchanged = 0;
 
             var typeMatches = StableTypeMatcher.Build(_typeScan.Items, _sourceRecords, TypeKeyFields, _typeAliases);
             var (typeWriteItems, skippedTypeFields) = BuildTypeWriteItems(typeMatches);
@@ -341,6 +342,12 @@ public sealed partial class MainPage : Page
                     new ParameterWriteBatch(new ModelScanOptions(), typeWriteItems));
                 foreach (var row in typePreview.Rows)
                 {
+                    if (IsUnchanged(row.Status))
+                    {
+                        hiddenUnchanged++;
+                        continue;
+                    }
+
                     TypeSyncRows.Add(TypeSyncRow.FromWrite(row));
                 }
 
@@ -370,6 +377,12 @@ public sealed partial class MainPage : Page
                 var familyTypeByUniqueId = _instanceScan.Items.ToDictionary(i => i.UniqueId, i => $"{i.FamilyName} : {i.TypeName}");
                 foreach (var row in instancePreview.Rows)
                 {
+                    if (IsUnchanged(row.Status))
+                    {
+                        hiddenUnchanged++;
+                        continue;
+                    }
+
                     InstanceSyncRows.Add(InstanceSyncRow.FromWrite(row, familyTypeByUniqueId.GetValueOrDefault(row.UniqueId, row.UniqueId)));
                 }
 
@@ -380,9 +393,10 @@ public sealed partial class MainPage : Page
 
             var readyCount = (_pendingTypeBatch?.Items.Count ?? 0) + (_pendingInstanceBatch?.Items.Count ?? 0);
             ApplyButton.IsEnabled = readyCount > 0;
-            PreviewStatusText.Text = readyCount > 0
+            var hiddenNote = hiddenUnchanged > 0 ? $" {hiddenUnchanged:N0} values already match the source and are hidden." : string.Empty;
+            PreviewStatusText.Text = (readyCount > 0
                 ? $"{readyCount:N0} values ready to apply. Review the rows below, then select Apply to Revit."
-                : "No Revit values need to change, or nothing could be matched — see the rows below.";
+                : "No Revit values need to change, or nothing could be matched — see the rows below.") + hiddenNote;
         });
     }
 
@@ -546,7 +560,11 @@ public sealed partial class MainPage : Page
                 var history = new List<SyncedValueRecord>();
                 foreach (var row in result.Rows)
                 {
-                    TypeSyncRows.Add(TypeSyncRow.FromWrite(row));
+                    if (!IsUnchanged(row.Status))
+                    {
+                        TypeSyncRows.Add(TypeSyncRow.FromWrite(row));
+                    }
+
                     if (row.Status == "Applied")
                     {
                         var typeId = _pendingTypeBatch.Items[row.ItemIndex].TypeId;
@@ -567,7 +585,11 @@ public sealed partial class MainPage : Page
                 var history = new List<SyncedValueRecord>();
                 foreach (var row in result.Rows)
                 {
-                    InstanceSyncRows.Add(InstanceSyncRow.FromWrite(row, familyTypeByUniqueId.GetValueOrDefault(row.UniqueId, row.UniqueId)));
+                    if (!IsUnchanged(row.Status))
+                    {
+                        InstanceSyncRows.Add(InstanceSyncRow.FromWrite(row, familyTypeByUniqueId.GetValueOrDefault(row.UniqueId, row.UniqueId)));
+                    }
+
                     if (row.Status == "Applied")
                     {
                         history.Add(new SyncedValueRecord(SyncedValueHistoryStore.InstanceKey(row.UniqueId), row.RevitParameter, row.ProposedValue));
@@ -585,6 +607,9 @@ public sealed partial class MainPage : Page
             PreviewStatusText.Text = $"Applied {appliedParameters:N0} parameter values across {appliedElements:N0} Revit elements/types.";
         });
     }
+
+    /// <summary>Rows whose Revit value already equals the source value — hidden from the report so only real changes and problems show.</summary>
+    private static bool IsUnchanged(string status) => string.Equals(status, "No change", StringComparison.Ordinal);
 
     private static readonly HashSet<string> FailedInstanceStatuses = new(StringComparer.Ordinal)
     {

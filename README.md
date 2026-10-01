@@ -82,9 +82,15 @@ The default benefit selection uses the established Revit/Dynamo input and output
 
 ## Installing a release
 
-Download `LIM-Landscape-Data-2025plus.zip` from the [latest release](https://github.com/jason-svn/LandscapeDataManager/releases/latest), extract it, open PowerShell in the extracted folder and run `.\Deploy-BinaryPackage.ps1 -RevitVersion 2025` (or `2026`). It installs for the current Windows user only — no admin rights needed. Restart Revit and open the **LIM** tab.
+Download `LIM-Landscape-Data-2025plus.zip` from the [latest release](https://github.com/jason-svn/LandscapeDataManager/releases/latest), extract it and double-click `Install.cmd` (it asks for `2025` or `2026`). Running `.\Deploy-BinaryPackage.ps1` directly from PowerShell fails with "is not digitally signed" on most machines, because Windows blocks unsigned scripts that came from a download; `Install.cmd` runs it with `-ExecutionPolicy Bypass` for that one process, or use `powershell -ExecutionPolicy Bypass -File .\Deploy-BinaryPackage.ps1 -RevitVersion 2025` yourself. It installs for the current Windows user only — no admin rights needed. Restart Revit and open the **LIM** tab.
 
-### Manual install (when scripts are blocked)
+### Updating
+
+From v1.2.0, the connector checks the [latest GitHub release](https://github.com/jason-svn/LandscapeDataManager/releases/latest) once a day at Revit startup, and **LIM > Project Setup > Check for Updates** checks on demand. Accepting an update opens a PowerShell window that downloads the package while Revit keeps running, waits for every Revit session to close, stops any leftover LIM tool processes, then runs the package's `Deploy-BinaryPackage.ps1`. Installs from v1.1.0 or older have no updater, so they need one manual `Install.cmd` run to reach v1.2.0.
+
+**Publishing a release:** bump `<Version>` in [Directory.Build.props](Directory.Build.props), run `.\Package-Addin.ps1`, then publish a GitHub release tagged `v<Version>` with `artifacts\Packages\LIM-Landscape-Data-2025plus.zip` attached under that exact name. The updater compares the tag against the installed connector's assembly version, so a mismatched tag means installed copies either never see the update or keep being offered it.
+
+### Manual install (when Install.cmd is blocked too)
 
 The script only copies files, so the same can be done by hand. For Revit 2025 (use `2026` throughout for Revit 2026):
 

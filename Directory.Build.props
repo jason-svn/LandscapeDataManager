@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <!-- The LIM release version. The Check for Updates button compares this against the newest
+         GitHub release tag (vMAJOR.MINOR.PATCH), so bump it — and tag the release to match —
+         every time a package is published. -->
+    <Version>1.2.0</Version>
+  </PropertyGroup>
+</Project>

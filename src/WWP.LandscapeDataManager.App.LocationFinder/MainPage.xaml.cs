@@ -11,6 +11,7 @@ namespace WWP.LandscapeDataManager.App.LocationFinder;
 public sealed partial class MainPage : Page
 {
     private static readonly JsonSerializerOptions MessageOptions = new() { PropertyNameCaseInsensitive = true };
+    private const string MapVirtualHost = "locationfinder.lim-landscape-data.local";
 
     private readonly NominatimGeocodingClient _geocodingClient = new();
     private readonly ExchangeRateService _exchangeRateService = new();
@@ -49,8 +50,14 @@ public sealed partial class MainPage : Page
         await MapView.EnsureCoreWebView2Async();
         MapView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
 
-        var mapPath = Path.Combine(AppContext.BaseDirectory, "MapContent", "map.html");
-        MapView.Source = new Uri(mapPath);
+        // Served from a virtual https host rather than file://, because OSM's tile usage policy
+        // blocks (403 "Access blocked") tile requests that arrive without a Referer header, and
+        // file:// pages never send one.
+        MapView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+            MapVirtualHost,
+            Path.Combine(AppContext.BaseDirectory, "MapContent"),
+            CoreWebView2HostResourceAccessKind.Allow);
+        MapView.Source = new Uri($"https://{MapVirtualHost}/map.html");
         _mapReady = true;
     }
 

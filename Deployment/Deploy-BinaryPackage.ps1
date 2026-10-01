@@ -20,6 +20,11 @@ if ($toolSources.Count -eq 0) {
     throw 'The tool application payload is missing.'
 }
 
+# Revit keeps the connector DLL locked, so copying over it while Revit runs fails part-way.
+if (Get-Process -Name Revit -ErrorAction SilentlyContinue) {
+    throw 'Revit is open. Save your work, close every Revit window, then run the installer again.'
+}
+
 $addinRoot = Join-Path $env:APPDATA "Autodesk\Revit\Addins\$RevitVersion"
 $deploymentRoot = Join-Path $addinRoot 'WWP.LandscapeDataManager'
 New-Item -ItemType Directory -Path $deploymentRoot -Force | Out-Null
@@ -31,6 +36,10 @@ foreach ($toolSource in $toolSources) {
     New-Item -ItemType Directory -Path $deployedTool -Force | Out-Null
     Copy-Item -Path (Join-Path $toolSource.FullName '*') -Destination $deployedTool -Recurse -Force
 }
+
+# Files extracted from a downloaded ZIP carry the "from the internet" mark, and Copy-Item keeps it;
+# clear it so the tool executables launch without SmartScreen/"unknown publisher" prompts.
+Get-ChildItem -LiteralPath $deploymentRoot -Recurse -File | Unblock-File
 
 $connectorPath = Join-Path $deploymentRoot 'WWP.LandscapeDataManager.Revit.dll'
 $escapedAssemblyPath = [Security.SecurityElement]::Escape($connectorPath)

@@ -116,6 +116,8 @@
     <EmbeddedResource Include="..\..\Assets\DB-32.png" LogicalName="LIM.LandscapeData.DB.32.png" />
     <EmbeddedResource Include="..\..\Assets\ST-16.png" LogicalName="LIM.LandscapeData.ST.16.png" />
     <EmbeddedResource Include="..\..\Assets\ST-32.png" LogicalName="LIM.LandscapeData.ST.32.png" />
+    <EmbeddedResource Include="..\..\Assets\UP-16.png" LogicalName="LIM.LandscapeData.UP.16.png" />
+    <EmbeddedResource Include="..\..\Assets\UP-32.png" LogicalName="LIM.LandscapeData.UP.32.png" />
   </ItemGroup>
 
   <Target Name="ValidateRevitInstallation" BeforeTargets="ResolveReferences">
