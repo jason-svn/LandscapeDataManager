@@ -157,8 +157,16 @@ public sealed partial class MainPage : Page
         ProjectTitleText.Text = report.DocumentTitle;
 
         // One rate lookup per report, not per tree — the rate doesn't vary by tree, only by currency.
-        var rate = await _exchangeRateService.GetUsdRateAsync(_preferredCurrency);
+        var rate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, _preferredCurrency);
         _usdExchangeRate = rate.UsdRate;
+        if (rate.IsFixed)
+        {
+            CurrencyText.Text = $"{_preferredCurrency} · fixed {rate.UsdRate:G6}";
+        }
+
+        ToolTipService.SetToolTip(CurrencyText, rate.IsFixed
+            ? $"1 USD = {rate.UsdRate:G6} {_preferredCurrency}, the project's fixed rate (Settings > Units & currency)."
+            : $"1 USD = {rate.UsdRate:G6} {_preferredCurrency}, today's rate.");
 
         RebuildGrowthYearSlider();
         RebuildFilterOptions();

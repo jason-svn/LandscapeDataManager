@@ -27,7 +27,8 @@ public sealed record ProjectSettingsSnapshot(
     WwpLdsAirtableSettings? WwpLdsSource = null,
     string? SharedParameterFilePath = null,
     InstanceMatchKeySettings? InstanceMatchKey = null,
-    string? SiteBoundary = null);
+    string? SiteBoundary = null,
+    ExchangeRateOverride? ExchangeRateOverride = null);
 
 /// <summary>Pure (no I/O) serialize/deserialize for <see cref="ProjectSettingsSnapshot"/> — reading/writing the Project Information parameter itself is <see cref="ProjectSettingsSync"/>'s job, via the Revit-side <c>ProjectPreferencesService</c>.</summary>
 public static class ProjectSettingsJson

@@ -50,7 +50,7 @@
                             <RadioButton Content="Metric" />
                             <RadioButton Content="Imperial" />
                         </RadioButtons>
-                        <ComboBox Grid.Column="1" x:Name="CurrencyBox" Header="Currency" HorizontalAlignment="Stretch">
+                        <ComboBox Grid.Column="1" x:Name="CurrencyBox" Header="Currency" HorizontalAlignment="Stretch" SelectionChanged="CurrencyBox_SelectionChanged">
                             <ComboBoxItem Content="USD" />
                             <ComboBoxItem Content="GBP" />
                             <ComboBoxItem Content="EUR" />
@@ -58,6 +58,24 @@
                             <ComboBoxItem Content="AUD" />
                             <ComboBoxItem Content="NZD" />
                         </ComboBox>
+                    </Grid>
+                    <CheckBox x:Name="FixedRateCheckBox" Content="Use a fixed exchange rate instead of today's market rate"
+                              Checked="FixedRateCheckBox_Changed" Unchecked="FixedRateCheckBox_Changed"
+                              ToolTipService.ToolTip="For reports that must be costed at a set rate (e.g. a budget or appraisal rate). Every LIM tool on this project uses it." />
+                    <Grid x:Name="FixedRatePanel" ColumnSpacing="10" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="1 USD =" VerticalAlignment="Center" />
+                        <NumberBox Grid.Column="1" x:Name="FixedRateBox" Minimum="0" SpinButtonPlacementMode="Hidden"
+                                   AutomationProperties.Name="Fixed exchange rate per US dollar" />
+                        <TextBlock Grid.Column="2" x:Name="FixedRateCurrencyText" Text="GBP" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="3" x:Name="FixedRateNoteBox" PlaceholderText="Note, e.g. 2026 budget rate" />
+                        <Button Grid.Column="4" Content="Use today's rate" Click="UseTodaysRate_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
                     </Grid>
                     <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>

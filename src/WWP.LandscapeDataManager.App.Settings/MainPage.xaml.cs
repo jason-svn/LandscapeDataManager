@@ -48,12 +48,14 @@ public sealed partial class MainPage : Page
         ImportViewIdBox.Text = importSource.ViewName ?? string.Empty;
 
         SharedParameterFilePathBox.Text = snapshot?.SharedParameterFilePath ?? string.Empty;
+        _loadedFixedRate = snapshot?.ExchangeRateOverride;
 
         try
         {
             var catalog = await GetClient().SendAsync<ParameterCatalogResult>(PipeCommands.GetParameterCatalog, new ModelScanOptions());
             UnitSystemBox.SelectedIndex = string.Equals(catalog.PreferredUnitSystem, "Imperial", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
             SelectComboBoxItem(CurrencyBox, catalog.PreferredCurrency);
+            ShowFixedRate(_loadedFixedRate, catalog.PreferredCurrency);
         }
         catch (Exception exception)
         {
@@ -75,10 +77,27 @@ public sealed partial class MainPage : Page
             return;
         }
 
+        ExchangeRateOverride fixedRate;
+        if (FixedRateCheckBox.IsChecked == true)
+        {
+            if (double.IsNaN(FixedRateBox.Value) || FixedRateBox.Value <= 0)
+            {
+                UnitsAndCurrencyStatusText.Text = $"Enter how many {currencyCode} one US dollar is worth, or untick the fixed rate.";
+                return;
+            }
+
+            fixedRate = new ExchangeRateOverride(true, currencyCode, FixedRateBox.Value, NullIfBlank(FixedRateNoteBox.Text));
+        }
+        else
+        {
+            fixedRate = new ExchangeRateOverride(false, currencyCode, 0);
+        }
+
         UnitsAndCurrencyStatusText.Text = "Saving...";
         try
         {
-            UnitsAndCurrencyStatusText.Text = await PublishUnitsAndCurrencyAsync(unitSystem, currencyCode);
+            UnitsAndCurrencyStatusText.Text = await PublishUnitsAndCurrencyAsync(unitSystem, currencyCode, fixedRate);
+            _loadedFixedRate = fixedRate;
         }
         catch (Exception exception)
         {
@@ -86,24 +105,75 @@ public sealed partial class MainPage : Page
         }
     }
 
-    /// <summary>Writes both preferences to their dedicated project parameters (rescaling stored costs on a currency change) and mirrors them into the settings snapshot.</summary>
-    private async Task<string> PublishUnitsAndCurrencyAsync(string unitSystem, string currencyCode)
+    /// <summary>
+    /// Writes both preferences to their dedicated project parameters and mirrors them into the
+    /// settings snapshot. Publishing the currency rescales every stored cost-saved value from its
+    /// own recorded rate to <paramref name="fixedRate"/> (when on) or today's rate — so changing
+    /// only the fixed rate re-costs the project too.
+    /// </summary>
+    private async Task<string> PublishUnitsAndCurrencyAsync(string unitSystem, string currencyCode, ExchangeRateOverride fixedRate)
     {
         var unitResult = await GetClient().SendAsync<PublishPreferredUnitSystemResult>(
             PipeCommands.PublishPreferredUnitSystem, new PublishPreferredUnitSystemRequest(unitSystem));
 
-        var rate = await _exchangeRateService.GetUsdRateAsync(currencyCode);
+        // Saved first, so every other tool resolves the same rate from here on.
+        await ProjectSettingsSync.PushAsync(
+            GetClient(), preferredUnitSystem: unitSystem, preferredCurrency: currencyCode, exchangeRateOverride: fixedRate);
+
+        var rate = ProjectExchangeRate.ResolveWithoutLookup(fixedRate, currencyCode) ?? await _exchangeRateService.GetUsdRateAsync(currencyCode);
         await GetClient().SendAsync<PublishPreferredCurrencyResult>(
             PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(currencyCode, rate.UsdRate));
 
-        await ProjectSettingsSync.PushAsync(GetClient(), preferredUnitSystem: unitSystem, preferredCurrency: currencyCode);
-
         var currencyNote = rate.Success
-            ? $"{currencyCode} (factor {rate.UsdRate:G6}). Already-calculated cost-saved values were rescaled to {currencyCode}."
+            ? $"{currencyCode} at {ProjectExchangeRate.Describe(rate, fixedRate.Note)}. Already-calculated cost-saved values were rescaled to it."
             : $"{currencyCode}. {rate.Error}";
         return unitResult.Warning is null
             ? $"Saved: {unitSystem} units, {currencyNote}"
             : $"Saved: {unitSystem} units, {currencyNote} {unitResult.Warning}";
+    }
+
+    private ExchangeRateOverride? _loadedFixedRate;
+
+    /// <summary>Shows the fixed rate only while it is for the selected currency — a rate saved for GBP means nothing for EUR.</summary>
+    private void ShowFixedRate(ExchangeRateOverride? fixedRate, string currencyCode)
+    {
+        var applies = fixedRate?.RateFor(currencyCode) is not null;
+        FixedRateCheckBox.IsChecked = applies;
+        FixedRateBox.Value = applies ? fixedRate!.UsdRate : double.NaN;
+        FixedRateNoteBox.Text = applies ? fixedRate!.Note ?? string.Empty : string.Empty;
+        FixedRateCurrencyText.Text = currencyCode;
+        FixedRatePanel.Visibility = applies ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private string SelectedCurrency => (CurrencyBox.SelectedItem as ComboBoxItem)?.Content as string ?? "USD";
+
+    private void CurrencyBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // Fires during InitializeComponent, before the fixed-rate controls exist.
+        if (FixedRatePanel is not null)
+        {
+            ShowFixedRate(_loadedFixedRate, SelectedCurrency);
+        }
+    }
+
+    private void FixedRateCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        FixedRatePanel.Visibility = FixedRateCheckBox.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        FixedRateCurrencyText.Text = SelectedCurrency;
+    }
+
+    private async void UseTodaysRate_Click(object sender, RoutedEventArgs e)
+    {
+        var rate = await _exchangeRateService.GetUsdRateAsync(SelectedCurrency);
+        if (rate.Success)
+        {
+            FixedRateBox.Value = Math.Round(rate.UsdRate, 6);
+            UnitsAndCurrencyStatusText.Text = $"Filled in today's rate, 1 USD = {rate.UsdRate:G6} {SelectedCurrency}. Adjust it if needed, then Save.";
+        }
+        else
+        {
+            UnitsAndCurrencyStatusText.Text = rate.Error ?? "Couldn't fetch today's rate.";
+        }
     }
 
     private void SaveITreeKey_Click(object sender, RoutedEventArgs e)

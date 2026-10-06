@@ -78,7 +78,7 @@ public sealed partial class MainPage : Page
         try
         {
             var catalog = await GetClient().SendAsync<ParameterCatalogResult>(PipeCommands.GetParameterCatalog, new ModelScanOptions());
-            var rate = await _exchangeRateService.GetUsdRateAsync(catalog.PreferredCurrency);
+            var rate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, catalog.PreferredCurrency);
             _preferredCurrency = rate.CurrencyCode;
             _preferredCurrencyFactor = rate.UsdRate;
         }

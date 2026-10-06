@@ -2,8 +2,8 @@ using System.Text.Json;
 
 namespace WWP.LandscapeDataManager.Shared.Services;
 
-/// <summary>One USD-to-target-currency rate, plus how it was obtained — always usable even on failure.</summary>
-public sealed record ExchangeRateResult(string CurrencyCode, double UsdRate, bool Success, string? Error);
+/// <summary>One USD-to-target-currency rate, plus how it was obtained — always usable even on failure. <see cref="IsFixed"/> marks the project's fixed rate rather than the day's (see <see cref="ProjectExchangeRate"/>).</summary>
+public sealed record ExchangeRateResult(string CurrencyCode, double UsdRate, bool Success, string? Error, bool IsFixed = false);
 
 /// <summary>
 /// Converts i-Tree's USD-denominated monetary benefits into the project's preferred currency.

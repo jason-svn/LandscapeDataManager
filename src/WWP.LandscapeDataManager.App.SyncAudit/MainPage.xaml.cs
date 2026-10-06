@@ -561,7 +561,7 @@ public sealed partial class MainPage : Page
                 item.Years ?? 1, item.CrownExposure ?? 0))).ToList();
 
         var outcomes = await _iTreeApiClient.CalculateForInstancesAsync(signedInputs, apiKey);
-        var exchangeRate = await _exchangeRateService.GetUsdRateAsync(_preferredCurrency);
+        var exchangeRate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, _preferredCurrency);
         var writeItems = new List<InstanceParameterWriteItem>();
         foreach (var (item, (signature, _)) in staleItems.Zip(signedInputs))
         {

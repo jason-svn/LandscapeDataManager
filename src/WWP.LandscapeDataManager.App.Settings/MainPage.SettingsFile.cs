@@ -119,9 +119,15 @@ public sealed partial class MainPage
 
         var unitSystem = settings.PreferredUnitSystem;
         var currency = settings.PreferredCurrency;
+        var fixedRate = settings.ExchangeRateOverride is { } fileRate && currency is not null && fileRate.RateFor(currency) is not null
+            ? fileRate
+            : new ExchangeRateOverride(false, currency ?? "USD", 0);
         Offer(unitSystem is not null && currency is not null,
-            "Units & currency", $"{unitSystem}, {currency} (changing currency rescales stored cost results)",
-            async () => { await PublishUnitsAndCurrencyAsync(unitSystem!, currency!); return "units & currency"; });
+            "Units & currency",
+            $"{unitSystem}, {currency}" +
+            (fixedRate.Enabled ? $" at a fixed 1 USD = {fixedRate.UsdRate:G6} {currency}{(fixedRate.Note is null ? string.Empty : $" ({fixedRate.Note})")}" : " at today's rate") +
+            " (rescales stored cost results)",
+            async () => { await PublishUnitsAndCurrencyAsync(unitSystem!, currency!, fixedRate); return "units & currency"; });
         Offer(settings.WwpLdsSource is not null,
             "Landscape data sheet source", settings.WwpLdsSource?.BaseId ?? string.Empty,
             async () => { await ProjectSettingsSync.PushAsync(GetClient(), wwpLdsSource: settings.WwpLdsSource); return "data sheet source"; });

@@ -239,7 +239,7 @@ public sealed partial class MainPage : Page
         var outcomes = await _iTreeApiClient.CalculateForInstancesAsync(signedInputs, apiKey);
 
         // One rate lookup per batch, not per tree — the rate doesn't vary by tree, only by currency.
-        var exchangeRate = await _exchangeRateService.GetUsdRateAsync(_preferredCurrency);
+        var exchangeRate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, _preferredCurrency);
 
         var writeItems = new List<InstanceParameterWriteItem>();
         foreach (var (row, (signature, _)) in rows.Zip(signedInputs))

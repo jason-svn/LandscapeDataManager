@@ -166,7 +166,7 @@ public sealed partial class MainPage : Page
             return "Couldn't determine a matching currency for this location — left the current preference as-is.";
         }
 
-        var rate = await _exchangeRateService.GetUsdRateAsync(currency);
+        var rate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, currency);
         await GetClient().SendAsync<PublishPreferredCurrencyResult>(
             PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(currency, rate.UsdRate));
         await ProjectSettingsSync.PushAsync(GetClient(), preferredCurrency: currency);
