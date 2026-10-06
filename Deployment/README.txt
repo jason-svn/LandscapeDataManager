@@ -49,6 +49,19 @@ colleague (or use it on another project): Import settings... lets them tick whic
 apply. Keys (i-Tree API key, Airtable token) are only included if you tick that option when
 exporting - anyone with the file can then use them.
 
+GROWTH YEARS (WORKSETS)
+
+Model each growth year of the trees on its own workset with the year in its name, e.g.
+"Trees - 5 Years", "Trees - 10 Years". Trees on any other workset (e.g. existing trees),
+floors and lighting count in every year. The Dashboard's Growth year slider shows one year
+at a time, and Export JSON writes one scenario per year for the online dashboard.
+
+If nursery stock is already some years old when planted, enter that on the planting type in
+!_S_PLT_TreeGrowth_AgeAtPlanting_Number. When Tree Calculator loads, it sets each tree's
+!_S_PLT_TreeGrowth_Years_Number to age at planting + its workset's year (e.g. 5 + 10 = 15),
+so the family sizes the tree, and i-Tree calculates it, at its real age. Run Import Shared
+Parameter after updating to add the new parameter.
+
 BIODIVERSITY NET GAIN (BNG)
 
 1. Run Import Shared Parameter with the Shared_Parameters_WWP.txt included in this ZIP, so

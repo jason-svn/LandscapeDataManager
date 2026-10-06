@@ -38,7 +38,8 @@ public static class ProjectSettingsSync
         string? sharedParameterFilePath = null,
         string? preferredUnitSystem = null,
         string? preferredCurrency = null,
-        InstanceMatchKeySettings? instanceMatchKey = null)
+        InstanceMatchKeySettings? instanceMatchKey = null,
+        string? siteBoundary = null)
     {
         var existingResult = await client.SendAsync<GetProjectSettingsJsonResult>(PipeCommands.GetProjectSettingsJson);
         var existing = ProjectSettingsJson.Deserialize(existingResult.SettingsJson) ?? new ProjectSettingsSnapshot();
@@ -68,7 +69,8 @@ public static class ProjectSettingsSync
             typeAliases ?? existing.TypeAliases,
             wwpLdsSource ?? existing.WwpLdsSource,
             sharedParameterFilePath ?? existing.SharedParameterFilePath,
-            instanceMatchKey ?? existing.InstanceMatchKey);
+            instanceMatchKey ?? existing.InstanceMatchKey,
+            siteBoundary ?? existing.SiteBoundary);
 
         await client.SendAsync<PublishProjectSettingsJsonResult>(
             PipeCommands.PublishProjectSettingsJson,

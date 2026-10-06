@@ -70,7 +70,10 @@ internal static class HealthCheckScanner
                 continue;
             }
 
-            var ldsType = GetText(floor, FloorTypeParameter);
+            // Type-bound: GetText on the instance alone never sees it.
+            var ldsType = ElementParameters.LookupOnInstanceOrType(floor, FloorTypeParameter) is { HasValue: true } typeParameter
+                ? typeParameter.AsString()?.Trim() ?? string.Empty
+                : string.Empty;
             var reason = ldsType.Length == 0
                 ? "No landscape type matched — open Floor Calculator and search/match a type."
                 : "Landscape type matched but never calculated — open Floor Calculator and click Calculate.";

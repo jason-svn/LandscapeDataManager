@@ -94,7 +94,34 @@ public sealed partial class MainPage : Page
         _activeFilter = null;
         UpdateCounts();
         ApplyFilter();
-        StatusText.Text = $"{validation.Items.Count:N0} planting instances validated.";
+        StatusText.Text = $"{validation.Items.Count:N0} planting instances validated." + DescribeAgeSync(validation.AgeSync);
+    }
+
+    /// <summary>What the automatic "age at planting + growth-year workset" update did before this scan.</summary>
+    private static string DescribeAgeSync(TreeAgeSyncSummary? sync)
+    {
+        if (sync is not { OnGrowthWorksets: > 0 })
+        {
+            return string.Empty;
+        }
+
+        var notes = new List<string>
+        {
+            sync.Updated > 0
+                ? $"Updated the age of {sync.Updated:N0} tree(s) to age at planting + their growth-year workset."
+                : "Tree ages already match age at planting + their growth-year workset."
+        };
+        if (sync.SkippedNotEditable > 0)
+        {
+            notes.Add($"{sync.SkippedNotEditable:N0} tree(s) are checked out by someone else, so their age wasn't updated.");
+        }
+
+        if (sync.MissingYearsParameter > 0)
+        {
+            notes.Add($"{sync.MissingYearsParameter:N0} tree(s) have no !_S_PLT_TreeGrowth_Years_Number — run Import Shared Parameter.");
+        }
+
+        return " " + string.Join(" ", notes);
     }
 
     private void UpdateCounts()

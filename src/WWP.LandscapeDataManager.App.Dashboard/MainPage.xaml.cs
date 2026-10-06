@@ -34,6 +34,11 @@ public sealed partial class MainPage : Page
     private string _unitSystemOverride = ProjectDefaultUnitSystem;
     private bool _showAnnual = true;
     private int _projectionYears = 10;
+
+    // The growth-year slider's stops. From tree worksets when the model has growth-year worksets
+    // (then the slider also filters which trees count), else the standard outlook years.
+    private IReadOnlyList<int> _growthYearStops = GrowthYears.StandardYears;
+    private bool _growthYearsFromWorksets;
     private string? _activeStatusFilter;
     private string _selectedDesignOption = AllDesignOptions;
     private string _selectedLevel = AllLevels;
@@ -49,6 +54,10 @@ public sealed partial class MainPage : Page
     private bool _designOptionExplicitlyChosen;
 
     private OriginalDataWindow? _originalDataWindow;
+
+    // Canopy Cover and Softscape Surface Ratio divide by this; see SiteBoundaryResolver.
+    private SiteBoundaryOption? _siteBoundary;
+    private string? _savedSiteBoundaryKey;
 
     public MainPage()
     {
@@ -118,6 +127,7 @@ public sealed partial class MainPage : Page
             var report = await reportTask;
             _preferredUnitSystem = catalog.PreferredUnitSystem;
             _preferredCurrency = catalog.PreferredCurrency;
+            _savedSiteBoundaryKey = await TryPullSavedSiteBoundaryAsync() ?? _savedSiteBoundaryKey;
             await ApplyReportAsync(report);
             await DashboardSnapshotCache.SaveAsync(report);
 
@@ -150,7 +160,9 @@ public sealed partial class MainPage : Page
         var rate = await _exchangeRateService.GetUsdRateAsync(_preferredCurrency);
         _usdExchangeRate = rate.UsdRate;
 
+        RebuildGrowthYearSlider();
         RebuildFilterOptions();
+        RebuildSiteBoundaryOptions();
         RebuildRows();
         _originalDataWindow?.ShowReport(report);
     }
@@ -168,8 +180,14 @@ public sealed partial class MainPage : Page
         _suppressFilterEvents = true;
         try
         {
-            var designOptions = _lastReport.Trees.Select(tree => tree.DesignOption)
+            // The main model isn't an alternative — it's part of every option — so it's only listed
+            // when the model has no design options at all.
+            var allOptions = _lastReport.Trees.Select(tree => tree.DesignOption)
                 .Concat(_lastReport.Floors.Select(floor => floor.DesignOption))
+                .ToList();
+            var hasRealOptions = allOptions.Any(option => !DashboardUnitLabels.IsMainModel(option));
+            var designOptions = allOptions
+                .Where(option => !hasRealOptions || !DashboardUnitLabels.IsMainModel(option))
                 .Select(DashboardUnitLabels.FormatDesignOption)
                 .Distinct()
                 .OrderBy(value => value)
@@ -227,11 +245,14 @@ public sealed partial class MainPage : Page
             (tree.Source.SpeciesCode ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
             (tree.Source.CommonName ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase);
         bool MatchesDimensionFilters(DesignOptionInfo designOption, string? levelName) =>
-            (_selectedDesignOption == AllDesignOptions || DashboardUnitLabels.FormatDesignOption(designOption) == _selectedDesignOption) &&
+            (_selectedDesignOption == AllDesignOptions ||
+             DashboardUnitLabels.IsMainModel(designOption) ||
+             DashboardUnitLabels.FormatDesignOption(designOption) == _selectedDesignOption) &&
             MatchesLevel(levelName);
 
         var treesInScope = normalizedTrees
             .Where(tree => MatchesDimensionFilters(tree.Source.DesignOption, tree.Source.LevelName))
+            .Where(tree => !_growthYearsFromWorksets || GrowthYears.CountsIn(tree.Source, _projectionYears))
             .Where(MatchesSearch)
             .ToList();
 
@@ -505,20 +526,17 @@ public sealed partial class MainPage : Page
         var carbonUnit = DashboardUnitLabels.CarbonUnit(unitSystem);
         double FloorCarbon(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerPound;
 
-        var treeGroups = allTrees
-            .Where(tree => matchesLevel(tree.Source.LevelName) && matchesSearch(tree))
-            .GroupBy(tree => DashboardUnitLabels.FormatDesignOption(tree.Source.DesignOption))
-            .ToDictionary(group => group.Key, group => group.ToList());
-        var floorGroups = _lastReport.Floors
-            .Where(floor => matchesLevel(floor.LevelName))
-            .GroupBy(floor => DashboardUnitLabels.FormatDesignOption(floor.DesignOption))
-            .ToDictionary(group => group.Key, group => group.ToList());
-        var optionNames = treeGroups.Keys.Concat(floorGroups.Keys).Distinct().OrderBy(DashboardUnitLabels.ExtractProjectionYears).ThenBy(name => name).ToList();
+        var scenarios = DashboardUnitLabels.SplitByDesignOption(
+            allTrees.Where(tree => matchesLevel(tree.Source.LevelName) && matchesSearch(tree)).ToList(),
+            tree => tree.Source.DesignOption,
+            _lastReport.Floors.Where(floor => matchesLevel(floor.LevelName)).ToList(),
+            floor => floor.DesignOption);
 
-        var values = optionNames.Select(option =>
+        var values = scenarios.Select(scenario =>
         {
-            var trees = treeGroups.GetValueOrDefault(option) ?? [];
-            var floors = floorGroups.GetValueOrDefault(option) ?? [];
+            var option = scenario.Label;
+            var trees = scenario.Trees;
+            var floors = scenario.Floors;
             var total = DashboardAggregationService.BuildGrandTotal(trees, floors);
             var years = DashboardUnitLabels.ExtractProjectionYears(option) ?? _projectionYears;
             var carbon = (total.CarbonSequesteredAnnual + FloorCarbon(total.FloorCarbonSequesteredAnnual)) * years;
@@ -562,17 +580,23 @@ public sealed partial class MainPage : Page
             return;
         }
 
+        var siteArea = _siteBoundary?.AreaSquareMeters;
         var summary = DashboardAggregationService.BuildSiteKpiSummary(
-            filteredTrees, filteredFloors, _lastReport.Lighting, _lastReport.SiteTotalAreaSquareMeters, _lastReport.HabitatConnectivityScore);
+            filteredTrees, filteredFloors, _lastReport.Lighting, siteArea, _lastReport.HabitatConnectivityScore);
 
+        const string noSiteArea = "Pick a site boundary above: a property line, or the area entered on Project Information (!_S_PLT_Site_TotalArea_Area).";
         SetPercentCard(CanopyCoverText, CanopyCoverDetailText, summary.CanopyCoverPercent,
-            $"{summary.CanopyAreaSquareMeters:N0} m² canopy over site area",
-            "Enter !_S_PLT_Site_TotalArea_Area on Project Information to see a percentage.",
+            $"{summary.CanopyAreaSquareMeters:N0} m² canopy over {siteArea:N0} m² site",
+            noSiteArea,
             high: 30d, medium: 15d);
 
+        var unclassified = filteredFloors.Count(floor => DashboardAggregationService.ResolveSurfaceClass(floor) is null);
         SetPercentCard(SoftscapeRatioText, SoftscapeRatioDetailText, summary.SoftscapeSurfaceRatioPercent,
-            $"{summary.PerviousAreaSquareMeters:N0} m² pervious over site area",
-            "Enter !_S_PLT_Site_TotalArea_Area on Project Information to see a percentage.",
+            $"{summary.PerviousAreaSquareMeters:N0} m² pervious over {siteArea:N0} m² site" +
+            (unclassified > 0
+                ? $" · {unclassified:N0} floor(s) not classified — match their LDS type in Floor Calculator, or tag !_S_PLT_LDS_SurfaceClass_Text on the floor type."
+                : string.Empty),
+            noSiteArea,
             high: 50d, medium: 25d);
 
         BiodiversityAddedText.Text = $"{summary.DistinctSpeciesCount:N0} species";
@@ -855,16 +879,83 @@ public sealed partial class MainPage : Page
     /// caller already holds <see cref="_suppressFilterEvents"/> if it doesn't want <see cref="ProjectionBox_SelectionChanged"/> to fire.</summary>
     private void SyncProjectionYearsFromDesignOption(string designOptionLabel)
     {
-        var optionYears = DashboardUnitLabels.ExtractProjectionYears(designOptionLabel);
-        if (optionYears is null)
+        // Growth-year worksets own the year when the model has them; design option names are the
+        // older convention, still honoured for models that haven't moved to worksets.
+        if (_growthYearsFromWorksets || DashboardUnitLabels.ExtractProjectionYears(designOptionLabel) is not { } optionYears)
         {
             return;
         }
 
-        _projectionYears = optionYears.Value;
-        ProjectionBox.SelectedItem = ProjectionBox.Items
-            .OfType<ComboBoxItem>()
-            .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), optionYears.Value.ToString(), StringComparison.Ordinal));
+        _projectionYears = optionYears;
+        SetGrowthYearSliderValue();
+    }
+
+    private void RebuildGrowthYearSlider()
+    {
+        var worksetYears = _lastReport is null ? [] : GrowthYears.InModel(_lastReport.Trees);
+        _growthYearsFromWorksets = worksetYears.Count > 0;
+        _growthYearStops = _growthYearsFromWorksets ? worksetYears : GrowthYears.StandardYears;
+        if (!_growthYearStops.Contains(_projectionYears))
+        {
+            _projectionYears = _growthYearStops.Contains(10) ? 10 : _growthYearStops[0];
+        }
+
+        GrowthYearHeaderText.Text = _growthYearsFromWorksets ? "Growth year (worksets)" : "Outlook";
+
+        // Labels sit under their stops: stop i is i/(n-1) along the track, so with 2(n-1) equal
+        // columns each inner label spans the two columns either side of it.
+        var count = _growthYearStops.Count;
+        GrowthYearTicks.Children.Clear();
+        GrowthYearTicks.ColumnDefinitions.Clear();
+        for (var column = 0; column < Math.Max(1, 2 * (count - 1)); column++)
+        {
+            GrowthYearTicks.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        }
+
+        for (var index = 0; index < count; index++)
+        {
+            var stop = index;
+            var label = new TextBlock
+            {
+                Text = $"{_growthYearStops[index]} yr",
+                FontSize = 11,
+                Opacity = 0.75,
+                HorizontalAlignment = index == 0 ? HorizontalAlignment.Left : index == count - 1 ? HorizontalAlignment.Right : HorizontalAlignment.Center
+            };
+            label.Tapped += (_, _) => GrowthYearSlider.Value = stop;
+            Grid.SetColumn(label, index == 0 ? 0 : 2 * index - 1);
+            Grid.SetColumnSpan(label, index == 0 || index == count - 1 ? 1 : 2);
+            GrowthYearTicks.Children.Add(label);
+        }
+
+        GrowthYearSlider.Maximum = Math.Max(0, count - 1);
+        GrowthYearSlider.IsEnabled = count > 1;
+        SetGrowthYearSliderValue();
+    }
+
+    /// <summary>Moves the thumb to <see cref="_projectionYears"/> and bolds its label, without re-filtering.</summary>
+    private void SetGrowthYearSliderValue()
+    {
+        var index = Math.Max(0, _growthYearStops.ToList().IndexOf(_projectionYears));
+        var wasSuppressed = _suppressFilterEvents;
+        _suppressFilterEvents = true;
+        try
+        {
+            GrowthYearSlider.Value = index;
+        }
+        finally
+        {
+            _suppressFilterEvents = wasSuppressed;
+        }
+
+        for (var i = 0; i < GrowthYearTicks.Children.Count; i++)
+        {
+            if (GrowthYearTicks.Children[i] is TextBlock label)
+            {
+                label.FontWeight = i == index ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal;
+                label.Opacity = i == index ? 1 : 0.75;
+            }
+        }
     }
 
     private void LevelBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -891,15 +982,16 @@ public sealed partial class MainPage : Page
         RebuildRows();
     }
 
-    private void ProjectionBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void GrowthYearSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
-        if (_suppressFilterEvents || ProjectionBox.SelectedItem is not ComboBoxItem item ||
-            !int.TryParse(item.Tag?.ToString(), out var years))
+        var index = (int)Math.Round(e.NewValue);
+        if (_suppressFilterEvents || index < 0 || index >= _growthYearStops.Count || _growthYearStops[index] == _projectionYears)
         {
             return;
         }
 
-        _projectionYears = years;
+        _projectionYears = _growthYearStops[index];
+        SetGrowthYearSliderValue();
         RebuildRows();
     }
 
@@ -908,6 +1000,88 @@ public sealed partial class MainPage : Page
         _showAnnual = PeriodToggle.IsOn;
         RebuildRows();
     }
+
+    private void RebuildSiteBoundaryOptions()
+    {
+        if (_lastReport is null)
+        {
+            return;
+        }
+
+        var options = SiteBoundaryResolver.BuildOptions(_lastReport.SiteTotalAreaSquareMeters, _lastReport.PropertyLines);
+        var chosen = SiteBoundaryResolver.Resolve(options, _siteBoundary?.Key ?? _savedSiteBoundaryKey);
+        _siteBoundary = chosen;
+
+        _suppressFilterEvents = true;
+        try
+        {
+            SiteBoundaryBox.ItemsSource = options;
+            SiteBoundaryBox.SelectedItem = options.First(option => option.Key == chosen.Key);
+        }
+        finally
+        {
+            _suppressFilterEvents = false;
+        }
+    }
+
+    private async void SiteBoundaryBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressFilterEvents || SiteBoundaryBox.SelectedItem is not SiteBoundaryOption option)
+        {
+            return;
+        }
+
+        _siteBoundary = option;
+        _savedSiteBoundaryKey = option.Key;
+        RebuildRows();
+
+        // Remembered on the project, so everyone opening the Dashboard sees the same site boundary.
+        // Best effort: a cached snapshot with Revit closed just keeps the choice for this session.
+        try
+        {
+            await ProjectSettingsSync.PushAsync(GetClient(), siteBoundary: option.Key);
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task<string?> TryPullSavedSiteBoundaryAsync()
+    {
+        try
+        {
+            return (await ProjectSettingsSync.PullAsync(GetClient()))?.SiteBoundary;
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// With growth-year worksets the export's scenarios are the growth years, so it covers the
+    /// design option chosen here (all options when "All design options" is chosen).
+    /// </summary>
+    private DashboardReportResult ReportForJsonExport()
+    {
+        var report = ReportWithChosenSiteArea(_lastReport!);
+        if (!_growthYearsFromWorksets || _selectedDesignOption == AllDesignOptions)
+        {
+            return report;
+        }
+
+        bool InOption(DesignOptionInfo option) =>
+            DashboardUnitLabels.IsMainModel(option) || DashboardUnitLabels.FormatDesignOption(option) == _selectedDesignOption;
+        return report with
+        {
+            Trees = report.Trees.Where(tree => InOption(tree.DesignOption)).ToList(),
+            Floors = report.Floors.Where(floor => InOption(floor.DesignOption)).ToList()
+        };
+    }
+
+    /// <summary>The report as the KPIs see it: its site area replaced by the chosen site boundary's.</summary>
+    private DashboardReportResult ReportWithChosenSiteArea(DashboardReportResult report) =>
+        report with { SiteTotalAreaSquareMeters = _siteBoundary?.AreaSquareMeters };
 
     private void ShowOriginalData_Click(object sender, RoutedEventArgs e)
     {
@@ -1080,7 +1254,7 @@ public sealed partial class MainPage : Page
         await RunBusyAsync(async () =>
         {
             var location = await ResolveLocationAsync();
-            var export = DashboardJsonExportService.Build(_lastReport, _preferredCurrency, _usdExchangeRate, location);
+            var export = DashboardJsonExportService.Build(ReportForJsonExport(), _preferredCurrency, _usdExchangeRate, location);
             await DashboardJsonExportService.ExportAsync(file.Path, export);
             StatusText.Text = $"Exported dashboard data to {file.Name}.";
         });

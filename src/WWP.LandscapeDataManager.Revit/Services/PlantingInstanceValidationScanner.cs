@@ -58,7 +58,12 @@ internal static class PlantingInstanceValidationScanner
                 .ToElements();
         }
 
-        var items = instances
+        // Bring each growth-year tree's modelled age up to date first: the family regenerates its
+        // DBH from that age, and the DBH read below is what i-Tree is sent.
+        var instanceList = instances.ToList();
+        var ageSync = TreeAgeSyncService.Apply(document, instanceList);
+
+        var items = instanceList
             .Select(element =>
             {
                 var elementType = document.GetElement(element.GetTypeId()) as ElementType;
@@ -85,7 +90,7 @@ internal static class PlantingInstanceValidationScanner
             .ThenBy(item => item.TypeName)
             .ToList();
 
-        return new ValidatePlantingInstancesResult(document.Title, items);
+        return new ValidatePlantingInstancesResult(document.Title, items, ageSync);
     }
 
     private static double? ConvertToInches(double? internalLengthValue) =>

@@ -12,8 +12,9 @@ public sealed record LimSettingsSecrets(string? ITreeApiKey = null, string? Airt
 /// <summary>
 /// A shareable <c>.limsettings</c> file: the project's <see cref="ProjectSettingsSnapshot"/> plus,
 /// opt-in, the credentials Settings keeps in Windows Credential Manager. It lets one person set
-/// LIM up once and send the file to colleagues or other projects. The site latitude/longitude are
-/// never written — they describe one project, not a setup worth copying.
+/// LIM up once and send the file to colleagues or other projects. The site latitude/longitude and
+/// the Dashboard's chosen site boundary (a property line in one model) are never written — they
+/// describe one project, not a setup worth copying.
 /// </summary>
 public sealed record LimSettingsFile(
     string Format,
@@ -48,7 +49,8 @@ public static class LimSettingsFileFormat
             PreferredUnitSystem = preferredUnitSystem ?? projectSettings?.PreferredUnitSystem,
             PreferredCurrency = preferredCurrency ?? projectSettings?.PreferredCurrency,
             Latitude = null,
-            Longitude = null
+            Longitude = null,
+            SiteBoundary = null
         };
 
         return new LimSettingsFile(
@@ -87,7 +89,7 @@ public static class LimSettingsFileFormat
                 $"This settings file was exported by a newer LIM version (format {file.FormatVersion}). Update LIM with Check for Updates, then import it again.");
         }
 
-        // Whatever an older or hand-edited file says, location never travels between projects.
-        return file with { Settings = file.Settings with { Latitude = null, Longitude = null } };
+        // Whatever an older or hand-edited file says, location and site boundary never travel between projects.
+        return file with { Settings = file.Settings with { Latitude = null, Longitude = null, SiteBoundary = null } };
     }
 }

@@ -166,28 +166,31 @@ internal static class DashboardJsonExportService
         double usdToTargetRate,
         DashboardJsonLocation location)
     {
-        var treesByOption = report.Trees
-            .GroupBy(tree => (Label: DashboardUnitLabels.FormatDesignOption(tree.DesignOption), tree.DesignOption.IsPrimary))
-            .ToList();
-        var floorsByOption = report.Floors
-            .GroupBy(floor => (Label: DashboardUnitLabels.FormatDesignOption(floor.DesignOption), floor.DesignOption.IsPrimary))
-            .ToList();
-
-        var optionKeys = treesByOption.Select(g => g.Key)
-            .Concat(floorsByOption.Select(g => g.Key))
-            .Distinct()
-            .OrderBy(key => DashboardUnitLabels.ExtractProjectionYears(key.Label) ?? int.MaxValue)
-            .ThenBy(key => key.Label, StringComparer.Ordinal)
-            .ToList();
-
-        var scenarios = optionKeys.Select(key =>
-        {
-            var trees = treesByOption.FirstOrDefault(g => g.Key.Equals(key))?.ToList() ?? [];
-            var floors = floorsByOption.FirstOrDefault(g => g.Key.Equals(key))?.ToList() ?? [];
-            return BuildScenario(key.Label, key.IsPrimary, trees, floors, report, currency, usdToTargetRate);
-        }).ToList();
-
         var project = new DashboardJsonProject(report.DocumentTitle, currency, location, DateTimeOffset.Now);
+
+        // Growth years modelled as worksets: one scenario per year — that year's trees, trees on no
+        // growth-year workset, and every floor (floors aren't split by year).
+        var worksetYears = GrowthYears.InModel(report.Trees);
+        if (worksetYears.Count > 0)
+        {
+            var yearScenarios = worksetYears.Select((year, index) => BuildScenario(
+                    $"{year} years",
+                    index == 0,
+                    report.Trees.Where(tree => GrowthYears.CountsIn(tree, year)).ToList(),
+                    report.Floors,
+                    report,
+                    currency,
+                    usdToTargetRate))
+                .ToList();
+            return new DashboardJsonExport(SchemaVersion, project, yearScenarios);
+        }
+
+        // Main-model elements (in no design option) belong to every option's scenario, as in Revit.
+        var scenarios = DashboardUnitLabels
+            .SplitByDesignOption(report.Trees, tree => tree.DesignOption, report.Floors, floor => floor.DesignOption)
+            .Select(scenario => BuildScenario(scenario.Label, scenario.IsPrimary, scenario.Trees, scenario.Floors, report, currency, usdToTargetRate))
+            .ToList();
+
         return new DashboardJsonExport(SchemaVersion, project, scenarios);
     }
 

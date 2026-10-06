@@ -76,8 +76,26 @@ internal static class DashboardReportService
         var habitatConnectivityScore = GetHabitatConnectivityScore(document);
 
         return new DashboardReportResult(
-            document.Title, unitPreference, currencyPreference, siteTotalArea, habitatConnectivityScore, trees, floors, lighting);
+            document.Title, unitPreference, currencyPreference, siteTotalArea, habitatConnectivityScore, trees, floors, lighting,
+            GetPropertyLines(document));
     }
+
+    /// <summary>Every property line in the model, whatever the scope/selection — a site boundary isn't something you select.</summary>
+    private static List<DashboardPropertyLine> GetPropertyLines(Document document) =>
+        new FilteredElementCollector(document)
+            .OfCategory(BuiltInCategory.OST_SiteProperty)
+            .WhereElementIsNotElementType()
+            .Select(line =>
+            {
+                var area = line.get_Parameter(BuiltInParameter.PROPERTY_AREA);
+                var areaSquareMeters = area is { HasValue: true, StorageType: StorageType.Double }
+                    ? UnitUtils.ConvertFromInternalUnits(area.AsDouble(), UnitTypeId.SquareMeters)
+                    : 0d;
+                var name = string.IsNullOrWhiteSpace(line.Name) ? $"Property line {line.Id.Value}" : line.Name;
+                return new DashboardPropertyLine(line.UniqueId, name, areaSquareMeters, areaSquareMeters > 0);
+            })
+            .OrderBy(line => line.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
 
     private static double? GetSiteTotalAreaSquareMeters(Document document)
     {
@@ -167,7 +185,8 @@ internal static class DashboardReportService
             GetVolumeCubicMeters("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume"),
             GetVolumeCubicMeters("!_S_PLT_iTreeResult_RunoffAvoidedLifetimeTotal_Volume"),
             GetMassKilograms("!_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass"),
-            GetMassKilograms("!_S_PLT_iTreeResult_CO2EquivalentLifetimeTotal_Mass"));
+            GetMassKilograms("!_S_PLT_iTreeResult_CO2EquivalentLifetimeTotal_Mass"),
+            GetWorksetName(document, element));
     }
 
     private static DashboardFloorItem CreateFloorItem(Document document, Element element)
@@ -201,8 +220,9 @@ internal static class DashboardReportService
             element.Id.Value,
             familyName,
             elementType?.Name ?? element.Name,
-            GetNullableText(element, "!_S_PLT_LDS_Type_Text"),
-            GetNullableText(element, "!_S_PLT_LDS_SurfaceClass_Text"),
+            // Type-bound parameters (see ElementParameters.LookupOnInstanceOrType).
+            GetNullableTextOnInstanceOrType(element, "!_S_PLT_LDS_Type_Text"),
+            GetNullableTextOnInstanceOrType(element, "!_S_PLT_LDS_SurfaceClass_Text"),
             GetLevelName(document, element),
             GetDesignOptionInfo(document, element),
             areaSquareMeters,
@@ -311,6 +331,17 @@ internal static class DashboardReportService
 
         return null;
     }
+
+    /// <summary>The element's workset name — growth years are modelled as worksets (e.g. "Trees - 15 Years"); null in a non-workshared model.</summary>
+    private static string? GetWorksetName(Document document, Element element) =>
+        document.IsWorkshared ? document.GetWorksetTable().GetWorkset(element.WorksetId)?.Name : null;
+
+    private static string? GetNullableTextOnInstanceOrType(Element element, string name) =>
+        ElementParameters.LookupOnInstanceOrType(element, name) is { HasValue: true, StorageType: StorageType.String } parameter
+            ? NullIfBlank(parameter.AsString())
+            : null;
+
+    private static string? NullIfBlank(string? text) => string.IsNullOrWhiteSpace(text) ? null : text;
 
     private static string? GetNullableText(Element element, string name)
     {

@@ -3,6 +3,8 @@ using Microsoft.UI.Xaml;
 using Windows.Graphics;
 using WinRT.Interop;
 
+using WWP.LandscapeDataManager.Shared.Services;
+
 namespace WWP.LandscapeDataManager.App.Parameters;
 
 public sealed partial class MainWindow : Window
@@ -10,6 +12,7 @@ public sealed partial class MainWindow : Window
     public MainWindow(string pipeName)
     {
         InitializeComponent();
+        Title = $"{Title} {LimVersion.Text}";
 
         var windowHandle = WindowNative.GetWindowHandle(this);
         MainContent.Initialize(pipeName, windowHandle);

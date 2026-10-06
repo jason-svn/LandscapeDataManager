@@ -24,6 +24,7 @@ public sealed partial class OriginalDataWindow : Window
     public OriginalDataWindow(DashboardReportResult report, RevitPipeClient? revitClient)
     {
         InitializeComponent();
+        Title = $"{Title} {LimVersion.Text}";
         _report = report;
         _revitClient = revitClient;
 

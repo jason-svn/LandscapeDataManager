@@ -568,7 +568,8 @@ public sealed record ValidatePlantingInstancesRequest(bool SelectedOnly = false)
 
 public sealed record ValidatePlantingInstancesResult(
     string DocumentTitle,
-    IReadOnlyList<PlantingInstanceValidationItem> Items);
+    IReadOnlyList<PlantingInstanceValidationItem> Items,
+    TreeAgeSyncSummary? AgeSync = null);
 
 public sealed record ElementSelectionRequest(IReadOnlyList<string> UniqueIds);
 
@@ -638,7 +639,8 @@ public sealed record DashboardTreeItem(
     double RunoffAvoidedAnnual,
     double RunoffAvoidedLifetimeTotal,
     double CO2EquivalentAnnual,
-    double CO2EquivalentLifetimeTotal);
+    double CO2EquivalentLifetimeTotal,
+    string? Workset = null);
 
 /// <summary>
 /// One Floor (planted/paved landscape area) instance's identity, placement, and stored LDS/i-Tree
@@ -704,6 +706,13 @@ public sealed record DashboardLightingItem(
     DesignOptionInfo DesignOption,
     string? DarkSkyCompliant);
 
+/// <summary>
+/// One Revit property line (Site category) the Dashboard can use as the site boundary for Canopy
+/// Cover and Softscape Surface Ratio. <see cref="IsClosed"/> is false for an open sketch, whose
+/// area Revit doesn't compute.
+/// </summary>
+public sealed record DashboardPropertyLine(string UniqueId, string Name, double AreaSquareMeters, bool IsClosed);
+
 public sealed record DashboardReportRequest(bool SelectedOnly = false);
 
 public sealed record DashboardReportResult(
@@ -714,7 +723,8 @@ public sealed record DashboardReportResult(
     double? HabitatConnectivityScore,
     IReadOnlyList<DashboardTreeItem> Trees,
     IReadOnlyList<DashboardFloorItem> Floors,
-    IReadOnlyList<DashboardLightingItem> Lighting);
+    IReadOnlyList<DashboardLightingItem> Lighting,
+    IReadOnlyList<DashboardPropertyLine>? PropertyLines = null);
 
 public static class JsonDefaults
 {

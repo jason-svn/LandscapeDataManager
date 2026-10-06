@@ -504,7 +504,8 @@ public static class DashboardAggregationService
         floor.AreaSquareMeters / BngFloorStatusEvaluator.SquareMetresPerHectare);
 
     /// <summary>The explicit <c>!_S_PLT_LDS_SurfaceClass_Text</c> tag always wins; otherwise inferred from the floor's LDS Type (see <see cref="SurfaceClassCatalog"/>).</summary>
-    private static string? ResolveSurfaceClass(DashboardFloorItem floor) =>
+    /// <summary>The floor's explicit surface class tag, else one inferred from its LDS type; null when neither says.</summary>
+    public static string? ResolveSurfaceClass(DashboardFloorItem floor) =>
         !string.IsNullOrWhiteSpace(floor.SurfaceClass) ? floor.SurfaceClass : SurfaceClassCatalog.Infer(floor.LdsType);
 
     private static IReadOnlyList<int> ParseMonthList(string? raw) =>

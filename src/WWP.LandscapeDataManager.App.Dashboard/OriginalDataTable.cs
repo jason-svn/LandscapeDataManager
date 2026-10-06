@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using WWP.LandscapeDataManager.Contracts;
+using WWP.LandscapeDataManager.Shared.Services;
 
 namespace WWP.LandscapeDataManager.App.Dashboard;
 
@@ -39,6 +40,8 @@ internal static class OriginalDataTable
         new("Species type", 110, tree => Text(tree.SpeciesType)),
         new("Level", 120, tree => Text(tree.LevelName)),
         new("Design option", 200, tree => DashboardUnitLabels.FormatDesignOption(tree.DesignOption)),
+        new("Workset", 170, tree => Text(tree.Workset)),
+        new("Growth year", 90, tree => GrowthYears.Of(tree)?.ToString(CultureInfo.InvariantCulture) ?? string.Empty),
         new("Status", 110, tree => tree.Status),
         new("Native status", 110, tree => Text(tree.NativeStatus)),
         new("Bloom months", 120, tree => Text(tree.BloomMonths)),

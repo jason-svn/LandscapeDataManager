@@ -6,6 +6,8 @@ using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 using WinRT.Interop;
 
+using WWP.LandscapeDataManager.Shared.Services;
+
 namespace WWP.LandscapeDataManager.App.TreeSearcher;
 
 public sealed partial class MainWindow : Window
@@ -27,6 +29,7 @@ public sealed partial class MainWindow : Window
     public MainWindow(string pipeName)
     {
         InitializeComponent();
+        Title = $"{Title} {LimVersion.Text}";
 
         // Mica composition is known to render incompletely (blank until a manual resize forces a
         // repaint) over Remote Desktop sessions — MicaController.IsSupported() already accounts for

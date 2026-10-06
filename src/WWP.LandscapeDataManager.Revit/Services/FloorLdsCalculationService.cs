@@ -58,8 +58,8 @@ internal static class FloorLdsCalculationService
                     familyName,
                     typeName,
                     GetAreaSquareMeters(floor),
-                    GetNullableText(floor, LdsTypeParameter),
-                    GetNullableText(floor, LdsMatchKeyParameter));
+                    GetNullableTextOnInstanceOrType(floor, LdsTypeParameter),
+                    GetNullableTextOnInstanceOrType(floor, LdsMatchKeyParameter));
             })
             .ToList();
 
@@ -105,8 +105,9 @@ internal static class FloorLdsCalculationService
 
     private static void WriteValues(Element floor, FloorLdsValues values)
     {
-        SetIfWritable(floor.LookupParameter(LdsTypeParameter), values.LdsType);
-        SetIfWritable(floor.LookupParameter(LdsMatchKeyParameter), values.MatchKey);
+        // Bound to the floor Type, so these land on the type: every floor of a type matches the same sheet row.
+        SetIfWritable(ElementParameters.LookupOnInstanceOrType(floor, LdsTypeParameter), values.LdsType);
+        SetIfWritable(ElementParameters.LookupOnInstanceOrType(floor, LdsMatchKeyParameter), values.MatchKey);
         SetIfWritable(floor.LookupParameter(ResultSourceParameter), values.ResultSource);
         SetIfWritable(floor.LookupParameter(LastCalculatedParameter), FormatLocalTimestamp());
 
@@ -182,6 +183,9 @@ internal static class FloorLdsCalculationService
             parameter.Set(value);
         }
     }
+
+    private static string? GetNullableTextOnInstanceOrType(Element element, string name) =>
+        ElementParameters.LookupOnInstanceOrType(element, name) is { HasValue: true } parameter ? parameter.AsString() : null;
 
     private static string? GetNullableText(Element element, string name)
     {

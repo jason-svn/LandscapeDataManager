@@ -437,6 +437,10 @@ internal static class SharedParameterSetupService
             // Required manual input — typed per instance, and fed straight to the i-Tree API.
             PlantingInstance("!_S_PLT_TreeGrowth_Years_Number", GroupTypeId.Constraints,
                 "Instance-specific modeled tree age used by family growth formulas."),
+            // Nursery stock is often already several years old when planted. On a growth-year
+            // workset, Tree Calculator sets the instance's Years to this + the workset's year.
+            PlantingType("!_S_PLT_TreeGrowth_AgeAtPlanting_Number", GroupTypeId.Constraints,
+                "Years this planting type has already grown when planted (nursery stock age). On a growth-year workset the tree's modeled age is this plus the workset's growth year."),
             // Also bound to Floors: the same "condition" input feeds Floor Calculator's BNG tab, where
             // it holds the Statutory Biodiversity Metric's condition instead (each category is
             // validated against its own vocabulary).

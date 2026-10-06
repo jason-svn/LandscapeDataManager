@@ -113,7 +113,7 @@ public sealed class App : IExternalApplication
         AddWorkflowButton<CheckForUpdatesCommand>(
             projectSetupPanel,
             "LIMCheckForUpdates",
-            "Check for\nUpdates",
+            $"Check for Updates\n{UpdateService.InstalledVersionText}",
             "UP",
             $"Check for Updates (installed: {UpdateService.InstalledVersionText})",
             "Check GitHub for a newer LIM- Landscape Data release. The update downloads in its own window while you keep working, then installs once Revit closes.");

@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
 
@@ -12,17 +11,63 @@ internal static class DashboardUnitLabels
     /// <summary>The five pollutant-removed fields are stored/normalized on an ounces-per-kilogram basis, a different conversion basis than CO2 — see <see cref="DashboardAggregationService.NormalizeTree"/>.</summary>
     public static string PollutantUnit(string unitSystem) => IsMetric(unitSystem) ? "kg" : "oz";
 
+    public const string MainModelLabel = "Primary model";
+
+    /// <summary>In no design option: Revit shows main-model elements in every design option.</summary>
+    public static bool IsMainModel(DesignOptionInfo option) =>
+        string.IsNullOrWhiteSpace(option.SetName) && string.IsNullOrWhiteSpace(option.OptionName);
+
     public static string FormatDesignOption(DesignOptionInfo option)
     {
-        if (string.IsNullOrWhiteSpace(option.SetName) && string.IsNullOrWhiteSpace(option.OptionName))
+        if (IsMainModel(option))
         {
-            return "Primary model";
+            return MainModelLabel;
         }
 
-        var name = string.IsNullOrWhiteSpace(option.SetName)
-            ? option.OptionName ?? "Unnamed option"
-            : $"{option.SetName} : {option.OptionName ?? "Unnamed option"}";
+        // Revit appends " <primary>" to the primary option's own name; "(Primary)" below says it once.
+        var optionName = option.OptionName?.Replace("<primary>", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
+        if (string.IsNullOrEmpty(optionName))
+        {
+            optionName = "Unnamed option";
+        }
+
+        var name = string.IsNullOrWhiteSpace(option.SetName) ? optionName : $"{option.SetName} : {optionName}";
         return option.IsPrimary ? $"{name} (Primary)" : name;
+    }
+
+    /// <summary>
+    /// One scenario per design option, each with its own elements plus every main-model element —
+    /// what Revit shows with that option active. A model with no design options is one "Primary
+    /// model" scenario. Ordered by growth year in the name, then by label.
+    /// </summary>
+    public static List<DesignOptionScenario<TTree, TFloor>> SplitByDesignOption<TTree, TFloor>(
+        IReadOnlyList<TTree> trees,
+        Func<TTree, DesignOptionInfo> treeOption,
+        IReadOnlyList<TFloor> floors,
+        Func<TFloor, DesignOptionInfo> floorOption)
+    {
+        var options = trees.Select(treeOption)
+            .Concat(floors.Select(floorOption))
+            .Where(option => !IsMainModel(option))
+            .Select(option => (Label: FormatDesignOption(option), option.IsPrimary))
+            .Distinct()
+            .OrderBy(option => ExtractProjectionYears(option.Label) ?? int.MaxValue)
+            .ThenBy(option => option.Label, StringComparer.Ordinal)
+            .ToList();
+
+        if (options.Count == 0)
+        {
+            return [new DesignOptionScenario<TTree, TFloor>(MainModelLabel, true, trees.ToList(), floors.ToList())];
+        }
+
+        bool In(DesignOptionInfo option, string label) => IsMainModel(option) || FormatDesignOption(option) == label;
+        return options
+            .Select(option => new DesignOptionScenario<TTree, TFloor>(
+                option.Label,
+                option.IsPrimary,
+                trees.Where(tree => In(treeOption(tree), option.Label)).ToList(),
+                floors.Where(floor => In(floorOption(floor), option.Label)).ToList()))
+            .ToList();
     }
 
     /// <summary>
@@ -31,14 +76,12 @@ internal static class DashboardUnitLabels
     /// per-design-option scenario breakdown (<see cref="DashboardJsonExportService"/>) so both agree
     /// on which years a project's growth-stage design options can carry.
     /// </summary>
-    public static int? ExtractProjectionYears(string designOptionLabel)
-    {
-        var match = Regex.Match(designOptionLabel, @"(?<!\d)(5|10|15|20|25)\s*(?:years?|yrs?)?", RegexOptions.IgnoreCase);
-        return match.Success && int.TryParse(match.Groups[1].Value, out var years) ? years : null;
-    }
+    public static int? ExtractProjectionYears(string designOptionLabel) => GrowthYears.FromName(designOptionLabel);
 
     private static bool IsMetric(string unitSystem) => string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
 }
+
+public sealed record DesignOptionScenario<TTree, TFloor>(string Label, bool IsPrimary, List<TTree> Trees, List<TFloor> Floors);
 
 public sealed class SpeciesSubtotalRow
 {

@@ -97,7 +97,7 @@
                         <ColumnDefinition Width="145" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="130" />
-                        <ColumnDefinition Width="135" />
+                        <ColumnDefinition Width="280" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <ComboBox x:Name="ScopeBox" Header="Model scope" SelectedIndex="0" HorizontalAlignment="Stretch">
@@ -116,13 +116,15 @@
                         <ComboBoxItem Content="Metric" />
                         <ComboBoxItem Content="Imperial" />
                     </ComboBox>
-                    <ComboBox Grid.Column="5" x:Name="ProjectionBox" Header="Outlook" SelectedIndex="1" HorizontalAlignment="Stretch" SelectionChanged="ProjectionBox_SelectionChanged">
-                        <ComboBoxItem Content="5 years" Tag="5" />
-                        <ComboBoxItem Content="10 years" Tag="10" />
-                        <ComboBoxItem Content="15 years" Tag="15" />
-                        <ComboBoxItem Content="20 years" Tag="20" />
-                        <ComboBoxItem Content="25 years" Tag="25" />
-                    </ComboBox>
+                    <!-- One stop per growth year, like the web dashboard's slicer. Stops come from the
+                         model's growth-year worksets (see GrowthYears), else the standard 5-25 outlook. -->
+                    <StackPanel Grid.Column="5" Spacing="0" ToolTipService.ToolTip="Growth year: trees on that year's workset (plus trees on no growth-year workset), with outlook totals over that many years.">
+                        <TextBlock x:Name="GrowthYearHeaderText" Text="Growth year" Margin="0,0,0,4" />
+                        <Slider x:Name="GrowthYearSlider" Minimum="0" Maximum="4" StepFrequency="1" TickFrequency="1" TickPlacement="None"
+                                SnapsTo="StepValues" IsThumbToolTipEnabled="False" Margin="8,0,8,0"
+                                AutomationProperties.Name="Growth year" ValueChanged="GrowthYearSlider_ValueChanged" />
+                        <Grid x:Name="GrowthYearTicks" Margin="0,-6,0,0" />
+                    </StackPanel>
                     <Button Grid.Column="6" Click="Refresh_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Text="&#8635;" FontSize="14" />
@@ -704,7 +706,9 @@
                         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                         <StackPanel Spacing="4">
                             <TextBlock Text="Site &amp; Biodiversity KPIs" FontSize="24" FontWeight="Bold" />
-                            <TextBlock Text="Canopy Cover and Softscape Surface Ratio need a total site area on Project Information (!_S_PLT_Site_TotalArea_Area) to compute a percentage; Habitat Connectivity Score is entered after external GIS connectivity modelling, not calculated here." Foreground="#FF687269" TextWrapping="Wrap" />
+                            <TextBlock Text="Canopy Cover and Softscape Surface Ratio are percentages of the site boundary chosen below: a Revit property line, all property lines, or the area entered on Project Information (!_S_PLT_Site_TotalArea_Area). Habitat Connectivity Score is entered after external GIS connectivity modelling, not calculated here." Foreground="#FF687269" TextWrapping="Wrap" />
+                            <ComboBox x:Name="SiteBoundaryBox" Header="Site boundary (for Canopy Cover and Softscape Surface Ratio)" MinWidth="420" Margin="0,6,0,0"
+                                      DisplayMemberPath="Label" SelectionChanged="SiteBoundaryBox_SelectionChanged" />
                         </StackPanel>
 
                         <Grid Grid.Row="1" ColumnSpacing="10">
