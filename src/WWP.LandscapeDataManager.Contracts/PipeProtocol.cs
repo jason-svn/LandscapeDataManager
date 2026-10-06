@@ -456,7 +456,9 @@ public sealed record BngFloorItem(
     string? BaselineHabitat = null,
     string? BaselineCondition = null,
     string? Irreplaceable = null,
-    bool Enhanced = false);
+    bool Enhanced = false,
+    bool Unique = false,
+    bool UniqueSupported = false);
 
 public sealed record BngFloorsResult(string DocumentTitle, IReadOnlyList<BngFloorItem> Items);
 
@@ -495,7 +497,8 @@ public sealed record BngFloorValues(
     string BaselineCondition = "",
     string Irreplaceable = "",
     bool Enhanced = false,
-    double BaselineUnits = 0);
+    double BaselineUnits = 0,
+    bool Unique = false);
 
 public sealed record BngFloorWrite(string FloorUniqueId, BngFloorValues Values);
 

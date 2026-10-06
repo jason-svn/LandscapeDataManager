@@ -846,6 +846,9 @@ internal static class SharedParameterSetupService
                 "BNG irreplaceable habitat status of the baseline habitat, Yes or No (A-1 column G) -- only needed where the metric allows either."),
             FloorInstance("!_S_PLT_BNGInput_Enhanced_YesNo", GroupTypeId.Constraints,
                 "Yes when a retained Existing-phase floor's habitat is enhanced (metric sheet A-3); its ProposedHabitat and Condition are then the enhanced target."),
+            // Floors of one type share their BNG inputs in Floor Calculator unless ticked Unique.
+            FloorInstance("!_S_PLT_BNGInput_Unique_YesNo", GroupTypeId.Constraints,
+                "Yes when this floor keeps its own BNG inputs in Floor Calculator instead of sharing them with other floors of the same type and role."),
             FloorInstance("!_S_PLT_BNGResult_Role_Text", GroupTypeId.AnalysisResults,
                 "BNG role from the floor's phases: Retained, Enhanced, Lost, Created, or Excluded."),
             FloorInstance("!_S_PLT_BNGResult_BaselineUnits_Number", GroupTypeId.AnalysisResults,

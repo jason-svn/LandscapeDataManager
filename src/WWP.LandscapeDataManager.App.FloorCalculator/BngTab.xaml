@@ -175,7 +175,7 @@
                 </Grid.RowDefinitions>
                 <Grid Padding="12,0,12,4" ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="260" />
                         <ColumnDefinition Width="80" />
                         <ColumnDefinition Width="230" />
                         <ColumnDefinition Width="150" />
@@ -203,7 +203,8 @@
                         <ColumnDefinition Width="80" />
                         <ColumnDefinition Width="90" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="Family : Type" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
+                    <TextBlock Text="Unique · Family : Type" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom"
+                               ToolTipService.ToolTip="Floors of the same type and role share their BNG inputs — editing one fills the others. Tick Unique to give a floor its own inputs." />
                     <TextBlock Grid.Column="1" Text="Area" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
                     <TextBlock Grid.Column="2" Text="Status" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
                     <TextBlock Grid.Column="3" Text="Role (from phases)" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
@@ -237,7 +238,7 @@
                         <DataTemplate x:DataType="local:BngFloorRow">
                             <Grid Padding="0,6" ColumnSpacing="8">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="220" />
+                                    <ColumnDefinition Width="260" />
                                     <ColumnDefinition Width="80" />
                                     <ColumnDefinition Width="230" />
                                     <ColumnDefinition Width="150" />
@@ -265,7 +266,19 @@
                                     <ColumnDefinition Width="80" />
                                     <ColumnDefinition Width="90" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind DisplayName}" />
+                                <Grid ColumnSpacing="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox MinWidth="0" Padding="0" VerticalAlignment="Center"
+                                              IsChecked="{x:Bind Unique, Mode=OneWay}"
+                                              IsEnabled="{x:Bind UniqueSupported}"
+                                              Click="RowUnique_Click"
+                                              AutomationProperties.Name="Unique"
+                                              ToolTipService.ToolTip="{x:Bind UniqueToolTip}" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind DisplayName}" />
+                                </Grid>
                                 <TextBlock Grid.Column="1" Text="{x:Bind AreaDisplay}" Opacity="0.75" VerticalAlignment="Center" />
                                 <StackPanel Grid.Column="2" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind StatusDetails, Mode=OneWay}">
                                     <TextBlock Text="{x:Bind StatusDisplay, Mode=OneWay}"

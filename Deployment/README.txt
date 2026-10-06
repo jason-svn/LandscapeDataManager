@@ -41,6 +41,14 @@ Open EGIS > LIM- LANDSCAPE DATA, then choose one of these sources:
 
 No Airtable token is required or included in this deployment package. The selected source is remembered per Windows user.
 
+SHARING SETTINGS
+
+In LIM > Settings, Export settings... saves the project's units, currency, data sources,
+shared parameter file path and Excel Importer mappings to a .limsettings file. Send it to a
+colleague (or use it on another project): Import settings... lets them tick which parts to
+apply. Keys (i-Tree API key, Airtable token) are only included if you tick that option when
+exporting - anyone with the file can then use them.
+
 BIODIVERSITY NET GAIN (BNG)
 
 1. Run Import Shared Parameter with the Shared_Parameters_WWP.txt included in this ZIP, so
@@ -52,6 +60,10 @@ BIODIVERSITY NET GAIN (BNG)
    created in New Construction are new habitat.
 3. In Floor Calculator > Biodiversity (BNG), load the floors, fill in the habitats,
    conditions and strategic significance, then Write to Revit.
+   Floors of the same type and role share their inputs: fill one and the others follow,
+   and empty floors take the inputs of a same-type floor when loaded. Tick the box in front
+   of a floor's name (Unique) to give it its own inputs. Unique needs the
+   !_S_PLT_BNGInput_Unique_YesNo parameter, so run Import Shared Parameter again after updating.
 4. The Dashboard's Site & Biodiversity tab shows baseline vs post-intervention habitat
    units and the net change against the statutory 10%.
 

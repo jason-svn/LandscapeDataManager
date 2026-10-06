@@ -70,6 +70,10 @@ No Airtable token is required. On **Sync & Review**, choose one of these sources
 
 The selected source is saved per Windows user under `%LocalAppData%\EGIS\WWP.LandscapeDataManager\data-source-settings.json`.
 
+### Sharing settings
+
+**Settings > Export settings…** writes a `.limsettings` JSON file (`LimSettingsFile` in Shared): the project's `ProjectSettingsSnapshot` with the live unit/currency parameters, minus the site latitude/longitude. **Import settings…** shows one checkbox per section present in the file and applies the ticked ones through `ProjectSettingsSync.PushAsync`. Units/currency go through the same publish commands as the Save button, so a currency change rescales stored costs. The i-Tree key and Airtable token are written only when the exporter ticks **Include keys**; on import they go to the importer's Windows Credential Manager, never into the Revit file.
+
 ## i-Tree Excel export
 
 Select **EGIS > LIM- LANDSCAPE DATA > LIM DATA**, then open **i-Tree Excel** in the WinUI application. Choose all Planting types, the current Revit selection, or the complete catalog; enter the API key used by the Dynamo workflow; and choose a new or existing `.xlsx`/`.xlsm` workbook.
@@ -104,6 +108,8 @@ The script only copies files, so the same can be done by hand. For Revit 2025 (u
 If the company blocks all unsigned programs (AppLocker, Smart App Control, etc.), installing by hand won't get around it — the tools' `.exe` files still won't start. Ask IT to allow `%APPDATA%\Autodesk\Revit\Addins\<year>\WWP.LandscapeDataManager`.
 
 ## Build and install
+
+The connector compiles against Autodesk's Revit API reference packages (`Nice3point.Revit.Api.*`: 2025.4 for Revit 2025, 2026.4 for Revit 2026), not the Revit installed on the build machine. Revit 2025.5 moved to .NET 10, so building against an updated install would either fail or produce a connector that no longer loads on 2025.4; the 2025.4 API builds a .NET 8 connector that loads on both. Bump `RevitApiPackageVersion` in the Revit project only once everyone using that Revit year has updated.
 
 Revit 2025:
 

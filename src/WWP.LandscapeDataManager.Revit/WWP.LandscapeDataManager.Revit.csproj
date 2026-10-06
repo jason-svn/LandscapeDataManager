@@ -81,14 +81,21 @@
     <ProjectReference Include="..\WWP.LandscapeDataManager.App.Settings\WWP.LandscapeDataManager.App.Settings.csproj"
                       ReferenceOutputAssembly="false"
                       SkipGetTargetFrameworkProperties="true" />
-    <Reference Include="RevitAPI">
-      <HintPath>$(RevitInstallDir)\RevitAPI.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="RevitAPIUI">
-      <HintPath>$(RevitInstallDir)\RevitAPIUI.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+  </ItemGroup>
+
+  <!-- Compile against Autodesk's published API reference assemblies, not the copy installed on the
+       build machine. A Revit update can retarget the installed copy (Revit 2025.5 references
+       .NET 10), which would stop the .NET 8 connector compiling and, if retargeted to match,
+       stop it loading on earlier 2025 updates. The 2025.4 API builds a connector that loads on
+       2025.4 (.NET 8) and still runs on 2025.5 (.NET 10). Compile-only: Revit supplies these
+       assemblies at runtime. -->
+  <PropertyGroup>
+    <RevitApiPackageVersion Condition="'$(RevitVersion)' == '2025'">2025.4.60</RevitApiPackageVersion>
+    <RevitApiPackageVersion Condition="'$(RevitVersion)' == '2026'">2026.4.10</RevitApiPackageVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="$(RevitApiPackageVersion)" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="$(RevitApiPackageVersion)" ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -121,7 +128,7 @@
   </ItemGroup>
 
   <Target Name="ValidateRevitInstallation" BeforeTargets="ResolveReferences">
-    <Error Condition="!Exists('$(RevitInstallDir)\RevitAPI.dll')" Text="Revit $(RevitVersion) was not found at $(RevitInstallDir). Supported values are 2025 and newer." />
+    <Error Condition="'$(RevitApiPackageVersion)' == ''" Text="No Revit API package version is set for Revit $(RevitVersion) — add one to RevitApiPackageVersion in this project." />
     <Error Condition="$([MSBuild]::VersionLessThan('$(RevitVersion)', '2025'))" Text="Revit 2024 and older are intentionally unsupported. Use RevitVersion=2025 or newer." />
   </Target>
 

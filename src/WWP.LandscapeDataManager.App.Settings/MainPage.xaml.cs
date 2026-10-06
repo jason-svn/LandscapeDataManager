@@ -28,7 +28,10 @@ public sealed partial class MainPage : Page
         Loaded += Page_Loaded;
     }
 
-    private async void Page_Loaded(object sender, RoutedEventArgs e)
+    private async void Page_Loaded(object sender, RoutedEventArgs e) => await LoadAsync();
+
+    /// <summary>Fills every card from Credential Manager and the project; also re-run after an import.</summary>
+    private async Task LoadAsync()
     {
         ITreeApiKeyBox.Password = _iTreeCredentialStore.Load();
         AirtableTokenBox.Password = _airtableCredentialStore.Load();
@@ -75,26 +78,32 @@ public sealed partial class MainPage : Page
         UnitsAndCurrencyStatusText.Text = "Saving...";
         try
         {
-            var unitResult = await GetClient().SendAsync<PublishPreferredUnitSystemResult>(
-                PipeCommands.PublishPreferredUnitSystem, new PublishPreferredUnitSystemRequest(unitSystem));
-
-            var rate = await _exchangeRateService.GetUsdRateAsync(currencyCode);
-            await GetClient().SendAsync<PublishPreferredCurrencyResult>(
-                PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(currencyCode, rate.UsdRate));
-
-            await ProjectSettingsSync.PushAsync(GetClient(), preferredUnitSystem: unitSystem, preferredCurrency: currencyCode);
-
-            var currencyNote = rate.Success
-                ? $"{currencyCode} (factor {rate.UsdRate:G6}). Already-calculated cost-saved values were rescaled to {currencyCode}."
-                : $"{currencyCode}. {rate.Error}";
-            UnitsAndCurrencyStatusText.Text = unitResult.Warning is null
-                ? $"Saved: {unitSystem} units, {currencyNote}"
-                : $"Saved: {unitSystem} units, {currencyNote} {unitResult.Warning}";
+            UnitsAndCurrencyStatusText.Text = await PublishUnitsAndCurrencyAsync(unitSystem, currencyCode);
         }
         catch (Exception exception)
         {
             UnitsAndCurrencyStatusText.Text = $"Failed to save: {exception.Message}";
         }
+    }
+
+    /// <summary>Writes both preferences to their dedicated project parameters (rescaling stored costs on a currency change) and mirrors them into the settings snapshot.</summary>
+    private async Task<string> PublishUnitsAndCurrencyAsync(string unitSystem, string currencyCode)
+    {
+        var unitResult = await GetClient().SendAsync<PublishPreferredUnitSystemResult>(
+            PipeCommands.PublishPreferredUnitSystem, new PublishPreferredUnitSystemRequest(unitSystem));
+
+        var rate = await _exchangeRateService.GetUsdRateAsync(currencyCode);
+        await GetClient().SendAsync<PublishPreferredCurrencyResult>(
+            PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(currencyCode, rate.UsdRate));
+
+        await ProjectSettingsSync.PushAsync(GetClient(), preferredUnitSystem: unitSystem, preferredCurrency: currencyCode);
+
+        var currencyNote = rate.Success
+            ? $"{currencyCode} (factor {rate.UsdRate:G6}). Already-calculated cost-saved values were rescaled to {currencyCode}."
+            : $"{currencyCode}. {rate.Error}";
+        return unitResult.Warning is null
+            ? $"Saved: {unitSystem} units, {currencyNote}"
+            : $"Saved: {unitSystem} units, {currencyNote} {unitResult.Warning}";
     }
 
     private void SaveITreeKey_Click(object sender, RoutedEventArgs e)

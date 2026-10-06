@@ -32,6 +32,8 @@ public sealed class BngFloorRow : INotifyPropertyChanged
     private readonly BngMetricCatalog _catalog;
     private readonly string _phaseRole;
     private bool _enhanced;
+    private bool _unique;
+    private bool _storedUnique;
     private BngHabitat? _habitat;
     private string _habitatQuery = string.Empty;
     private string? _condition;
@@ -61,6 +63,12 @@ public sealed class BngFloorRow : INotifyPropertyChanged
         PhaseDemolished = item.PhaseDemolished;
         _phaseRole = item.PhaseRole;
         _enhanced = item.Enhanced && item.PhaseRole == BngPhaseRoles.Retained;
+        UniqueSupported = item.UniqueSupported;
+        _unique = _storedUnique = item.Unique && item.UniqueSupported;
+        HadStoredInputs =
+            !string.IsNullOrWhiteSpace(item.ProposedHabitat) || !string.IsNullOrWhiteSpace(item.Condition) ||
+            !string.IsNullOrWhiteSpace(item.BaselineHabitat) || !string.IsNullOrWhiteSpace(item.BaselineCondition) ||
+            !string.IsNullOrWhiteSpace(item.StrategicSignificance) || item.YearOffset != 0;
         _storedSignature = item.StoredInputSignature;
         _storedStatus = item.StoredStatus;
         _lastUpdated = item.StoredLastUpdated;
@@ -148,6 +156,106 @@ public sealed class BngFloorRow : INotifyPropertyChanged
             OnRoleChanged();
             Recalculate();
         }
+    }
+
+    // ---- Linking floors of the same type ----
+
+    /// <summary>
+    /// The inputs that floors linked by <see cref="LinkKey"/> share. Changing any of these on a
+    /// linked row is copied to the rest of its group (see BngTab).
+    /// </summary>
+    public static readonly IReadOnlySet<string> LinkedInputProperties = new HashSet<string>(StringComparer.Ordinal)
+    {
+        nameof(Habitat), nameof(Condition), nameof(BaselineHabitat), nameof(BaselineCondition),
+        nameof(IrreplaceableSelection), nameof(StrategicSignificance), nameof(YearOffset), nameof(IsAutoMatched)
+    };
+
+    /// <summary>True when Revit already held BNG inputs for this floor when it was loaded.</summary>
+    public bool HadStoredInputs { get; }
+
+    /// <summary>False until "Import Shared Parameter" binds <c>!_S_PLT_BNGInput_Unique_YesNo</c> in this project.</summary>
+    public bool UniqueSupported { get; }
+
+    public string UniqueToolTip => UniqueSupported
+        ? "Unique: this floor keeps its own BNG inputs. Untick to share inputs with the other floors of this type and role again. Stored in !_S_PLT_BNGInput_Unique_YesNo."
+        : "Run Import Shared Parameter to enable Unique in this project (it needs the !_S_PLT_BNGInput_Unique_YesNo parameter).";
+
+    /// <summary>The Unique flag (<c>!_S_PLT_BNGInput_Unique_YesNo</c>) — a Unique floor neither sends nor receives inputs from same-type floors.</summary>
+    public bool Unique
+    {
+        get => _unique;
+        set
+        {
+            if (!UniqueSupported || _unique == value)
+            {
+                return;
+            }
+
+            _unique = value;
+            OnPropertyChanged();
+            UpdateStatus();
+        }
+    }
+
+    /// <summary>Floors are linked when they share a type and a metric role (a new "Lawn" floor never feeds a retained one), unless either is Unique.</summary>
+    public (long TypeId, string Role)? LinkKey =>
+        _unique || TypeId < 0 || Role == BngPhaseRoles.Excluded ? null : (TypeId, Role);
+
+    /// <summary>Takes every shared input from a linked floor of the same type and role, recalculating once.</summary>
+    public void CopyInputsFrom(BngFloorRow source)
+    {
+        if (UsesProposedHabitat && source.UsesProposedHabitat)
+        {
+            if (!ReferenceEquals(_habitat, source._habitat) || _habitatQuery != source._habitatQuery)
+            {
+                SetHabitatCore(source._habitat, source._habitatQuery);
+            }
+
+            if (_condition != source._condition)
+            {
+                _condition = source._condition;
+                OnPropertyChanged(nameof(Condition));
+                OnPropertyChanged(nameof(ConditionSelection));
+            }
+        }
+
+        if (IsBaselineRow && source.IsBaselineRow)
+        {
+            if (!ReferenceEquals(_baselineHabitat, source._baselineHabitat) || _baselineQuery != source._baselineQuery)
+            {
+                SetBaselineHabitatCore(source._baselineHabitat, source._baselineQuery);
+            }
+
+            if (_baselineCondition != source._baselineCondition)
+            {
+                _baselineCondition = source._baselineCondition;
+                OnPropertyChanged(nameof(BaselineCondition));
+                OnPropertyChanged(nameof(BaselineConditionSelection));
+            }
+
+            if (_irreplaceable != source._irreplaceable)
+            {
+                _irreplaceable = source._irreplaceable;
+                OnPropertyChanged(nameof(IrreplaceableSelection));
+            }
+        }
+
+        if (_strategicSignificance != source._strategicSignificance)
+        {
+            _strategicSignificance = source._strategicSignificance;
+            OnPropertyChanged(nameof(StrategicSignificance));
+            OnPropertyChanged(nameof(StrategicSignificanceSelection));
+        }
+
+        if (_yearOffset != source._yearOffset)
+        {
+            _yearOffset = source._yearOffset;
+            OnPropertyChanged(nameof(YearOffset));
+            OnPropertyChanged(nameof(YearOffsetValue));
+        }
+
+        IsAutoMatched = source.IsAutoMatched;
+        Recalculate();
     }
 
     // ---- Proposed habitat (A-2 new floor, or A-3 enhancement target) ----
@@ -426,7 +534,8 @@ public sealed class BngFloorRow : INotifyPropertyChanged
     /// <summary>True when Revit doesn't already hold this row's current inputs and result.</summary>
     public bool NeedsWrite =>
         !string.Equals(_storedSignature, InputSignature, StringComparison.Ordinal) ||
-        !string.Equals(_storedStatus, Result.Outcome.ToString(), StringComparison.Ordinal);
+        !string.Equals(_storedStatus, Result.Outcome.ToString(), StringComparison.Ordinal) ||
+        _unique != _storedUnique;
 
     public bool HasAnyInput =>
         Role == BngPhaseRoles.Excluded ||
@@ -523,13 +632,15 @@ public sealed class BngFloorRow : INotifyPropertyChanged
             _baselineCondition ?? string.Empty,
             _irreplaceable ?? string.Empty,
             _enhanced,
-            result.BaselineUnits ?? 0);
+            result.BaselineUnits ?? 0,
+            _unique);
     }
 
     public void MarkWritten(string lastUpdated)
     {
         _storedSignature = InputSignature;
         _storedStatus = Result.Outcome.ToString();
+        _storedUnique = _unique;
         _lastUpdated = lastUpdated;
         _writeError = null;
         UpdateStatus();

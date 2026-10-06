@@ -29,6 +29,7 @@ public sealed partial class BngTab : UserControl
     private bool _syncingColumnScroll;
     private string? _activeFilter;
     private BngHabitat? _bulkHabitat;
+    private bool _syncingLinkedRows;
 
     public BngTab()
     {
@@ -76,6 +77,7 @@ public sealed partial class BngTab : UserControl
         foreach (var row in AllRows)
         {
             row.StatusChanged -= Row_StatusChanged;
+            row.PropertyChanged -= Row_PropertyChanged;
         }
 
         AllRows.Clear();
@@ -114,6 +116,12 @@ public sealed partial class BngTab : UserControl
             AllRows.Add(row);
         }
 
+        var filledFromType = FillEmptyRowsFromSameType();
+        foreach (var row in AllRows)
+        {
+            row.PropertyChanged += Row_PropertyChanged;
+        }
+
         _activeFilter = null;
         ApplyFilter();
 
@@ -127,6 +135,11 @@ public sealed partial class BngTab : UserControl
         if (fromType > 0)
         {
             notes.Add($"{fromType:N0} pre-filled from their floor type's remembered habitat.");
+        }
+
+        if (filledFromType > 0)
+        {
+            notes.Add($"{filledFromType:N0} empty floor(s) took their inputs from another floor of the same type.");
         }
 
         if (guessed > 0)
@@ -225,8 +238,117 @@ public sealed partial class BngTab : UserControl
         if (sender is CheckBox { DataContext: BngFloorRow row } checkBox)
         {
             row.Enhanced = checkBox.IsChecked == true;
+            // Enhancing moves the floor into the (type, Enhanced) group, so it adopts that group's inputs.
+            AdoptLinkedInputs(row);
             UpdateCounts();
         }
+    }
+
+    private void RowUnique_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox { DataContext: BngFloorRow row } checkBox)
+        {
+            return;
+        }
+
+        row.Unique = checkBox.IsChecked == true;
+        if (row.Unique)
+        {
+            StatusText.Text = $"{row.DisplayName} is Unique: its BNG inputs no longer follow, or change, other floors of this type. Write to keep this.";
+        }
+        else
+        {
+            StatusText.Text = AdoptLinkedInputs(row)
+                ? $"{row.DisplayName} shares inputs with its type again and took them from a matching floor. Write to keep this."
+                : $"{row.DisplayName} shares inputs with its type again. Write to keep this.";
+        }
+
+        UpdateCounts();
+    }
+
+    // ---- Same-type linking ----
+
+    /// <summary>The other rows linked to <paramref name="row"/>: same floor type and role, neither Unique.</summary>
+    private IEnumerable<BngFloorRow> LinkedSiblings(BngFloorRow row) =>
+        row.LinkKey is { } key ? AllRows.Where(other => !ReferenceEquals(other, row) && other.LinkKey == key) : [];
+
+    /// <summary>An edit to a linked row's shared inputs is copied to the rest of its group (a Unique row is in no group).</summary>
+    private void Row_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (_syncingLinkedRows || sender is not BngFloorRow row || e.PropertyName is null ||
+            !BngFloorRow.LinkedInputProperties.Contains(e.PropertyName))
+        {
+            return;
+        }
+
+        var siblings = LinkedSiblings(row).ToList();
+        if (siblings.Count == 0)
+        {
+            return;
+        }
+
+        _syncingLinkedRows = true;
+        try
+        {
+            foreach (var sibling in siblings)
+            {
+                sibling.CopyInputsFrom(row);
+            }
+        }
+        finally
+        {
+            _syncingLinkedRows = false;
+        }
+
+        UpdateCounts();
+    }
+
+    /// <summary>Copies the inputs of a linked floor that has any into <paramref name="row"/>; false when its group has none to give.</summary>
+    private bool AdoptLinkedInputs(BngFloorRow row)
+    {
+        var source = LinkedSiblings(row).OrderByDescending(other => other.HasAnyInput).ThenByDescending(other => !other.IsAutoMatched).FirstOrDefault();
+        if (source is null || !source.HasAnyInput)
+        {
+            return false;
+        }
+
+        _syncingLinkedRows = true;
+        try
+        {
+            row.CopyInputsFrom(source);
+        }
+        finally
+        {
+            _syncingLinkedRows = false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The default selection when floors load: a floor with nothing stored in Revit yet takes the
+    /// inputs of a same-type, same-role floor that has some. Floors with their own stored inputs
+    /// are never overwritten here — only by a later edit to a linked floor.
+    /// </summary>
+    private int FillEmptyRowsFromSameType()
+    {
+        var filled = 0;
+        foreach (var group in AllRows.Where(row => row.LinkKey is not null).GroupBy(row => row.LinkKey))
+        {
+            var source = group.Where(row => row.HadStoredInputs).OrderByDescending(row => row.Status == BngFloorStatus.Calculated).FirstOrDefault();
+            if (source is null)
+            {
+                continue;
+            }
+
+            foreach (var row in group.Where(row => !row.HadStoredInputs))
+            {
+                row.CopyInputsFrom(source);
+                filled++;
+            }
+        }
+
+        return filled;
     }
 
     /// <summary>A new floor picks from the A-2 habitats, an enhanced one from the A-3 habitats.</summary>

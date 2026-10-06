@@ -16,12 +16,24 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Spacing="4">
-                <TextBlock Text="Settings" Style="{StaticResource LimPageTitleStyle}" />
-                <TextBlock
-                    Text="One place for every LIM credential and machine-wide default. Every other LIM tool reads these instead of asking for them again — save here once per Windows user."
-                    Style="{StaticResource LimPageSubtitleStyle}" />
-            </StackPanel>
+            <Grid Grid.Row="0" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Settings" Style="{StaticResource LimPageTitleStyle}" />
+                    <TextBlock
+                        Text="One place for every LIM credential and machine-wide default. Every other LIM tool reads these instead of asking for them again — save here once per Windows user."
+                        Style="{StaticResource LimPageSubtitleStyle}" />
+                    <TextBlock x:Name="SettingsFileStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Import settings…" Click="ImportSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top"
+                        ToolTipService.ToolTip="Apply a .limsettings file someone sent you to this project" />
+                <Button Grid.Column="2" Content="Export settings…" Click="ExportSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top"
+                        ToolTipService.ToolTip="Save this project's LIM settings to a .limsettings file you can send to others" />
+            </Grid>
 
             <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">

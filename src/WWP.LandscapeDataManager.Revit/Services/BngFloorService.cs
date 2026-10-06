@@ -46,6 +46,7 @@ internal static class BngFloorService
     internal const string BaselineConditionParameter = "!_S_PLT_BNGInput_BaselineCondition_Text";
     internal const string IrreplaceableParameter = "!_S_PLT_BNGInput_Irreplaceable_Text";
     internal const string EnhancedParameter = "!_S_PLT_BNGInput_Enhanced_YesNo";
+    internal const string UniqueParameter = "!_S_PLT_BNGInput_Unique_YesNo";
     private const string RoleParameter = "!_S_PLT_BNGResult_Role_Text";
     internal const string BaselineUnitsParameter = "!_S_PLT_BNGResult_BaselineUnits_Number";
 
@@ -177,7 +178,9 @@ internal static class BngFloorService
             GetText(floor, BaselineHabitatParameter),
             GetText(floor, BaselineConditionParameter),
             GetText(floor, IrreplaceableParameter),
-            IsEnhanced(floor));
+            IsEnhanced(floor),
+            IsYes(floor, UniqueParameter),
+            floor.LookupParameter(UniqueParameter) is not null);
     }
 
     /// <summary>
@@ -215,8 +218,10 @@ internal static class BngFloorService
         return (role, createdName, demolishedName);
     }
 
-    internal static bool IsEnhanced(Element floor) =>
-        floor.LookupParameter(EnhancedParameter) is { HasValue: true, StorageType: StorageType.Integer } enhanced && enhanced.AsInteger() == 1;
+    internal static bool IsEnhanced(Element floor) => IsYes(floor, EnhancedParameter);
+
+    private static bool IsYes(Element floor, string name) =>
+        floor.LookupParameter(name) is { HasValue: true, StorageType: StorageType.Integer } flag && flag.AsInteger() == 1;
 
     /// <summary>Writes every BNG parameter, returning the names of any that turned out to be read-only.</summary>
     private static List<string> WriteValues(Element floor, BngFloorValues values, string lastUpdated)
@@ -292,6 +297,7 @@ internal static class BngFloorService
         Set(IrreplaceableParameter, values.Irreplaceable);
         Set(RoleParameter, values.Role);
         SetInteger(EnhancedParameter, values.Enhanced ? 1 : 0);
+        SetInteger(UniqueParameter, values.Unique ? 1 : 0);
         SetDouble(BaselineUnitsParameter, values.BaselineUnits);
         return readOnly;
 
