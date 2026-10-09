@@ -13,6 +13,8 @@ if not defined REVIT_VERSION (
     goto :done
 )
 
+echo.
+echo Starting the installer for Revit %REVIT_VERSION%...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Deploy-BinaryPackage.ps1" -RevitVersion %REVIT_VERSION%
 if errorlevel 1 (
     echo.

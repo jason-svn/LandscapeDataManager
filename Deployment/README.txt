@@ -9,7 +9,8 @@ INSTALL
 2. Close Revit (the installer stops if Revit is open).
 3. Double-click Install.cmd and enter 2025 or 2026 when asked.
    (If Windows shows "Windows protected your PC", click More info > Run anyway.)
-4. Start Revit and open EGIS > LIM- LANDSCAPE DATA.
+   The window lists each step as it copies the tools and says "Done" when finished.
+4. Start Revit and open the LIM tab.
 
 Install.cmd runs Deploy-BinaryPackage.ps1 for you. Running the .ps1 directly from PowerShell
 fails with "is not digitally signed" on most computers, because Windows blocks unsigned scripts
@@ -34,7 +35,7 @@ files by hand.
 
 DATA SOURCE CONFIGURATION
 
-Open EGIS > LIM- LANDSCAPE DATA, then choose one of these sources:
+Open the LIM tab in Revit, then choose one of these sources:
 
 - Paste a public Airtable base or view share link. CSV downloading must be enabled.
 - Select an Excel .xlsx or .xlsm workbook. The first populated row is used for headers.
