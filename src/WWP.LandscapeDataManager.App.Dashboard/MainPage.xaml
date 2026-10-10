@@ -93,10 +93,10 @@
                 <Grid ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="135" />
-                        <ColumnDefinition Width="175" />
+                        <ColumnDefinition Width="250" />
                         <ColumnDefinition Width="145" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="130" />
+                        <ColumnDefinition Width="150" />
                         <ColumnDefinition Width="280" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>

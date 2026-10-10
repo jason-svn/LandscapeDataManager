@@ -55,7 +55,10 @@ GROWTH YEARS (WORKSETS)
 Model each growth year of the trees on its own workset with the year in its name, e.g.
 "Trees - 5 Years", "Trees - 10 Years". Trees on any other workset (e.g. existing trees),
 floors and lighting count in every year. The Dashboard's Growth year slider shows one year
-at a time, and Export JSON writes one scenario per year for the online dashboard.
+at a time. Use design options for real alternatives (e.g. Scheme A / Scheme B): Export JSON
+then writes every scheme at every growth year, and the online dashboard shows a Scenario
+dropdown next to its growth-year slider. The design option whose name contains "Baseline"
+opens by default, in the Dashboard and online.
 
 If nursery stock is already some years old when planted, enter that on the planting type in
 !_S_PLT_TreeGrowth_AgeAtPlanting_Number. When Tree Calculator loads, it sets each tree's

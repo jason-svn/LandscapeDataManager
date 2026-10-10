@@ -19,12 +19,12 @@ internal static class TreeAgeSyncService
     {
         if (!document.IsWorkshared)
         {
-            return new TreeAgeSyncSummary(0, 0, 0, 0);
+            return new TreeAgeSyncSummary(0, 0, 0, 0, 0);
         }
 
         var worksets = document.GetWorksetTable();
-        var changes = new List<(Parameter Years, int Age)>();
-        int onGrowthWorksets = 0, notEditable = 0, missingYears = 0;
+        var candidates = new List<(Element Tree, Parameter Years, int Age)>();
+        int onGrowthWorksets = 0, notEditable = 0, missingYears = 0, skippedGrouped = 0;
         foreach (var tree in trees)
         {
             if (GrowthYearNames.FromName(worksets.GetWorkset(tree.WorksetId)?.Name) is not { } growthYear)
@@ -39,6 +39,13 @@ internal static class TreeAgeSyncService
                 continue;
             }
 
+            if (tree.GroupId != ElementId.InvalidElementId &&
+                years.Definition is InternalDefinition { VariesAcrossGroups: false })
+            {
+                skippedGrouped++;
+                continue;
+            }
+
             var ageAtPlanting = (document.GetElement(tree.GetTypeId()) as ElementType)?.LookupParameter(AgeAtPlantingParameter) is
                 { HasValue: true, StorageType: StorageType.Integer } age
                 ? age.AsInteger()
@@ -49,28 +56,51 @@ internal static class TreeAgeSyncService
                 continue;
             }
 
-            // A tree someone else has borrowed can't be edited from this session; leave it and say so.
-            if (years.IsReadOnly || WorksharingUtils.GetCheckoutStatus(document, tree.Id) == CheckoutStatus.OwnedByOtherUser)
+            if (years.IsReadOnly)
             {
                 notEditable++;
                 continue;
             }
 
-            changes.Add((years, actualAge));
+            candidates.Add((tree, years, actualAge));
         }
 
-        if (changes.Count > 0)
+        if (candidates.Count == 0)
         {
-            using var transaction = new Transaction(document, "LIM Update tree ages from growth-year worksets");
-            transaction.Start();
-            foreach (var (years, age) in changes)
-            {
-                years.Set(age);
-            }
-
-            transaction.Commit();
+            return new TreeAgeSyncSummary(onGrowthWorksets, 0, notEditable, missingYears, skippedGrouped);
         }
 
-        return new TreeAgeSyncSummary(onGrowthWorksets, changes.Count, notEditable, missingYears);
+        if (document.IsReadOnly)
+        {
+            return new TreeAgeSyncSummary(
+                onGrowthWorksets, 0, notEditable + candidates.Count, missingYears, skippedGrouped);
+        }
+
+        var editableIds = document.IsDetached
+            ? candidates.Select(candidate => candidate.Tree.Id).ToHashSet()
+            : WorksharingUtils.CheckoutElements(document, candidates.Select(candidate => candidate.Tree.Id).ToList()).ToHashSet();
+        var editable = candidates.Where(candidate => editableIds.Contains(candidate.Tree.Id)).ToList();
+        notEditable += candidates.Count - editable.Count;
+        if (editable.Count == 0)
+        {
+            return new TreeAgeSyncSummary(onGrowthWorksets, 0, notEditable, missingYears, skippedGrouped);
+        }
+
+        using var transaction = new Transaction(document, "LIM Update tree ages from growth-year worksets");
+        if (transaction.Start() != TransactionStatus.Started)
+        {
+            return new TreeAgeSyncSummary(
+                onGrowthWorksets, 0, notEditable + editable.Count, missingYears, skippedGrouped);
+        }
+
+        foreach (var (_, years, age) in editable)
+        {
+            years.Set(age);
+        }
+
+        var commitStatus = transaction.Commit();
+        return commitStatus == TransactionStatus.Committed
+            ? new TreeAgeSyncSummary(onGrowthWorksets, editable.Count, notEditable, missingYears, skippedGrouped)
+            : new TreeAgeSyncSummary(onGrowthWorksets, 0, notEditable + editable.Count, missingYears, skippedGrouped);
     }
 }

@@ -40,6 +40,35 @@ internal static class DashboardUnitLabels
     /// what Revit shows with that option active. A model with no design options is one "Primary
     /// model" scenario. Ordered by growth year in the name, then by label.
     /// </summary>
+    /// <summary>
+    /// Timeline order for scenarios: options without a growth year (the baseline / existing design)
+    /// come first — primary before the rest — then growth years ascending. The web dashboard draws
+    /// its growth slider and curves in file order, so "Baseline" must not land after "25 years".
+    /// </summary>
+    public static int ScenarioOrder(string label, bool isPrimary) =>
+        IsBaseline(label) ? -3 : ExtractProjectionYears(label) ?? (isPrimary ? -2 : -1);
+
+    /// <summary>
+    /// The team's convention: the design option named "Baseline" is the reference scenario — the
+    /// default selection and the comparison point — whichever option Revit has marked primary.
+    /// </summary>
+    public static bool IsBaseline(string label) => label.Contains("baseline", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The default design option: one named "Baseline", else the primary one, else the earliest growth year.</summary>
+    public static string? DefaultDesignOption(IEnumerable<string> labels)
+    {
+        var list = labels.ToList();
+        return list.FirstOrDefault(IsBaseline)
+               ?? list.FirstOrDefault(label => label.Contains("(Primary)", StringComparison.Ordinal))
+               ?? list.OrderBy(label => ExtractProjectionYears(label) ?? int.MaxValue).ThenBy(label => label, StringComparer.Ordinal).FirstOrDefault();
+    }
+
+    /// <summary>Lighting visible in a scenario: main-model fixtures plus that option's own.</summary>
+    public static IReadOnlyList<DashboardLightingItem> LightingFor(IEnumerable<DashboardLightingItem> lighting, string? designOptionLabel) =>
+        designOptionLabel is null
+            ? lighting.ToList()
+            : lighting.Where(fixture => IsMainModel(fixture.DesignOption) || FormatDesignOption(fixture.DesignOption) == designOptionLabel).ToList();
+
     public static List<DesignOptionScenario<TTree, TFloor>> SplitByDesignOption<TTree, TFloor>(
         IReadOnlyList<TTree> trees,
         Func<TTree, DesignOptionInfo> treeOption,
@@ -51,7 +80,7 @@ internal static class DashboardUnitLabels
             .Where(option => !IsMainModel(option))
             .Select(option => (Label: FormatDesignOption(option), option.IsPrimary))
             .Distinct()
-            .OrderBy(option => ExtractProjectionYears(option.Label) ?? int.MaxValue)
+            .OrderBy(option => ScenarioOrder(option.Label, option.IsPrimary))
             .ThenBy(option => option.Label, StringComparer.Ordinal)
             .ToList();
 

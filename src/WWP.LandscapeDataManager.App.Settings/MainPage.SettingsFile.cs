@@ -127,7 +127,16 @@ public sealed partial class MainPage
             $"{unitSystem}, {currency}" +
             (fixedRate.Enabled ? $" at a fixed 1 USD = {fixedRate.UsdRate:G6} {currency}{(fixedRate.Note is null ? string.Empty : $" ({fixedRate.Note})")}" : " at today's rate") +
             " (rescales stored cost results)",
-            async () => { await PublishUnitsAndCurrencyAsync(unitSystem!, currency!, fixedRate); return "units & currency"; });
+            async () =>
+            {
+                var result = await PublishUnitsAndCurrencyAsync(unitSystem!, currency!, fixedRate);
+                if (!result.Success)
+                {
+                    throw new InvalidOperationException(result.Message);
+                }
+
+                return "units & currency";
+            });
         Offer(settings.WwpLdsSource is not null,
             "Landscape data sheet source", settings.WwpLdsSource?.BaseId ?? string.Empty,
             async () => { await ProjectSettingsSync.PushAsync(GetClient(), wwpLdsSource: settings.WwpLdsSource); return "data sheet source"; });

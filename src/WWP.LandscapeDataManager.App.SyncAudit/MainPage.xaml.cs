@@ -560,8 +560,14 @@ public sealed partial class MainPage : Page
                 item.Condition ?? string.Empty, item.DbhInches ?? 0, item.Latitude ?? 0, item.Longitude ?? 0,
                 item.Years ?? 1, item.CrownExposure ?? 0))).ToList();
 
-        var outcomes = await _iTreeApiClient.CalculateForInstancesAsync(signedInputs, apiKey);
         var exchangeRate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, _preferredCurrency);
+        if (!exchangeRate.Success)
+        {
+            ActionStatusText.Text = ProjectExchangeRate.UnavailableMessage(exchangeRate);
+            return;
+        }
+
+        var outcomes = await _iTreeApiClient.CalculateForInstancesAsync(signedInputs, apiKey);
         var writeItems = new List<InstanceParameterWriteItem>();
         foreach (var (item, (signature, _)) in staleItems.Zip(signedInputs))
         {

@@ -3,6 +3,6 @@
     <!-- The LIM release version. The Check for Updates button compares this against the newest
          GitHub release tag (vMAJOR.MINOR.PATCH), so bump it â€” and tag the release to match â€”
          every time a package is published. -->
-    <Version>1.2.5</Version>
+    <Version>1.2.6</Version>
   </PropertyGroup>
 </Project>

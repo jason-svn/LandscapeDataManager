@@ -113,7 +113,12 @@ public sealed partial class MainPage : Page
         };
         if (sync.SkippedNotEditable > 0)
         {
-            notes.Add($"{sync.SkippedNotEditable:N0} tree(s) are checked out by someone else, so their age wasn't updated.");
+            notes.Add($"{sync.SkippedNotEditable:N0} tree(s) aren't editable, so their age wasn't updated.");
+        }
+
+        if (sync.SkippedGrouped > 0)
+        {
+            notes.Add($"{sync.SkippedGrouped:N0} grouped tree(s) don't allow different ages between group instances — run Shared Parameter Setup.");
         }
 
         if (sync.MissingYearsParameter > 0)
@@ -236,10 +241,16 @@ public sealed partial class MainPage : Page
                 row.Item.Years ?? 1,
                 row.Item.CrownExposure ?? 0))).ToList();
 
-        var outcomes = await _iTreeApiClient.CalculateForInstancesAsync(signedInputs, apiKey);
-
-        // One rate lookup per batch, not per tree — the rate doesn't vary by tree, only by currency.
+        // One rate lookup per batch, not per tree — and before calling i-Tree, so a failed lookup
+        // doesn't spend API calls on results that can't be written in the project's currency.
         var exchangeRate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, _preferredCurrency);
+        if (!exchangeRate.Success)
+        {
+            CalculateStatusText.Text = ProjectExchangeRate.UnavailableMessage(exchangeRate);
+            return;
+        }
+
+        var outcomes = await _iTreeApiClient.CalculateForInstancesAsync(signedInputs, apiKey);
 
         var writeItems = new List<InstanceParameterWriteItem>();
         foreach (var (row, (signature, _)) in rows.Zip(signedInputs))

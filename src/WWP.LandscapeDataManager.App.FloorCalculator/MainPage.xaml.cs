@@ -25,6 +25,10 @@ public sealed partial class MainPage : Page
     private string _preferredCurrency = "USD";
     private double _preferredCurrencyFactor = 1d;
 
+    // Set when the live rate lookup failed at load: costs can't be written in the project's
+    // currency, so Calculate is refused rather than storing US-dollar figures labelled as it.
+    private string? _rateUnavailableMessage;
+
     public MainPage()
     {
         InitializeComponent();
@@ -81,6 +85,11 @@ public sealed partial class MainPage : Page
             var rate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, catalog.PreferredCurrency);
             _preferredCurrency = rate.CurrencyCode;
             _preferredCurrencyFactor = rate.UsdRate;
+            _rateUnavailableMessage = rate.Success ? null : ProjectExchangeRate.UnavailableMessage(rate);
+            if (_rateUnavailableMessage is not null)
+            {
+                StatusText.Text = _rateUnavailableMessage;
+            }
         }
         catch (Exception exception)
         {
@@ -365,6 +374,12 @@ public sealed partial class MainPage : Page
             return;
         }
 
+        if (_rateUnavailableMessage is not null)
+        {
+            StatusText.Text = _rateUnavailableMessage + " Reopen Floor Calculator to try again.";
+            return;
+        }
+
         var record = row.SelectedRecord;
         await RunBusyAsync(async () =>
         {
@@ -379,9 +394,11 @@ public sealed partial class MainPage : Page
                 row.MatchStatus = resultRow.ResultSource;
             }
 
-            StatusText.Text = resultRow is not null
-                ? $"Calculated '{row.DisplayName}' as {new CoefficientRow(record).DisplayName} ({resultRow.ResultSource})."
-                : "Nothing was updated.";
+            StatusText.Text = resultRow is null
+                ? "Nothing was updated."
+                : resultRow.NotWritten is { Count: > 0 } missing
+                    ? $"Calculated '{row.DisplayName}', but {missing.Count:N0} result(s) couldn't be written ({string.Join(", ", missing)}) — they're missing or read-only. Run Import Shared Parameter, then calculate again."
+                    : $"Calculated '{row.DisplayName}' as {new CoefficientRow(record).DisplayName} ({resultRow.ResultSource}).";
         });
     }
 
@@ -391,6 +408,12 @@ public sealed partial class MainPage : Page
         if (toCalculate.Count == 0)
         {
             StatusText.Text = "No rows have a landscape type selected yet.";
+            return;
+        }
+
+        if (_rateUnavailableMessage is not null)
+        {
+            StatusText.Text = _rateUnavailableMessage + " Reopen Floor Calculator to try again.";
             return;
         }
 
@@ -412,9 +435,16 @@ public sealed partial class MainPage : Page
             }
 
             var remaining = Rows.Count(row => row.SelectedRecord is null);
-            StatusText.Text = remaining == 0
-                ? $"Calculated {result.Rows.Count:N0} floor(s)."
-                : $"Calculated {result.Rows.Count:N0} floor(s). {remaining:N0} still need a manual match — search and pick a type for the highlighted rows.";
+            var incomplete = result.Rows.Where(r => r.NotWritten is { Count: > 0 }).ToList();
+            var missingNames = incomplete.SelectMany(r => r.NotWritten!).Distinct(StringComparer.Ordinal).ToList();
+            StatusText.Text =
+                $"Calculated {result.Rows.Count:N0} floor(s)." +
+                (incomplete.Count > 0
+                    ? $" {incomplete.Count:N0} of them are missing results that couldn't be written ({string.Join(", ", missingNames)}) — run Import Shared Parameter, then calculate again."
+                    : string.Empty) +
+                (remaining > 0
+                    ? $" {remaining:N0} still need a manual match — search and pick a type for the highlighted rows."
+                    : string.Empty);
         });
     }
 

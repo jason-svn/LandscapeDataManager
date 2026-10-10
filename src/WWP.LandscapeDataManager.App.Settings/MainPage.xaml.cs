@@ -96,8 +96,12 @@ public sealed partial class MainPage : Page
         UnitsAndCurrencyStatusText.Text = "Saving...";
         try
         {
-            UnitsAndCurrencyStatusText.Text = await PublishUnitsAndCurrencyAsync(unitSystem, currencyCode, fixedRate);
-            _loadedFixedRate = fixedRate;
+            var result = await PublishUnitsAndCurrencyAsync(unitSystem, currencyCode, fixedRate);
+            UnitsAndCurrencyStatusText.Text = result.Message;
+            if (result.Success)
+            {
+                _loadedFixedRate = fixedRate;
+            }
         }
         catch (Exception exception)
         {
@@ -111,26 +115,34 @@ public sealed partial class MainPage : Page
     /// own recorded rate to <paramref name="fixedRate"/> (when on) or today's rate — so changing
     /// only the fixed rate re-costs the project too.
     /// </summary>
-    private async Task<string> PublishUnitsAndCurrencyAsync(string unitSystem, string currencyCode, ExchangeRateOverride fixedRate)
+    private async Task<UnitsAndCurrencyPublishResult> PublishUnitsAndCurrencyAsync(
+        string unitSystem, string currencyCode, ExchangeRateOverride fixedRate)
     {
         var unitResult = await GetClient().SendAsync<PublishPreferredUnitSystemResult>(
             PipeCommands.PublishPreferredUnitSystem, new PublishPreferredUnitSystemRequest(unitSystem));
 
-        // Saved first, so every other tool resolves the same rate from here on.
+        var rate = ProjectExchangeRate.ResolveWithoutLookup(fixedRate, currencyCode) ?? await _exchangeRateService.GetUsdRateAsync(currencyCode);
+        if (!rate.Success)
+        {
+            return new UnitsAndCurrencyPublishResult(false,
+                $"Couldn't save currency: {rate.Error} The project currency, fixed rate, and stored cost results were left unchanged.");
+        }
+
+        await GetClient().SendAsync<PublishPreferredCurrencyResult>(
+            PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(currencyCode, rate.UsdRate));
+        // Persist the settings only after Revit has successfully rescaled the stored values. This
+        // prevents a failed publish from advertising a new rate for values that still use the old one.
         await ProjectSettingsSync.PushAsync(
             GetClient(), preferredUnitSystem: unitSystem, preferredCurrency: currencyCode, exchangeRateOverride: fixedRate);
 
-        var rate = ProjectExchangeRate.ResolveWithoutLookup(fixedRate, currencyCode) ?? await _exchangeRateService.GetUsdRateAsync(currencyCode);
-        await GetClient().SendAsync<PublishPreferredCurrencyResult>(
-            PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(currencyCode, rate.UsdRate));
-
-        var currencyNote = rate.Success
-            ? $"{currencyCode} at {ProjectExchangeRate.Describe(rate, fixedRate.Note)}. Already-calculated cost-saved values were rescaled to it."
-            : $"{currencyCode}. {rate.Error}";
-        return unitResult.Warning is null
+        var currencyNote = $"{currencyCode} at {ProjectExchangeRate.Describe(rate, fixedRate.Note)}. Already-calculated cost-saved values were rescaled to it.";
+        var message = unitResult.Warning is null
             ? $"Saved: {unitSystem} units, {currencyNote}"
             : $"Saved: {unitSystem} units, {currencyNote} {unitResult.Warning}";
+        return new UnitsAndCurrencyPublishResult(true, message);
     }
+
+    private sealed record UnitsAndCurrencyPublishResult(bool Success, string Message);
 
     private ExchangeRateOverride? _loadedFixedRate;
 

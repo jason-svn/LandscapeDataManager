@@ -167,6 +167,13 @@ public sealed partial class MainPage : Page
         }
 
         var rate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, currency);
+        if (!rate.Success)
+        {
+            // Publishing at the 1:1 fallback would rescale every stored cost onto a false rate.
+            return $"Preferred currency not changed to {currency}: couldn't get today's rate ({ProjectExchangeRate.FailureReason(rate)}). " +
+                   "Try again, or set the currency and a fixed rate in Settings > Units & Currency.";
+        }
+
         await GetClient().SendAsync<PublishPreferredCurrencyResult>(
             PipeCommands.PublishPreferredCurrency, new PublishPreferredCurrencyRequest(currency, rate.UsdRate));
         await ProjectSettingsSync.PushAsync(GetClient(), preferredCurrency: currency);

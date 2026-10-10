@@ -10,8 +10,11 @@ namespace WWP.LandscapeDataManager.Contracts;
 /// </summary>
 public static partial class GrowthYearNames
 {
-    [GeneratedRegex(@"(?<!\d)(5|10|15|20|25)(?!\d)\s*(?:years?|yrs?)?", RegexOptions.IgnoreCase)]
-    private static partial Regex YearPattern();
+    [GeneratedRegex(@"(?<!\d)(5|10|15|20|25)(?!\d)\s*(?:years?|yrs?)(?![A-Za-z0-9])|\b(?:year|yr)\s*(5|10|15|20|25)(?!\d)", RegexOptions.IgnoreCase)]
+    private static partial Regex ExplicitYearPattern();
+
+    [GeneratedRegex(@"(?:_|-)(5|10|15|20|25)$", RegexOptions.IgnoreCase)]
+    private static partial Regex GrowthSuffixPattern();
 
     /// <summary>The growth year named in <paramref name="name"/>, else null.</summary>
     public static int? FromName(string? name)
@@ -21,8 +24,22 @@ public static partial class GrowthYearNames
             return null;
         }
 
-        var match = YearPattern().Match(name);
-        return match.Success && int.TryParse(match.Groups[1].Value, out var years) ? years : null;
+        var match = ExplicitYearPattern().Match(name);
+        var value = match.Groups.Cast<Group>().Skip(1).FirstOrDefault(group => group.Success)?.Value;
+        if (value is not null && int.TryParse(value, out var years))
+        {
+            return years;
+        }
+
+        // Bare numeric suffixes occur in the newer LIM_Growth_10 convention, but accepting them on
+        // every workset would mistake ordinary phase and planting-zone numbers for growth years.
+        if (!name.Contains("growth", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        match = GrowthSuffixPattern().Match(name);
+        return match.Success && int.TryParse(match.Groups[1].Value, out years) ? years : null;
     }
 
     /// <summary>
@@ -34,4 +51,9 @@ public static partial class GrowthYearNames
 }
 
 /// <summary>What the automatic tree-age update did before a Tree Calculator scan.</summary>
-public sealed record TreeAgeSyncSummary(int OnGrowthWorksets, int Updated, int SkippedNotEditable, int MissingYearsParameter);
+public sealed record TreeAgeSyncSummary(
+    int OnGrowthWorksets,
+    int Updated,
+    int SkippedNotEditable,
+    int MissingYearsParameter,
+    int SkippedGrouped);

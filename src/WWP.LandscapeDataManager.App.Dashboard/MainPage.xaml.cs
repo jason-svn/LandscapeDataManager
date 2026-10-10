@@ -55,6 +55,9 @@ public sealed partial class MainPage : Page
 
     private OriginalDataWindow? _originalDataWindow;
 
+    // When set, the report on screen came from DashboardSnapshotCache rather than live Revit.
+    private DateTimeOffset? _cachedSnapshotSavedAt;
+
     // Canopy Cover and Softscape Surface Ratio divide by this; see SiteBoundaryResolver.
     private SiteBoundaryOption? _siteBoundary;
     private string? _savedSiteBoundaryKey;
@@ -108,9 +111,13 @@ public sealed partial class MainPage : Page
 
         await RunBusyAsync(async () =>
         {
-            await ApplyReportAsync(cached.Report);
+            // Flagged and labelled before applying: ApplyReportAsync can wait seconds on the rate
+            // lookup, and in that window the page already shows the snapshot — an export must still
+            // ask first, and the header mustn't say "No snapshot loaded".
+            _cachedSnapshotSavedAt = cached.SavedAt;
             CacheStatusText.Text = $"Cached {cached.SavedAt.LocalDateTime:g}";
             StatusText.Text = $"Showing cached snapshot from {cached.SavedAt.LocalDateTime:g}. Select Refresh model for current Revit data.";
+            await ApplyReportAsync(cached.Report);
         });
     }
 
@@ -128,6 +135,7 @@ public sealed partial class MainPage : Page
             _preferredUnitSystem = catalog.PreferredUnitSystem;
             _preferredCurrency = catalog.PreferredCurrency;
             _savedSiteBoundaryKey = await TryPullSavedSiteBoundaryAsync() ?? _savedSiteBoundaryKey;
+            _cachedSnapshotSavedAt = null;
             await ApplyReportAsync(report);
             await DashboardSnapshotCache.SaveAsync(report);
 
@@ -142,9 +150,11 @@ public sealed partial class MainPage : Page
                 throw;
             }
 
-            await ApplyReportAsync(cached.Report);
+            // Flagged and labelled before applying, for the same reason as Page_Loaded.
+            _cachedSnapshotSavedAt = cached.SavedAt;
             CacheStatusText.Text = $"Cached {cached.SavedAt.LocalDateTime:g}";
             StatusText.Text = $"Revit refresh failed ({liveException.Message}). Showing cached snapshot from {cached.SavedAt.LocalDateTime:g}.";
+            await ApplyReportAsync(cached.Report);
         }
     }
 
@@ -156,8 +166,23 @@ public sealed partial class MainPage : Page
         CurrencyText.Text = _preferredCurrency;
         ProjectTitleText.Text = report.DocumentTitle;
 
+        // Draw everything first: the rate lookup asks Revit for the project's fixed rate, and with
+        // Revit closed (a cached snapshot) that request only fails after the pipe's ~8 s connect
+        // timeout — the filters, slider and default scenario mustn't wait for it.
+        RebuildGrowthYearSlider();
+        RebuildFilterOptions();
+        RebuildSiteBoundaryOptions();
+        RebuildRows();
+        _originalDataWindow?.ShowReport(report);
+
         // One rate lookup per report, not per tree — the rate doesn't vary by tree, only by currency.
+        // It only changes figures stored in a different currency, so refresh them once it arrives.
         var rate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, _preferredCurrency);
+        if (!ReferenceEquals(_lastReport, report))
+        {
+            return; // a newer report arrived while this lookup was waiting
+        }
+
         _usdExchangeRate = rate.UsdRate;
         if (rate.IsFixed)
         {
@@ -167,12 +192,7 @@ public sealed partial class MainPage : Page
         ToolTipService.SetToolTip(CurrencyText, rate.IsFixed
             ? $"1 USD = {rate.UsdRate:G6} {_preferredCurrency}, the project's fixed rate (Settings > Units & currency)."
             : $"1 USD = {rate.UsdRate:G6} {_preferredCurrency}, today's rate.");
-
-        RebuildGrowthYearSlider();
-        RebuildFilterOptions();
-        RebuildSiteBoundaryOptions();
         RebuildRows();
-        _originalDataWindow?.ShowReport(report);
     }
 
     private string EffectiveUnitSystem() =>
@@ -560,7 +580,7 @@ public sealed partial class MainPage : Page
         // flagged (Primary) if one exists (the model's "existing" design), otherwise the first option
         // in projection-year order.
         var baselineSpeciesCount = values
-            .FirstOrDefault(value => value.Option.Contains("(Primary)", StringComparison.Ordinal)).SpeciesCount;
+            .FirstOrDefault(value => value.Option == DashboardUnitLabels.DefaultDesignOption(values.Select(v => v.Option))).SpeciesCount;
         if (baselineSpeciesCount == 0 && values.Count > 0)
         {
             baselineSpeciesCount = values[0].SpeciesCount;
@@ -590,7 +610,7 @@ public sealed partial class MainPage : Page
 
         var siteArea = _siteBoundary?.AreaSquareMeters;
         var summary = DashboardAggregationService.BuildSiteKpiSummary(
-            filteredTrees, filteredFloors, _lastReport.Lighting, siteArea, _lastReport.HabitatConnectivityScore);
+            filteredTrees, filteredFloors, FilteredLighting(), siteArea, _lastReport.HabitatConnectivityScore);
 
         const string noSiteArea = "Pick a site boundary above: a property line, or the area entered on Project Information (!_S_PLT_Site_TotalArea_Area).";
         SetPercentCard(CanopyCoverText, CanopyCoverDetailText, summary.CanopyCoverPercent,
@@ -876,11 +896,7 @@ public sealed partial class MainPage : Page
             return AllDesignOptions;
         }
 
-        return designOptions.FirstOrDefault(option => option.Contains("(Primary)", StringComparison.Ordinal))
-            ?? designOptions
-                .OrderBy(option => DashboardUnitLabels.ExtractProjectionYears(option) ?? int.MaxValue)
-                .ThenBy(option => option, StringComparer.Ordinal)
-                .First();
+        return DashboardUnitLabels.DefaultDesignOption(designOptions)!;
     }
 
     /// <summary>Keeps the Outlook projection dropdown in step with a growth-year design option pick — assumes the
@@ -1067,25 +1083,16 @@ public sealed partial class MainPage : Page
     }
 
     /// <summary>
-    /// With growth-year worksets the export's scenarios are the growth years, so it covers the
-    /// design option chosen here (all options when "All design options" is chosen).
+    /// The whole model goes into the export — every design option, and with growth-year worksets
+    /// every option x year (see DashboardJsonExportService.Build) — with the chosen site area.
     /// </summary>
-    private DashboardReportResult ReportForJsonExport()
-    {
-        var report = ReportWithChosenSiteArea(_lastReport!);
-        if (!_growthYearsFromWorksets || _selectedDesignOption == AllDesignOptions)
-        {
-            return report;
-        }
+    private DashboardReportResult ReportForJsonExport() => ReportWithChosenSiteArea(_lastReport!);
 
-        bool InOption(DesignOptionInfo option) =>
-            DashboardUnitLabels.IsMainModel(option) || DashboardUnitLabels.FormatDesignOption(option) == _selectedDesignOption;
-        return report with
-        {
-            Trees = report.Trees.Where(tree => InOption(tree.DesignOption)).ToList(),
-            Floors = report.Floors.Where(floor => InOption(floor.DesignOption)).ToList()
-        };
-    }
+    /// <summary>Lighting under the current design option and level filters, by the same main-model rule as trees and floors.</summary>
+    private IReadOnlyList<DashboardLightingItem> FilteredLighting() =>
+        DashboardUnitLabels.LightingFor(_lastReport?.Lighting ?? [], _selectedDesignOption == AllDesignOptions ? null : _selectedDesignOption)
+            .Where(fixture => _selectedLevel == AllLevels || (fixture.LevelName ?? "—") == _selectedLevel)
+            .ToList();
 
     /// <summary>The report as the KPIs see it: its site area replaced by the chosen site boundary's.</summary>
     private DashboardReportResult ReportWithChosenSiteArea(DashboardReportResult report) =>
@@ -1246,6 +1253,26 @@ public sealed partial class MainPage : Page
             return;
         }
 
+        // The snapshot cache isn't tied to a project, so after a failed refresh this could be the
+        // last project's data. Say so before writing a file meant to be shared.
+        if (_cachedSnapshotSavedAt is { } savedAt)
+        {
+            var confirm = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = "Export a cached snapshot?",
+                Content = $"This is a cached snapshot of \"{_lastReport.DocumentTitle}\" from {savedAt.LocalDateTime:g}, not live Revit data. " +
+                          "Open the model in Revit and select Refresh model first if you need current numbers.",
+                PrimaryButtonText = "Export snapshot",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Close
+            };
+            if (await confirm.ShowAsync() != ContentDialogResult.Primary)
+            {
+                return;
+            }
+        }
+
         var picker = new FileSavePicker
         {
             SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
@@ -1287,6 +1314,11 @@ public sealed partial class MainPage : Page
         }
         catch (TimeoutException)
         {
+            return new DashboardJsonLocation(null, null, null);
+        }
+        catch (OperationCanceledException)
+        {
+            // RevitPipeClient's connect timeout surfaces as a cancellation when Revit isn't running.
             return new DashboardJsonLocation(null, null, null);
         }
     }

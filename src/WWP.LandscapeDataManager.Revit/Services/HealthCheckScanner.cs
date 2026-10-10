@@ -63,7 +63,7 @@ internal static class HealthCheckScanner
                 continue;
             }
 
-            var resultSource = GetText(floor, FloorResultSourceParameter);
+            var resultSource = GetTextOnInstanceOrType(floor, FloorResultSourceParameter);
             if (resultSource.Length > 0)
             {
                 yield return new HealthCheckItem(floor.UniqueId, "Floor", familyName, typeName, "Success", $"Calculated ({resultSource}).");
@@ -105,9 +105,9 @@ internal static class HealthCheckScanner
         return (familyName, typeName);
     }
 
-    private static string GetText(Element element, string name)
+    private static string GetTextOnInstanceOrType(Element element, string name)
     {
-        var parameter = element.LookupParameter(name);
+        var parameter = ElementParameters.LookupOnInstanceOrType(element, name);
         return parameter is { HasValue: true } ? parameter.AsString() ?? string.Empty : string.Empty;
     }
 }

@@ -14,6 +14,7 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 internal static class SharedParameterSetupService
 {
     private const string SharedGroupName = "PLANTING - iTree";
+    private const string TreeGrowthYearsParameter = "!_S_PLT_TreeGrowth_Years_Number";
 
     /// <summary>
     /// Read-only dry run: reports what <see cref="EnsureParameters"/> would do for every known
@@ -227,6 +228,11 @@ internal static class SharedParameterSetupService
                 : application.Application.Create.NewTypeBinding(categorySet);
 
             var inserted = document.ParameterBindings.Insert(definition, binding, ownership.Group);
+            if (inserted && FindExistingBinding(document, ownership.Name) is { Definition: var insertedDefinition })
+            {
+                EnsureTreeGrowthYearsVaryAcrossGroups(document, ownership, insertedDefinition);
+            }
+
             return inserted
                 ? new SharedParameterSetupRow(
                     ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
@@ -256,8 +262,9 @@ internal static class SharedParameterSetupService
         // since Instance/Type bindings aren't interchangeable without risking data loss.
         var needsCategoryExpansion = missingCategories.Count > 0;
         var needsRegroup = !existingGroup.Equals(ownership.Group);
+        var needsGroupVariation = IsTreeGrowthYears(ownership) && !internalDefinition.VariesAcrossGroups;
 
-        if (!needsCategoryExpansion && !needsRegroup)
+        if (!needsCategoryExpansion && !needsRegroup && !needsGroupVariation)
         {
             return new SharedParameterSetupRow(
                 ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
@@ -273,6 +280,11 @@ internal static class SharedParameterSetupService
         if (needsRegroup)
         {
             changeNotes.Add($"move from '{LabelUtils.GetLabelForGroup(existingGroup)}' to '{LabelUtils.GetLabelForGroup(ownership.Group)}'");
+        }
+
+        if (needsGroupVariation)
+        {
+            changeNotes.Add("allow values to vary between group instances");
         }
 
         var changeSummary = string.Join("; ", changeNotes) + ".";
@@ -302,15 +314,33 @@ internal static class SharedParameterSetupService
                     "Error", "Revit rejected the updated parameter binding.", ownership.Description);
             }
         }
-        else if (needsRegroup)
+        if (needsRegroup)
         {
             internalDefinition.SetGroupTypeId(ownership.Group);
         }
+
+        EnsureTreeGrowthYearsVaryAcrossGroups(document, ownership, internalDefinition);
 
         return new SharedParameterSetupRow(
             ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
             "Updated", changeSummary, ownership.Description);
     }
+
+    /// <summary>
+    /// Growth-year worksets can differ between placed group instances, so their corresponding tree
+    /// members must carry different formula-driving ages instead of sharing the last written value.
+    /// </summary>
+    private static void EnsureTreeGrowthYearsVaryAcrossGroups(
+        Document document, ParameterOwnership ownership, InternalDefinition definition)
+    {
+        if (IsTreeGrowthYears(ownership) && !definition.VariesAcrossGroups)
+        {
+            definition.SetAllowVaryBetweenGroups(document, true);
+        }
+    }
+
+    private static bool IsTreeGrowthYears(ParameterOwnership ownership) =>
+        ownership.Scope == "Instance" && string.Equals(ownership.Name, TreeGrowthYearsParameter, StringComparison.Ordinal);
 
     private static (bool IsInstance, CategorySet Categories, ForgeTypeId Group, InternalDefinition Definition)? FindExistingBinding(
         Document document, string name)

@@ -398,7 +398,8 @@ public sealed record FloorLdsAssignment(string FloorUniqueId, FloorLdsValues Val
 
 public sealed record CalculateFloorsBatchRequest(IReadOnlyList<FloorLdsAssignment> Assignments);
 
-public sealed record FloorCalculationRow(string UniqueId, string ResultSource);
+/// <param name="NotWritten">Parameters that couldn't be written to this floor (missing — not set up in this project — or read-only); empty when everything was written.</param>
+public sealed record FloorCalculationRow(string UniqueId, string ResultSource, IReadOnlyList<string>? NotWritten = null);
 
 public sealed record CalculateFloorsBatchResult(string DocumentTitle, IReadOnlyList<FloorCalculationRow> Rows);
 

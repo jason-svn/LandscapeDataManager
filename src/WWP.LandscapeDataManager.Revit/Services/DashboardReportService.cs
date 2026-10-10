@@ -232,8 +232,8 @@ internal static class DashboardReportService
             GetDoubleParameter(element, "!_S_PLT_iTreeResult_CostSavedAnnual_Currency"),
             GetMassKilograms("!_S_PLT_LDS_OxygenProducedAnnual_Mass"),
             GetMassKilograms("!_S_PLT_LDS_TotalGWP_Mass"),
-            GetDoubleParameter(element, "!_S_PLT_LDS_SurfaceTempReduction_Number"),
-            GetDoubleParameter(element, "!_S_PLT_LDS_AirTempReduction_Number"),
+            GetDoubleParameterOnInstanceOrType(element, "!_S_PLT_LDS_SurfaceTempReduction_Number"),
+            GetDoubleParameterOnInstanceOrType(element, "!_S_PLT_LDS_AirTempReduction_Number"),
             CreateFloorBng(document, element));
     }
 
@@ -352,6 +352,12 @@ internal static class DashboardReportService
     private static double GetDoubleParameter(Element element, string name)
     {
         var parameter = element.LookupParameter(name);
+        return parameter is { HasValue: true } ? parameter.AsDouble() : 0d;
+    }
+
+    private static double GetDoubleParameterOnInstanceOrType(Element element, string name)
+    {
+        var parameter = ElementParameters.LookupOnInstanceOrType(element, name);
         return parameter is { HasValue: true } ? parameter.AsDouble() : 0d;
     }
 }

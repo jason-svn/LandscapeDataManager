@@ -50,6 +50,18 @@ public static class ProjectExchangeRate
         return ResolveWithoutLookup(fixedRate, currencyCode) ?? await liveService.GetUsdRateAsync(currencyCode);
     }
 
+    /// <summary>
+    /// Why a monetary write was refused: a failed live lookup comes back as 1:1, and writing that
+    /// labelled as GBP/EUR would store US-dollar figures under the wrong currency.
+    /// </summary>
+    public static string UnavailableMessage(ExchangeRateResult rate) =>
+        $"Couldn't get today's {rate.CurrencyCode} exchange rate ({FailureReason(rate)}), so nothing was written. " +
+        "Check the internet connection and try again, or set a fixed rate in Settings > Units & Currency.";
+
+    /// <summary>The lookup's error without its "Using 1:1 (USD) instead" tail — callers that refuse to write mustn't claim a fallback.</summary>
+    public static string FailureReason(ExchangeRateResult rate) =>
+        (rate.Error ?? "lookup failed").Replace("Using 1:1 (USD) instead.", string.Empty).Trim().TrimEnd('.');
+
     /// <summary>"0.8 (fixed: 2026 budget rate)" / "0.7912 (today's rate)" — for status lines.</summary>
     public static string Describe(ExchangeRateResult rate, string? note = null) =>
         rate.IsFixed
