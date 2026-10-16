@@ -72,7 +72,7 @@
                         </Grid>
 
                         <Button x:Name="ConnectButton" Content="Reload source &amp; Revit catalogs" Click="Connect_Click"
-                                Style="{StaticResource LimPrimaryButtonStyle}" />
+                                Style="{StaticResource LimSecondaryButtonStyle}" />
                     </StackPanel>
                 </Border>
 
@@ -244,7 +244,7 @@
                         </Grid>
                         <TextBlock Grid.Column="5" Text="Message" Style="{StaticResource LimColumnHeaderStyle}" />
                     </Grid>
-                    <ListView x:Name="TypeResultsList" ItemsSource="{x:Bind TypeSyncRows}" SelectionMode="None" MaxHeight="260">
+                    <ListView x:Name="TypeResultsList" ItemsSource="{x:Bind TypeSyncRows}" SelectionMode="None" MaxHeight="420">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="local:TypeSyncRow">
                                 <Grid Padding="6" ColumnSpacing="10">
@@ -299,7 +299,7 @@
                         </Grid>
                         <TextBlock Grid.Column="5" Text="Message" Style="{StaticResource LimColumnHeaderStyle}" />
                     </Grid>
-                    <ListView x:Name="InstanceResultsList" ItemsSource="{x:Bind InstanceSyncRows}" SelectionMode="None" MaxHeight="260">
+                    <ListView x:Name="InstanceResultsList" ItemsSource="{x:Bind InstanceSyncRows}" SelectionMode="None" MaxHeight="420">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="local:InstanceSyncRow">
                                 <Grid Padding="6" ColumnSpacing="10">
