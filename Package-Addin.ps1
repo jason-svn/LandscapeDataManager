@@ -18,6 +18,7 @@ $connectorProject = Join-Path $PSScriptRoot 'src\WWP.LandscapeDataManager.Revit\
 $packagesRoot = Join-Path $PSScriptRoot 'artifacts\Packages'
 $stagingRoot = Join-Path $packagesRoot 'LIM-Landscape-Data-2025plus'
 $zipPath = "$stagingRoot.zip"
+$standaloneSharedParameterPath = Join-Path $packagesRoot 'Shared_Parameters_WWP.txt'
 
 # One entry per standalone tool executable; each publishes and stages into its own App\<Name>\ folder.
 # Kept in sync with the Revit ribbon's command set (see OpenWorkflowCommands.cs) — every tool
@@ -101,9 +102,14 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Deployment\Deploy-BinaryPackage
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Deployment\Install.cmd') -Destination $resolvedStagingRoot -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Deployment\README.txt') -Destination $resolvedStagingRoot -Force
 # Import Shared Parameter binds from this file, so ship the copy that matches this build's parameters.
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Shared_Parameters_WWP.txt') -Destination $resolvedStagingRoot -Force
+$sharedParameterSource = Join-Path $PSScriptRoot 'Shared_Parameters_WWP.txt'
+Copy-Item -LiteralPath $sharedParameterSource -Destination $resolvedStagingRoot -Force
+# Also produce a release-ready standalone backup for users who must import it manually.
+# This is the same source file embedded in the connector at build time, so all three copies stay aligned.
+Copy-Item -LiteralPath $sharedParameterSource -Destination $standaloneSharedParameterPath -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Manifest\LIMLandscapeData.addin.template') -Destination $resolvedStagingRoot -Force
 
 Compress-Archive -Path (Join-Path $resolvedStagingRoot '*') -DestinationPath $zipPath -CompressionLevel Optimal
 
 Write-Host "Created deployment package: $zipPath"
+Write-Host "Created standalone shared-parameter backup: $standaloneSharedParameterPath"

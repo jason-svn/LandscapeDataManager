@@ -4,6 +4,7 @@ A `.NET 8` Revit 2025+ connector with a separate WinUI 3 interface for replacing
 
 - **Quick-start guide:** <https://jason-svn.github.io/LandscapeDataManager/>
 - **Download:** [latest release](https://github.com/jason-svn/LandscapeDataManager/releases/latest) (`LIM-Landscape-Data-2025plus.zip`)
+- **Manual shared-parameter backup:** [download `Shared_Parameters_WWP.txt`](https://github.com/jason-svn/LandscapeDataManager/releases/latest/download/Shared_Parameters_WWP.txt)
 - **Online co-benefits dashboard:** <https://jason-svn.github.io/LandscapeCoBenefitsDashboard/> — load a Dashboard **Export JSON** file to view and share the results in a browser ([source](https://github.com/jason-svn/LandscapeCoBenefitsDashboard))
 
 ## Architecture
@@ -99,11 +100,13 @@ The default benefit selection uses the established Revit/Dynamo input and output
 
 Download `LIM-Landscape-Data-2025plus.zip` from the [latest release](https://github.com/jason-svn/LandscapeDataManager/releases/latest), extract it and double-click `Install.cmd` (it asks for `2025` or `2026`). Running `.\Deploy-BinaryPackage.ps1` directly from PowerShell fails with "is not digitally signed" on most machines, because Windows blocks unsigned scripts that came from a download; `Install.cmd` runs it with `-ExecutionPolicy Bypass` for that one process, or use `powershell -ExecutionPolicy Bypass -File .\Deploy-BinaryPackage.ps1 -RevitVersion 2025` yourself. It installs for the current Windows user only — no admin rights needed. Restart Revit and open the **LIM** tab.
 
+LIM carries its current shared-parameter catalog inside the connector, so normal setup does not depend on the user's configured Revit shared-parameter file. A matching [`Shared_Parameters_WWP.txt`](https://github.com/jason-svn/LandscapeDataManager/releases/latest/download/Shared_Parameters_WWP.txt) is also attached to every release as a manual-import and backup copy.
+
 ### Updating
 
 From v1.2.0, the connector checks the [latest GitHub release](https://github.com/jason-svn/LandscapeDataManager/releases/latest) once a day at Revit startup, and **LIM > Project Setup > Check for Updates** checks on demand. Accepting an update opens a PowerShell window that downloads the package while Revit keeps running, waits for every Revit session to close, stops any leftover LIM tool processes, then runs the package's `Deploy-BinaryPackage.ps1`. Installs from v1.1.0 or older have no updater, so they need one manual `Install.cmd` run to reach v1.2.0.
 
-**Publishing a release:** bump `<Version>` in [Directory.Build.props](Directory.Build.props), run `.\Package-Addin.ps1`, then publish a GitHub release tagged `v<Version>` with `artifacts\Packages\LIM-Landscape-Data-2025plus.zip` attached under that exact name. The updater compares the tag against the installed connector's assembly version, so a mismatched tag means installed copies either never see the update or keep being offered it.
+**Publishing a release:** bump `<Version>` in [Directory.Build.props](Directory.Build.props), update the repository-root `Shared_Parameters_WWP.txt`, then run `.\Package-Addin.ps1`. Publish a GitHub release tagged `v<Version>` with both `artifacts\Packages\LIM-Landscape-Data-2025plus.zip` and `artifacts\Packages\Shared_Parameters_WWP.txt` attached under those exact names. The same source parameter file is embedded into the connector, copied into the ZIP, and emitted as the standalone backup. The updater compares the tag against the installed connector's assembly version, so a mismatched tag means installed copies either never see the update or keep being offered it.
 
 ### Manual install (when Install.cmd is blocked too)
 

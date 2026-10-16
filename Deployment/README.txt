@@ -68,7 +68,7 @@ Parameter after updating to add the new parameter.
 
 BIODIVERSITY NET GAIN (BNG)
 
-1. Run Import Shared Parameter with the Shared_Parameters_WWP.txt included in this ZIP, so
+1. Run Import Shared Parameter and review the catalog built into this LIM version, so
    the BNG floor parameters are bound. Re-run it after updating: new parameters (baseline
    habitat, Enhanced, ...) only appear once bound.
 2. Revit phases decide each floor's role: floors created in Existing are the baseline
