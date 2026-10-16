@@ -55,8 +55,9 @@ public static class DefaultParameterMappingCatalog
     };
 
     /// <summary>
-    /// Whether the Importer may write to this parameter. Never a calculated <c>!_S_PLT_Result_*</c>
-    /// parameter (a calculator owns it — importing would overwrite its results with raw sheet values),
+    /// Whether the Importer may write to this parameter. Never a calculated <c>!_S_PLT_Result_*</c>,
+    /// <c>!_S_PLT_BNGResult_*</c>, or <c>!_S_PLT_ConnectivityResult_*</c> parameter
+    /// (a calculator owns it — importing would overwrite its results with raw sheet values),
     /// and never a retired name, so a mapping saved before a rename can't keep feeding the old parameter.
     /// </summary>
     public static bool IsImportTarget(string parameterName) =>

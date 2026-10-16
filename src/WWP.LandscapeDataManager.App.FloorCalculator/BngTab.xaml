@@ -26,7 +26,7 @@
                      IsOpen="False"
                      IsClosable="False"
                      Title="BNG parameters aren't set up in this project"
-                     Message="Floors can be calculated here, but writing to Revit will fail until the BNGInput / Result_BNG parameters exist. Open Parameters, create them, then load the floors again.">
+                     Message="Floors can be calculated here, but writing to Revit will fail until the BNGInput / BNGResult parameters exist. Open Parameters, create them, then load the floors again.">
                 <InfoBar.ActionButton>
                     <Button Content="Open Parameters" Click="OpenParameters_Click" />
                 </InfoBar.ActionButton>

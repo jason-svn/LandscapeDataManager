@@ -101,9 +101,11 @@ public sealed class DefaultParameterMappingCatalogTests
 
     [Theory]
     [InlineData("!_S_PLT_Result_EmbodiedGWP_Mass", false)]          // calculated
-    [InlineData("!_S_PLT_Result_BNG_HabitatUnits_Number", false)]   // calculated
+    [InlineData("!_S_PLT_Result_BNG_HabitatUnits_Number", false)]   // superseded result name
+    [InlineData("!_S_PLT_Result_Connectivity_Band_Number", false)] // superseded result name
     [InlineData("!_S_PLT_LDS_TotalGWP_Mass", false)]                // retired by rename
-    [InlineData("!_S_PLT_BNGResult_HabitatUnits_Number", false)]    // retired by rename
+    [InlineData("!_S_PLT_BNGResult_HabitatUnits_Number", false)]    // calculated
+    [InlineData("!_S_PLT_ConnectivityResult_Band_Number", false)]  // calculated
     [InlineData("!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Mass", false)]
     [InlineData("!_S_PLT_LDS_CO2SequestrationRate_Number", true)]   // current rate
     [InlineData("!_S_PLT_iTreeSpecies_Code_Text", true)]

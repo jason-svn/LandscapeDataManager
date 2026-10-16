@@ -21,34 +21,34 @@ internal static class BngFloorService
     // Shared with i-Tree's tree condition — see SharedParameterSetupService.
     private const string ConditionParameter = "!_S_PLT_iTreeInput_Condition_Text";
 
-    private const string BroadHabitatParameter = "!_S_PLT_Result_BNG_BroadHabitat_Text";
-    private const string AreaHectaresParameter = "!_S_PLT_Result_BNG_AreaHectares_Text";
-    private const string DistinctivenessParameter = "!_S_PLT_Result_BNG_Distinctiveness_Text";
-    private const string DistinctivenessScoreParameter = "!_S_PLT_Result_BNG_DistinctivenessScore_Text";
-    private const string ConditionScoreParameter = "!_S_PLT_Result_BNG_ConditionScore_Text";
-    private const string StrategicCategoryParameter = "!_S_PLT_Result_BNG_StrategicSignificanceCategory_Text";
-    private const string StrategicMultiplierParameter = "!_S_PLT_Result_BNG_StrategicSignificanceMultiplier_Text";
-    private const string StandardTimeParameter = "!_S_PLT_Result_BNG_StandardTimeToTarget_Text";
-    private const string TimeStatusParameter = "!_S_PLT_Result_BNG_TimeToTargetStatus_Text";
-    private const string FinalTimeParameter = "!_S_PLT_Result_BNG_FinalTimeToTarget_Text";
-    private const string FinalTimeMultiplierParameter = "!_S_PLT_Result_BNG_FinalTimeToTargetMultiplier_Text";
-    private const string StandardDifficultyParameter = "!_S_PLT_Result_BNG_StandardDifficulty_Text";
-    private const string AppliedDifficultyParameter = "!_S_PLT_Result_BNG_AppliedDifficulty_Text";
-    private const string FinalDifficultyParameter = "!_S_PLT_Result_BNG_FinalDifficulty_Text";
-    private const string DifficultyMultiplierParameter = "!_S_PLT_Result_BNG_DifficultyMultiplier_Text";
-    private const string HabitatUnitsParameter = "!_S_PLT_Result_BNG_HabitatUnits_Number";
-    private const string StatusParameter = "!_S_PLT_Result_BNG_Status_Text";
-    private const string DetailsParameter = "!_S_PLT_Result_BNG_Details_Text";
-    private const string InputSignatureParameter = "!_S_PLT_Result_BNG_InputSignature_Text";
-    private const string LastUpdatedParameter = "!_S_PLT_Result_BNG_LastUpdated_Text";
-    private const string MetricVersionParameter = "!_S_PLT_Result_BNG_MetricVersion_Text";
+    private const string BroadHabitatParameter = "!_S_PLT_BNGResult_BroadHabitat_Text";
+    private const string AreaHectaresParameter = "!_S_PLT_BNGResult_AreaHectares_Text";
+    private const string DistinctivenessParameter = "!_S_PLT_BNGResult_Distinctiveness_Text";
+    private const string DistinctivenessScoreParameter = "!_S_PLT_BNGResult_DistinctivenessScore_Text";
+    private const string ConditionScoreParameter = "!_S_PLT_BNGResult_ConditionScore_Text";
+    private const string StrategicCategoryParameter = "!_S_PLT_BNGResult_StrategicSignificanceCategory_Text";
+    private const string StrategicMultiplierParameter = "!_S_PLT_BNGResult_StrategicSignificanceMultiplier_Text";
+    private const string StandardTimeParameter = "!_S_PLT_BNGResult_StandardTimeToTarget_Text";
+    private const string TimeStatusParameter = "!_S_PLT_BNGResult_TimeToTargetStatus_Text";
+    private const string FinalTimeParameter = "!_S_PLT_BNGResult_FinalTimeToTarget_Text";
+    private const string FinalTimeMultiplierParameter = "!_S_PLT_BNGResult_FinalTimeToTargetMultiplier_Text";
+    private const string StandardDifficultyParameter = "!_S_PLT_BNGResult_StandardDifficulty_Text";
+    private const string AppliedDifficultyParameter = "!_S_PLT_BNGResult_AppliedDifficulty_Text";
+    private const string FinalDifficultyParameter = "!_S_PLT_BNGResult_FinalDifficulty_Text";
+    private const string DifficultyMultiplierParameter = "!_S_PLT_BNGResult_DifficultyMultiplier_Text";
+    private const string HabitatUnitsParameter = "!_S_PLT_BNGResult_HabitatUnits_Number";
+    private const string StatusParameter = "!_S_PLT_BNGResult_Status_Text";
+    private const string DetailsParameter = "!_S_PLT_BNGResult_Details_Text";
+    private const string InputSignatureParameter = "!_S_PLT_BNGResult_InputSignature_Text";
+    private const string LastUpdatedParameter = "!_S_PLT_BNGResult_LastUpdated_Text";
+    private const string MetricVersionParameter = "!_S_PLT_BNGResult_MetricVersion_Text";
     internal const string BaselineHabitatParameter = "!_S_PLT_BNGInput_BaselineHabitat_Text";
     internal const string BaselineConditionParameter = "!_S_PLT_BNGInput_BaselineCondition_Text";
     internal const string IrreplaceableParameter = "!_S_PLT_BNGInput_Irreplaceable_Text";
     internal const string EnhancedParameter = "!_S_PLT_BNGInput_Enhanced_YesNo";
     internal const string UniqueParameter = "!_S_PLT_BNGInput_Unique_YesNo";
-    private const string RoleParameter = "!_S_PLT_Result_BNG_Role_Text";
-    internal const string BaselineUnitsParameter = "!_S_PLT_Result_BNG_BaselineUnits_Number";
+    private const string RoleParameter = "!_S_PLT_BNGResult_Role_Text";
+    internal const string BaselineUnitsParameter = "!_S_PLT_BNGResult_BaselineUnits_Number";
 
     public static BngFloorsResult GetFloors(UIApplication application, BngFloorsRequest request)
     {

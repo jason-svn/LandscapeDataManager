@@ -120,7 +120,7 @@ public sealed class BngMetricCatalog
 
     public string MetricVersion { get; }
 
-    /// <summary>"The Statutory Biodiversity Metric 2024-07-23" — written to <c>Result_BNG_MetricVersion_Text</c>.</summary>
+    /// <summary>"The Statutory Biodiversity Metric 2024-07-23" — written to <c>BNGResult_MetricVersion_Text</c>.</summary>
     public string DisplayVersion => $"{MetricName} {MetricVersion}";
 
     /// <summary>All seven condition headers, in the metric's column order.</summary>

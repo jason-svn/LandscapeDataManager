@@ -18,12 +18,12 @@ internal static class ConnectivityService
     private const string SurfaceClassParameter = "!_S_PLT_LDS_SurfaceClass_Text";
 
     internal const string LockedParameter = "!_S_PLT_ConnectivityInput_Locked_YesNo";
-    private const string BandParameter = "!_S_PLT_Result_Connectivity_Band_Number";
-    private const string ClassParameter = "!_S_PLT_Result_Connectivity_Class_Text";
-    private const string ScoreParameter = "!_S_PLT_Result_Connectivity_Score_Number";
-    private const string DpcParameter = "!_S_PLT_Result_Connectivity_dPC_Number";
-    private const string DetailsParameter = "!_S_PLT_Result_Connectivity_Details_Text";
-    private const string LastUpdatedParameter = "!_S_PLT_Result_Connectivity_LastUpdated_Text";
+    private const string BandParameter = "!_S_PLT_ConnectivityResult_Band_Number";
+    private const string ClassParameter = "!_S_PLT_ConnectivityResult_Class_Text";
+    private const string ScoreParameter = "!_S_PLT_ConnectivityResult_Score_Number";
+    private const string DpcParameter = "!_S_PLT_ConnectivityResult_dPC_Number";
+    private const string DetailsParameter = "!_S_PLT_ConnectivityResult_Details_Text";
+    private const string LastUpdatedParameter = "!_S_PLT_ConnectivityResult_LastUpdated_Text";
 
     public static ConnectivityPatchesResult GetPatches(UIApplication application, ConnectivityPatchesRequest request)
     {
