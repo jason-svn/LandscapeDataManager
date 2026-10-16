@@ -63,10 +63,12 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="STEP 2 — MATCH &amp; CALCULATE" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
                                 <Button Grid.Column="1" Content="Load selected floors" Click="LoadSelectedFloors_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                                <Button Grid.Column="2"
+                                <Button Grid.Column="2" Content="Load all floors" Click="LoadAllFloors_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                                <Button Grid.Column="3"
                                         x:Name="CalculateAllButton"
                                         Content="Calculate all matched"
                                         Click="CalculateAll_Click"

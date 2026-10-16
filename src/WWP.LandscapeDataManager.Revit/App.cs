@@ -24,6 +24,8 @@ public sealed class App : IExternalApplication
     internal static ToolProcessLauncher? FloorCalculatorLauncher { get; private set; }
     internal static ToolProcessLauncher? HealthCheckLauncher { get; private set; }
     internal static ToolProcessLauncher? DashboardLauncher { get; private set; }
+    internal static ToolProcessLauncher? ConnectivityLauncher { get; private set; }
+    internal static ToolProcessLauncher? GrowthProjectionsLauncher { get; private set; }
     internal static ToolProcessLauncher? SettingsLauncher { get; private set; }
 
     private static UIControlledApplication? _application;
@@ -63,6 +65,12 @@ public sealed class App : IExternalApplication
             PipeServer.PipeName);
         DashboardLauncher = new ToolProcessLauncher(
             Path.Combine("Dashboard", "WWP.LandscapeDataManager.Dashboard.exe"),
+            PipeServer.PipeName);
+        ConnectivityLauncher = new ToolProcessLauncher(
+            Path.Combine("Connectivity", "WWP.LandscapeDataManager.Connectivity.exe"),
+            PipeServer.PipeName);
+        GrowthProjectionsLauncher = new ToolProcessLauncher(
+            Path.Combine("GrowthProjections", "WWP.LandscapeDataManager.GrowthProjections.exe"),
             PipeServer.PipeName);
         SettingsLauncher = new ToolProcessLauncher(
             Path.Combine("Settings", "WWP.LandscapeDataManager.Settings.exe"),
@@ -132,6 +140,13 @@ public sealed class App : IExternalApplication
             "EX",
             "Planting Data Import",
             "Import Excel or Airtable records, detect source units, preview changes, and write mapped Planting type and instance values.");
+        AddWorkflowButton<GrowthProjectionsCommand>(
+            dataProcessingPanel,
+            "LIMGrowthProjections",
+            "Growth\nProjections",
+            "GP",
+            "Growth Projections",
+            "Model the planting at each growth year: the original trees become year 0 (Baseline) and each tree is copied onto a growth-year workset with its age set to its age at planting plus that year. Re-run to refresh the linked copies.");
 
         AddWorkflowButton<CalculateITreeCommand>(
             dataCalculationPanel,
@@ -147,6 +162,13 @@ public sealed class App : IExternalApplication
             "FC",
             "Floor Calculator",
             "Match selected Floor instances to the WWP landscape data sheet and calculate cost, carbon, air, water, and temperature benefits from the sheet's per-square-metre coefficients.");
+        AddWorkflowButton<CalculateConnectivityCommand>(
+            dataCalculationPanel,
+            "LIMCalculateConnectivity",
+            "Connectivity\nCalculator",
+            "CN",
+            "Connectivity Calculator",
+            "Score every tree and planting area 1-4 by how much it holds the green network together (Probability of Connectivity, dPC), write the band back to Revit, and colour the view by band.");
 
         AddWorkflowButton<SyncLatestCommand>(
             diagnosisPanel,
@@ -189,6 +211,8 @@ public sealed class App : IExternalApplication
         FloorCalculatorLauncher?.Dispose();
         HealthCheckLauncher?.Dispose();
         DashboardLauncher?.Dispose();
+        ConnectivityLauncher?.Dispose();
+        GrowthProjectionsLauncher?.Dispose();
         SettingsLauncher?.Dispose();
         PipeServer?.Dispose();
         Dispatcher?.Dispose();
@@ -203,6 +227,8 @@ public sealed class App : IExternalApplication
         FloorCalculatorLauncher = null;
         HealthCheckLauncher = null;
         DashboardLauncher = null;
+        ConnectivityLauncher = null;
+        GrowthProjectionsLauncher = null;
         SettingsLauncher = null;
         PipeServer = null;
         Dispatcher = null;
@@ -285,8 +311,17 @@ public sealed class App : IExternalApplication
 
         button.ToolTip = toolTip;
         button.LongDescription = longDescription;
-        button.Image = LoadEmbeddedImage($"LIM.LandscapeData.{iconCode}.16.png");
-        button.LargeImage = LoadEmbeddedImage($"LIM.LandscapeData.{iconCode}.32.png");
+
+        // A missing icon used to throw out of OnStartup, silently dropping every button after it.
+        try
+        {
+            button.Image = LoadEmbeddedImage($"LIM.LandscapeData.{iconCode}.16.png");
+            button.LargeImage = LoadEmbeddedImage($"LIM.LandscapeData.{iconCode}.32.png");
+        }
+        catch (InvalidOperationException exception)
+        {
+            System.Diagnostics.Debug.WriteLine(exception.Message);
+        }
     }
 
     private static BitmapImage LoadEmbeddedImage(string resourceName)

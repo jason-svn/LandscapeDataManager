@@ -142,6 +142,10 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.WriteBngFloors => await WriteBngFloorsAsync(request).ConfigureAwait(false),
                 PipeCommands.RunHealthCheck => await RunHealthCheckAsync(request).ConfigureAwait(false),
                 PipeCommands.GetDashboardReport => await GetDashboardReportAsync(request).ConfigureAwait(false),
+                PipeCommands.GetConnectivityPatches => await GetConnectivityPatchesAsync(request).ConfigureAwait(false),
+                PipeCommands.WriteConnectivityResults => await WriteConnectivityResultsAsync(request).ConfigureAwait(false),
+                PipeCommands.GetGrowthProjectionStatus => await GetGrowthProjectionStatusAsync(request).ConfigureAwait(false),
+                PipeCommands.RunGrowthProjection => await RunGrowthProjectionAsync(request).ConfigureAwait(false),
                 _ => new PipeResponse(request.RequestId, false, Error: $"Unknown command: {request.Command}")
             };
         }
@@ -214,17 +218,16 @@ internal sealed class RevitPipeServer : IDisposable
 
     private async Task<PipeResponse> PreviewSharedParametersAsync(PipeRequest request)
     {
-        var options = request.Payload?.Deserialize<PreviewSharedParametersRequest>(JsonDefaults.Options)
-                      ?? throw new InvalidDataException("The shared parameter file path was empty.");
+        _ = request.Payload?.Deserialize<PreviewSharedParametersRequest>(JsonDefaults.Options);
         var result = await _dispatcher.RunAsync(application =>
-            SharedParameterSetupService.PreviewParameters(application, options.SharedParameterFilePath)).ConfigureAwait(false);
+            SharedParameterSetupService.PreviewParameters(application)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 
     private async Task<PipeResponse> EnsureSharedParametersAsync(PipeRequest request)
     {
         var options = request.Payload?.Deserialize<EnsureSharedParametersRequest>(JsonDefaults.Options)
-                      ?? throw new InvalidDataException("The shared parameter file path was empty.");
+                      ?? throw new InvalidDataException("The shared parameter selection was empty.");
         var result = await _dispatcher.RunAsync(application =>
             SharedParameterSetupService.EnsureParameters(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
@@ -346,7 +349,10 @@ internal sealed class RevitPipeServer : IDisposable
 
     private async Task<PipeResponse> GetSelectedFloorsAsync(PipeRequest request)
     {
-        var result = await _dispatcher.RunAsync(FloorLdsCalculationService.GetSelectedFloors).ConfigureAwait(false);
+        var options = request.Payload?.Deserialize<SelectedFloorsRequest>(JsonDefaults.Options)
+                      ?? new SelectedFloorsRequest();
+        var result = await _dispatcher.RunAsync(application =>
+            FloorLdsCalculationService.GetSelectedFloors(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 
@@ -386,6 +392,39 @@ internal sealed class RevitPipeServer : IDisposable
                       ?? new DashboardReportRequest();
         var result = await _dispatcher.RunAsync(application =>
             DashboardReportService.GetReport(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetConnectivityPatchesAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<ConnectivityPatchesRequest>(JsonDefaults.Options)
+                      ?? new ConnectivityPatchesRequest();
+        var result = await _dispatcher.RunAsync(application =>
+            ConnectivityService.GetPatches(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> WriteConnectivityResultsAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<WriteConnectivityResultsRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The connectivity write request was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            ConnectivityService.Write(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetGrowthProjectionStatusAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(GrowthProjectionService.GetStatus).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> RunGrowthProjectionAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<GrowthProjectionRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The growth projection request was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            GrowthProjectionService.Run(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

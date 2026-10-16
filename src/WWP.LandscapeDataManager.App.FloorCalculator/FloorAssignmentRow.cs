@@ -27,12 +27,12 @@ public sealed class FloorAssignmentRow(SelectedFloorItem item) : INotifyProperty
     /// <summary>Fixed 8 metrics in a stable order: CO2, Runoff, PollutionMassRemoved, CostSaved, Oxygen, GWP, SurfaceTemp, AirTemp (see the named index constants below).</summary>
     public ObservableCollection<FloorMetricEntry> Metrics { get; } =
     [
-        new("CO2 Sequestered", "kg/yr"),
+        new("CO2 Sequestered", "kg CO2e/yr"),
         new("Runoff Avoided", "m³/yr"),
         new("Pollution Mitigated", "kg/yr"),
         new("Cost Saved", "/yr"),
         new("Oxygen Produced", "kg/yr"),
-        new("Total GWP", "kg CO2e"),
+        new("Embodied GWP", "kg CO2e"),
         new("Surface Temp Reduction", "°"),
         new("Air Temp Reduction", "°"),
     ];

@@ -26,6 +26,38 @@ public sealed class ImportUnitNormalizerTests
     }
 
     [Fact]
+    public void PerAreaRateHeaderImportsIntoMassParameter()
+    {
+        // The WWP landscape data sheet's carbon column: kgCO2e is the unit, "/(m2)/yr" is "per m² per year".
+        var result = ImportUnitNormalizer.Normalize(
+            "27.00",
+            "Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth)",
+            Descriptor("Carbon (mass)", "autodesk.spec.aec:mass-2.0.0"),
+            "Auto (Revit spec)",
+            "Metric",
+            null);
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(27d, ReadNumber(result.Value), 10);
+        Assert.Contains("kg", result.Message);
+    }
+
+    [Fact]
+    public void PerYearVolumeHeaderStillReadsItsNumerator()
+    {
+        var result = ImportUnitNormalizer.Normalize(
+            "2",
+            "Avoided runoff m3/yr (16/18 girth)",
+            Descriptor("Runoff", "autodesk.spec.aec:volume-2.0.0"),
+            "Auto (Revit spec)",
+            "Metric",
+            null);
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(2d, ReadNumber(result.Value), 10);
+    }
+
+    [Fact]
     public void CellUnitOverridesConflictingHeaderUnit()
     {
         var result = ImportUnitNormalizer.Normalize(

@@ -40,7 +40,9 @@ public static class ProjectSettingsSync
         string? preferredCurrency = null,
         InstanceMatchKeySettings? instanceMatchKey = null,
         string? siteBoundary = null,
-        ExchangeRateOverride? exchangeRateOverride = null)
+        ExchangeRateOverride? exchangeRateOverride = null,
+        ConnectivitySettings? connectivity = null,
+        IReadOnlyList<int>? growthProjectionYears = null)
     {
         var existingResult = await client.SendAsync<GetProjectSettingsJsonResult>(PipeCommands.GetProjectSettingsJson);
         var existing = ProjectSettingsJson.Deserialize(existingResult.SettingsJson) ?? new ProjectSettingsSnapshot();
@@ -72,7 +74,9 @@ public static class ProjectSettingsSync
             sharedParameterFilePath ?? existing.SharedParameterFilePath,
             instanceMatchKey ?? existing.InstanceMatchKey,
             siteBoundary ?? existing.SiteBoundary,
-            exchangeRateOverride ?? existing.ExchangeRateOverride);
+            exchangeRateOverride ?? existing.ExchangeRateOverride,
+            connectivity ?? existing.Connectivity,
+            growthProjectionYears ?? existing.GrowthProjectionYears);
 
         await client.SendAsync<PublishProjectSettingsJsonResult>(
             PipeCommands.PublishProjectSettingsJson,

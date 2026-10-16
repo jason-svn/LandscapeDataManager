@@ -30,6 +30,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.Ap
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.Settings", "src\WWP.LandscapeDataManager.App.Settings\WWP.LandscapeDataManager.App.Settings.csproj", "{4B7D8E62-1F3A-4C95-A7D6-3E8F9A2C6B41}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.Connectivity", "src\WWP.LandscapeDataManager.App.Connectivity\WWP.LandscapeDataManager.App.Connectivity.csproj", "{39DE579B-3834-4247-AC83-7BE35BD1D147}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.GrowthProjections", "src\WWP.LandscapeDataManager.App.GrowthProjections\WWP.LandscapeDataManager.App.GrowthProjections.csproj", "{479FEBEC-F347-4BAE-A1F5-19319D0F10B6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug 2025|Any CPU = Debug 2025|Any CPU
@@ -150,6 +154,22 @@ Global
 		{4B7D8E62-1F3A-4C95-A7D6-3E8F9A2C6B41}.Debug|Any CPU.Build.0 = Debug|x64
 		{4B7D8E62-1F3A-4C95-A7D6-3E8F9A2C6B41}.Release|Any CPU.ActiveCfg = Release|x64
 		{4B7D8E62-1F3A-4C95-A7D6-3E8F9A2C6B41}.Release|Any CPU.Build.0 = Release|x64
+		{39DE579B-3834-4247-AC83-7BE35BD1D147}.Debug 2025|Any CPU.ActiveCfg = Debug 2025|x64
+		{39DE579B-3834-4247-AC83-7BE35BD1D147}.Debug 2025|Any CPU.Build.0 = Debug 2025|x64
+		{39DE579B-3834-4247-AC83-7BE35BD1D147}.Debug 2026|Any CPU.ActiveCfg = Debug 2026|x64
+		{39DE579B-3834-4247-AC83-7BE35BD1D147}.Debug 2026|Any CPU.Build.0 = Debug 2026|x64
+		{39DE579B-3834-4247-AC83-7BE35BD1D147}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{39DE579B-3834-4247-AC83-7BE35BD1D147}.Debug|Any CPU.Build.0 = Debug|x64
+		{39DE579B-3834-4247-AC83-7BE35BD1D147}.Release|Any CPU.ActiveCfg = Release|x64
+		{39DE579B-3834-4247-AC83-7BE35BD1D147}.Release|Any CPU.Build.0 = Release|x64
+		{479FEBEC-F347-4BAE-A1F5-19319D0F10B6}.Debug 2025|Any CPU.ActiveCfg = Debug 2025|x64
+		{479FEBEC-F347-4BAE-A1F5-19319D0F10B6}.Debug 2025|Any CPU.Build.0 = Debug 2025|x64
+		{479FEBEC-F347-4BAE-A1F5-19319D0F10B6}.Debug 2026|Any CPU.ActiveCfg = Debug 2026|x64
+		{479FEBEC-F347-4BAE-A1F5-19319D0F10B6}.Debug 2026|Any CPU.Build.0 = Debug 2026|x64
+		{479FEBEC-F347-4BAE-A1F5-19319D0F10B6}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{479FEBEC-F347-4BAE-A1F5-19319D0F10B6}.Debug|Any CPU.Build.0 = Debug|x64
+		{479FEBEC-F347-4BAE-A1F5-19319D0F10B6}.Release|Any CPU.ActiveCfg = Release|x64
+		{479FEBEC-F347-4BAE-A1F5-19319D0F10B6}.Release|Any CPU.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

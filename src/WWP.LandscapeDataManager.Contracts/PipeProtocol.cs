@@ -39,6 +39,10 @@ public static class PipeCommands
     public const string WriteBngFloors = "write-bng-floors";
     public const string RunHealthCheck = "run-health-check";
     public const string GetDashboardReport = "get-dashboard-report";
+    public const string GetConnectivityPatches = "get-connectivity-patches";
+    public const string WriteConnectivityResults = "write-connectivity-results";
+    public const string GetGrowthProjectionStatus = "get-growth-projection-status";
+    public const string RunGrowthProjection = "run-growth-projection";
 }
 
 public sealed record PipeRequest(string RequestId, string Command, JsonElement? Payload);
@@ -159,10 +163,10 @@ public sealed record ITreeInputScanResult(
     int SkippedWithoutSpeciesCode);
 
 /// <summary>Read-only check of the shared parameter file against the current document — nothing is changed.</summary>
-public sealed record PreviewSharedParametersRequest(string SharedParameterFilePath);
+public sealed record PreviewSharedParametersRequest;
 
 /// <summary>Creates/validates only the parameters named in <see cref="IncludedParameterNames"/>, e.g. the subset the user left checked after reviewing the preview rows.</summary>
-public sealed record EnsureSharedParametersRequest(string SharedParameterFilePath, IReadOnlyList<string> IncludedParameterNames);
+public sealed record EnsureSharedParametersRequest(IReadOnlyList<string> IncludedParameterNames);
 
 /// <summary>
 /// One shared-parameter definition's binding outcome. Status is one of:
@@ -368,6 +372,9 @@ public sealed record SelectedFloorItem(
     string? CurrentLdsType,
     string? CurrentLdsMatchKey);
 
+/// <summary><see cref="AllFloors"/> loads every Floor instance in the project instead of the current selection.</summary>
+public sealed record SelectedFloorsRequest(bool AllFloors = false);
+
 public sealed record SelectedFloorsResult(string DocumentTitle, IReadOnlyList<SelectedFloorItem> Items);
 
 /// <summary>
@@ -459,7 +466,8 @@ public sealed record BngFloorItem(
     string? Irreplaceable = null,
     bool Enhanced = false,
     bool Unique = false,
-    bool UniqueSupported = false);
+    bool UniqueSupported = false,
+    DesignOptionInfo? DesignOption = null);
 
 public sealed record BngFloorsResult(string DocumentTitle, IReadOnlyList<BngFloorItem> Items);
 
@@ -563,7 +571,8 @@ public sealed record PlantingInstanceValidationItem(
     string StoredDetails,
     string StoredLastUpdatedUtc,
     string StoredEngineVersion,
-    string StoredInputSignature);
+    string StoredInputSignature,
+    int? GrowthYear = null);
 
 public sealed record ValidatePlantingInstancesRequest(bool SelectedOnly = false);
 
@@ -726,6 +735,59 @@ public sealed record DashboardReportResult(
     IReadOnlyList<DashboardFloorItem> Floors,
     IReadOnlyList<DashboardLightingItem> Lighting,
     IReadOnlyList<DashboardPropertyLine>? PropertyLines = null);
+
+/// <summary>A plan point in metres (Revit internal coordinates converted, not shared coordinates — only distances matter).</summary>
+public sealed record ConnectivityPoint(double X, double Y);
+
+/// <summary>
+/// One Planting or Floor instance as a connectivity patch. A tree is its canopy circle
+/// (<see cref="Center"/>/<see cref="RadiusMeters"/>, from <c>!_S_PLT_TreeFoliage_Width</c> or, failing
+/// that, the family's bounding box — see <see cref="Note"/>); a floor is its top-face
+/// <see cref="Outline"/>. <see cref="LdsType"/>/<see cref="SurfaceClass"/> let the tool decide which
+/// floors are planting areas (see <c>ConnectivityPatchSelector</c>). <see cref="ParametersBound"/> is
+/// false when the connectivity result parameters aren't set up in the project yet.
+/// </summary>
+public sealed record ConnectivityPatchItem(
+    string UniqueId,
+    long ElementId,
+    string Category,
+    string FamilyName,
+    string TypeName,
+    double AreaSquareMeters,
+    ConnectivityPoint Center,
+    double RadiusMeters,
+    IReadOnlyList<ConnectivityPoint>? Outline,
+    string? LdsType,
+    string? SurfaceClass,
+    bool Locked,
+    bool ParametersBound,
+    int? StoredBand,
+    string? Note);
+
+/// <summary>Only primary Design Options and elements not demolished are ever returned — the network is the built design.</summary>
+public sealed record ConnectivityPatchesRequest(bool IncludeFloors = true);
+
+public sealed record ConnectivityPatchesResult(string DocumentTitle, IReadOnlyList<ConnectivityPatchItem> Items);
+
+public sealed record ConnectivityResultValues(
+    string UniqueId,
+    int Band,
+    string ClassName,
+    double Score,
+    double DpcPercent,
+    string Details);
+
+public sealed record WriteConnectivityResultsRequest(IReadOnlyList<ConnectivityResultValues> Items);
+
+public sealed record ConnectivityWriteFailure(string UniqueId, string Reason);
+
+/// <summary><see cref="SkippedLocked"/> are elements whose <c>!_S_PLT_ConnectivityInput_Locked_YesNo</c> is ticked — their hand-set score is left alone.</summary>
+public sealed record WriteConnectivityResultsResult(
+    string DocumentTitle,
+    IReadOnlyList<string> Written,
+    IReadOnlyList<string> SkippedLocked,
+    IReadOnlyList<ConnectivityWriteFailure> Failures,
+    string LastUpdated);
 
 public static class JsonDefaults
 {

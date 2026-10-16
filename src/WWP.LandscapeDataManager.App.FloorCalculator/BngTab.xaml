@@ -26,7 +26,7 @@
                      IsOpen="False"
                      IsClosable="False"
                      Title="BNG parameters aren't set up in this project"
-                     Message="Floors can be calculated here, but writing to Revit will fail until the BNGInput/BNGResult parameters exist. Open Parameters, create them, then load the floors again.">
+                     Message="Floors can be calculated here, but writing to Revit will fail until the BNGInput / Result_BNG parameters exist. Open Parameters, create them, then load the floors again.">
                 <InfoBar.ActionButton>
                     <Button Content="Open Parameters" Click="OpenParameters_Click" />
                 </InfoBar.ActionButton>
@@ -67,6 +67,13 @@
                     <Button Grid.Column="3" Content="Bulk edit..." Click="BulkEdit_Click" Style="{StaticResource LimSecondaryButtonStyle}"
                             ToolTipService.ToolTip="Set habitat, condition, strategic significance or year offset for the selected rows (or every shown row if none are selected)." />
                     <Button Grid.Column="4" Content="Select in Revit" Click="SelectInRevit_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    <CheckBox Grid.Column="5"
+                              x:Name="HighlightInModelCheckBox"
+                              HorizontalAlignment="Right"
+                              Margin="0,0,12,0"
+                              Content="Highlight selected rows in Revit"
+                              IsChecked="True"
+                              ToolTipService.ToolTip="Selecting rows in this table selects those floors in Revit, so you can see which floor each row is." />
                     <CheckBox Grid.Column="6"
                               x:Name="RememberTypeCheckBox"
                               Content="Remember habitat per floor type"
@@ -129,15 +136,22 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="FilterStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
+            <ComboBox x:Name="DesignOptionFilterBox"
+                      MinWidth="240"
+                      IsEnabled="False"
+                      PlaceholderText="Design option"
+                      SelectionChanged="DesignOptionFilterBox_SelectionChanged"
+                      ToolTipService.ToolTip="Show one design option: the main model plus that option's floors. The counts and the baseline → post-intervention total follow this choice; Write to Revit still writes every loaded floor." />
+            <TextBlock Grid.Column="1" x:Name="FilterStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" VerticalAlignment="Center"
                        Text="Load floors to start — click a card above to filter the list to just that status." />
-            <TextBlock Grid.Column="1" x:Name="TotalUnitsText" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="2" x:Name="TotalUnitsText" FontWeight="SemiBold" VerticalAlignment="Center" />
 
             <!-- The A-2 row is far wider than the window; this strip makes sideways scrolling obvious. -->
-            <Border Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource LimCardStyle}" Padding="12,6">
+            <Border Grid.Row="1" Grid.ColumnSpan="3" Style="{StaticResource LimCardStyle}" Padding="12,6">
                 <Grid ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -203,8 +217,18 @@
                         <ColumnDefinition Width="80" />
                         <ColumnDefinition Width="90" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="Unique · Family : Type" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom"
-                               ToolTipService.ToolTip="Floors of the same type and role share their BNG inputs — editing one fills the others. Tick Unique to give a floor its own inputs." />
+                    <Border Canvas.ZIndex="1"
+                            Margin="-12,0,0,-4"
+                            Padding="12,0,0,4"
+                            Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="0,0,1,0">
+                        <Border.RenderTransform>
+                            <TranslateTransform x:Name="FrozenHeaderTransform" />
+                        </Border.RenderTransform>
+                        <TextBlock Text="Unique · Family : Type" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom"
+                                   ToolTipService.ToolTip="Floors of the same type and role share their BNG inputs — editing one fills the others. Tick Unique to give a floor its own inputs." />
+                    </Border>
                     <TextBlock Grid.Column="1" Text="Area" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
                     <TextBlock Grid.Column="2" Text="Status" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" />
                     <TextBlock Grid.Column="3" Text="Role (from phases)" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
@@ -233,7 +257,7 @@
                     <TextBlock Grid.Column="26" Text="Habitat units (post-intervention)" Style="{StaticResource LimColumnHeaderStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap" />
                 </Grid>
 
-                <ListView Grid.Row="1" x:Name="RowsList" ItemsSource="{x:Bind FilteredRows}" SelectionMode="Extended">
+                <ListView Grid.Row="1" x:Name="RowsList" ItemsSource="{x:Bind FilteredRows}" SelectionMode="Extended" SelectionChanged="RowsList_SelectionChanged">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="local:BngFloorRow">
                             <Grid Padding="0,6" ColumnSpacing="8">
@@ -266,7 +290,16 @@
                                     <ColumnDefinition Width="80" />
                                     <ColumnDefinition Width="90" />
                                 </Grid.ColumnDefinitions>
-                                <Grid ColumnSpacing="4">
+                                <Grid ColumnSpacing="4"
+                                      Canvas.ZIndex="1"
+                                      Margin="-12,-6,0,-6"
+                                      Padding="12,6,4,6"
+                                      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                                      BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                      BorderThickness="0,0,1,0">
+                                    <Grid.RenderTransform>
+                                        <TranslateTransform X="{x:Bind FrozenOffset, Mode=OneWay}" />
+                                    </Grid.RenderTransform>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
@@ -277,7 +310,10 @@
                                               Click="RowUnique_Click"
                                               AutomationProperties.Name="Unique"
                                               ToolTipService.ToolTip="{x:Bind UniqueToolTip}" />
-                                    <TextBlock Grid.Column="1" Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind DisplayName}" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind DisplayName}" />
+                                        <TextBlock Text="{x:Bind DesignOptionLabel}" FontSize="12" Opacity="0.65" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind DesignOptionLabel}" />
+                                    </StackPanel>
                                 </Grid>
                                 <TextBlock Grid.Column="1" Text="{x:Bind AreaDisplay}" Opacity="0.75" VerticalAlignment="Center" />
                                 <StackPanel Grid.Column="2" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind StatusDetails, Mode=OneWay}">
@@ -322,10 +358,11 @@
                                 <AutoSuggestBox Grid.Column="4"
                                                 IsEnabled="{x:Bind IsBaselineRow, Mode=OneWay}"
                                                 Text="{x:Bind BaselineQuery, Mode=TwoWay}"
-                                                PlaceholderText="Search baseline habitat..."
+                                                PlaceholderText="Pick or search baseline habitat..."
                                                 ItemsSource="{x:Bind BaselineHabitatSuggestions}"
                                                 DisplayMemberPath="Display"
                                                 ToolTipService.ToolTip="{x:Bind BaselineQuery, Mode=OneWay}"
+                                                GotFocus="BaselineHabitatBox_GotFocus"
                                                 TextChanged="BaselineHabitatBox_TextChanged"
                                                 SuggestionChosen="BaselineHabitatBox_SuggestionChosen"
                                                 QuerySubmitted="BaselineHabitatBox_QuerySubmitted" />
@@ -345,11 +382,12 @@
                                 <TextBlock Grid.Column="7" Text="{x:Bind BaselineUnitsDisplay, Mode=OneWay}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 <AutoSuggestBox Grid.Column="8"
                                                 IsEnabled="{x:Bind UsesProposedHabitat, Mode=OneWay}"
-                                                Text="{x:Bind HabitatQuery, Mode=TwoWay}"
-                                                PlaceholderText="Search habitat..."
+                                                Text="{x:Bind ProposedHabitatText, Mode=TwoWay}"
+                                                PlaceholderText="Pick or search habitat..."
                                                 ItemsSource="{x:Bind HabitatSuggestions}"
                                                 DisplayMemberPath="Display"
-                                                ToolTipService.ToolTip="{x:Bind HabitatQuery, Mode=OneWay}"
+                                                ToolTipService.ToolTip="{x:Bind ProposedHabitatText, Mode=OneWay}"
+                                                GotFocus="HabitatBox_GotFocus"
                                                 TextChanged="HabitatBox_TextChanged"
                                                 SuggestionChosen="HabitatBox_SuggestionChosen"
                                                 QuerySubmitted="HabitatBox_QuerySubmitted" />
@@ -360,8 +398,8 @@
                                           HorizontalAlignment="Stretch"
                                           IsEnabled="{x:Bind UsesProposedHabitat, Mode=OneWay}"
                                           PlaceholderText="Condition"
-                                          ItemsSource="{x:Bind ConditionOptions}"
-                                          SelectedItem="{x:Bind ConditionSelection, Mode=TwoWay}" />
+                                          ItemsSource="{x:Bind ProposedConditionOptions, Mode=OneWay}"
+                                          SelectedItem="{x:Bind ProposedConditionSelection, Mode=TwoWay}" />
                                 <TextBlock Grid.Column="13" Text="{x:Bind Result.ConditionScore, Mode=OneWay}" VerticalAlignment="Center" />
                                 <ComboBox Grid.Column="14"
                                           HorizontalAlignment="Stretch"

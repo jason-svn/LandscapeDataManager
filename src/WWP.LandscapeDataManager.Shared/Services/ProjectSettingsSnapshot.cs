@@ -28,7 +28,9 @@ public sealed record ProjectSettingsSnapshot(
     string? SharedParameterFilePath = null,
     InstanceMatchKeySettings? InstanceMatchKey = null,
     string? SiteBoundary = null,
-    ExchangeRateOverride? ExchangeRateOverride = null);
+    ExchangeRateOverride? ExchangeRateOverride = null,
+    ConnectivitySettings? Connectivity = null,
+    IReadOnlyList<int>? GrowthProjectionYears = null);
 
 /// <summary>Pure (no I/O) serialize/deserialize for <see cref="ProjectSettingsSnapshot"/> — reading/writing the Project Information parameter itself is <see cref="ProjectSettingsSync"/>'s job, via the Revit-side <c>ProjectPreferencesService</c>.</summary>
 public static class ProjectSettingsJson

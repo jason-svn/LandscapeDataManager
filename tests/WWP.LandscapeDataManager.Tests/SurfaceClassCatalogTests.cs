@@ -28,4 +28,13 @@ public sealed class SurfaceClassCatalogTests
     [InlineData("Some Unrecognized Type")]
     public void Unrecognized_or_missing_types_return_null(string? ldsType) =>
         Assert.Null(SurfaceClassCatalog.Infer(ldsType));
+
+    [Theory]
+    [InlineData("Impervious", "Lawn", "WWP_Vegetation_Shrub", "Impervious")] // explicit tag wins
+    [InlineData(null, "Granite paving", "WWP_Vegetation_Shrub", "Impervious")] // LDS type before the type name
+    [InlineData(null, null, "WWP_Vegetation_Shrub", "Pervious")] // unmatched floor falls back to its type name
+    [InlineData(null, null, "WWP_Vegetation_Meadow", "Pervious")]
+    [InlineData(null, null, "Generic 300mm", null)]
+    public void Resolve_falls_back_from_tag_to_lds_type_to_type_name(string? tag, string? ldsType, string? typeName, string? expected) =>
+        Assert.Equal(expected, SurfaceClassCatalog.Resolve(tag, ldsType, typeName));
 }

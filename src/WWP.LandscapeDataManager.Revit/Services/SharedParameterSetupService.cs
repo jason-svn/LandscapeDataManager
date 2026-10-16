@@ -1,5 +1,6 @@
 ﻿using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using System.IO;
 using WWP.LandscapeDataManager.Contracts;
 
 namespace WWP.LandscapeDataManager.Revit.Services;
@@ -14,6 +15,7 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 internal static class SharedParameterSetupService
 {
     private const string SharedGroupName = "PLANTING - iTree";
+    private const string SharedParameterResourceName = "LIM.LandscapeData.SharedParameters.txt";
     private const string TreeGrowthYearsParameter = "!_S_PLT_TreeGrowth_Years_Number";
 
     /// <summary>
@@ -21,9 +23,10 @@ internal static class SharedParameterSetupService
     /// LIM parameter, without starting a transaction or touching the document. Missing bindings
     /// are reported as "Will create" instead of being created.
     /// </summary>
-    public static SharedParameterSetupResult PreviewParameters(UIApplication application, string sharedParameterFilePath)
+    public static SharedParameterSetupResult PreviewParameters(UIApplication application)
     {
-        var (document, definitionsByName) = OpenFileAndGroup(application, sharedParameterFilePath);
+        using var catalog = OpenBundledCatalog(application);
+        var (document, definitionsByName) = catalog;
         var rows = ParameterOwnership.All
             .Select(ownership => EvaluateOne(document, application, definitionsByName, ownership, apply: false))
             .ToList();
@@ -34,7 +37,8 @@ internal static class SharedParameterSetupService
         UIApplication application,
         EnsureSharedParametersRequest request)
     {
-        var (document, definitionsByName) = OpenFileAndGroup(application, request.SharedParameterFilePath);
+        using var catalog = OpenBundledCatalog(application);
+        var (document, definitionsByName) = catalog;
         var includedNames = new HashSet<string>(request.IncludedParameterNames, StringComparer.Ordinal);
         var ownerships = ParameterOwnership.All.Where(ownership => includedNames.Contains(ownership.Name)).ToList();
 
@@ -63,27 +67,63 @@ internal static class SharedParameterSetupService
         return new SharedParameterSetupResult(document.Title, rows);
     }
 
-    private static (Document Document, IReadOnlyDictionary<string, ExternalDefinition> DefinitionsByName) OpenFileAndGroup(
-        UIApplication application,
-        string sharedParameterFilePath)
+    private static BundledCatalog OpenBundledCatalog(UIApplication application)
     {
         var document = application.ActiveUIDocument?.Document
                        ?? throw new InvalidOperationException("Open a Revit project before setting up parameters.");
 
-        application.Application.SharedParametersFilename = sharedParameterFilePath;
-        var definitionFile = application.Application.OpenSharedParameterFile()
-                              ?? throw new InvalidOperationException(
-                                  $"'{sharedParameterFilePath}' could not be opened as a Revit shared parameter file.");
+        var assembly = typeof(SharedParameterSetupService).Assembly;
+        using var resource = assembly.GetManifestResourceStream(SharedParameterResourceName)
+                             ?? throw new InvalidOperationException("The LIM shared-parameter catalog is missing from this installation.");
+        var temporaryPath = Path.Combine(Path.GetTempPath(), $"LIM-SharedParameters-{Guid.NewGuid():N}.txt");
+        using (var file = File.Create(temporaryPath))
+        {
+            resource.CopyTo(file);
+        }
 
-        var group = definitionFile.Groups.get_Item(SharedGroupName)
-                    ?? throw new InvalidOperationException(
-                        $"The shared parameter file does not contain a group named '{SharedGroupName}'.");
+        var previousPath = application.Application.SharedParametersFilename;
+        try
+        {
+            application.Application.SharedParametersFilename = temporaryPath;
+            var definitionFile = application.Application.OpenSharedParameterFile()
+                                  ?? throw new InvalidOperationException("The built-in LIM shared-parameter catalog could not be opened.");
+            var group = definitionFile.Groups.get_Item(SharedGroupName)
+                        ?? throw new InvalidOperationException(
+                            $"The built-in LIM catalog does not contain a group named '{SharedGroupName}'.");
+            var definitionsByName = group.Definitions
+                .OfType<ExternalDefinition>()
+                .ToDictionary(definition => definition.Name, StringComparer.Ordinal);
 
-        var definitionsByName = group.Definitions
-            .OfType<ExternalDefinition>()
-            .ToDictionary(definition => definition.Name, StringComparer.Ordinal);
+            return new BundledCatalog(application, previousPath, temporaryPath, document, definitionsByName);
+        }
+        catch
+        {
+            application.Application.SharedParametersFilename = previousPath;
+            File.Delete(temporaryPath);
+            throw;
+        }
+    }
 
-        return (document, definitionsByName);
+    private sealed class BundledCatalog(
+        UIApplication application,
+        string previousPath,
+        string temporaryPath,
+        Document document,
+        IReadOnlyDictionary<string, ExternalDefinition> definitionsByName) : IDisposable
+    {
+        public void Deconstruct(out Document openedDocument, out IReadOnlyDictionary<string, ExternalDefinition> openedDefinitions)
+        {
+            openedDocument = document;
+            openedDefinitions = definitionsByName;
+        }
+
+        public void Dispose()
+        {
+            application.Application.SharedParametersFilename = previousPath;
+            try { File.Delete(temporaryPath); }
+            catch (System.IO.IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 
     /// <summary>
@@ -228,15 +268,16 @@ internal static class SharedParameterSetupService
                 : application.Application.Create.NewTypeBinding(categorySet);
 
             var inserted = document.ParameterBindings.Insert(definition, binding, ownership.Group);
+            string? createdVaryWarning = null;
             if (inserted && FindExistingBinding(document, ownership.Name) is { Definition: var insertedDefinition })
             {
-                EnsureTreeGrowthYearsVaryAcrossGroups(document, ownership, insertedDefinition);
+                createdVaryWarning = EnsureTreeGrowthYearsVaryAcrossGroups(document, ownership, insertedDefinition);
             }
 
             return inserted
                 ? new SharedParameterSetupRow(
                     ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
-                    "Created", null, ownership.Description)
+                    "Created", createdVaryWarning, ownership.Description)
                 : new SharedParameterSetupRow(
                     ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
                     "Error", "Revit rejected the new parameter binding.", ownership.Description);
@@ -319,7 +360,14 @@ internal static class SharedParameterSetupService
             internalDefinition.SetGroupTypeId(ownership.Group);
         }
 
-        EnsureTreeGrowthYearsVaryAcrossGroups(document, ownership, internalDefinition);
+        var varyWarning = EnsureTreeGrowthYearsVaryAcrossGroups(document, ownership, internalDefinition);
+        if (varyWarning is not null)
+        {
+            // Revit refused only the vary-between-groups part; any category/group change above still applied.
+            return new SharedParameterSetupRow(
+                ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
+                needsCategoryExpansion || needsRegroup ? "Updated" : "Conflict", varyWarning, ownership.Description);
+        }
 
         return new SharedParameterSetupRow(
             ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
@@ -329,13 +377,29 @@ internal static class SharedParameterSetupService
     /// <summary>
     /// Growth-year worksets can differ between placed group instances, so their corresponding tree
     /// members must carry different formula-driving ages instead of sharing the last written value.
+    /// Returns a warning instead of throwing when Revit refuses (e.g. the parameter drives a family
+    /// formula or a schedule key), so one refusal no longer rolls back every other binding.
     /// </summary>
-    private static void EnsureTreeGrowthYearsVaryAcrossGroups(
+    private static string? EnsureTreeGrowthYearsVaryAcrossGroups(
         Document document, ParameterOwnership ownership, InternalDefinition definition)
     {
-        if (IsTreeGrowthYears(ownership) && !definition.VariesAcrossGroups)
+        if (!IsTreeGrowthYears(ownership) || definition.VariesAcrossGroups)
+        {
+            return null;
+        }
+
+        try
         {
             definition.SetAllowVaryBetweenGroups(document, true);
+            return null;
+        }
+        catch (Autodesk.Revit.Exceptions.ArgumentException exception)
+        {
+            return $"Revit won't let this parameter vary between group instances ({exception.Message.Split('\n')[0].Trim()}). Everything else was applied; in Revit, set it via Manage > Project Parameters > Values can vary by group instance if needed.";
+        }
+        catch (Autodesk.Revit.Exceptions.InvalidOperationException exception)
+        {
+            return $"Revit won't let this parameter vary between group instances ({exception.Message.Split('\n')[0].Trim()}). Everything else was applied.";
         }
     }
 
@@ -554,10 +618,11 @@ internal static class SharedParameterSetupService
                 "Estimated annual cost saved — for trees, i-Tree Calculator's calculated annual monetary benefit; for floors, the WWP landscape data sheet's per-square-metre coefficient times area (Revit Currency parameter — displays per the project's Currency unit settings).",
                 legacyAliases: ["!_S_PLT_iTreeResult_CostSavedAnnual_Number", "WWP_Cost_Saved"]),
             // Output — CO2 Equivalent and the per-category dollar breakdown behind CostSavedAnnual.
-            // Trees only: neither has a Floor/LDS equivalent, so unlike the results above these
-            // aren't PlantingAndFloorInstance.
-            PlantingInstance("!_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass", GroupTypeId.AnalysisResults,
-                "Annual CO2 equivalent of sequestered carbon (sequestered carbon × 3.67) (Revit Mass parameter — displays per the project's Mass unit settings).",
+            // CO2 Equivalent is on Floors too: Floor Calculator writes the WWP sheet's own kgCO2e
+            // figure (coefficient × area) here, the same number its table shows. The dollar
+            // breakdown has no Floor/LDS equivalent, so it stays trees only.
+            PlantingAndFloorInstance("!_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass", GroupTypeId.AnalysisResults,
+                "Annual CO2 equivalent sequestered: sequestered carbon × 3.67 for trees, the WWP landscape data sheet's kgCO2e coefficient × area for planting areas (Revit Mass parameter — displays per the project's Mass unit settings).",
                 legacyAliases: ["!_S_PLT_iTreeResult_CO2EquivalentAnnual_Number"]),
             PlantingInstance("!_S_PLT_iTreeResult_CarbonCostSavedAnnual_Currency", GroupTypeId.AnalysisResults,
                 "Annual carbon-benefit dollar value — one of three components summed into CostSavedAnnual for trees (Revit Currency parameter).",
@@ -669,10 +734,12 @@ internal static class SharedParameterSetupService
             PlantingAndFloorType("!_S_PLT_LDS_MatchKey_Text", GroupTypeId.General,
                 "Stable lookup key into the cached WWP landscape data sheet, used to re-find the exact coefficient row without re-matching."),
             // Output — Floor Calculator's own status/tracking fields, mirroring i-Tree Calculator's pattern.
-            PlantingAndFloorType("!_S_PLT_LDS_ResultSource_Text", GroupTypeId.AnalysisResults,
-                "Whether the currently written values came from the coefficient table as calculated, or were edited manually in Floor Calculator before writing."),
-            PlantingAndFloorType("!_S_PLT_LDS_LastCalculated_Text", GroupTypeId.AnalysisResults,
-                "ISO 8601 date and time of the last Floor Calculator run for this element."),
+            PlantingAndFloorType("!_S_PLT_Result_LDS_Source_Text", GroupTypeId.AnalysisResults,
+                "Whether the currently written values came from the coefficient table as calculated, or were edited manually in Floor Calculator before writing.",
+                legacyAliases: ["!_S_PLT_LDS_ResultSource_Text"]),
+            PlantingAndFloorType("!_S_PLT_Result_LDS_LastCalculated_Text", GroupTypeId.AnalysisResults,
+                "ISO 8601 date and time of the last Floor Calculator run for this element.",
+                legacyAliases: ["!_S_PLT_LDS_LastCalculated_Text"]),
             // Output — the WWP landscape data sheet's per-square-metre coefficients times area,
             // for metrics with no i-Tree equivalent to reuse. (CostSavedAnnual moved up to the
             // iTreeResult_ group above — it's now shared with the i-Tree tree-benefit result.)
@@ -680,12 +747,12 @@ internal static class SharedParameterSetupService
             // multiplies each by that instance's own area) — stay Instance, unlike the rest of
             // this group, so two instances of the same Type with different areas still get their
             // own totals.
-            PlantingAndFloorInstance("!_S_PLT_LDS_OxygenProducedAnnual_Mass", GroupTypeId.AnalysisResults,
+            PlantingAndFloorInstance("!_S_PLT_Result_OxygenProducedAnnual_Mass", GroupTypeId.AnalysisResults,
                 "Estimated annual oxygen produced, from the WWP landscape data sheet's per-square-metre coefficient times area (Revit Mass parameter).",
-                legacyAliases: ["!_S_PLT_LDS_OxygenProducedAnnual_Number"]),
-            PlantingAndFloorInstance("!_S_PLT_LDS_TotalGWP_Mass", GroupTypeId.AnalysisResults,
-                "Total global warming potential (product plus transport) from the WWP landscape data sheet's per-square-metre coefficient times area — an embodied-impact figure, not a benefit (Revit Mass parameter).",
-                legacyAliases: ["!_S_PLT_LDS_TotalGWP_Number"]),
+                legacyAliases: ["!_S_PLT_LDS_OxygenProducedAnnual_Mass", "!_S_PLT_LDS_OxygenProducedAnnual_Number"]),
+            PlantingAndFloorInstance("!_S_PLT_Result_EmbodiedGWP_Mass", GroupTypeId.AnalysisResults,
+                "Embodied carbon of this floor: (product + transport GWP rate) × area, kg CO2e, emitted once — a cost, not a benefit. Planting's sequestration is not netted off here (Revit Mass parameter).",
+                legacyAliases: ["!_S_PLT_LDS_TotalGWP_Mass", "!_S_PLT_LDS_TotalGWP_Number"]),
             // Not multiplied by area (App.FloorCalculator/MainPage.xaml.cs passes these straight
             // through) — an intrinsic material property, so Type scope like MaxHeight/MaxWidth above.
             PlantingAndFloorType("!_S_PLT_LDS_SurfaceTempReduction_Number", GroupTypeId.AnalysisResults,
@@ -728,9 +795,9 @@ internal static class SharedParameterSetupService
             PlantingAndFloorType("!_S_PLT_LDS_MaintenanceCostAnnual_Currency", GroupTypeId.AnalysisResults,
                 "Estimated annual maintenance cost for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area (Revit Currency parameter).",
                 legacyAliases: ["!_S_PLT_LDS_MaintenanceCostAnnual_Number"]),
-            PlantingAndFloorInstance("!_S_PLT_LDS_PollutantsRemovedAnnual_Mass", GroupTypeId.AnalysisResults,
+            PlantingAndFloorInstance("!_S_PLT_Result_PollutantsRemovedAnnual_Mass", GroupTypeId.AnalysisResults,
                 "Estimated annual pollutants removed, from the WWP landscape data sheet's per-square-metre coefficient times area (Revit Mass parameter).",
-                legacyAliases: ["!_S_PLT_LDS_PollutantsRemovedAnnual_Number"]),
+                legacyAliases: ["!_S_PLT_LDS_PollutantsRemovedAnnual_Mass", "!_S_PLT_LDS_PollutantsRemovedAnnual_Number"]),
             // Defined in the shared parameter file and referenced by the main App's
             // LandscapeCalculationEngine/mapping-suggestion feature, but never actually bound here
             // until now — closing that gap so "Ensure Shared Parameters" actually guarantees these
@@ -748,21 +815,33 @@ internal static class SharedParameterSetupService
             // !_S_PLT_iTreeResult_*_Mass/_Volume result parameters already do. New GUID/name since a
             // shared parameter's data type can't change in place; the old "_Number" binding is
             // retired automatically via legacyAliases + RemoveStaleBindings above.
-            PlantingAndFloorType("!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Volume", GroupTypeId.AnalysisResults,
-                "Estimated annual avoided water runoff for a standard starter tree of this species (WWP sheet's \"16/18 girth\" reference), from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.",
-                legacyAliases: ["WWP_Avoided_Water_Runoff", "!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Number"]),
-            PlantingAndFloorType("!_S_PLT_LDS_OxygenLevelsAnnual_Mass", GroupTypeId.AnalysisResults,
-                "Estimated annual oxygen levels for a standard starter tree of this species (WWP sheet's \"16/18 girth\" reference), from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.",
-                legacyAliases: ["WWP_Oxygen_Levels", "!_S_PLT_LDS_OxygenLevelsAnnual_Number"]),
-            PlantingAndFloorType("!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Mass", GroupTypeId.AnalysisResults,
-                "Estimated annual carbon dioxide sequestration for a standard starter tree of this species (WWP sheet's \"16/18 girth\" reference), from the WWP landscape data sheet — an intrinsic reference value, not scaled by area.",
-                legacyAliases: ["WWP_Carbon_Dioxide_Sequestration", "!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Number"]),
+            // Reference *rates*, not totals: per 16/18-girth starter tree for trees, per m² for planting
+            // areas. Floor Calculator multiplies them by area into the calculated instance values
+            // (iTreeResult_RunoffAvoidedAnnual_Volume, Result_OxygenProducedAnnual_Mass,
+            // iTreeResult_CO2EquivalentAnnual_Mass). Plain numbers on purpose: as Mass/Volume they
+            // read like totals, and Imperial display converted the kg but not the "per m²".
+            // Renamed from the *_Annual_Volume/_Mass names (new GUIDs; old bindings retired via legacyAliases).
+            PlantingAndFloorType("!_S_PLT_LDS_RunoffAvoidedRate_Number", GroupTypeId.AnalysisResults,
+                "Avoided water runoff RATE from the WWP landscape data sheet: m³/yr per 16/18-girth starter tree for trees, m³/m²/yr for planting areas. Floor Calculator multiplies it by area into !_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume.",
+                legacyAliases: ["WWP_Avoided_Water_Runoff", "!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Number", "!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Volume"]),
+            PlantingAndFloorType("!_S_PLT_LDS_OxygenProductionRate_Number", GroupTypeId.AnalysisResults,
+                "Oxygen production RATE from the WWP landscape data sheet: kg O2/yr per 16/18-girth starter tree for trees, kg O2/m²/yr for planting areas. Floor Calculator multiplies it by area into !_S_PLT_Result_OxygenProducedAnnual_Mass.",
+                legacyAliases: ["WWP_Oxygen_Levels", "!_S_PLT_LDS_OxygenLevelsAnnual_Number", "!_S_PLT_LDS_OxygenLevelsAnnual_Mass"]),
+            PlantingAndFloorType("!_S_PLT_LDS_CO2SequestrationRate_Number", GroupTypeId.AnalysisResults,
+                "CO2 sequestration RATE from the WWP landscape data sheet: kg CO2e/yr per 16/18-girth starter tree for trees, kg CO2e/m²/yr for planting areas. Floor Calculator multiplies it by area into !_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass.",
+                legacyAliases: ["WWP_Carbon_Dioxide_Sequestration", "!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Number", "!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Mass"]),
             // Same "declared times-area, never actually computed" pattern as MaintenanceCostAnnual
             // above — neither is in FloorLdsCalculationService's write list. Type scope.
-            PlantingAndFloorType("!_S_PLT_LDS_ProductGWP_Number", GroupTypeId.AnalysisResults,
-                "Embodied product global warming potential, from the WWP landscape data sheet — a component of total GWP, not scaled by area. Metric: kg CO2e/m². (Metric-only — no Imperial conversion.)"),
-            PlantingAndFloorType("!_S_PLT_LDS_TransportGWP_Number", GroupTypeId.AnalysisResults,
-                "Embodied transport global warming potential, from the WWP landscape data sheet — a component of total GWP, not scaled by area. Metric: kg CO2e/m². (Metric-only — no Imperial conversion.)"),
+            // Embodied carbon (GWP, kg CO2e emitted once to make/deliver the material) — reference
+            // rates per m², not totals. Renamed from ProductGWP_Number/TransportGWP_Number (new GUIDs).
+            // The sheet's WWP_Total_GWP is a formula (product + transport, or −sequestration for
+            // planting), so it has no parameter: Floor Calculator derives the total itself.
+            PlantingAndFloorType("!_S_PLT_LDS_ProductGWPRate_Number", GroupTypeId.AnalysisResults,
+                "Embodied product GWP RATE (manufacture, stages A1-A3) from the WWP landscape data sheet, kg CO2e per m².",
+                legacyAliases: ["!_S_PLT_LDS_ProductGWP_Number"]),
+            PlantingAndFloorType("!_S_PLT_LDS_TransportGWPRate_Number", GroupTypeId.AnalysisResults,
+                "Embodied transport GWP RATE (delivery to site, stage A4) from the WWP landscape data sheet, kg CO2e per m².",
+                legacyAliases: ["!_S_PLT_LDS_TransportGWP_Number"]),
             PlantingAndFloorType("!_S_PLT_LDS_PollenAnnual_Number", GroupTypeId.AnalysisResults,
                 "Estimated annual pollen production for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area. Metric: kg/m²/yr. (Metric-only — no Imperial conversion.)"),
             // Reference values from the WWP landscape data sheet — every instance of a type shares
@@ -826,48 +905,69 @@ internal static class SharedParameterSetupService
                 "Years the habitat is created in advance (positive, A-2 column P) or delayed (negative, A-2 column Q); 0 for the standard time to target condition."),
             FloorType("!_S_PLT_BNGInput_HabitatMapping_Text", GroupTypeId.Constraints,
                 "BNG habitat remembered for this floor type, used to pre-fill ProposedHabitat on new floors of the type."),
-            FloorInstance("!_S_PLT_BNGResult_BroadHabitat_Text", GroupTypeId.AnalysisResults,
-                "BNG broad habitat of the proposed habitat (A-2 column D)."),
-            FloorInstance("!_S_PLT_BNGResult_AreaHectares_Text", GroupTypeId.AnalysisResults,
-                "Floor area in hectares used for the BNG calculation (A-2 column G)."),
-            FloorInstance("!_S_PLT_BNGResult_Distinctiveness_Text", GroupTypeId.AnalysisResults,
-                "BNG distinctiveness band of the proposed habitat (A-2 column H)."),
-            FloorInstance("!_S_PLT_BNGResult_DistinctivenessScore_Text", GroupTypeId.AnalysisResults,
-                "BNG distinctiveness score (A-2 column I)."),
-            FloorInstance("!_S_PLT_BNGResult_ConditionScore_Text", GroupTypeId.AnalysisResults,
-                "BNG condition score (A-2 column K)."),
-            FloorInstance("!_S_PLT_BNGResult_StrategicSignificanceCategory_Text", GroupTypeId.AnalysisResults,
-                "BNG strategic significance category (A-2 column M)."),
-            FloorInstance("!_S_PLT_BNGResult_StrategicSignificanceMultiplier_Text", GroupTypeId.AnalysisResults,
-                "BNG strategic significance multiplier (A-2 column N)."),
-            FloorInstance("!_S_PLT_BNGResult_StandardTimeToTarget_Text", GroupTypeId.AnalysisResults,
-                "BNG standard time to target condition in years (A-2 column O)."),
-            FloorInstance("!_S_PLT_BNGResult_TimeToTargetStatus_Text", GroupTypeId.AnalysisResults,
-                "BNG standard or adjusted time to target condition message (A-2 column R)."),
-            FloorInstance("!_S_PLT_BNGResult_FinalTimeToTarget_Text", GroupTypeId.AnalysisResults,
-                "BNG final time to target condition in years (A-2 column S)."),
-            FloorInstance("!_S_PLT_BNGResult_FinalTimeToTargetMultiplier_Text", GroupTypeId.AnalysisResults,
-                "BNG final time to target multiplier (A-2 column T)."),
-            FloorInstance("!_S_PLT_BNGResult_StandardDifficulty_Text", GroupTypeId.AnalysisResults,
-                "BNG standard difficulty of creation (A-2 column U)."),
-            FloorInstance("!_S_PLT_BNGResult_AppliedDifficulty_Text", GroupTypeId.AnalysisResults,
-                "BNG applied difficulty multiplier message (A-2 column V)."),
-            FloorInstance("!_S_PLT_BNGResult_FinalDifficulty_Text", GroupTypeId.AnalysisResults,
-                "BNG final difficulty of creation (A-2 column W)."),
-            FloorInstance("!_S_PLT_BNGResult_DifficultyMultiplier_Text", GroupTypeId.AnalysisResults,
-                "BNG difficulty multiplier applied (A-2 column X)."),
-            FloorInstance("!_S_PLT_BNGResult_HabitatUnits_Number", GroupTypeId.AnalysisResults,
-                "BNG habitat units delivered by this floor (A-2 column Y) -- a number so schedules can total it."),
-            FloorInstance("!_S_PLT_BNGResult_Status_Text", GroupTypeId.AnalysisResults,
-                "BNG calculation state: Calculated, CheckData, NeedsInfo, or Stale."),
-            FloorInstance("!_S_PLT_BNGResult_Details_Text", GroupTypeId.AnalysisResults,
-                "Missing-input or metric warning details for the latest BNG calculation."),
-            FloorInstance("!_S_PLT_BNGResult_InputSignature_Text", GroupTypeId.AnalysisResults,
-                "Application-managed signature used to detect stale BNG results."),
-            FloorInstance("!_S_PLT_BNGResult_LastUpdated_Text", GroupTypeId.AnalysisResults,
-                "ISO 8601 date and time of the last BNG calculation."),
-            FloorInstance("!_S_PLT_BNGResult_MetricVersion_Text", GroupTypeId.AnalysisResults,
-                "Statutory Biodiversity Metric release used for the latest BNG calculation."),
+            FloorInstance("!_S_PLT_Result_BNG_BroadHabitat_Text", GroupTypeId.AnalysisResults,
+                "BNG broad habitat of the proposed habitat (A-2 column D).",
+                legacyAliases: ["!_S_PLT_BNGResult_BroadHabitat_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_AreaHectares_Text", GroupTypeId.AnalysisResults,
+                "Floor area in hectares used for the BNG calculation (A-2 column G).",
+                legacyAliases: ["!_S_PLT_BNGResult_AreaHectares_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_Distinctiveness_Text", GroupTypeId.AnalysisResults,
+                "BNG distinctiveness band of the proposed habitat (A-2 column H).",
+                legacyAliases: ["!_S_PLT_BNGResult_Distinctiveness_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_DistinctivenessScore_Text", GroupTypeId.AnalysisResults,
+                "BNG distinctiveness score (A-2 column I).",
+                legacyAliases: ["!_S_PLT_BNGResult_DistinctivenessScore_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_ConditionScore_Text", GroupTypeId.AnalysisResults,
+                "BNG condition score (A-2 column K).",
+                legacyAliases: ["!_S_PLT_BNGResult_ConditionScore_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_StrategicSignificanceCategory_Text", GroupTypeId.AnalysisResults,
+                "BNG strategic significance category (A-2 column M).",
+                legacyAliases: ["!_S_PLT_BNGResult_StrategicSignificanceCategory_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_StrategicSignificanceMultiplier_Text", GroupTypeId.AnalysisResults,
+                "BNG strategic significance multiplier (A-2 column N).",
+                legacyAliases: ["!_S_PLT_BNGResult_StrategicSignificanceMultiplier_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_StandardTimeToTarget_Text", GroupTypeId.AnalysisResults,
+                "BNG standard time to target condition in years (A-2 column O).",
+                legacyAliases: ["!_S_PLT_BNGResult_StandardTimeToTarget_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_TimeToTargetStatus_Text", GroupTypeId.AnalysisResults,
+                "BNG standard or adjusted time to target condition message (A-2 column R).",
+                legacyAliases: ["!_S_PLT_BNGResult_TimeToTargetStatus_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_FinalTimeToTarget_Text", GroupTypeId.AnalysisResults,
+                "BNG final time to target condition in years (A-2 column S).",
+                legacyAliases: ["!_S_PLT_BNGResult_FinalTimeToTarget_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_FinalTimeToTargetMultiplier_Text", GroupTypeId.AnalysisResults,
+                "BNG final time to target multiplier (A-2 column T).",
+                legacyAliases: ["!_S_PLT_BNGResult_FinalTimeToTargetMultiplier_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_StandardDifficulty_Text", GroupTypeId.AnalysisResults,
+                "BNG standard difficulty of creation (A-2 column U).",
+                legacyAliases: ["!_S_PLT_BNGResult_StandardDifficulty_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_AppliedDifficulty_Text", GroupTypeId.AnalysisResults,
+                "BNG applied difficulty multiplier message (A-2 column V).",
+                legacyAliases: ["!_S_PLT_BNGResult_AppliedDifficulty_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_FinalDifficulty_Text", GroupTypeId.AnalysisResults,
+                "BNG final difficulty of creation (A-2 column W).",
+                legacyAliases: ["!_S_PLT_BNGResult_FinalDifficulty_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_DifficultyMultiplier_Text", GroupTypeId.AnalysisResults,
+                "BNG difficulty multiplier applied (A-2 column X).",
+                legacyAliases: ["!_S_PLT_BNGResult_DifficultyMultiplier_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_HabitatUnits_Number", GroupTypeId.AnalysisResults,
+                "BNG habitat units delivered by this floor (A-2 column Y) -- a number so schedules can total it.",
+                legacyAliases: ["!_S_PLT_BNGResult_HabitatUnits_Number"]),
+            FloorInstance("!_S_PLT_Result_BNG_Status_Text", GroupTypeId.AnalysisResults,
+                "BNG calculation state: Calculated, CheckData, NeedsInfo, or Stale.",
+                legacyAliases: ["!_S_PLT_BNGResult_Status_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_Details_Text", GroupTypeId.AnalysisResults,
+                "Missing-input or metric warning details for the latest BNG calculation.",
+                legacyAliases: ["!_S_PLT_BNGResult_Details_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_InputSignature_Text", GroupTypeId.AnalysisResults,
+                "Application-managed signature used to detect stale BNG results.",
+                legacyAliases: ["!_S_PLT_BNGResult_InputSignature_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_LastUpdated_Text", GroupTypeId.AnalysisResults,
+                "ISO 8601 date and time of the last BNG calculation.",
+                legacyAliases: ["!_S_PLT_BNGResult_LastUpdated_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_MetricVersion_Text", GroupTypeId.AnalysisResults,
+                "Statutory Biodiversity Metric release used for the latest BNG calculation.",
+                legacyAliases: ["!_S_PLT_BNGResult_MetricVersion_Text"]),
             // Baseline (A-1) and enhancement (A-3): a floor's Revit phases decide its BNG role —
             // created in the project's first phase = baseline habitat (retained, or lost if
             // demolished), created later = new habitat (A-2). A retained floor flagged Enhanced is
@@ -883,10 +983,35 @@ internal static class SharedParameterSetupService
             // Floors of one type share their BNG inputs in Floor Calculator unless ticked Unique.
             FloorInstance("!_S_PLT_BNGInput_Unique_YesNo", GroupTypeId.Constraints,
                 "Yes when this floor keeps its own BNG inputs in Floor Calculator instead of sharing them with other floors of the same type and role."),
-            FloorInstance("!_S_PLT_BNGResult_Role_Text", GroupTypeId.AnalysisResults,
-                "BNG role from the floor's phases: Retained, Enhanced, Lost, Created, or Excluded."),
-            FloorInstance("!_S_PLT_BNGResult_BaselineUnits_Number", GroupTypeId.AnalysisResults,
-                "BNG baseline habitat units of an Existing-phase floor (A-1 column Q); 0 for new floors.")
+            FloorInstance("!_S_PLT_Result_BNG_Role_Text", GroupTypeId.AnalysisResults,
+                "BNG role from the floor's phases: Retained, Enhanced, Lost, Created, or Excluded.",
+                legacyAliases: ["!_S_PLT_BNGResult_Role_Text"]),
+            FloorInstance("!_S_PLT_Result_BNG_BaselineUnits_Number", GroupTypeId.AnalysisResults,
+                "BNG baseline habitat units of an Existing-phase floor (A-1 column Q); 0 for new floors.",
+                legacyAliases: ["!_S_PLT_BNGResult_BaselineUnits_Number"]),
+
+            // Connectivity tool — structural connectivity of each tree and planting area by the
+            // Probability of Connectivity index (dPC), banded 1-4. Locked is the hand override.
+            PlantingAndFloorInstance("!_S_PLT_ConnectivityInput_Locked_YesNo", GroupTypeId.Constraints,
+                "Yes to keep a hand-set connectivity band and class on this element: Connectivity Calculator then leaves its results alone."),
+            PlantingAndFloorInstance("!_S_PLT_Result_Connectivity_Band_Number", GroupTypeId.AnalysisResults,
+                "Connectivity band 1-4: 1 Low (contributes little), 2 Moderate (local value only), 3 Strong connector (important but substitutable), 4 Critical stepping-stone (removing it fragments the network).",
+                legacyAliases: ["!_S_PLT_ConnectivityResult_Band_Number"]),
+            PlantingAndFloorInstance("!_S_PLT_Result_Connectivity_Class_Text", GroupTypeId.AnalysisResults,
+                "Connectivity band name: Low, Moderate, Strong connector, or Critical stepping-stone.",
+                legacyAliases: ["!_S_PLT_ConnectivityResult_Class_Text"]),
+            PlantingAndFloorInstance("!_S_PLT_Result_Connectivity_Score_Number", GroupTypeId.AnalysisResults,
+                "Connectivity score 0-1: this element's percentile rank by dPC among every tree and planting area, averaged over the dispersal distances used.",
+                legacyAliases: ["!_S_PLT_ConnectivityResult_Score_Number"]),
+            PlantingAndFloorInstance("!_S_PLT_Result_Connectivity_dPC_Number", GroupTypeId.AnalysisResults,
+                "dPC: percentage of the network's Probability of Connectivity lost if this element is removed, averaged over the dispersal distances used.",
+                legacyAliases: ["!_S_PLT_ConnectivityResult_dPC_Number"]),
+            PlantingAndFloorInstance("!_S_PLT_Result_Connectivity_Details_Text", GroupTypeId.AnalysisResults,
+                "Dispersal distances used, dPC and band at each, and whether the band is uncertain (changes by two or more bands between distances).",
+                legacyAliases: ["!_S_PLT_ConnectivityResult_Details_Text"]),
+            PlantingAndFloorInstance("!_S_PLT_Result_Connectivity_LastUpdated_Text", GroupTypeId.AnalysisResults,
+                "ISO 8601 date and time of the last connectivity calculation.",
+                legacyAliases: ["!_S_PLT_ConnectivityResult_LastUpdated_Text"])
         ];
     }
 }

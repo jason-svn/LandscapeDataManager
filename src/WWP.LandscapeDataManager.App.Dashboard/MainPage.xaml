@@ -304,8 +304,10 @@
                                             <TextBlock Text="PLANTING AREA" Style="{StaticResource KpiEyebrowStyle}" />
                                             <TextBlock x:Name="SnapshotAreaText" Text="—" FontSize="23" FontWeight="Bold" Foreground="{StaticResource KpiForestBrush}" />
                                             <TextBlock Text="calculated surfaces" Foreground="#FF707970" FontSize="12" />
-                                            <TextBlock Text="GWP BASELINE" Style="{StaticResource KpiEyebrowStyle}" Margin="0,16,0,0" />
+                                            <TextBlock Text="EMBODIED CARBON" Style="{StaticResource KpiEyebrowStyle}" Margin="0,16,0,0"
+                                                       ToolTipService.ToolTip="One-off GWP of the planting areas' materials (product + transport) — paving, stone, etc. Payback = years of the planting's current yearly CO2e uptake needed to offset it." />
                                             <TextBlock x:Name="GwpBaselineText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                            <TextBlock x:Name="GwpPaybackText" Foreground="#FF707970" FontSize="12" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Spacing="4">
                                             <TextBlock Text="POLLUTION REMOVED" Style="{StaticResource KpiEyebrowStyle}" />

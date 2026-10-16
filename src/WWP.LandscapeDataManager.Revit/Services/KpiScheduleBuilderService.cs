@@ -76,10 +76,10 @@ internal static class KpiScheduleBuilderService
         new("Area", Totals: true),
         new("!_S_PLT_iTreeResult_CarbonSequesteredAnnual_Mass", Totals: true),
         new("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume", Totals: true),
-        new("!_S_PLT_LDS_PollutantsRemovedAnnual_Mass", Totals: true),
+        new("!_S_PLT_Result_PollutantsRemovedAnnual_Mass", Totals: true),
         new("!_S_PLT_iTreeResult_CostSavedAnnual_Currency", Totals: true),
-        new("!_S_PLT_LDS_OxygenProducedAnnual_Mass", Totals: true),
-        new("!_S_PLT_LDS_TotalGWP_Mass", Totals: true),
+        new("!_S_PLT_Result_OxygenProducedAnnual_Mass", Totals: true),
+        new("!_S_PLT_Result_EmbodiedGWP_Mass", Totals: true),
         new("!_S_PLT_LDS_SurfaceTempReduction_Number", Totals: false),
         new("!_S_PLT_LDS_AirTempReduction_Number", Totals: false)
     ];

@@ -15,7 +15,7 @@ internal static class HealthCheckScanner
 {
     private const string PlantingSpeciesCodeParameter = "!_S_PLT_iTreeSpecies_Code_Text";
     private const string FloorTypeParameter = "!_S_PLT_LDS_Type_Text";
-    private const string FloorResultSourceParameter = "!_S_PLT_LDS_ResultSource_Text";
+    private const string FloorResultSourceParameter = "!_S_PLT_Result_LDS_Source_Text";
 
     public static HealthCheckResult Scan(UIApplication application)
     {

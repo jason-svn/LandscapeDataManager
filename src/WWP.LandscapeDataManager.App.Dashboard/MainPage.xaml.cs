@@ -480,7 +480,16 @@ public sealed partial class MainPage : Page
         HeroPM25Text.Text = $"{Compact(grandTotal.PM25RemovedAnnual * _projectionYears)} {pollutantUnit}";
         KpiPlantingAreaText.Text = grandTotal.FloorCount.ToString("N0");
         SnapshotAreaText.Text = $"{Compact(Area(grandTotal.FloorAreaSquareMeters))} {areaUnit}";
-        GwpBaselineText.Text = Compact(grandTotal.FloorTotalGwp);
+        // Embodied carbon of the hard surfaces vs the planting's yearly CO2e uptake (trees + floors).
+        var embodied = FloorCarbon(grandTotal.FloorTotalGwp);
+        var sequesteredPerYear = grandTotal.CO2EquivalentAnnual + FloorCarbon(grandTotal.FloorCarbonSequesteredAnnual * UnitConversions.CarbonToCo2MassRatio);
+        GwpBaselineText.Text = $"{Compact(embodied)} {carbonUnit} CO₂e";
+        GwpPaybackText.Text = EmbodiedCarbon.PaybackYears(embodied, sequesteredPerYear) switch
+        {
+            0 => "no embodied carbon recorded",
+            { } years => $"payback ≈ {years:N1} yrs of current planting uptake",
+            null => "no sequestration yet to offset it"
+        };
         SnapshotInventoryText.Text = $"{grandTotal.TreeCount + grandTotal.FloorCount:N0} assets";
         ReportingProgress.Value = readyPercent;
         ReportingCaptionText.Text = $"{readyPercent:N0}% tree results ready";
@@ -622,7 +631,7 @@ public sealed partial class MainPage : Page
         SetPercentCard(SoftscapeRatioText, SoftscapeRatioDetailText, summary.SoftscapeSurfaceRatioPercent,
             $"{summary.PerviousAreaSquareMeters:N0} m² pervious over {siteArea:N0} m² site" +
             (unclassified > 0
-                ? $" · {unclassified:N0} floor(s) not classified — match their LDS type in Floor Calculator, or tag !_S_PLT_LDS_SurfaceClass_Text on the floor type."
+                ? $" · {unclassified:N0} floor(s) not classified — their type name and LDS type say nothing about the surface; match them in Floor Calculator, or tag !_S_PLT_LDS_SurfaceClass_Text (Pervious/Impervious) on the floor type."
                 : string.Empty),
             noSiteArea,
             high: 50d, medium: 25d);

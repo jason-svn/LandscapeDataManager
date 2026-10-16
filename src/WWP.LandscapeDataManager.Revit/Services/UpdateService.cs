@@ -194,10 +194,7 @@ internal static class UpdateService
             Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
             Write-Host ''
             Write-Host "LIM- Landscape Data $Tag is installed. Start Revit to use it." -ForegroundColor Green
-            if (Test-Path -LiteralPath (Join-Path $packageDirectory 'Shared_Parameters_WWP.txt')) {
-                Write-Host "If this update adds parameters, run Import Shared Parameter with:"
-                Write-Host "  $(Join-Path $packageDirectory 'Shared_Parameters_WWP.txt')"
-            }
+            Write-Host 'When you open a project, run LIM > Import Shared Parameter to review and apply any new built-in parameters.'
         }
         catch {
             Write-Host ''

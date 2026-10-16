@@ -107,7 +107,7 @@ internal static class RevitParameterWriter
                     .Select(element => new ParameterTarget(
                         element,
                         element.LookupParameter(item.RevitParameter)
-                        ?? throw new InvalidOperationException("Parameter is missing.")))
+                        ?? throw new ParameterNotApplicableException(element, item.RevitParameter)))
                     .ToList();
                 if (targets.Any(target => target.Parameter.IsReadOnly))
                 {
@@ -153,7 +153,7 @@ internal static class RevitParameterWriter
                         "—",
                         item.SourceValue,
                         0,
-                        "Invalid",
+                        exception is ParameterNotApplicableException ? ParameterValueConverter.NotApplicableStatus : "Invalid",
                         exception.Message,
                         false),
                     [],

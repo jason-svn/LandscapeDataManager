@@ -23,8 +23,10 @@ internal static class TreeAgeSyncService
         }
 
         var worksets = document.GetWorksetTable();
+        var matureAges = TreeMaturityService.GetMatureAges(
+            document, trees.Where(tree => GrowthYearNames.FromName(worksets.GetWorkset(tree.WorksetId)?.Name) is not null));
         var candidates = new List<(Element Tree, Parameter Years, int Age)>();
-        int onGrowthWorksets = 0, notEditable = 0, missingYears = 0, skippedGrouped = 0;
+        int onGrowthWorksets = 0, notEditable = 0, missingYears = 0, skippedGrouped = 0, capped = 0;
         foreach (var tree in trees)
         {
             if (GrowthYearNames.FromName(worksets.GetWorkset(tree.WorksetId)?.Name) is not { } growthYear)
@@ -50,7 +52,13 @@ internal static class TreeAgeSyncService
                 { HasValue: true, StorageType: StorageType.Integer } age
                 ? age.AsInteger()
                 : (int?)null;
-            var actualAge = GrowthYearNames.ActualAge(ageAtPlanting, growthYear);
+            var actualAge = GrowthYearNames.ModelledAge(
+                ageAtPlanting, growthYear, matureAges.TryGetValue(tree.GetTypeId().Value, out var mature) ? mature : null);
+            if (actualAge < GrowthYearNames.ActualAge(ageAtPlanting, growthYear))
+            {
+                capped++;
+            }
+
             if (years.HasValue && years.AsInteger() == actualAge)
             {
                 continue;
@@ -67,7 +75,7 @@ internal static class TreeAgeSyncService
 
         if (candidates.Count == 0)
         {
-            return new TreeAgeSyncSummary(onGrowthWorksets, 0, notEditable, missingYears, skippedGrouped);
+            return new TreeAgeSyncSummary(onGrowthWorksets, 0, notEditable, missingYears, skippedGrouped, capped);
         }
 
         if (document.IsReadOnly)
@@ -100,7 +108,7 @@ internal static class TreeAgeSyncService
 
         var commitStatus = transaction.Commit();
         return commitStatus == TransactionStatus.Committed
-            ? new TreeAgeSyncSummary(onGrowthWorksets, editable.Count, notEditable, missingYears, skippedGrouped)
+            ? new TreeAgeSyncSummary(onGrowthWorksets, editable.Count, notEditable, missingYears, skippedGrouped, capped)
             : new TreeAgeSyncSummary(onGrowthWorksets, 0, notEditable + editable.Count, missingYears, skippedGrouped);
     }
 }

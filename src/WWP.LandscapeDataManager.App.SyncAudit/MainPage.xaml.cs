@@ -154,7 +154,11 @@ public sealed partial class MainPage : Page
         _preferredCurrency = catalog.PreferredCurrency;
 
         var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
-        var mappings = snapshot?.ParameterMappings ?? [];
+        // Same guard as the Importer: a mapping saved before a rename (or onto a calculated
+        // !_S_PLT_Result_* parameter) is never re-applied.
+        var mappings = (snapshot?.ParameterMappings ?? [])
+            .Where(mapping => DefaultParameterMappingCatalog.IsImportTarget(mapping.RevitParameter))
+            .ToList();
         var aliases = snapshot?.TypeAliases ?? [];
         var typeMappings = mappings.Where(m => string.Equals(m.Scope, "Type", StringComparison.OrdinalIgnoreCase) && m.Enabled).ToList();
         var instanceMappings = mappings.Where(m => string.Equals(m.Scope, "Instance", StringComparison.OrdinalIgnoreCase) && m.Enabled).ToList();
@@ -235,7 +239,7 @@ public sealed partial class MainPage : Page
             var targetKey = SyncedValueHistoryStore.TypeKey(_typeWriteItems[row.ItemIndex].TypeId);
             var previous = history.GetValueOrDefault((targetKey, row.RevitParameter));
             var diff = ThreeWayDiffClassifier.Classify(previous, row.CurrentValue, row.ProposedValue);
-            if (diff.Category == "Unchanged" && row.Status == "Invalid")
+            if (row.Status == "Not applicable" || (diff.Category == "Unchanged" && row.Status == "Invalid"))
             {
                 continue; // an invalid write candidate with nothing actually different isn't worth reporting
             }
@@ -356,7 +360,7 @@ public sealed partial class MainPage : Page
                     var row = preview.Rows[index];
                     var previous = history.GetValueOrDefault((row.UniqueId, row.RevitParameter));
                     var diff = ThreeWayDiffClassifier.Classify(previous, row.CurrentValue, row.ProposedValue);
-                    if (diff.Category == "Unchanged" && row.Status == "Invalid")
+                    if (row.Status == "Not applicable" || (diff.Category == "Unchanged" && row.Status == "Invalid"))
                     {
                         continue;
                     }

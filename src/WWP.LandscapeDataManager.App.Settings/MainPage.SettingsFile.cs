@@ -160,13 +160,6 @@ public sealed partial class MainPage
                     instanceMatchKey: settings.InstanceMatchKey);
                 return "Importer setup";
             });
-        Offer(!string.IsNullOrWhiteSpace(settings.SharedParameterFilePath),
-            "Shared parameter file path", $"{settings.SharedParameterFilePath} (a path on the exporter's computer)",
-            async () =>
-            {
-                await ProjectSettingsSync.PushAsync(GetClient(), sharedParameterFilePath: settings.SharedParameterFilePath);
-                return "shared parameter file path";
-            });
         Offer(!string.IsNullOrWhiteSpace(file.Secrets?.ITreeApiKey),
             "i-Tree API key", "saved to your Windows Credential Manager",
             () => { _iTreeCredentialStore.Save(file.Secrets!.ITreeApiKey!.Trim()); return Task.FromResult("i-Tree API key"); });

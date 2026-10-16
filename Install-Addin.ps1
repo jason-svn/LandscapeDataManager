@@ -32,6 +32,8 @@ $toolApps = @(
     @{ Name = 'FloorCalculator'; Project = 'src\WWP.LandscapeDataManager.App.FloorCalculator\WWP.LandscapeDataManager.App.FloorCalculator.csproj'; ExeName = 'WWP.LandscapeDataManager.FloorCalculator.exe' }
     @{ Name = 'HealthCheck'; Project = 'src\WWP.LandscapeDataManager.App.HealthCheck\WWP.LandscapeDataManager.App.HealthCheck.csproj'; ExeName = 'WWP.LandscapeDataManager.HealthCheck.exe' }
     @{ Name = 'Dashboard'; Project = 'src\WWP.LandscapeDataManager.App.Dashboard\WWP.LandscapeDataManager.App.Dashboard.csproj'; ExeName = 'WWP.LandscapeDataManager.Dashboard.exe' }
+    @{ Name = 'GrowthProjections'; Project = 'src\WWP.LandscapeDataManager.App.GrowthProjections\WWP.LandscapeDataManager.App.GrowthProjections.csproj'; ExeName = 'WWP.LandscapeDataManager.GrowthProjections.exe' }
+    @{ Name = 'Connectivity'; Project = 'src\WWP.LandscapeDataManager.App.Connectivity\WWP.LandscapeDataManager.App.Connectivity.csproj'; ExeName = 'WWP.LandscapeDataManager.Connectivity.exe' }
     @{ Name = 'Settings'; Project = 'src\WWP.LandscapeDataManager.App.Settings\WWP.LandscapeDataManager.App.Settings.csproj'; ExeName = 'WWP.LandscapeDataManager.Settings.exe' }
 )
 

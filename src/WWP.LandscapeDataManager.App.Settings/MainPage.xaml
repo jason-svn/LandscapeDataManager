@@ -202,30 +202,6 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Row="6" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="SHARED PARAMETER FILE" Style="{StaticResource LimSectionHeaderStyle}" />
-                    <TextBlock
-                        Text="The default Revit shared parameter .txt file Shared Parameter Setup opens — it still lets you browse to a different file for one-off use, but starts from here."
-                        Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="SharedParameterFilePathBox" Header="Shared parameter file" PlaceholderText="Select the Revit shared parameter .txt file" />
-                        <Button Grid.Column="1" Content="Browse..." Click="BrowseSharedParameterFile_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Bottom" />
-                    </Grid>
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Button Content="Save" Click="SaveSharedParameterFile_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
-                        <TextBlock Grid.Column="1" x:Name="SharedParameterFileStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
-                    </Grid>
-                </StackPanel>
-            </Border>
         </Grid>
     </ScrollViewer>
 </Page>

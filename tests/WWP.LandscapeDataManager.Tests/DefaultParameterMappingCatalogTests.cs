@@ -71,7 +71,6 @@ public sealed class DefaultParameterMappingCatalogTests
     [InlineData("Scientific Name", "!_S_PLT_iTreeSpecies_ScientificName_Text")]
     [InlineData("Origin", "!_S_PLT_LDS_Origin_Text")]
     [InlineData("WWP_LDS_Category", "!_S_PLT_LDS_Category_Text")]
-    [InlineData("WWP_Pollutants_Removed", "!_S_PLT_LDS_PollutantsRemovedAnnual_Mass")]
     [InlineData("Max_Height", "!_S_PLT_LDS_MaxHeight_Length")]
     [InlineData("Max_Width", "!_S_PLT_LDS_MaxWidth_Length")]
     [InlineData("Height year annual growth rate (m/yr)", "!_S_PLT_GrowthRatio_HeightbyYear_Number")]
@@ -98,5 +97,28 @@ public sealed class DefaultParameterMappingCatalogTests
 
         Assert.NotNull(match);
         Assert.Equal(expectedParameter, match!.Descriptor.Name);
+    }
+
+    [Theory]
+    [InlineData("!_S_PLT_Result_EmbodiedGWP_Mass", false)]          // calculated
+    [InlineData("!_S_PLT_Result_BNG_HabitatUnits_Number", false)]   // calculated
+    [InlineData("!_S_PLT_LDS_TotalGWP_Mass", false)]                // retired by rename
+    [InlineData("!_S_PLT_BNGResult_HabitatUnits_Number", false)]    // retired by rename
+    [InlineData("!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Mass", false)]
+    [InlineData("!_S_PLT_LDS_CO2SequestrationRate_Number", true)]   // current rate
+    [InlineData("!_S_PLT_iTreeSpecies_Code_Text", true)]
+    public void Calculated_and_retired_parameters_are_never_import_targets(string parameter, bool importable) =>
+        Assert.Equal(importable, DefaultParameterMappingCatalog.IsImportTarget(parameter));
+
+    [Theory]
+    [InlineData("WWP_Total_GWP")]
+    [InlineData("WWP_Pollutants_Removed")]
+    public void Sheet_columns_that_are_calculated_here_are_not_auto_mapped(string header)
+    {
+        var options = new[] { Option(header), Option("!_S_PLT_Result_EmbodiedGWP_Mass"), Option("!_S_PLT_Result_PollutantsRemovedAnnual_Mass") };
+
+        var match = DefaultParameterMappingCatalog.FindMatch(header, options, new HashSet<string>());
+
+        Assert.Null(match);
     }
 }

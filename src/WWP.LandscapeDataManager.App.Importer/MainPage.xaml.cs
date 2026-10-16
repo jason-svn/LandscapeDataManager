@@ -43,6 +43,13 @@ public sealed partial class MainPage : Page
     public ObservableCollection<MappingRow> MappingRows { get; } = [];
     public ObservableCollection<TypeSyncRow> TypeSyncRows { get; } = [];
     public ObservableCollection<InstanceSyncRow> InstanceSyncRows { get; } = [];
+
+    // Everything the last preview/apply reported, split into real changes and the unmatched/skipped
+    // rows that would otherwise bury them. Only changes are shown unless "Show unmatched" is ticked.
+    private readonly List<TypeSyncRow> _typeChangeRows = [];
+    private readonly List<TypeSyncRow> _typeIssueRows = [];
+    private readonly List<InstanceSyncRow> _instanceChangeRows = [];
+    private readonly List<InstanceSyncRow> _instanceIssueRows = [];
     public ObservableCollection<ParameterOption> InstanceKeyParameterOptions { get; } = [];
     public ObservableCollection<string> SourceHeaderOptions { get; } = [];
 
@@ -52,6 +59,22 @@ public sealed partial class MainPage : Page
         _windowHandle = windowHandle;
         _pipeName = pipeName;
         Loaded += Page_Loaded;
+    }
+
+    private void SourcePanelToggle_Changed(object sender, RoutedEventArgs e) =>
+        SourcePanel.Visibility = SourcePanelToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Header grips are tagged "Table:column", e.g. "Mapping:2".</summary>
+    private void ColumnGrip_Resized(object? sender, double change)
+    {
+        if (sender is not FrameworkElement { Tag: string tag } || tag.Split(':') is not [var table, var column] ||
+            !int.TryParse(column, out var index))
+        {
+            return;
+        }
+
+        var columns = table == "Mapping" ? ImporterColumns.Mapping : ImporterColumns.Results;
+        columns.Resize(index, change);
     }
 
     private void OpenSettings_Click(object sender, RoutedEventArgs e)
@@ -182,8 +205,8 @@ public sealed partial class MainPage : Page
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        var typeOptions = _parameterCatalog.Where(p => p.IsWritable && p.Scope == "Type").Select(p => new ParameterOption(p)).ToList();
-        var instanceOptions = _parameterCatalog.Where(p => p.IsWritable && p.Scope == "Instance").Select(p => new ParameterOption(p)).ToList();
+        var typeOptions = _parameterCatalog.Where(p => p.IsWritable && p.Scope == "Type" && DefaultParameterMappingCatalog.IsImportTarget(p.Name)).Select(p => new ParameterOption(p)).ToList();
+        var instanceOptions = _parameterCatalog.Where(p => p.IsWritable && p.Scope == "Instance" && DefaultParameterMappingCatalog.IsImportTarget(p.Name)).Select(p => new ParameterOption(p)).ToList();
 
         ApplyMappings(sourceHeaders, typeOptions, instanceOptions, _savedMappings);
         RestoreInstanceMatchKeyOptions(sourceHeaders);
@@ -316,8 +339,10 @@ public sealed partial class MainPage : Page
             }
 
             await SaveMappingsAsync();
-            TypeSyncRows.Clear();
-            InstanceSyncRows.Clear();
+            _typeChangeRows.Clear();
+            _typeIssueRows.Clear();
+            _instanceChangeRows.Clear();
+            _instanceIssueRows.Clear();
             _pendingTypeBatch = null;
             _pendingInstanceBatch = null;
             ApplyButton.IsEnabled = false;
@@ -327,13 +352,10 @@ public sealed partial class MainPage : Page
             var (typeWriteItems, skippedTypeFields) = BuildTypeWriteItems(typeMatches);
             foreach (var match in typeMatches.Where(m => m.Status != "Matched"))
             {
-                TypeSyncRows.Add(TypeSyncRow.FromIssue(match));
+                _typeIssueRows.Add(TypeSyncRow.FromIssue(match));
             }
 
-            foreach (var skipped in skippedTypeFields)
-            {
-                TypeSyncRows.Add(skipped);
-            }
+            _typeIssueRows.AddRange(skippedTypeFields);
 
             if (typeWriteItems.Count > 0)
             {
@@ -348,7 +370,7 @@ public sealed partial class MainPage : Page
                         continue;
                     }
 
-                    TypeSyncRows.Add(TypeSyncRow.FromWrite(row));
+                    (IsNotApplicable(row.Status) ? _typeIssueRows : _typeChangeRows).Add(TypeSyncRow.FromWrite(row));
                 }
 
                 var applicable = typePreview.Rows.Where(r => r.CanApply).Select(r => r.ItemIndex).ToHashSet();
@@ -361,13 +383,10 @@ public sealed partial class MainPage : Page
             var (instanceWriteItems, skippedInstanceFields) = BuildInstanceWriteItems(instanceMatches);
             foreach (var match in instanceMatches.Where(m => m.Status != "Matched"))
             {
-                InstanceSyncRows.Add(InstanceSyncRow.FromIssue(match));
+                _instanceIssueRows.Add(InstanceSyncRow.FromIssue(match));
             }
 
-            foreach (var skipped in skippedInstanceFields)
-            {
-                InstanceSyncRows.Add(skipped);
-            }
+            _instanceIssueRows.AddRange(skippedInstanceFields);
 
             if (instanceWriteItems.Count > 0)
             {
@@ -383,7 +402,8 @@ public sealed partial class MainPage : Page
                         continue;
                     }
 
-                    InstanceSyncRows.Add(InstanceSyncRow.FromWrite(row, familyTypeByUniqueId.GetValueOrDefault(row.UniqueId, row.UniqueId)));
+                    (IsNotApplicable(row.Status) ? _instanceIssueRows : _instanceChangeRows)
+                        .Add(InstanceSyncRow.FromWrite(row, familyTypeByUniqueId.GetValueOrDefault(row.UniqueId, row.UniqueId)));
                 }
 
                 var applicable = instancePreview.Rows.Where(r => r.CanApply).Select(r => r.ItemIndex).ToHashSet();
@@ -393,6 +413,7 @@ public sealed partial class MainPage : Page
 
             var readyCount = (_pendingTypeBatch?.Items.Count ?? 0) + (_pendingInstanceBatch?.Items.Count ?? 0);
             ApplyButton.IsEnabled = readyCount > 0;
+            RefreshResultRows();
             var hiddenNote = hiddenUnchanged > 0 ? $" {hiddenUnchanged:N0} values already match the source and are hidden." : string.Empty;
             PreviewStatusText.Text = (readyCount > 0
                 ? $"{readyCount:N0} values ready to apply. Review the rows below, then select Apply to Revit."
@@ -556,13 +577,13 @@ public sealed partial class MainPage : Page
             if (_pendingTypeBatch is { Items.Count: > 0 })
             {
                 var result = await GetClient().SendAsync<ParameterWriteResult>(PipeCommands.ApplyParameterWrites, _pendingTypeBatch);
-                TypeSyncRows.Clear();
+                _typeChangeRows.Clear();
                 var history = new List<SyncedValueRecord>();
                 foreach (var row in result.Rows)
                 {
                     if (!IsUnchanged(row.Status))
                     {
-                        TypeSyncRows.Add(TypeSyncRow.FromWrite(row));
+                        _typeChangeRows.Add(TypeSyncRow.FromWrite(row));
                     }
 
                     if (row.Status == "Applied")
@@ -581,13 +602,13 @@ public sealed partial class MainPage : Page
             {
                 var result = await GetClient().SendAsync<InstanceParameterWriteResult>(PipeCommands.ApplyInstanceParameterWrites, _pendingInstanceBatch);
                 var familyTypeByUniqueId = (_instanceScan?.Items ?? []).ToDictionary(i => i.UniqueId, i => $"{i.FamilyName} : {i.TypeName}");
-                InstanceSyncRows.Clear();
+                _instanceChangeRows.Clear();
                 var history = new List<SyncedValueRecord>();
                 foreach (var row in result.Rows)
                 {
                     if (!IsUnchanged(row.Status))
                     {
-                        InstanceSyncRows.Add(InstanceSyncRow.FromWrite(row, familyTypeByUniqueId.GetValueOrDefault(row.UniqueId, row.UniqueId)));
+                        _instanceChangeRows.Add(InstanceSyncRow.FromWrite(row, familyTypeByUniqueId.GetValueOrDefault(row.UniqueId, row.UniqueId)));
                     }
 
                     if (row.Status == "Applied")
@@ -604,6 +625,7 @@ public sealed partial class MainPage : Page
             _pendingTypeBatch = null;
             _pendingInstanceBatch = null;
             ApplyButton.IsEnabled = false;
+            RefreshResultRows();
             PreviewStatusText.Text = $"Applied {appliedParameters:N0} parameter values across {appliedElements:N0} Revit elements/types.";
         });
     }
@@ -611,13 +633,40 @@ public sealed partial class MainPage : Page
     /// <summary>Rows whose Revit value already equals the source value — hidden from the report so only real changes and problems show.</summary>
     private static bool IsUnchanged(string status) => string.Equals(status, "No change", StringComparison.Ordinal);
 
+    /// <summary>The parameter doesn't exist on that element's category (e.g. a Planting-only parameter on a Floor type) — not a change, so it's filed with the unmatched/skipped rows.</summary>
+    private static bool IsNotApplicable(string status) => string.Equals(status, "Not applicable", StringComparison.Ordinal);
+
     private static readonly HashSet<string> FailedInstanceStatuses = new(StringComparer.Ordinal)
     {
         "NotPaired", "Duplicate", "Orphaned", "Invalid"
     };
 
+    private void ShowIssueRows_Changed(object sender, RoutedEventArgs e) => RefreshResultRows();
+
+    /// <summary>Rebuilds the two result lists: changes always, unmatched/skipped rows only when asked for.</summary>
+    private void RefreshResultRows()
+    {
+        var showIssues = ShowIssueRowsCheckBox.IsChecked == true;
+        TypeSyncRows.Clear();
+        foreach (var row in showIssues ? _typeChangeRows.Concat(_typeIssueRows) : _typeChangeRows)
+        {
+            TypeSyncRows.Add(row);
+        }
+
+        InstanceSyncRows.Clear();
+        foreach (var row in showIssues ? _instanceChangeRows.Concat(_instanceIssueRows) : _instanceChangeRows)
+        {
+            InstanceSyncRows.Add(row);
+        }
+
+        var issueCount = _typeIssueRows.Count + _instanceIssueRows.Count;
+        ShowIssueRowsCheckBox.Content = $"Show unmatched & skipped rows ({issueCount:N0})";
+    }
+
+    private IEnumerable<InstanceSyncRow> AllInstanceRows => _instanceChangeRows.Concat(_instanceIssueRows);
+
     private IReadOnlyList<string> GetFailedInstanceUniqueIds() =>
-        InstanceSyncRows
+        AllInstanceRows
             .Where(row => FailedInstanceStatuses.Contains(row.Status) && !string.IsNullOrEmpty(row.UniqueId))
             .Select(row => row.UniqueId)
             .Distinct()
@@ -675,7 +724,7 @@ public sealed partial class MainPage : Page
 
     private async void ResetFailedColours_Click(object sender, RoutedEventArgs e)
     {
-        var allIds = InstanceSyncRows
+        var allIds = AllInstanceRows
             .Where(row => !string.IsNullOrEmpty(row.UniqueId))
             .Select(row => row.UniqueId)
             .Distinct()

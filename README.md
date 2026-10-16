@@ -50,12 +50,23 @@ Floor Calculator's **Biodiversity (BNG)** tab calculates each Floor's habitat un
 
 To use it:
 
-1. Run **Import Shared Parameter** so the `!_S_PLT_BNGInput_*` / `!_S_PLT_BNGResult_*` floor parameters are bound (re-run after updating — new parameters only appear once bound).
+1. Run **Import Shared Parameter** so the `!_S_PLT_BNGInput_*` / `!_S_PLT_Result_BNG_*` floor parameters are bound. LIM uses the versioned catalog built into the add-in, so it works regardless of your office shared-parameter file; re-run it after updating to review and apply newly added parameters.
 2. Set each floor's Phase Created / Phase Demolished, and tick **Enhanced** on retained floors whose habitat is improved.
 3. In Floor Calculator > **Biodiversity (BNG)**, click **Load all floors**, fill in the baseline habitat and condition for Existing floors, the proposed (or enhanced) habitat and condition for new and enhanced floors, and strategic significance, then **Write to Revit**.
 4. Open the **Dashboard**: the Site & Biodiversity tab shows baseline units, post-intervention units (retained + enhanced + created) and the net change against the statutory 10%. Floors whose area, inputs or phases changed since they were written are flagged stale and excluded until recalculated.
 
 Only on-site area habitats are covered — hedgerows, watercourses, off-site units and the trading-rules check aren't modelled.
+
+## Connectivity Calculator
+
+**Data Calculation > Connectivity Calculator** scores each tree and planting area 1–4 by how much it holds the green network together, using the Probability of Connectivity index (Saura & Pascual-Hortal, as in Conefor):
+
+- Every Planting instance is a patch the size of its canopy (`!_S_PLT_TreeFoliage_Width`, or the family's plan size if unset). Every Floor whose `!_S_PLT_LDS_SurfaceClass_Text` — or failing that its LDS Type — is pervious is a patch the shape of its top face. Only primary Design Options and elements that aren't demolished count.
+- Dispersal between two patches has probability pᵢⱼ = exp(−k·dᵢⱼ) on edge-to-edge plan distance, with k set so p = 0.5 (adjustable) at each dispersal distance given. p*ᵢⱼ is the best path through the network.
+- dPCₖ = (PC − PC without k) / PC. Patches are ranked by dPC into a percentile score (rank − 1)/(N − 1) and banded: ≥ 0.8 **4 Critical stepping-stone**, ≥ 0.5 **3 Strong connector**, ≥ 0.2 **2 Moderate**, otherwise **1 Low**.
+- With several dispersal distances (default 50, 250, 1000 m — e.g. ground beetles, slow-worms, woodland birds) the scores are averaged, and a patch whose band changes by two or more between distances is flagged **Uncertain**.
+
+**Write to Revit** fills the `!_S_PLT_Result_Connectivity_*` parameters (band, class, score, dPC, details, last updated) — run **Import Shared Parameter** first. Tick `!_S_PLT_ConnectivityInput_Locked_YesNo` on an element to set its band by hand; the calculator then leaves it alone. The distances are saved with the project.
 
 ## Online co-benefits dashboard
 

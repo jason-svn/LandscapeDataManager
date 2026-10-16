@@ -1,0 +1,192 @@
+<Page
+    x:Class="WWP.LandscapeDataManager.App.Connectivity.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WWP.LandscapeDataManager.App.Connectivity">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="{StaticResource LimPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Connectivity Calculator" Style="{StaticResource LimPageTitleStyle}" />
+                <TextBlock
+                    Text="Scores how much each tree and planting area holds the green network together. Uses the Probability of Connectivity index: dispersal probability falls off with edge-to-edge distance, and each element's dPC is the share of connectivity lost without it. Elements are ranked by dPC into 1 Low, 2 Moderate, 3 Strong connector and 4 Critical stepping-stone. Tick !_S_PLT_ConnectivityInput_Locked_YesNo on an element to keep a band you set by hand."
+                    Style="{StaticResource LimPageSubtitleStyle}" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
+        </Grid>
+
+        <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+            <Grid ColumnSpacing="16" RowSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260" />
+                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBox x:Name="DistancesBox"
+                         Header="Dispersal distances (m)"
+                         PlaceholderText="e.g. 50, 250, 1000" />
+                <NumberBox Grid.Column="1"
+                           x:Name="ProbabilityBox"
+                           Header="Dispersal probability at that distance"
+                           Minimum="0.01"
+                           Maximum="0.99"
+                           SmallChange="0.05"
+                           SpinButtonPlacementMode="Compact"
+                           Value="0.5" />
+                <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
+                    <CheckBox x:Name="IncludeFloorsCheckBox" Content="Include planting-area floors" IsChecked="True" />
+                    <CheckBox x:Name="IncludeUnclassifiedCheckBox" Content="Also include floors whose surface class is unknown" />
+                </StackPanel>
+                <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
+                           Text="Pick distances from the literature for the species you're designing for — e.g. ground beetles ~50 m, slow-worms ~250 m, woodland birds ~1 km. With several distances, scores are averaged and an element whose band changes by two or more between distances is flagged Uncertain. Floors count as planting areas when their SurfaceClass (or LDS Type) is pervious." />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="PATCHES" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock x:Name="PatchCountText" Text="—" FontSize="22" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="4 · CRITICAL" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock x:Name="CriticalCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="#FFC51B7D" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="3 · STRONG" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock x:Name="StrongCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="#FF318C4A" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="3" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="2 · MODERATE" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock x:Name="ModerateCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="#FF6EA03C" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="4" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="1 · LOW" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock x:Name="LowCountText" Text="—" FontSize="22" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="5" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="UNCERTAIN" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock x:Name="UncertainCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource LimWarningBrush}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="0,16,0,6" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center" Spacing="2">
+                <TextBlock x:Name="StatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
+                           Text="Select Calculate to score every tree and planting area in the model." />
+                <TextBlock x:Name="EquivalentAreaText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+            </StackPanel>
+            <Button Grid.Column="1" x:Name="CalculateButton" Content="Calculate" Click="Calculate_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
+            <Button Grid.Column="2" x:Name="WriteButton" Content="Write to Revit" Click="WriteResults_Click" Style="{StaticResource LimSecondaryButtonStyle}" IsEnabled="False" />
+            <Button Grid.Column="3" Content="Select" Click="SelectRows_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="4" Content="Zoom to" Click="ZoomRows_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="5" Content="Isolate" Click="IsolateRows_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="6" Content="Reset isolate" Click="ResetIsolate_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="7" Content="Apply view colours" Click="ApplyColours_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="8" Content="Reset view colours" Click="ResetColours_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+        </Grid>
+
+        <ProgressBar Grid.Row="4" x:Name="CalculationProgress" Maximum="1" Margin="0,0,0,6" Visibility="Collapsed" />
+
+        <Grid Grid.Row="5" Padding="8,0" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="100" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="80" />
+                <ColumnDefinition Width="80" />
+                <ColumnDefinition Width="60" />
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Element" Style="{StaticResource LimColumnHeaderStyle}" />
+            <TextBlock Grid.Column="1" Text="Family Name : Type Name" Style="{StaticResource LimColumnHeaderStyle}" />
+            <TextBlock Grid.Column="2" Text="Area m²" Style="{StaticResource LimColumnHeaderStyle}" HorizontalAlignment="Right" />
+            <TextBlock Grid.Column="3" Text="dPC" Style="{StaticResource LimColumnHeaderStyle}" HorizontalAlignment="Right" />
+            <TextBlock Grid.Column="4" Text="Score" Style="{StaticResource LimColumnHeaderStyle}" HorizontalAlignment="Right" />
+            <TextBlock Grid.Column="5" Text="Band" Style="{StaticResource LimColumnHeaderStyle}" />
+            <TextBlock Grid.Column="6" Text="Notes" Style="{StaticResource LimColumnHeaderStyle}" />
+        </Grid>
+
+        <ListView Grid.Row="6" x:Name="ResultList" ItemsSource="{x:Bind ResultRows}" SelectionMode="Multiple">
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="local:ConnectivityRow">
+                    <Grid Padding="8,7" ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="60" />
+                            <ColumnDefinition Width="200" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{x:Bind Category}" Opacity="0.75" />
+                        <TextBlock Grid.Column="1" Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind DisplayName}" />
+                        <TextBlock Grid.Column="2" Text="{x:Bind AreaText}" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="3" Text="{x:Bind DpcText}" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="4" Text="{x:Bind ScoreText}" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="5" Text="{x:Bind BandText}" FontWeight="SemiBold" Foreground="{x:Bind BandBrush}" />
+                        <TextBlock Grid.Column="6" Text="{x:Bind Notes}" TextWrapping="Wrap" Opacity="0.85" />
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <ProgressRing x:Name="BusyIndicator"
+                      Grid.RowSpan="7"
+                      Width="40"
+                      Height="40"
+                      IsActive="False"
+                      Visibility="Collapsed"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center" />
+    </Grid>
+</Page>

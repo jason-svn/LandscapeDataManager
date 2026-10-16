@@ -286,7 +286,7 @@ public static class DashboardAggregationService
                 group.Sum(floor => floor.PollutionMassRemovedAnnual),
                 group.Sum(floor => floor.CostSavedAnnual),
                 group.Sum(floor => floor.OxygenProducedAnnual),
-                group.Sum(floor => floor.TotalGwp)))
+                group.Sum(floor => Math.Max(0, floor.TotalGwp))))
             .OrderByDescending(subtotal => subtotal.FloorCount)
             .ToList();
 
@@ -321,7 +321,8 @@ public static class DashboardAggregationService
             floors.Sum(floor => floor.CarbonSequesteredAnnual),
             floors.Sum(floor => floor.RunoffAvoidedAnnual),
             floors.Sum(floor => floor.PollutionMassRemovedAnnual),
-            floors.Sum(floor => floor.TotalGwp),
+            // Embodied carbon only: a negative stored total is sequestration from older calculations.
+            floors.Sum(floor => Math.Max(0, floor.TotalGwp)),
             floors.Sum(floor => floor.CostSavedAnnual));
     }
 
@@ -506,7 +507,7 @@ public static class DashboardAggregationService
     /// <summary>The explicit <c>!_S_PLT_LDS_SurfaceClass_Text</c> tag always wins; otherwise inferred from the floor's LDS Type (see <see cref="SurfaceClassCatalog"/>).</summary>
     /// <summary>The floor's explicit surface class tag, else one inferred from its LDS type; null when neither says.</summary>
     public static string? ResolveSurfaceClass(DashboardFloorItem floor) =>
-        !string.IsNullOrWhiteSpace(floor.SurfaceClass) ? floor.SurfaceClass : SurfaceClassCatalog.Infer(floor.LdsType);
+        SurfaceClassCatalog.Resolve(floor.SurfaceClass, floor.LdsType, floor.TypeName, floor.FamilyName);
 
     private static IReadOnlyList<int> ParseMonthList(string? raw) =>
         string.IsNullOrWhiteSpace(raw)

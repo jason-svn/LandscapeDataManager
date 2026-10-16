@@ -45,15 +45,35 @@ public static class DefaultParameterMappingCatalog
 
     public static string TargetKey(ParameterOption option) => $"{option.Descriptor.Scope}|{option.Descriptor.Name}";
 
+    /// <summary>Names retired by a rename (new name, new GUID) — still bound in projects that haven't re-run Import Shared Parameter.</summary>
+    private static readonly HashSet<string> RetiredParameterNames = new(StringComparer.Ordinal)
+    {
+        "!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Mass", "!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Volume",
+        "!_S_PLT_LDS_OxygenLevelsAnnual_Mass", "!_S_PLT_LDS_ProductGWP_Number", "!_S_PLT_LDS_TransportGWP_Number",
+        "!_S_PLT_LDS_OxygenProducedAnnual_Mass", "!_S_PLT_LDS_PollutantsRemovedAnnual_Mass", "!_S_PLT_LDS_TotalGWP_Mass",
+        "!_S_PLT_LDS_ResultSource_Text", "!_S_PLT_LDS_LastCalculated_Text"
+    };
+
+    /// <summary>
+    /// Whether the Importer may write to this parameter. Never a calculated <c>!_S_PLT_Result_*</c>
+    /// parameter (a calculator owns it — importing would overwrite its results with raw sheet values),
+    /// and never a retired name, so a mapping saved before a rename can't keep feeding the old parameter.
+    /// </summary>
+    public static bool IsImportTarget(string parameterName) =>
+        !parameterName.StartsWith("!_S_PLT_Result_", StringComparison.Ordinal) &&
+        !parameterName.StartsWith("!_S_PLT_BNGResult_", StringComparison.Ordinal) &&
+        !parameterName.StartsWith("!_S_PLT_ConnectivityResult_", StringComparison.Ordinal) &&
+        !RetiredParameterNames.Contains(parameterName);
+
     public static string Normalize(string value) =>
         new([.. value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant)]);
 
     /// <summary>Candidate parameter names to try for a source header, in priority order, always ending with the header itself as a last-ditch exact/normalized match.</summary>
     public static IReadOnlyList<string> GetCandidates(string header) => header.Trim() switch
     {
-        "Avoided runoff m3/yr (16/18 girth)" => ["!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Volume", header],
-        "Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth)" => ["!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Mass", header],
-        "Oxygen levels O2 kg/yr (16/18 girth)" => ["!_S_PLT_LDS_OxygenLevelsAnnual_Mass", header],
+        "Avoided runoff m3/yr (16/18 girth)" => ["!_S_PLT_LDS_RunoffAvoidedRate_Number", header],
+        "Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth)" => ["!_S_PLT_LDS_CO2SequestrationRate_Number", header],
+        "Oxygen levels O2 kg/yr (16/18 girth)" => ["!_S_PLT_LDS_OxygenProductionRate_Number", header],
         // MaintenanceCost/PollutantsRemoved are Floor Calculator's own coefficient-times-area outputs
         // (see FloorLdsCalculationService) — but the raw WWP sheet columns are still useful direct
         // mapping targets for Types, matching the same "map raw WWP_* column onto its !_S_PLT_
@@ -73,12 +93,18 @@ public static class DefaultParameterMappingCatalog
         "COST SAVED per year - Oxygen" => ["!_S_PLT_LDS_OxygenCostSavedAnnual_Currency", header],
         "f_int and Crg ( fraction of rainfall intercepted by the area(dimensionless, per planting type) (runoff coefficient" => ["!_S_PLT_LDS_RunoffCoefficient_Number", header],
         "Allergenic" => ["!_S_PLT_iTreeSpecies_Allergenic_Text", header],
-        "WWP_Pollutants_Removed" => ["!_S_PLT_LDS_PollutantsRemovedAnnual_Mass", header],
+        // A per-m² rate; !_S_PLT_Result_PollutantsRemovedAnnual_Mass is Floor Calculator's
+        // area-scaled result — the raw column must never overwrite it, so it isn't auto-mapped.
+        "WWP_Pollutants_Removed" => [],
         "Origin" => ["!_S_PLT_LDS_Origin_Text", header],
         "WWP_LDS_Category" => ["!_S_PLT_LDS_Category_Text", header],
         "WWP_LDS_SubCategory" => ["!_S_PLT_LDS_SubCategory_Text", header],
-        "Product GWP" => ["!_S_PLT_LDS_ProductGWP_Number", header],
-        "Transport GWP" => ["!_S_PLT_LDS_TransportGWP_Number", header],
+        "Product GWP" => ["!_S_PLT_LDS_ProductGWPRate_Number", header],
+        // WWP_Total_GWP is a formula column (product + transport, or −sequestration for planting):
+        // nothing to import. It must never land on !_S_PLT_Result_EmbodiedGWP_Mass, Floor Calculator's
+        // area-scaled embodied-carbon result.
+        "WWP_Total_GWP" => [],
+        "Transport GWP" => ["!_S_PLT_LDS_TransportGWPRate_Number", header],
         "Pollen" => ["!_S_PLT_LDS_PollenAnnual_Number", header],
         "Surface_Temperature_Reduction_Min" => ["!_S_PLT_LDS_SurfaceTempReduction_Number", header],
         "Air temperature reduction (1.5m height)" => ["!_S_PLT_LDS_AirTempReduction_Number", header],

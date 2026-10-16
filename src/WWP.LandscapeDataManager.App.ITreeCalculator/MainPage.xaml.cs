@@ -18,7 +18,7 @@ public sealed partial class MainPage : Page
     /// whatever engine/database version string the i-Tree API itself reports (that's stored
     /// verbatim in the EngineVersion tracking parameter instead).
     /// </summary>
-    private const string SignatureEngineVersion = "LIM-iTreeCalculator-v1";
+    private const string SignatureEngineVersion = ITreeBatchCalculator.SignatureEngineVersion;
 
     private readonly ITreeApiClient _iTreeApiClient = new();
     private readonly ITreeCredentialStore _iTreeCredentialStore = new();
@@ -126,6 +126,11 @@ public sealed partial class MainPage : Page
             notes.Add($"{sync.MissingYearsParameter:N0} tree(s) have no !_S_PLT_TreeGrowth_Years_Number — run Import Shared Parameter.");
         }
 
+        if (sync.CappedAtMaturity > 0)
+        {
+            notes.Add($"{sync.CappedAtMaturity:N0} tree(s) have stopped growing — at their type's mature size (LDS max height/width), or 25 years after planting when the type has none — so their age is capped there.");
+        }
+
         return " " + string.Join(" ", notes);
     }
 
@@ -216,61 +221,16 @@ public sealed partial class MainPage : Page
 
     private async Task CalculateAsync(IReadOnlyList<InstanceReportRow> rows)
     {
-        var apiKey = _iTreeCredentialStore.Load().Trim();
-        if (rows.Count == 0)
+        var summary = await ITreeBatchCalculator.CalculateAsync(
+            GetClient(), rows.Select(row => row.Item).ToList(), _iTreeCredentialStore.Load(),
+            _preferredUnitSystem, _preferredCurrency, _iTreeApiClient, _exchangeRateService);
+        if (!summary.Ran)
         {
-            CalculateStatusText.Text = "Nothing to calculate.";
+            CalculateStatusText.Text = summary.Message;
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            CalculateStatusText.Text = "No i-Tree API key saved — open Settings from the LIM ribbon first.";
-            return;
-        }
-
-        var signedInputs = rows.Select(row => (
-            Signature: PlantingInstanceStatusEvaluator.Evaluate(row.Item, SignatureEngineVersion).InputSignature,
-            Input: new ITreeRevitInput(
-                row.Item.SpeciesCode ?? string.Empty, string.Empty, string.Empty,
-                row.Item.FamilyName, row.Item.TypeName, 0,
-                row.Item.Condition ?? string.Empty,
-                row.Item.DbhInches ?? 0,
-                row.Item.Latitude ?? 0,
-                row.Item.Longitude ?? 0,
-                row.Item.Years ?? 1,
-                row.Item.CrownExposure ?? 0))).ToList();
-
-        // One rate lookup per batch, not per tree — and before calling i-Tree, so a failed lookup
-        // doesn't spend API calls on results that can't be written in the project's currency.
-        var exchangeRate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, _preferredCurrency);
-        if (!exchangeRate.Success)
-        {
-            CalculateStatusText.Text = ProjectExchangeRate.UnavailableMessage(exchangeRate);
-            return;
-        }
-
-        var outcomes = await _iTreeApiClient.CalculateForInstancesAsync(signedInputs, apiKey);
-
-        var writeItems = new List<InstanceParameterWriteItem>();
-        foreach (var (row, (signature, _)) in rows.Zip(signedInputs))
-        {
-            var outcome = outcomes.GetValueOrDefault(signature);
-            var status = outcome?.Error is null ? "Calculated" : "APIError";
-            writeItems.AddRange(ITreeInstanceResultMapper.BuildWriteItems(
-                row.UniqueId, status, outcome?.Error, signature, outcome,
-                _preferredUnitSystem, exchangeRate.CurrencyCode, exchangeRate.UsdRate));
-        }
-
-        await GetClient().SendAsync<InstanceParameterWriteResult>(
-            PipeCommands.ApplyInstanceParameterWrites,
-            new InstanceParameterWriteBatch(writeItems));
-
-        var succeeded = outcomes.Values.Count(o => o.Error is null);
-        var failed = outcomes.Values.Count(o => o.Error is not null);
-        var rateNote = exchangeRate.Success ? string.Empty : $" ({exchangeRate.Error})";
-        CalculateStatusText.Text = $"Calculated {succeeded:N0} unique signature(s), {failed:N0} failed, applied to {rows.Count:N0} instance(s) in {exchangeRate.CurrencyCode}.{rateNote}";
-
+        CalculateStatusText.Text = $"Calculated {summary.Succeeded:N0} unique signature(s), {summary.Failed:N0} failed, applied to {summary.Instances:N0} instance(s) in {summary.CurrencyCode}.";
         await RefreshReportAsync();
     }
 

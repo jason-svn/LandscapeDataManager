@@ -23,7 +23,12 @@ internal static class RevitViewInteractionService
         ["Stale"] = new Color(142, 68, 173),
         ["Failed"] = new Color(255, 0, 0),
         ["Success"] = new Color(34, 139, 34),
-        ["NeedsAttention"] = new Color(196, 38, 46)
+        ["NeedsAttention"] = new Color(196, 38, 46),
+        // Connectivity tool bands 1–4.
+        ["ConnectivityLow"] = new Color(170, 170, 170),
+        ["ConnectivityModerate"] = new Color(161, 217, 155),
+        ["ConnectivityStrong"] = new Color(49, 163, 84),
+        ["ConnectivityCritical"] = new Color(197, 27, 125)
     };
 
     public static OperationResult Select(UIApplication application, ElementSelectionRequest request)

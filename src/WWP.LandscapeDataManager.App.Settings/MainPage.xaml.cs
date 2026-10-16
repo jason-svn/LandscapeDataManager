@@ -1,6 +1,5 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Windows.Storage.Pickers;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
 
@@ -47,7 +46,6 @@ public sealed partial class MainPage : Page
         ImportTableIdBox.Text = importSource.TableIdOrName;
         ImportViewIdBox.Text = importSource.ViewName ?? string.Empty;
 
-        SharedParameterFilePathBox.Text = snapshot?.SharedParameterFilePath ?? string.Empty;
         _loadedFixedRate = snapshot?.ExchangeRateOverride;
 
         try
@@ -319,24 +317,6 @@ public sealed partial class MainPage : Page
 
         var picker = new AirtableSourcePickerDialog { XamlRoot = XamlRoot };
         return await picker.PickAsync(token);
-    }
-
-    private async void BrowseSharedParameterFile_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
-        picker.FileTypeFilter.Add(".txt");
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-        var file = await picker.PickSingleFileAsync();
-        if (file is not null)
-        {
-            SharedParameterFilePathBox.Text = file.Path;
-        }
-    }
-
-    private async void SaveSharedParameterFile_Click(object sender, RoutedEventArgs e)
-    {
-        await ProjectSettingsSync.PushAsync(GetClient(), sharedParameterFilePath: SharedParameterFilePathBox.Text.Trim());
-        SharedParameterFileStatusText.Text = "Shared parameter file path saved — Shared Parameter Setup will default to it next time.";
     }
 
     private RevitPipeClient GetClient() =>

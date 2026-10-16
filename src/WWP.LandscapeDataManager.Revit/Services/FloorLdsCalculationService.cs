@@ -19,11 +19,11 @@ internal static class FloorLdsCalculationService
 {
     private const string LdsTypeParameter = "!_S_PLT_LDS_Type_Text";
     private const string LdsMatchKeyParameter = "!_S_PLT_LDS_MatchKey_Text";
-    private const string ResultSourceParameter = "!_S_PLT_LDS_ResultSource_Text";
-    private const string LastCalculatedParameter = "!_S_PLT_LDS_LastCalculated_Text";
+    private const string ResultSourceParameter = "!_S_PLT_Result_LDS_Source_Text";
+    private const string LastCalculatedParameter = "!_S_PLT_Result_LDS_LastCalculated_Text";
     private const string CostSavedParameter = "!_S_PLT_iTreeResult_CostSavedAnnual_Currency";
-    private const string OxygenProducedParameter = "!_S_PLT_LDS_OxygenProducedAnnual_Mass";
-    private const string TotalGwpParameter = "!_S_PLT_LDS_TotalGWP_Mass";
+    private const string OxygenProducedParameter = "!_S_PLT_Result_OxygenProducedAnnual_Mass";
+    private const string TotalGwpParameter = "!_S_PLT_Result_EmbodiedGWP_Mass";
     private const string SurfaceTempReductionParameter = "!_S_PLT_LDS_SurfaceTempReduction_Number";
     private const string AirTempReductionParameter = "!_S_PLT_LDS_AirTempReduction_Number";
     // Redirected from the retired CO2SequesteredAnnual_Mass to the new CarbonSequesteredAnnual_Mass
@@ -32,6 +32,8 @@ internal static class FloorLdsCalculationService
     // standard carbon-to-CO2 mass ratio before writing, so this parameter means the same physical
     // quantity — elemental carbon — for both Planting and Floor instances.
     private const string CarbonSequesteredParameter = "!_S_PLT_iTreeResult_CarbonSequesteredAnnual_Mass";
+    // The sheet's own kgCO2e figure, undivided — what Floor Calculator's table and Airtable show.
+    private const string Co2EquivalentParameter = "!_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass";
 
     /// <summary>
     /// Mirrors <c>WWP.LandscapeDataManager.Shared.Services.UnitConversions.CarbonToCo2MassRatio</c> —
@@ -42,13 +44,13 @@ internal static class FloorLdsCalculationService
     /// </summary>
     private const double CarbonToCo2MassRatio = 3.67d;
     private const string RunoffAvoidedParameter = "!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume";
-    private const string PollutionMassRemovedParameter = "!_S_PLT_LDS_PollutantsRemovedAnnual_Mass";
+    private const string PollutionMassRemovedParameter = "!_S_PLT_Result_PollutantsRemovedAnnual_Mass";
     private const string CurrencyUsedParameter = "!_S_PLT_iTreeResult_CurrencyUsed_Text";
     private const string ExchangeRateUsedParameter = "!_S_PLT_iTreeResult_ExchangeRateUsed_Number";
 
-    public static SelectedFloorsResult GetSelectedFloors(UIApplication application)
+    public static SelectedFloorsResult GetSelectedFloors(UIApplication application, SelectedFloorsRequest request)
     {
-        var (document, floors) = ResolveSelectedFloors(application);
+        var (document, floors) = request.AllFloors ? ResolveAllFloors(application) : ResolveSelectedFloors(application);
         var items = floors
             .Select(floor =>
             {
@@ -158,6 +160,7 @@ internal static class FloorLdsCalculationService
         // side multiplies by, so CarbonSequesteredParameter means elemental carbon here too.
         var carbonSequesteredAnnual = values.Co2SequesteredAnnual / CarbonToCo2MassRatio;
         Set(CarbonSequesteredParameter, floor.LookupParameter(CarbonSequesteredParameter), UnitUtils.ConvertToInternalUnits(carbonSequesteredAnnual, UnitTypeId.Kilograms));
+        Set(Co2EquivalentParameter, floor.LookupParameter(Co2EquivalentParameter), UnitUtils.ConvertToInternalUnits(values.Co2SequesteredAnnual, UnitTypeId.Kilograms));
         Set(RunoffAvoidedParameter, floor.LookupParameter(RunoffAvoidedParameter), UnitUtils.ConvertToInternalUnits(values.RunoffAvoidedAnnual, UnitTypeId.CubicMeters));
         Set(PollutionMassRemovedParameter, floor.LookupParameter(PollutionMassRemovedParameter), UnitUtils.ConvertToInternalUnits(values.PollutionMassRemovedAnnual, UnitTypeId.Kilograms));
         Set(CostSavedParameter, floor.LookupParameter(CostSavedParameter), values.CostSavedAnnual);
@@ -175,6 +178,24 @@ internal static class FloorLdsCalculationService
         var areaParameter = floor.LookupParameter("Area");
         var internalArea = areaParameter is { HasValue: true } ? areaParameter.AsDouble() : 0.0;
         return UnitUtils.ConvertFromInternalUnits(internalArea, UnitTypeId.SquareMeters);
+    }
+
+    private static (Document Document, IReadOnlyList<Element> Floors) ResolveAllFloors(UIApplication application)
+    {
+        var document = application.ActiveUIDocument?.Document
+                       ?? throw new InvalidOperationException("Open a Revit project before loading floors.");
+        var floors = new FilteredElementCollector(document)
+            .OfCategory(BuiltInCategory.OST_Floors)
+            .WhereElementIsNotElementType()
+            .OrderBy(element => GetTypeName(document, element, out _))
+            .ToList();
+
+        if (floors.Count == 0)
+        {
+            throw new InvalidOperationException("This project has no Floor instances.");
+        }
+
+        return (document, floors);
     }
 
     private static (Document Document, IReadOnlyList<Element> Floors) ResolveSelectedFloors(UIApplication application)

@@ -30,6 +30,12 @@ public sealed partial class BngTab : UserControl
     private string? _activeFilter;
     private BngHabitat? _bulkHabitat;
     private bool _syncingLinkedRows;
+    private int _highlightVersion;
+    private string _optionFilter = AllOptions;
+    private bool _populatingOptionFilter;
+
+    private const string AllOptions = "All design options";
+    private const string MainModelOnly = "Main model only";
 
     public BngTab()
     {
@@ -123,6 +129,7 @@ public sealed partial class BngTab : UserControl
         }
 
         _activeFilter = null;
+        PopulateDesignOptionFilter();
         ApplyFilter();
 
         var scope = selectionOnly ? "from the current Revit selection" : "in the model";
@@ -187,6 +194,38 @@ public sealed partial class BngTab : UserControl
         }
     }
 
+    private void HabitatBox_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is AutoSuggestBox { DataContext: BngFloorRow row } box && row.UsesProposedHabitat)
+        {
+            OpenHabitatList(box, row.HabitatSuggestions, ProposedHabitats(row), row.Habitat);
+        }
+    }
+
+    private void BaselineHabitatBox_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is AutoSuggestBox { DataContext: BngFloorRow row } box && row.IsBaselineRow)
+        {
+            OpenHabitatList(box, row.BaselineHabitatSuggestions, _catalog.BaselineHabitats, row.BaselineHabitat);
+        }
+    }
+
+    /// <summary>
+    /// Fills a habitat box's list and opens it: every allowed habitat when the box is empty or still
+    /// shows the chosen habitat, otherwise the ones matching what's typed — a dropdown you can search.
+    /// </summary>
+    private static void OpenHabitatList(AutoSuggestBox box, ObservableCollection<BngHabitatOption> suggestions, IEnumerable<BngHabitat> allowed, BngHabitat? current)
+    {
+        var showAll = string.IsNullOrWhiteSpace(box.Text) || string.Equals(box.Text, current?.Description, StringComparison.Ordinal);
+        suggestions.Clear();
+        foreach (var habitat in showAll ? allowed : SearchHabitats(box.Text, allowed))
+        {
+            suggestions.Add(new BngHabitatOption(habitat));
+        }
+
+        box.IsSuggestionListOpen = suggestions.Count > 0;
+    }
+
     private void HabitatBox_SuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
     {
         if (sender.DataContext is BngFloorRow row && args.SelectedItem is BngHabitatOption option)
@@ -199,6 +238,12 @@ public sealed partial class BngTab : UserControl
     {
         if (sender.DataContext is BngFloorRow row)
         {
+            if (args.ChosenSuggestion is null && string.Equals(args.QueryText, row.Habitat?.Description, StringComparison.Ordinal))
+            {
+                OpenHabitatList(sender, row.HabitatSuggestions, ProposedHabitats(row), row.Habitat);
+                return;
+            }
+
             SubmitHabitat(args, ProposedHabitats(row), row.SetHabitat);
         }
     }
@@ -229,6 +274,12 @@ public sealed partial class BngTab : UserControl
     {
         if (sender.DataContext is BngFloorRow row)
         {
+            if (args.ChosenSuggestion is null && string.Equals(args.QueryText, row.BaselineHabitat?.Description, StringComparison.Ordinal))
+            {
+                OpenHabitatList(sender, row.BaselineHabitatSuggestions, _catalog.BaselineHabitats, row.BaselineHabitat);
+                return;
+            }
+
             SubmitHabitat(args, _catalog.BaselineHabitats, row.SetBaselineHabitat);
         }
     }
@@ -386,7 +437,7 @@ public sealed partial class BngTab : UserControl
         var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (words.Length == 0)
         {
-            return [];
+            return habitats;
         }
 
         return habitats
@@ -716,7 +767,51 @@ public sealed partial class BngTab : UserControl
         }
     }
 
-    private void TableScroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e) => UpdateColumnScrollRange();
+    private void TableScroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
+    {
+        UpdateColumnScrollRange();
+        UpdateFrozenColumn();
+    }
+
+    /// <summary>Keeps the Family : Type column pinned on the left while the rest of the table scrolls.</summary>
+    private void UpdateFrozenColumn()
+    {
+        var offset = TableScroller.HorizontalOffset;
+        FrozenHeaderTransform.X = offset;
+        foreach (var row in AllRows)
+        {
+            row.FrozenOffset = offset;
+        }
+    }
+
+    // ---- Highlighting the selected rows in Revit ----
+
+    private async void RowsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (HighlightInModelCheckBox.IsChecked != true || RowsList.SelectedItems.Count == 0)
+        {
+            return;
+        }
+
+        // Shift/Ctrl-selecting fires this per row; only send the selection once it settles.
+        var version = ++_highlightVersion;
+        await Task.Delay(250);
+        if (version != _highlightVersion)
+        {
+            return;
+        }
+
+        var ids = RowsList.SelectedItems.Cast<BngFloorRow>().Select(row => row.UniqueId).ToList();
+        try
+        {
+            await GetClient().SendAsync<OperationResult>(PipeCommands.SelectElements, new ElementSelectionRequest(ids));
+            StatusText.Text = $"Highlighted {ids.Count:N0} floor(s) in Revit.";
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Couldn't highlight in Revit: {exception.Message}";
+        }
+    }
 
     private void TableScroller_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateColumnScrollRange();
 
@@ -765,7 +860,8 @@ public sealed partial class BngTab : UserControl
     private void ApplyFilter()
     {
         FilteredRows.Clear();
-        foreach (var row in AllRows.Where(row => _activeFilter is null || row.Status == _activeFilter))
+        UpdateFrozenColumn();
+        foreach (var row in OptionRows.Where(row => _activeFilter is null || row.Status == _activeFilter))
         {
             FilteredRows.Add(row);
         }
@@ -787,9 +883,70 @@ public sealed partial class BngTab : UserControl
         UpdateCounts();
     }
 
+    // ---- Design option filter ----
+
+    /// <summary>
+    /// Rows in the chosen design option: a specific option shows the main model plus that option
+    /// (the same rule as the Dashboard), so counts and the baseline → post-intervention total add
+    /// up to one scenario instead of every alternative at once.
+    /// </summary>
+    private IEnumerable<BngFloorRow> OptionRows => AllRows.Where(row => _optionFilter switch
+    {
+        AllOptions => true,
+        MainModelOnly => row.DesignOption.SetName is null,
+        _ => row.DesignOption.SetName is null || row.DesignOptionLabel == _optionFilter
+    });
+
+    private void PopulateDesignOptionFilter()
+    {
+        var options = AllRows
+            .Where(row => row.DesignOption.SetName is not null)
+            .Select(row => row.DesignOptionLabel)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        _populatingOptionFilter = true;
+        try
+        {
+            DesignOptionFilterBox.Items.Clear();
+            DesignOptionFilterBox.Items.Add(AllOptions);
+            DesignOptionFilterBox.Items.Add(MainModelOnly);
+            foreach (var option in options)
+            {
+                DesignOptionFilterBox.Items.Add(option);
+            }
+
+            if (_optionFilter != AllOptions && _optionFilter != MainModelOnly && !options.Contains(_optionFilter))
+            {
+                _optionFilter = AllOptions;
+            }
+
+            DesignOptionFilterBox.SelectedItem = _optionFilter;
+            DesignOptionFilterBox.IsEnabled = options.Count > 0;
+        }
+        finally
+        {
+            _populatingOptionFilter = false;
+        }
+    }
+
+    private void DesignOptionFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_populatingOptionFilter || DesignOptionFilterBox.SelectedItem is not string option)
+        {
+            return;
+        }
+
+        _optionFilter = option;
+        ApplyFilter();
+        UpdateCounts();
+    }
+
     private void UpdateCounts()
     {
-        int Count(string status) => AllRows.Count(row => row.Status == status);
+        var optionRows = OptionRows.ToList();
+        int Count(string status) => optionRows.Count(row => row.Status == status);
         CalculatedCountText.Text = Count(BngFloorStatus.Calculated).ToString("N0");
         ReadyCountText.Text = Count(BngFloorStatus.Ready).ToString("N0");
         AutoMatchedCountText.Text = Count(BngFloorStatus.AutoMatched).ToString("N0");
@@ -800,10 +957,10 @@ public sealed partial class BngTab : UserControl
 
         // The metric's on-site headline over the loaded rows: baseline = A-1 totals, post-intervention
         // = retained + enhanced + created units. Rows still missing inputs contribute nothing yet.
-        var baseline = AllRows.Where(row => row.IsBaselineRow).Sum(row => row.Result.BaselineUnits ?? 0);
-        var post = AllRows.Sum(row => row.Result.HabitatUnits ?? 0);
-        var hasBaseline = AllRows.Any(row => row.IsBaselineRow && row.Result.BaselineUnits is not null);
-        var hasAny = AllRows.Any(row => row.Result.HabitatUnits is not null) || hasBaseline;
+        var baseline = optionRows.Where(row => row.IsBaselineRow).Sum(row => row.Result.BaselineUnits ?? 0);
+        var post = optionRows.Sum(row => row.Result.HabitatUnits ?? 0);
+        var hasBaseline = optionRows.Any(row => row.IsBaselineRow && row.Result.BaselineUnits is not null);
+        var hasAny = optionRows.Any(row => row.Result.HabitatUnits is not null) || hasBaseline;
         TotalUnitsText.Text = !hasAny
             ? string.Empty
             : hasBaseline && baseline > 0
@@ -814,7 +971,7 @@ public sealed partial class BngTab : UserControl
         FilterStatusText.Text = AllRows.Count == 0
             ? "Load floors to start — click a card above to filter the list to just that status."
             : _activeFilter is null
-                ? $"Showing all {AllRows.Count:N0} floor(s) — click a card above to filter the list to just that status."
+                ? $"Showing all {optionRows.Count:N0} floor(s){(_optionFilter == AllOptions ? string.Empty : $" in {_optionFilter}")} — click a card above to filter the list to just that status."
                 : $"Showing {FilteredRows.Count:N0} {DisplayStatus(_activeFilter)} floor(s) — click the card again to show all. (The list refreshes when you click a card, so rows you fix stay in view.)";
 
         var guessedCount = AllRows.Count(row => row.IsAutoMatched);

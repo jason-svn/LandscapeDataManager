@@ -37,8 +37,23 @@ public static class SurfaceClassCatalog
     private static readonly string[] PerviousKeywords =
     [
         "lawn", "meadow", "grass", "turf", "soil", "mulch", "bark", "gravel", "planting", "planter",
-        "shrub", "hedge", "wildflower", "woodland", "bed"
+        "shrub", "hedge", "wildflower", "woodland", "bed", "vegetation", "vegetated"
     ];
+
+    /// <summary>
+    /// A floor's surface class: its explicit <c>!_S_PLT_LDS_SurfaceClass_Text</c> tag, else inferred
+    /// from its LDS Type, else from its floor type and family names (e.g. "WWP_Vegetation_Shrub") —
+    /// so floors nobody has matched in Floor Calculator yet still count. Null when nothing matches.
+    /// </summary>
+    public static string? Resolve(string? surfaceClassTag, string? ldsType, params string?[] names)
+    {
+        if (!string.IsNullOrWhiteSpace(surfaceClassTag))
+        {
+            return surfaceClassTag.Trim();
+        }
+
+        return Infer(ldsType) ?? names.Select(Infer).FirstOrDefault(inferred => inferred is not null);
+    }
 
     /// <summary>Returns "Pervious", "Impervious", or null if <paramref name="ldsType"/> doesn't match any known keyword.</summary>
     public static string? Infer(string? ldsType)

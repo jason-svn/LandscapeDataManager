@@ -162,7 +162,7 @@ public sealed partial class MainPage : Page
             typeName,
             GetDouble(fields, "COST_SAVED"),
             GetDouble(fields, "Oxygen levels O2 kg/yr (16/18 girth)"),
-            GetDouble(fields, "WWP_Total_GWP"),
+            EmbodiedCarbon.Rate(GetDouble(fields, "Product GWP"), GetDouble(fields, "Transport GWP"), GetDouble(fields, "WWP_Total_GWP")),
             GetDouble(fields, "Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth)"),
             GetDouble(fields, "Avoided runoff m3/yr (16/18 girth)"),
             GetDouble(fields, "WWP_Pollutants_Removed"),
@@ -190,11 +190,15 @@ public sealed partial class MainPage : Page
         };
     }
 
-    private async void LoadSelectedFloors_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(LoadSelectedFloorsAsync);
+    private async void LoadSelectedFloors_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(() => LoadFloorsAsync(allFloors: false));
 
-    private async Task LoadSelectedFloorsAsync()
+    private async void LoadAllFloors_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(() => LoadFloorsAsync(allFloors: true));
+
+    private Task LoadSelectedFloorsAsync() => LoadFloorsAsync(allFloors: false);
+
+    private async Task LoadFloorsAsync(bool allFloors)
     {
-        var result = await GetClient().SendAsync<SelectedFloorsResult>(PipeCommands.GetSelectedFloors, null);
+        var result = await GetClient().SendAsync<SelectedFloorsResult>(PipeCommands.GetSelectedFloors, new SelectedFloorsRequest(allFloors));
 
         Rows.Clear();
         foreach (var item in result.Items)
@@ -204,7 +208,9 @@ public sealed partial class MainPage : Page
             ApplyAutoMatch(row);
         }
 
-        RowsCountText.Text = $"{Rows.Count:N0} floor instance(s) loaded from the current Revit selection.";
+        RowsCountText.Text = allFloors
+            ? $"{Rows.Count:N0} floor instance(s) loaded — every floor in the project."
+            : $"{Rows.Count:N0} floor instance(s) loaded from the current Revit selection.";
         UpdateCalculateAllEnabled();
 
         var autoMatched = Rows.Count(row => row.MatchStatus == "Auto-matched");

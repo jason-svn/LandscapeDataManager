@@ -32,6 +32,7 @@ public sealed class BngFloorRow : INotifyPropertyChanged
     private readonly BngMetricCatalog _catalog;
     private readonly string _phaseRole;
     private bool _enhanced;
+    private double _frozenOffset;
     private bool _unique;
     private bool _storedUnique;
     private BngHabitat? _habitat;
@@ -63,6 +64,7 @@ public sealed class BngFloorRow : INotifyPropertyChanged
         PhaseDemolished = item.PhaseDemolished;
         _phaseRole = item.PhaseRole;
         _enhanced = item.Enhanced && item.PhaseRole == BngPhaseRoles.Retained;
+        DesignOption = item.DesignOption ?? new DesignOptionInfo(null, null, true);
         UniqueSupported = item.UniqueSupported;
         _unique = _storedUnique = item.Unique && item.UniqueSupported;
         HadStoredInputs =
@@ -169,6 +171,14 @@ public sealed class BngFloorRow : INotifyPropertyChanged
         nameof(Habitat), nameof(Condition), nameof(BaselineHabitat), nameof(BaselineCondition),
         nameof(IrreplaceableSelection), nameof(StrategicSignificance), nameof(YearOffset), nameof(IsAutoMatched)
     };
+
+    /// <summary>The floor's Design Option; null set/option = main model.</summary>
+    public DesignOptionInfo DesignOption { get; }
+
+    /// <summary>"Set : Option" for a floor in a Design Option, else "Main model".</summary>
+    public string DesignOptionLabel => DesignOption.SetName is null
+        ? "Main model"
+        : $"{DesignOption.SetName} : {DesignOption.OptionName}{(DesignOption.IsPrimary ? " (primary)" : string.Empty)}";
 
     /// <summary>True when Revit already held BNG inputs for this floor when it was loaded.</summary>
     public bool HadStoredInputs { get; }
@@ -309,6 +319,47 @@ public sealed class BngFloorRow : INotifyPropertyChanged
                 Condition = condition;
             }
         }
+    }
+
+    // ---- The proposed column as shown ----
+
+    /// <summary>
+    /// A retained floor that isn't enhanced keeps its existing habitat, so its greyed-out proposed
+    /// column shows the baseline habitat and condition rather than an empty box.
+    /// </summary>
+    public bool MirrorsBaseline => Role == BngPhaseRoles.Retained;
+
+    public string ProposedHabitatText
+    {
+        get => MirrorsBaseline ? _baselineQuery : _habitatQuery;
+        set
+        {
+            if (!MirrorsBaseline)
+            {
+                HabitatQuery = value;
+            }
+        }
+    }
+
+    public ObservableCollection<string> ProposedConditionOptions => MirrorsBaseline ? BaselineConditionOptions : ConditionOptions;
+
+    public object? ProposedConditionSelection
+    {
+        get => MirrorsBaseline ? _baselineCondition : _condition;
+        set
+        {
+            if (!MirrorsBaseline)
+            {
+                ConditionSelection = value;
+            }
+        }
+    }
+
+    /// <summary>How far the table is scrolled sideways — the name column moves back by this much so it stays put.</summary>
+    public double FrozenOffset
+    {
+        get => _frozenOffset;
+        set => SetField(ref _frozenOffset, value);
     }
 
     // ---- Baseline habitat (A-1, Existing-phase floors) ----
@@ -755,6 +806,25 @@ public sealed class BngFloorRow : INotifyPropertyChanged
         }
     }
 
-    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        // The proposed column's shown values follow whichever side they mirror.
+        switch (propertyName)
+        {
+            case nameof(HabitatQuery) or nameof(BaselineQuery):
+                OnPropertyChanged(nameof(ProposedHabitatText));
+                break;
+            case nameof(ConditionSelection) or nameof(BaselineConditionSelection):
+                OnPropertyChanged(nameof(ProposedConditionSelection));
+                break;
+            case nameof(Role):
+                OnPropertyChanged(nameof(MirrorsBaseline));
+                OnPropertyChanged(nameof(ProposedHabitatText));
+                OnPropertyChanged(nameof(ProposedConditionOptions));
+                OnPropertyChanged(nameof(ProposedConditionSelection));
+                break;
+        }
+    }
 }

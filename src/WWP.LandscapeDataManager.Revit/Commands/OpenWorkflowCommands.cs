@@ -86,6 +86,18 @@ public sealed class OpenDashboardCommand : LaunchToolCommand
 }
 
 [Transaction(TransactionMode.Manual)]
+public sealed class CalculateConnectivityCommand : LaunchToolCommand
+{
+    protected override ToolProcessLauncher? Launcher => App.ConnectivityLauncher;
+}
+
+[Transaction(TransactionMode.Manual)]
+public sealed class GrowthProjectionsCommand : LaunchToolCommand
+{
+    protected override ToolProcessLauncher? Launcher => App.GrowthProjectionsLauncher;
+}
+
+[Transaction(TransactionMode.Manual)]
 public sealed class OpenSettingsCommand : LaunchToolCommand
 {
     protected override ToolProcessLauncher? Launcher => App.SettingsLauncher;

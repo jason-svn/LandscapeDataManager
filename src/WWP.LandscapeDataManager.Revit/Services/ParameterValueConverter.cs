@@ -9,8 +9,19 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 /// instance-scoped <see cref="InstanceParameterWriter"/> so the two write paths behave
 /// identically for a shared parameter.
 /// </summary>
+/// <summary>
+/// The mapped parameter doesn't exist on this element at all — usually a Planting-only parameter
+/// mapped onto a Floor type that shares the source row. Not a failed write, so the Importer files it
+/// with the unmatched/skipped rows instead of reporting it as Invalid.
+/// </summary>
+internal sealed class ParameterNotApplicableException(Element element, string parameterName)
+    : InvalidOperationException(
+        $"'{parameterName}' isn't on {element.Category?.Name ?? "this"} elements — not applicable (run Import Shared Parameter if it should be).");
+
 internal static class ParameterValueConverter
 {
+    public const string NotApplicableStatus = "Not applicable";
+
     public static object ConvertValue(Parameter parameter, string source, string conversion)
     {
         return parameter.StorageType switch
@@ -42,10 +53,12 @@ internal static class ParameterValueConverter
 
     private static double ParseDouble(string source)
     {
-        const NumberStyles styles = NumberStyles.Float | NumberStyles.AllowThousands |
-                                    NumberStyles.AllowCurrencySymbol;
-        if (double.TryParse(source, styles, CultureInfo.InvariantCulture, out var number) ||
-            double.TryParse(source, styles, CultureInfo.CurrentCulture, out number))
+        // Airtable/Excel currency columns arrive as text like "£0.40" or "€1,200.00". .NET only
+        // accepts the current culture's own symbol, so strip any currency symbol first.
+        var cleaned = new string(source.Where(character => char.GetUnicodeCategory(character) != UnicodeCategory.CurrencySymbol).ToArray()).Trim();
+        const NumberStyles styles = NumberStyles.Float | NumberStyles.AllowThousands;
+        if (double.TryParse(cleaned, styles, CultureInfo.InvariantCulture, out var number) ||
+            double.TryParse(cleaned, styles, CultureInfo.CurrentCulture, out number))
         {
             return number;
         }
@@ -97,11 +110,16 @@ internal static class ParameterValueConverter
     public static bool ValuesEqual(Parameter parameter, object? value) =>
         parameter.StorageType switch
         {
-            StorageType.String => string.Equals(parameter.AsString() ?? string.Empty, (string?)value ?? string.Empty),
+            // Surrounding whitespace and rounding noise (a value that went through Excel/Airtable
+            // text and back) aren't real changes, and reporting them buried the real ones.
+            StorageType.String => string.Equals((parameter.AsString() ?? string.Empty).Trim(), ((string?)value ?? string.Empty).Trim(), StringComparison.Ordinal),
             StorageType.Integer => parameter.AsInteger() == (int)value!,
-            StorageType.Double => Math.Abs(parameter.AsDouble() - (double)value!) < 1e-9,
+            StorageType.Double => NearlyEqual(parameter.AsDouble(), (double)value!),
             _ => false
         };
+
+    private static bool NearlyEqual(double current, double proposed) =>
+        Math.Abs(current - proposed) <= 1e-6 * Math.Max(1d, Math.Max(Math.Abs(current), Math.Abs(proposed)));
 
     public static string FormatCurrentValue(Parameter parameter) => parameter.StorageType switch
     {

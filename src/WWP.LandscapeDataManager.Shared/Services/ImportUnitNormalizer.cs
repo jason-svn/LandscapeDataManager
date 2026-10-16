@@ -12,6 +12,11 @@ public static class ImportUnitNormalizer
         @"^\s*(?<number>[+-]?(?:(?:\d{1,3}(?:,\d{3})+)|\d+)(?:\.\d+)?(?:[eE][+-]?\d+)?)\s*(?<unit>.*?)\s*$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    /// <summary>A "/unit" or "/(unit)" denominator in a header, e.g. the "/(m2)" and "/yr" of "kgCO2e/(m2)/yr".</summary>
+    private static readonly Regex Denominator = new(
+        @"/\s*\(?\s*[A-Za-z0-9²³.]+\s*\)?",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private static readonly IReadOnlyList<UnitDefinition> Units =
     [
         new("mm", UnitDimension.Length, 0.001d, ["mm", "millimeter", "millimeters", "millimetre", "millimetres"]),
@@ -39,8 +44,9 @@ public static class ImportUnitNormalizer
 
         new("mg", UnitDimension.Mass, 0.000001d, ["mg", "milligram", "milligrams"]),
         new("g", UnitDimension.Mass, 0.001d, ["g", "gram", "grams"]),
-        new("kg", UnitDimension.Mass, 1d, ["kg", "kilogram", "kilograms"]),
-        new("t", UnitDimension.Mass, 1000d, ["t", "tonne", "tonnes", "metric ton", "metric tons"]),
+        // "kgCO2e"/"tCO2e" (CO2-equivalent mass, as the WWP landscape data sheet writes it) is still kg/t.
+        new("kg", UnitDimension.Mass, 1d, ["kg", "kilogram", "kilograms", "kgco2e", "kgco2", "kg co2e", "kg co2"]),
+        new("t", UnitDimension.Mass, 1000d, ["t", "tonne", "tonnes", "metric ton", "metric tons", "tco2e", "tco2", "t co2e"]),
         new("oz", UnitDimension.Mass, 0.028349523125d, ["oz", "ounce", "ounces"]),
         new("lb", UnitDimension.Mass, 0.45359237d, ["lb", "lbs", "pound", "pounds"])
     ];
@@ -186,10 +192,14 @@ public static class ImportUnitNormalizer
             return [];
         }
 
+        // In a rate like "kgCO2e/(m2)/yr" only the numerator is the value's unit — the "per m²"
+        // and "per year" parts would otherwise be read as an area unit and reject a mass value.
+        var numerator = Denominator.Replace(sourceField, " ");
+
         var found = new List<UnitDefinition>();
         foreach (var unit in Units)
         {
-            if (unit.Aliases.Any(alias => HeaderContainsAlias(sourceField, alias)))
+            if (unit.Aliases.Any(alias => HeaderContainsAlias(numerator, alias)))
             {
                 found.Add(unit);
             }

@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Windows.Storage.Pickers;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
 
@@ -25,7 +24,6 @@ public sealed partial class MainPage : Page
         _revitClient = new RevitPipeClient(pipeName);
         _windowHandle = windowHandle;
         _pipeName = pipeName;
-        Loaded += Page_Loaded;
     }
 
     private void OpenSettings_Click(object sender, RoutedEventArgs e)
@@ -40,45 +38,13 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private async void Page_Loaded(object sender, RoutedEventArgs e)
-    {
-        var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
-        SharedParameterFilePathBox.Text = snapshot?.SharedParameterFilePath ?? string.Empty;
-    }
-
-    private async void BrowseSharedParameterFile_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new FileOpenPicker
-        {
-            ViewMode = PickerViewMode.List,
-            SuggestedStartLocation = PickerLocationId.DocumentsLibrary
-        };
-        picker.FileTypeFilter.Add(".txt");
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, _windowHandle);
-
-        var file = await picker.PickSingleFileAsync();
-        if (file is not null)
-        {
-            SharedParameterFilePathBox.Text = file.Path;
-        }
-    }
-
     private async void LoadParameters_Click(object sender, RoutedEventArgs e)
     {
-        var filePath = SharedParameterFilePathBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            ShowStatus("Select a shared parameter file first.");
-            return;
-        }
-
         await RunBusyAsync(async () =>
         {
-            await ProjectSettingsSync.PushAsync(GetClient(), sharedParameterFilePath: filePath);
-
             var result = await GetClient().SendAsync<SharedParameterSetupResult>(
                 PipeCommands.PreviewSharedParameters,
-                new PreviewSharedParametersRequest(filePath));
+                new PreviewSharedParametersRequest());
 
             ResultRows.Clear();
             foreach (var row in result.Rows
@@ -97,7 +63,6 @@ public sealed partial class MainPage : Page
 
     private async void Apply_Click(object sender, RoutedEventArgs e)
     {
-        var filePath = SharedParameterFilePathBox.Text.Trim();
         var includedNames = ResultRows.Where(row => row.IsIncluded).Select(row => row.Name).ToList();
         if (includedNames.Count == 0)
         {
@@ -109,7 +74,7 @@ public sealed partial class MainPage : Page
         {
             var result = await GetClient().SendAsync<SharedParameterSetupResult>(
                 PipeCommands.EnsureSharedParameters,
-                new EnsureSharedParametersRequest(filePath, includedNames));
+                new EnsureSharedParametersRequest(includedNames));
 
             var updatedByName = result.Rows.ToDictionary(row => row.Name, StringComparer.Ordinal);
             foreach (var row in ResultRows)

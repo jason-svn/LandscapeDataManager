@@ -89,7 +89,7 @@ internal static class InstanceParameterWriter
                 var element = document.GetElement(item.UniqueId)
                               ?? throw new InvalidOperationException("The Revit element no longer exists.");
                 var parameter = element.LookupParameter(item.RevitParameter)
-                                 ?? throw new InvalidOperationException("Parameter is missing.");
+                                 ?? throw new ParameterNotApplicableException(element, item.RevitParameter);
                 if (parameter.IsReadOnly)
                 {
                     throw new InvalidOperationException("Parameter is read-only.");
@@ -117,7 +117,7 @@ internal static class InstanceParameterWriter
                         item.RevitParameter,
                         "—",
                         item.SourceValue,
-                        "Invalid",
+                        exception is ParameterNotApplicableException ? ParameterValueConverter.NotApplicableStatus : "Invalid",
                         exception.Message,
                         false),
                     null,
