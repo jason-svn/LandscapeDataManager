@@ -4,6 +4,7 @@ A `.NET 8` Revit 2025+ connector with a separate WinUI 3 interface for replacing
 
 - **Quick-start guide:** <https://jason-svn.github.io/LandscapeDataManager/>
 - **Download:** [latest release](https://github.com/jason-svn/LandscapeDataManager/releases/latest) (`LIM-Landscape-Data-2025plus.zip`)
+- **Roadmap:** [docs/ROADMAP.md](docs/ROADMAP.md): planned phases, open data issues and the parameter-naming rules
 - **Manual shared-parameter backup:** [download `Shared_Parameters_WWP.txt`](https://github.com/jason-svn/LandscapeDataManager/releases/latest/download/Shared_Parameters_WWP.txt)
 - **Online co-benefits dashboard:** <https://jason-svn.github.io/LandscapeCoBenefitsDashboard/> — load a Dashboard **Export JSON** file to view and share the results in a browser ([source](https://github.com/jason-svn/LandscapeCoBenefitsDashboard))
 
