@@ -82,6 +82,8 @@ No Airtable token is required. On **Sync & Review**, choose one of these sources
 
 The selected source is saved per Windows user under `%LocalAppData%\EGIS\WWP.LandscapeDataManager\data-source-settings.json`.
 
+For older projects where `!_S_PLT_LDS_MatchKey_Text`, `!_S_PLT_LDS_AirTempReduction_Number`, or `!_S_PLT_LDS_SurfaceTempReduction_Number` are still Instance parameters, **Import Shared Parameter** previews a migration to Type. It proceeds only when all instances of each type agree, including whether a value is empty, and preserves existing values on unplaced types too. Differing values are reported with type and element IDs; the entire parameter stays unchanged until those differences are resolved. A failed rebind or value restore rolls back that parameter's migration.
+
 ### Sharing settings
 
 **Settings > Export settings…** writes a `.limsettings` JSON file (`LimSettingsFile` in Shared): the project's `ProjectSettingsSnapshot` with the live unit/currency parameters, minus the site latitude/longitude. **Import settings…** shows one checkbox per section present in the file and applies the ticked ones through `ProjectSettingsSync.PushAsync`. Units/currency go through the same publish commands as the Save button, so a currency change rescales stored costs. The i-Tree key and Airtable token are written only when the exporter ticks **Include keys**; on import they go to the importer's Windows Credential Manager, never into the Revit file.

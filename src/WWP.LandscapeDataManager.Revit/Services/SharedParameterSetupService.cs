@@ -10,7 +10,8 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 /// from the "PLANTING - iTree" group of the WWP shared-parameter file. Every definition is
 /// checked before it is touched, so running this repeatedly never creates a duplicate parameter
 /// and never silently changes an existing binding it disagrees with — mismatches are reported
-/// as conflicts for the user to resolve instead.
+/// as conflicts for the user to resolve instead. The three LDS Instance-to-Type migrations are
+/// previewed and applied only after all instances of each type are confirmed to agree.
 /// </summary>
 internal static class SharedParameterSetupService
 {
@@ -52,7 +53,10 @@ internal static class SharedParameterSetupService
                 rows.Add(EvaluateOne(document, application, definitionsByName, ownership, apply: true));
             }
 
-            transaction.Commit();
+            if (transaction.Commit() != TransactionStatus.Committed)
+            {
+                throw new InvalidOperationException("Revit did not commit parameter setup. Reload the parameters before retrying.");
+            }
         }
         catch
         {
@@ -291,6 +295,13 @@ internal static class SharedParameterSetupService
 
         if (isInstance != expectedIsInstance)
         {
+            if (isInstance && !expectedIsInstance && InstanceToTypeMigrationPlanner.Supports(ownership.Name))
+            {
+                return ParameterBindingScopeMigrationService.MigrateToType(
+                    document, application, definition, internalDefinition, boundCategories,
+                    ownership.Categories, ownership.Group, ownership.Description, apply);
+            }
+
             return new SharedParameterSetupRow(
                 ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
                 "Conflict",
