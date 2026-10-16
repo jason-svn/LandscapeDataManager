@@ -104,6 +104,8 @@ Download `LIM-Landscape-Data-2025plus.zip` from the [latest release](https://git
 
 LIM carries its current shared-parameter catalog inside the connector, so normal setup does not depend on the user's configured Revit shared-parameter file. A matching [`Shared_Parameters_WWP.txt`](https://github.com/jason-svn/LandscapeDataManager/releases/latest/download/Shared_Parameters_WWP.txt) is also attached to every release as a manual-import and backup copy.
 
+For the 23 `!_S_PLT_BNGResult_*` and six `!_S_PLT_ConnectivityResult_*` fields, **Import Shared Parameter** also accepts an existing shared ID from an older catalog when there is exactly one definition and project binding with that name, the data type matches, and the binding is Instance. The result tools read and write these fields by name. Setup retains the project's ID and stored results, reports the ID being used, and keeps any legacy aliases untouched when the requested name already exists. Duplicate names, incompatible types, and incorrect scopes remain conflicts; other parameter families still require their catalog IDs.
+
 ### Updating
 
 From v1.2.0, the connector checks the [latest GitHub release](https://github.com/jason-svn/LandscapeDataManager/releases/latest) once a day at Revit startup, and **LIM > Project Setup > Check for Updates** checks on demand. Accepting an update opens a PowerShell window that downloads the package while Revit keeps running, waits for every Revit session to close, stops any leftover LIM tool processes, then runs the package's `Deploy-BinaryPackage.ps1`. Installs from v1.1.0 or older have no updater, so they need one manual `Install.cmd` run to reach v1.2.0.

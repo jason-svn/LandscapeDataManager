@@ -24,5 +24,6 @@
     <ProjectReference Include="..\..\src\WWP.LandscapeDataManager.Shared\WWP.LandscapeDataManager.Shared.csproj" />
     <!-- Exercise the connector's pure migration policy without loading the Revit API. -->
     <Compile Include="..\..\src\WWP.LandscapeDataManager.Revit\Services\InstanceToTypeMigrationPlanner.cs" Link="InstanceToTypeMigrationPlanner.cs" />
+    <Compile Include="..\..\src\WWP.LandscapeDataManager.Revit\Services\ResultParameterReusePolicy.cs" Link="ResultParameterReusePolicy.cs" />
   </ItemGroup>
 </Project>

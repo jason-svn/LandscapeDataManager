@@ -8,9 +8,9 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 /// <summary>
 /// Creates/validates the project-parameter bindings the LIM planting and i-Tree workflow needs,
 /// from the "PLANTING - iTree" group of the WWP shared-parameter file. Every definition is
-/// checked before it is touched, so running this repeatedly never creates a duplicate parameter
-/// and never silently changes an existing binding it disagrees with — mismatches are reported
-/// as conflicts for the user to resolve instead. The three LDS Instance-to-Type migrations are
+/// checked before it is touched. Compatible BNG/Connectivity results retain their project's shared
+/// IDs; ambiguous identities, data-type mismatches and unsupported scope changes remain conflicts.
+/// The three LDS Instance-to-Type migrations are
 /// previewed and applied only after all instances of each type are confirmed to agree.
 /// </summary>
 internal static class SharedParameterSetupService
@@ -154,6 +154,17 @@ internal static class SharedParameterSetupService
                 ownership.Description);
         }
 
+        // A restored result name may already be bound with an older catalog's shared ID.
+        // Validate and retain that binding before any legacy-alias cleanup can remove data.
+        if (ResultParameterReusePolicy.Supports(ownership.Name) &&
+            (FindExistingBinding(document, ownership.Name) is not null ||
+             new FilteredElementCollector(document).OfClass(typeof(SharedParameterElement))
+                 .Cast<SharedParameterElement>().Any(element =>
+                     string.Equals(element.Name, ownership.Name, StringComparison.Ordinal))))
+        {
+            return EvaluateBindingState(document, application, definition, ownership, apply);
+        }
+
         var staleRenameNote = RemoveStaleBindings(document, definition, ownership, apply);
         var row = EvaluateBindingState(document, application, definition, ownership, apply);
         return staleRenameNote is null
@@ -233,25 +244,68 @@ internal static class SharedParameterSetupService
         bool apply)
     {
         var guidText = definition.GUID.ToString();
-        var conflictingElement = new FilteredElementCollector(document)
+        var namedDefinitions = new FilteredElementCollector(document)
             .OfClass(typeof(SharedParameterElement))
             .Cast<SharedParameterElement>()
-            .FirstOrDefault(element => string.Equals(element.Name, ownership.Name, StringComparison.Ordinal) &&
-                                       element.GuidValue != definition.GUID);
-        if (conflictingElement is not null)
+            .Where(element => string.Equals(element.Name, ownership.Name, StringComparison.Ordinal))
+            .ToList();
+        var conflictingElement = namedDefinitions.FirstOrDefault(element => element.GuidValue != definition.GUID);
+        var existingBinding = FindExistingBinding(document, ownership.Name);
+        string? reuseNote = null;
+        if (ResultParameterReusePolicy.Supports(ownership.Name) && ownership.Scope == "Instance" &&
+            (namedDefinitions.Count > 0 || existingBinding is not null))
+        {
+            var namedBindings = FindExistingBindings(document, ownership.Name);
+            var candidates = namedDefinitions.Select(element =>
+            {
+                var scopes = namedBindings.Where(binding => binding.Definition.Id == element.Id)
+                    .Select(binding => binding.IsInstance).Distinct().ToList();
+                return new ExistingResultParameter(element.GuidValue, element.GetDefinition().GetDataType().TypeId,
+                    scopes.Count == 1 ? scopes[0] : null);
+            }).ToList();
+            var decision = ResultParameterReusePolicy.Evaluate(
+                ownership.Name, definition.GetDataType().TypeId, candidates,
+                namedBindings.Select(binding => binding.Definition.Id.Value).Distinct().Count());
+            if (!decision.CanReuse)
+            {
+                return new SharedParameterSetupRow(
+                    ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
+                    "Conflict", decision.Conflict, ownership.Description);
+            }
+
+            guidText = decision.ExistingGuid!.Value.ToString();
+            if (decision.ExistingGuid.Value != definition.GUID)
+            {
+                reuseNote = $"Using this project's existing shared ID ({guidText}); " +
+                           "the result name, data type and Instance binding match. Existing parameter and stored values retained.";
+            }
+        }
+        else if (conflictingElement is not null)
         {
             return new SharedParameterSetupRow(
-                ownership.Name,
-                guidText,
-                ownership.Scope,
-                string.Join(", ", ownership.Categories),
-                "Conflict",
-                $"A different parameter named '{ownership.Name}' already exists in this project " +
+                ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
+                "Conflict", $"A different parameter named '{ownership.Name}' already exists in this project " +
                 $"with a different ID ({conflictingElement.GuidValue}). It was left unchanged.",
                 ownership.Description);
         }
 
-        var existingBinding = FindExistingBinding(document, ownership.Name);
+        var row = EvaluateResolvedBindingState(
+            document, application, definition, ownership, apply, guidText, existingBinding);
+        return reuseNote is null ? row : row with
+        {
+            Message = reuseNote + (string.IsNullOrEmpty(row.Message) ? string.Empty : " " + row.Message)
+        };
+    }
+
+    private static SharedParameterSetupRow EvaluateResolvedBindingState(
+        Document document,
+        UIApplication application,
+        ExternalDefinition definition,
+        ParameterOwnership ownership,
+        bool apply,
+        string guidText,
+        ParameterBindingState? existingBinding)
+    {
         if (existingBinding is null)
         {
             if (!apply)
@@ -287,7 +341,7 @@ internal static class SharedParameterSetupService
                     "Error", "Revit rejected the new parameter binding.", ownership.Description);
         }
 
-        var (isInstance, boundCategories, existingGroup, internalDefinition) = existingBinding.Value;
+        var (isInstance, boundCategories, existingGroup, internalDefinition) = existingBinding;
         var expectedIsInstance = ownership.Scope == "Instance";
         var boundCategoryNames = boundCategories.Cast<Category>().Select(category => category.Name).ToHashSet();
         var missingCategories = ownership.Categories.Where(category =>
@@ -417,9 +471,15 @@ internal static class SharedParameterSetupService
     private static bool IsTreeGrowthYears(ParameterOwnership ownership) =>
         ownership.Scope == "Instance" && string.Equals(ownership.Name, TreeGrowthYearsParameter, StringComparison.Ordinal);
 
-    private static (bool IsInstance, CategorySet Categories, ForgeTypeId Group, InternalDefinition Definition)? FindExistingBinding(
-        Document document, string name)
+    private sealed record ParameterBindingState(
+        bool IsInstance, CategorySet Categories, ForgeTypeId Group, InternalDefinition Definition);
+
+    private static ParameterBindingState? FindExistingBinding(Document document, string name) =>
+        FindExistingBindings(document, name).FirstOrDefault();
+
+    private static List<ParameterBindingState> FindExistingBindings(Document document, string name)
     {
+        var bindings = new List<ParameterBindingState>();
         var iterator = document.ParameterBindings.ForwardIterator();
         iterator.Reset();
         while (iterator.MoveNext())
@@ -429,15 +489,19 @@ internal static class SharedParameterSetupService
                 continue;
             }
 
-            return iterator.Current switch
+            var binding = iterator.Current switch
             {
-                InstanceBinding instanceBinding => (true, instanceBinding.Categories, definition.GetGroupTypeId(), definition),
-                TypeBinding typeBinding => (false, typeBinding.Categories, definition.GetGroupTypeId(), definition),
+                InstanceBinding instanceBinding => new ParameterBindingState(true, instanceBinding.Categories, definition.GetGroupTypeId(), definition),
+                TypeBinding typeBinding => new ParameterBindingState(false, typeBinding.Categories, definition.GetGroupTypeId(), definition),
                 _ => null
             };
+            if (binding is not null)
+            {
+                bindings.Add(binding);
+            }
         }
 
-        return null;
+        return bindings;
     }
 
     /// <summary>
