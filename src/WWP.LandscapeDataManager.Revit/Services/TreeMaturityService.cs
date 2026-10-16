@@ -19,8 +19,16 @@ internal static class TreeMaturityService
     private const string MaxWidthParameter = "!_S_PLT_LDS_MaxWidth_Length";
 
     /// <summary>
+    /// The oldest age probed. An age, not a growth year, so it stays past
+    /// <see cref="GrowthYearNames.MaximumYear"/>: a type that only reaches full size later still needs
+    /// its mature age found, or it would count as having none and stop growing
+    /// <see cref="GrowthYearNames.GrowthLimitWithoutMatureSize"/> years after planting.
+    /// </summary>
+    private const int MaximumProbedAge = 100;
+
+    /// <summary>
     /// Mature age per planting type id; a type is missing when it has no maximum size, no growth
-    /// parameters, or doesn't reach its maximum within <see cref="GrowthYearNames.MaximumYear"/> years.
+    /// parameters, or doesn't reach its maximum within <see cref="MaximumProbedAge"/> years.
     /// Must be called outside an open transaction.
     /// </summary>
     public static Dictionary<long, int> GetMatureAges(Document document, IEnumerable<Element> trees)
@@ -77,7 +85,7 @@ internal static class TreeMaturityService
         return matureAges;
     }
 
-    /// <summary>The smallest age (0–<see cref="GrowthYearNames.MaximumYear"/>) at which the sample reaches its maximum height or width.</summary>
+    /// <summary>The smallest age (0–<see cref="MaximumProbedAge"/>) at which the sample reaches its maximum height or width.</summary>
     private static int? FindMatureAge(Document document, Element tree)
     {
         var (maxHeight, maxWidth) = GetMaxima(document, tree);
@@ -92,12 +100,12 @@ internal static class TreeMaturityService
             return maxHeight is { } mh && height >= mh - 1e-6 || maxWidth is { } mw && width >= mw - 1e-6;
         }
 
-        if (!IsMatureAt(GrowthYearNames.MaximumYear))
+        if (!IsMatureAt(MaximumProbedAge))
         {
             return null;
         }
 
-        int low = 0, high = GrowthYearNames.MaximumYear;
+        int low = 0, high = MaximumProbedAge;
         while (low < high)
         {
             var middle = (low + high) / 2;

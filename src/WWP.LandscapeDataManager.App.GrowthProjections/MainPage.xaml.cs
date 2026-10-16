@@ -63,7 +63,7 @@ public sealed partial class MainPage : Page
     private void ShowYears(IEnumerable<int> years)
     {
         YearRows.Clear();
-        foreach (var year in years.Where(year => year > 0).Distinct().Order())
+        foreach (var year in years.Where(year => year is > 0 and <= GrowthYearNames.MaximumYear).Distinct().Order())
         {
             YearRows.Add(new GrowthYearRow(year));
         }
@@ -104,6 +104,11 @@ public sealed partial class MainPage : Page
         if (!_status.AgeAtPlantingBound)
         {
             warnings.Add("!_S_PLT_TreeGrowth_AgeAtPlanting_Number isn't on the planting types yet — run Import Shared Parameter and fill in each type's nursery age. Until then, ages count from 0 at planting.");
+        }
+
+        if (_status.Worksets.Where(workset => workset.Year > GrowthYearNames.MaximumYear).Select(workset => workset.WorksetName).ToList() is { Count: > 0 } pastLimit)
+        {
+            warnings.Add($"Growth-year worksets past the {GrowthYearNames.MaximumYear}-year limit: {string.Join(", ", pastLimit)}. Their trees stay in the model, but this tool no longer refreshes them and the online dashboard leaves them out — delete them if you no longer need them.");
         }
 
         if (_status.UnlinkedGrowthTrees > 0)

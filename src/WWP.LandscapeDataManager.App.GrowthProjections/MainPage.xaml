@@ -56,7 +56,7 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <NumberBox Value="{x:Bind Value, Mode=TwoWay}" Minimum="1" Maximum="100" SmallChange="1"
+                                    <NumberBox Value="{x:Bind Value, Mode=TwoWay}" Minimum="1" Maximum="40" SmallChange="1"
                                                SpinButtonPlacementMode="Compact" AutomationProperties.Name="Growth year" />
                                     <TextBlock Grid.Column="1" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center"
                                                Text="{x:Bind WorksetName, Mode=OneWay}" />
