@@ -34,11 +34,11 @@
                     </Grid>
                     <TextBlock x:Name="ApiKeyStatusText" Style="{StaticResource LimMutedTextStyle}" />
                     <ComboBox x:Name="ScopeBox" Header="Local catalogue scope" SelectedIndex="0" HorizontalAlignment="Stretch">
-                        <ComboBoxItem Content="Project species (recommended) — only species used in this model" />
-                        <ComboBoxItem Content="Full catalogue — cache every recognized species locally" />
+                        <ComboBoxItem Content="Full catalogue (recommended) — cache every recognized species locally" />
+                        <ComboBoxItem Content="Project species only — cache species codes already used in this model" />
                     </ComboBox>
                     <TextBlock
-                        Text="Either scope only ever writes Revit types that already have a Species_Code — a Revit schedule can't list a species with no modeled type. Full catalogue just keeps more in the local lookup database for later."
+                        Text="Full catalogue is the safe default for a new database because it does not need to know the project's species in advance. Either scope only writes Revit types that already have a Species_Code; the remaining downloaded species stay in the local database for Tree Searcher."
                         Style="{StaticResource LimMutedTextStyle}" />
                 </StackPanel>
             </Border>

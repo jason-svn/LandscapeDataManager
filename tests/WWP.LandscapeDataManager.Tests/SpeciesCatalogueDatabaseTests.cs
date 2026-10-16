@@ -19,13 +19,16 @@ public class SpeciesCatalogueDatabaseTests : IDisposable
         };
 
         await database.SaveAsync(records, "hash-1");
-        var reloaded = await database.GetAllAsync();
-        var metadata = await database.GetMetadataAsync();
+        var reopenedDatabase = new SpeciesCatalogueDatabase(_databasePath);
+        var reloaded = await reopenedDatabase.GetAllAsync();
+        var metadata = await reopenedDatabase.GetMetadataAsync();
 
         Assert.Equal(2, reloaded.Count);
         Assert.Contains(reloaded, r => r.SpeciesCode == "QURO" && r.CommonName == "English oak");
         Assert.Equal("hash-1", metadata.Version);
         Assert.NotNull(metadata.DownloadedAtUtc);
+        Assert.True(DateTimeOffset.TryParse(metadata.DownloadedAtUtc, out _));
+        Assert.NotNull(metadata.FormatDownloadedAtLocal());
     }
 
     [Fact]

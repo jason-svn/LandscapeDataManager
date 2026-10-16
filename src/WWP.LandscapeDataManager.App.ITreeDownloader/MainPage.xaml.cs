@@ -53,9 +53,9 @@ public sealed partial class MainPage : Page
             ? "No i-Tree API key saved — open Settings from the LIM ribbon first."
             : "i-Tree API key: saved (managed in Settings).";
         var metadata = await _database.GetMetadataAsync();
-        if (metadata.Version is not null)
+        if (metadata.DownloadedAtUtc is not null || metadata.Version is not null)
         {
-            CatalogueVersionText.Text = $"Local catalogue last downloaded {metadata.FormatDownloadedAtLocal() ?? metadata.DownloadedAtUtc} (version {metadata.Version[..8]}...).";
+            CatalogueVersionText.Text = FormatCatalogueMetadata(metadata);
         }
 
         UpdateExcelPanelVisibility();
@@ -121,7 +121,7 @@ public sealed partial class MainPage : Page
             var allRecords = download.Records.Select(ToSpeciesCatalogueRecord).ToList();
             var catalogueVersion = ComputeVersionHash(allRecords);
 
-            var fullCatalogueScope = ScopeBox.SelectedIndex == 1;
+            var fullCatalogueScope = ScopeBox.SelectedIndex == 0;
             var recordsForLocalCache = allRecords;
             if (!fullCatalogueScope)
             {
@@ -130,8 +130,9 @@ public sealed partial class MainPage : Page
             }
 
             await _database.SaveAsync(recordsForLocalCache, catalogueVersion);
+            var savedMetadata = await _database.GetMetadataAsync();
             CatalogueVersionText.Text =
-                $"Downloaded {allRecords.Count:N0} species; cached {recordsForLocalCache.Count:N0} locally (version {catalogueVersion[..8]}...).";
+                $"Downloaded {allRecords.Count:N0} species; cached {recordsForLocalCache.Count:N0} locally. {FormatCatalogueMetadata(savedMetadata)}";
 
             var notes = new List<string>();
 
@@ -205,6 +206,15 @@ public sealed partial class MainPage : Page
 
         var summary = $"Updated {result.Rows.Count:N0} of {result.TotalPlantingTypes:N0} Planting types.";
         return diagnostics.Count > 0 ? $"{summary} {string.Join("; ", diagnostics)}." : summary;
+    }
+
+    private static string FormatCatalogueMetadata(CatalogueMetadata metadata)
+    {
+        var downloadedAt = metadata.FormatDownloadedAtLocal() ?? metadata.DownloadedAtUtc ?? "unknown date";
+        var version = string.IsNullOrWhiteSpace(metadata.Version)
+            ? string.Empty
+            : $" (version {metadata.Version[..Math.Min(8, metadata.Version.Length)]}...)";
+        return $"Local database last downloaded {downloadedAt}{version}.";
     }
 
     private async Task<HashSet<string>> GetUsedSpeciesCodesAsync()
