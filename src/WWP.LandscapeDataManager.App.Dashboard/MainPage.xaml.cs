@@ -11,6 +11,7 @@ using Windows.Storage;
 using Windows.Storage.Pickers;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
+using WWP.LandscapeDataManager.SharedUI;
 
 namespace WWP.LandscapeDataManager.App.Dashboard;
 
@@ -65,6 +66,8 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         InitializeComponent();
+        // Rebuild code-generated chart strokes, metric colours and active-card borders as well as XAML.
+        ThemeResources.Observe(this, RebuildRows);
     }
 
     public ObservableCollection<SpeciesSubtotalRow> SpeciesSubtotals { get; } = [];
@@ -391,10 +394,10 @@ public sealed partial class MainPage : Page
 
         BuildDonutRing(BenefitRingHost, 150d, 18d,
         [
-            (carbonCostRaw, new SolidColorBrush(Color.FromArgb(0xFF, 0x17, 0x6B, 0x2B))),
-            (stormCostRaw, new SolidColorBrush(Color.FromArgb(0xFF, 0x2F, 0x6F, 0xB0))),
-            (airCostRaw, new SolidColorBrush(Color.FromArgb(0xFF, 0xC9, 0x8A, 0x00))),
-        ]);
+            (carbonCostRaw, (Brush)Resources["KpiAccentTextBrush"]),
+            (stormCostRaw, (Brush)Resources["KpiWaterTextBrush"]),
+            (airCostRaw, (Brush)Resources["KpiChartAmberBrush"]),
+        ], (Brush)Resources["KpiChartTrackBrush"]);
 
         FloorCountText.Text = grandTotal.FloorCount.ToString("N0");
         FloorAreaText.Text = $"{grandTotal.FloorAreaSquareMeters:N1} m²";
@@ -706,9 +709,8 @@ public sealed partial class MainPage : Page
 
         var attention = bng.StaleFloorCount + bng.CheckDataFloorCount + bng.NotAssessedFloorCount;
         BngAttentionText.Text = attention.ToString("N0");
-        BngAttentionText.Foreground = attention == 0
-            ? new SolidColorBrush(Color.FromArgb(0xFF, 0x17, 0x6B, 0x2B))
-            : new SolidColorBrush(Color.FromArgb(0xFF, 0xB2, 0x5E, 0x00));
+        BngAttentionText.Foreground = (Brush)Application.Current.Resources[
+            attention == 0 ? "LimSuccessBrush" : "LimWarningBrush"];
         BngAttentionDetailText.Text =
             $"{bng.StaleFloorCount:N0} stale (inputs, area or phases changed — excluded), {bng.CheckDataFloorCount:N0} flagged Check data, {bng.NotAssessedFloorCount:N0} not assessed" +
             (bng.ExcludedFloorCount > 0 ? $"; {bng.ExcludedFloorCount:N0} excluded (demolished in the phase they were created)." : ".");
@@ -744,12 +746,12 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private static Brush Tier(double value, double high, double medium) => value switch
+    private static Brush Tier(double value, double high, double medium) => (Brush)Application.Current.Resources[value switch
     {
-        _ when value >= high => new SolidColorBrush(Color.FromArgb(0xFF, 0x17, 0x6B, 0x2B)),
-        _ when value >= medium => new SolidColorBrush(Color.FromArgb(0xFF, 0xB2, 0x5E, 0x00)),
-        _ => new SolidColorBrush(Color.FromArgb(0xFF, 0xC4, 0x26, 0x2E))
-    };
+        _ when value >= high => "LimSuccessBrush",
+        _ when value >= medium => "LimWarningBrush",
+        _ => "LimErrorBrush"
+    }];
 
     /// <summary>
     /// Draws a donut ring by stacking one stroked <see cref="Ellipse"/> per segment on <paramref name="host"/>,
@@ -758,7 +760,7 @@ public sealed partial class MainPage : Page
     /// o'clock. A ~2px gap is carved out of each arc so adjacent fills don't visually merge, per the dataviz
     /// mark spec. Rebuilt from scratch on every refresh since segment shares change with the data.
     /// </summary>
-    private static void BuildDonutRing(Panel host, double diameter, double thickness, IReadOnlyList<(double Value, Brush Brush)> segments)
+    private static void BuildDonutRing(Panel host, double diameter, double thickness, IReadOnlyList<(double Value, Brush Brush)> segments, Brush trackBrush)
     {
         host.Children.Clear();
 
@@ -766,7 +768,7 @@ public sealed partial class MainPage : Page
         {
             Width = diameter,
             Height = diameter,
-            Stroke = new SolidColorBrush(Color.FromArgb(0xFF, 0xE1, 0xE8, 0xDE)),
+            Stroke = trackBrush,
             StrokeThickness = thickness
         });
 

@@ -79,7 +79,7 @@
             <Border Grid.Column="3" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="NEEDS ATTENTION" Style="{StaticResource LimSectionHeaderStyle}" />
-                    <TextBlock x:Name="AttentionCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource LimWarningBrush}" />
+                    <TextBlock x:Name="AttentionCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{ThemeResource LimWarningBrush}" />
                 </StackPanel>
             </Border>
         </Grid>

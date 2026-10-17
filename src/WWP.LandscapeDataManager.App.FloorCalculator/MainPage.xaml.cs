@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Models;
 using WWP.LandscapeDataManager.Shared.Services;
+using WWP.LandscapeDataManager.SharedUI;
 
 namespace WWP.LandscapeDataManager.App.FloorCalculator;
 
@@ -32,6 +33,22 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         InitializeComponent();
+        ThemeResources.Observe(this, () =>
+        {
+            foreach (var row in Rows)
+            {
+                row.RefreshTheme();
+            }
+        });
+    }
+
+    private void CoefficientLayout_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (CoefficientSetupScroller is not null)
+        {
+            // Reserve space for results on short/high-DPI work areas instead of letting setup fill the tab.
+            CoefficientSetupScroller.MaxHeight = Math.Clamp(e.NewSize.Height * 0.4, 96, 260);
+        }
     }
 
     public ObservableCollection<FloorAssignmentRow> Rows { get; } = [];

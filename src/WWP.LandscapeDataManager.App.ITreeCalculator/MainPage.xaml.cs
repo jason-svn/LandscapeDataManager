@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Media;
 using Windows.Storage.Pickers;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
+using WWP.LandscapeDataManager.SharedUI;
 
 namespace WWP.LandscapeDataManager.App.ITreeCalculator;
 
@@ -34,6 +35,7 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         InitializeComponent();
+        ThemeResources.Observe(this, UpdateFilterCardBorders);
     }
 
     public ObservableCollection<InstanceReportRow> ReportRows { get; } = [];
@@ -162,6 +164,15 @@ public sealed partial class MainPage : Page
             FilteredRows.Add(row);
         }
 
+        UpdateFilterCardBorders();
+
+        FilterStatusText.Text = _activeFilter is null
+            ? $"Showing all {ReportRows.Count:N0} row(s) — click a card above to filter the list to just that status."
+            : $"Showing {FilteredRows.Count:N0} {_activeFilter} row(s) — click the card again to show all.";
+    }
+
+    private void UpdateFilterCardBorders()
+    {
         foreach (var card in new[] { ReadyCard, StaleCard, CalculatedCard, MissingCard, InvalidCard, WarningCard, ErrorCard })
         {
             var isActive = _activeFilter is not null && (string)card.Tag == _activeFilter;
@@ -177,9 +188,6 @@ public sealed partial class MainPage : Page
             }
         }
 
-        FilterStatusText.Text = _activeFilter is null
-            ? $"Showing all {ReportRows.Count:N0} row(s) — click a card above to filter the list to just that status."
-            : $"Showing {FilteredRows.Count:N0} {_activeFilter} row(s) — click the card again to show all.";
     }
 
     private IReadOnlyList<string> GetSelectedUniqueIds() =>

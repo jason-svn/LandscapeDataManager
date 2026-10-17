@@ -1,9 +1,8 @@
-using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Windows.Graphics;
 using WinRT.Interop;
 
 using WWP.LandscapeDataManager.Shared.Services;
+using WWP.LandscapeDataManager.SharedUI;
 
 namespace WWP.LandscapeDataManager.App.GrowthProjections;
 
@@ -16,10 +15,7 @@ public sealed partial class MainWindow : Window
 
         var windowHandle = WindowNative.GetWindowHandle(this);
         MainContent.Initialize(pipeName, windowHandle);
-        var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(windowHandle);
-        var appWindow = AppWindow.GetFromWindowId(windowId);
-        appWindow.Resize(new SizeInt32(1000, 880));
-        appWindow.SetPresenter(AppWindowPresenterKind.Default);
+        WindowSizing.SetInitialSize(this, 1000, 880);
 
         Closed += OnClosed;
     }

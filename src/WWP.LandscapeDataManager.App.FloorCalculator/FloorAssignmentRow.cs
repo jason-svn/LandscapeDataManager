@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using Microsoft.UI;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using WWP.LandscapeDataManager.Contracts;
 
@@ -86,16 +86,15 @@ public sealed class FloorAssignmentRow(SelectedFloorItem item) : INotifyProperty
         }
     }
 
-    public SolidColorBrush MatchStatusBrush => MatchStatus switch
+    public SolidColorBrush MatchStatusBrush => (SolidColorBrush)Application.Current.Resources[MatchStatus switch
     {
-        "Auto-matched" => new SolidColorBrush(Colors.SeaGreen),
-        "Coefficient table" => new SolidColorBrush(Colors.SeaGreen),
-        "Manual entry" => new SolidColorBrush(Colors.SeaGreen),
-        "Coefficient table + manual entry" => new SolidColorBrush(Colors.SeaGreen),
-        "Manually selected" => new SolidColorBrush(Colors.SteelBlue),
-        "No match found" => new SolidColorBrush(Colors.DarkOrange),
-        _ => new SolidColorBrush(Colors.Gray)
-    };
+        "Auto-matched" or "Coefficient table" or "Manual entry" or "Coefficient table + manual entry" => "LimSuccessBrush",
+        "Manually selected" => "LimInfoBrush",
+        "No match found" => "LimWarningBrush",
+        _ => "LimNeutralBrush"
+    }];
+
+    public void RefreshTheme() => OnPropertyChanged(nameof(MatchStatusBrush));
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

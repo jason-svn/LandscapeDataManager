@@ -35,7 +35,7 @@
                 CornerRadius="6"
                 Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
                 Visibility="Collapsed">
-            <TextBlock x:Name="WarningsText" Foreground="{StaticResource LimWarningBrush}" TextWrapping="Wrap" />
+            <TextBlock x:Name="WarningsText" Foreground="{ThemeResource LimWarningBrush}" TextWrapping="Wrap" />
         </Border>
 
         <Grid Grid.Row="2" Margin="0,16,0,0" ColumnSpacing="16">
@@ -53,13 +53,13 @@
             <Border Grid.Column="1" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="SUCCESS" Style="{StaticResource LimSectionHeaderStyle}" />
-                    <TextBlock x:Name="SuccessCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource LimSuccessBrush}" />
+                    <TextBlock x:Name="SuccessCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{ThemeResource LimSuccessBrush}" />
                 </StackPanel>
             </Border>
             <Border Grid.Column="2" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="NEEDS ATTENTION" Style="{StaticResource LimSectionHeaderStyle}" />
-                    <TextBlock x:Name="NeedsAttentionCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource LimErrorBrush}" />
+                    <TextBlock x:Name="NeedsAttentionCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{ThemeResource LimErrorBrush}" />
                 </StackPanel>
             </Border>
         </Grid>

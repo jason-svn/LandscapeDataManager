@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using WWP.LandscapeDataManager.Contracts;
@@ -133,14 +132,13 @@ public sealed class BngFloorRow : INotifyPropertyChanged
         ? $"Phase created: {PhaseCreated ?? "—"}"
         : $"Phase created: {PhaseCreated ?? "—"} · demolished: {PhaseDemolished}";
 
-    public SolidColorBrush RoleBrush => Role switch
+    public SolidColorBrush RoleBrush => (SolidColorBrush)Application.Current.Resources[Role switch
     {
-        BngPhaseRoles.Created => new SolidColorBrush(Colors.SeaGreen),
-        BngPhaseRoles.Enhanced => new SolidColorBrush(Colors.Teal),
-        BngPhaseRoles.Retained => new SolidColorBrush(Colors.SteelBlue),
-        BngPhaseRoles.Lost => new SolidColorBrush(Colors.Firebrick),
-        _ => new SolidColorBrush(Colors.Gray)
-    };
+        BngPhaseRoles.Created => "LimSuccessBrush",
+        BngPhaseRoles.Enhanced or BngPhaseRoles.Retained => "LimInfoBrush",
+        BngPhaseRoles.Lost => "LimErrorBrush",
+        _ => "LimNeutralBrush"
+    }];
 
     /// <summary>The Enhanced flag (<c>!_S_PLT_BNGInput_Enhanced_YesNo</c>) — switches a retained floor onto sheet A-3.</summary>
     public bool Enhanced
@@ -520,16 +518,20 @@ public sealed class BngFloorRow : INotifyPropertyChanged
         _ => Status
     };
 
-    public SolidColorBrush StatusBrush => Status switch
+    public SolidColorBrush StatusBrush => (SolidColorBrush)Application.Current.Resources[Status switch
     {
-        BngFloorStatus.Calculated => new SolidColorBrush(Colors.SeaGreen),
-        BngFloorStatus.Ready => new SolidColorBrush(Colors.SteelBlue),
-        BngFloorStatus.AutoMatched => new SolidColorBrush(Colors.MediumPurple),
-        BngFloorStatus.CheckData => new SolidColorBrush(Colors.DarkOrange),
-        BngFloorStatus.Stale => new SolidColorBrush(Colors.Goldenrod),
-        BngFloorStatus.Failed => new SolidColorBrush(Colors.Firebrick),
-        _ => new SolidColorBrush(Colors.Gray)
-    };
+        BngFloorStatus.Calculated => "LimSuccessBrush",
+        BngFloorStatus.Ready or BngFloorStatus.AutoMatched => "LimInfoBrush",
+        BngFloorStatus.CheckData or BngFloorStatus.Stale => "LimWarningBrush",
+        BngFloorStatus.Failed => "LimErrorBrush",
+        _ => "LimNeutralBrush"
+    }];
+
+    public void RefreshTheme()
+    {
+        OnPropertyChanged(nameof(RoleBrush));
+        OnPropertyChanged(nameof(StatusBrush));
+    }
 
     /// <summary>The one-line reason for <see cref="Status"/>, shown under it in the status column.</summary>
     public string StatusReason => Status switch

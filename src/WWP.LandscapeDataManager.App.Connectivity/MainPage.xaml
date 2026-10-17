@@ -102,7 +102,7 @@
             <Border Grid.Column="5" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="UNCERTAIN" Style="{StaticResource LimSectionHeaderStyle}" />
-                    <TextBlock x:Name="UncertainCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource LimWarningBrush}" />
+                    <TextBlock x:Name="UncertainCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{ThemeResource LimWarningBrush}" />
                 </StackPanel>
             </Border>
         </Grid>

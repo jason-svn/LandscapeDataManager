@@ -31,7 +31,7 @@
 
             <Border Grid.Row="1" x:Name="WarningsBanner" Padding="12,10" CornerRadius="6"
                     Background="{ThemeResource SystemFillColorCautionBackgroundBrush}" Visibility="Collapsed">
-                <TextBlock x:Name="WarningsText" Foreground="{StaticResource LimWarningBrush}" TextWrapping="Wrap" />
+                <TextBlock x:Name="WarningsText" Foreground="{ThemeResource LimWarningBrush}" TextWrapping="Wrap" />
             </Border>
 
             <!-- Growth years -->
@@ -202,9 +202,9 @@
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="{x:Bind YearText}" />
                                     <TextBlock Grid.Column="1" Text="{x:Bind TreesText}" />
-                                    <TextBlock Grid.Column="2" Text="{x:Bind CalculatedText}" Foreground="{StaticResource LimSuccessBrush}" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind CalculatedText}" Foreground="{ThemeResource LimSuccessBrush}" />
                                     <TextBlock Grid.Column="3" Text="{x:Bind ToCalculateText}" FontWeight="SemiBold" />
-                                    <TextBlock Grid.Column="4" Text="{x:Bind NeedsAttentionText}" Foreground="{StaticResource LimWarningBrush}" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind NeedsAttentionText}" Foreground="{ThemeResource LimWarningBrush}" />
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

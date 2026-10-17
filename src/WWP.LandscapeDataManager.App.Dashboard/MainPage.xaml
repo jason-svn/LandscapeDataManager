@@ -6,53 +6,108 @@
     Loaded="Page_Loaded">
 
     <Page.Resources>
-        <SolidColorBrush x:Key="KpiForestBrush" Color="#FF176B2B" />
-        <SolidColorBrush x:Key="KpiLeafBrush" Color="#FF63BE47" />
-        <SolidColorBrush x:Key="KpiLimeBrush" Color="#FFA6D78C" />
-        <SolidColorBrush x:Key="KpiGoldBrush" Color="#FFFFC400" />
-        <!-- Chart-safe categorical trio for the Benefit composition ring (validated with the dataviz
-             skill's palette checker: CVD ΔE 19.0/8.3, normal-vision ΔE 20.6 — KpiGoldBrush itself is
-             too light to pass the contrast check as a chart fill, hence the deeper amber step here). -->
-        <SolidColorBrush x:Key="KpiWaterBrush" Color="#FF2F6FB0" />
-        <SolidColorBrush x:Key="KpiChartAmberBrush" Color="#FFC98A00" />
-        <!-- Darker than KpiChartAmberBrush on purpose: that chart-fill amber only clears contrast
-             against the page background, not against white card text (≈2.9:1). This step (≈4.5:1
-             with white) is for the Air Quality category card background specifically. -->
-        <SolidColorBrush x:Key="KpiAmberCardBrush" Color="#FFA36A00" />
-        <SolidColorBrush x:Key="KpiCanvasBrush" Color="#FFF5F7F2" />
-        <SolidColorBrush x:Key="KpiInkBrush" Color="#FF1C281F" />
-        <Style x:Key="KpiSurfaceStyle" TargetType="Border">
-            <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="#FFDDE4DA" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="24" />
-            <Setter Property="Padding" Value="22" />
-        </Style>
-        <Style x:Key="KpiEyebrowStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="CharacterSpacing" Value="100" />
-            <Setter Property="Foreground" Value="#FF687269" />
-        </Style>
-        <Style x:Key="KpiCardTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="17" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource KpiInkBrush}" />
-        </Style>
-        <Style x:Key="KpiMetricCardStyle" TargetType="Border">
-            <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="#FFDDE4DA" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="14" />
-            <Setter Property="Padding" Value="12,10" />
-        </Style>
-        <Style x:Key="KpiStatusCardStyle" TargetType="Border">
-            <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="#FFDDE4DA" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="14" />
-            <Setter Property="Padding" Value="12,10" />
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="KpiForestBrush" Color="#FF176B2B" />
+                    <SolidColorBrush x:Key="KpiLeafBrush" Color="#FF63BE47" />
+                    <SolidColorBrush x:Key="KpiLimeBrush" Color="#FFA6D78C" />
+                    <SolidColorBrush x:Key="KpiGoldBrush" Color="#FFFFC400" />
+                    <SolidColorBrush x:Key="KpiWaterBrush" Color="#FF2F6FB0" />
+                    <SolidColorBrush x:Key="KpiChartAmberBrush" Color="#FFC98A00" />
+                    <SolidColorBrush x:Key="KpiAmberCardBrush" Color="#FFA36A00" />
+                    <SolidColorBrush x:Key="KpiCanvasBrush" Color="#FFF5F7F2" />
+                    <SolidColorBrush x:Key="KpiInkBrush" Color="#FF1C281F" />
+                    <SolidColorBrush x:Key="KpiSurfaceBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="KpiBorderBrush" Color="#FFDDE4DA" />
+                    <SolidColorBrush x:Key="KpiMutedBrush" Color="#FF586359" />
+                    <SolidColorBrush x:Key="KpiAccentTextBrush" Color="#FF176B2B" />
+                    <SolidColorBrush x:Key="KpiBadgeBrush" Color="#FFE5F2E1" />
+                    <SolidColorBrush x:Key="KpiOnCategoryBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="KpiCategoryTrackBrush" Color="#FF83A889" />
+                    <SolidColorBrush x:Key="KpiCategoryDividerBrush" Color="#558CC394" />
+                    <SolidColorBrush x:Key="KpiChartTrackBrush" Color="#FFE1E8DE" />
+                    <SolidColorBrush x:Key="KpiWaterTextBrush" Color="#FF2F6FB0" />
+                    <SolidColorBrush x:Key="KpiAmberTextBrush" Color="#FFA36A00" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="KpiForestBrush" Color="#FF176B2B" />
+                    <SolidColorBrush x:Key="KpiLeafBrush" Color="#FF83D96B" />
+                    <SolidColorBrush x:Key="KpiLimeBrush" Color="#FF497D3B" />
+                    <SolidColorBrush x:Key="KpiGoldBrush" Color="#FFFFC400" />
+                    <SolidColorBrush x:Key="KpiWaterBrush" Color="#FF2F6FB0" />
+                    <SolidColorBrush x:Key="KpiChartAmberBrush" Color="#FFE8B54C" />
+                    <SolidColorBrush x:Key="KpiAmberCardBrush" Color="#FFA36A00" />
+                    <SolidColorBrush x:Key="KpiCanvasBrush" Color="#FF141A16" />
+                    <SolidColorBrush x:Key="KpiInkBrush" Color="#FFF0F4EF" />
+                    <SolidColorBrush x:Key="KpiSurfaceBrush" Color="#FF202923" />
+                    <SolidColorBrush x:Key="KpiBorderBrush" Color="#FF455249" />
+                    <SolidColorBrush x:Key="KpiMutedBrush" Color="#FFB4C2B7" />
+                    <SolidColorBrush x:Key="KpiAccentTextBrush" Color="#FF8EDB9B" />
+                    <SolidColorBrush x:Key="KpiBadgeBrush" Color="#FF263D2B" />
+                    <SolidColorBrush x:Key="KpiOnCategoryBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="KpiCategoryTrackBrush" Color="#FF83A889" />
+                    <SolidColorBrush x:Key="KpiCategoryDividerBrush" Color="#558CC394" />
+                    <SolidColorBrush x:Key="KpiChartTrackBrush" Color="#FF344139" />
+                    <SolidColorBrush x:Key="KpiWaterTextBrush" Color="#FF78B5ED" />
+                    <SolidColorBrush x:Key="KpiAmberTextBrush" Color="#FFF4BE70" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="KpiForestBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="KpiLeafBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="KpiLimeBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="KpiGoldBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="KpiWaterBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="KpiChartAmberBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="KpiAmberCardBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="KpiCanvasBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="KpiInkBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="KpiSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="KpiBorderBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="KpiMutedBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="KpiAccentTextBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="KpiBadgeBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="KpiOnCategoryBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="KpiCategoryTrackBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="KpiCategoryDividerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="KpiChartTrackBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="KpiWaterTextBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="KpiAmberTextBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <Style x:Key="KpiSurfaceStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource KpiSurfaceBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource KpiBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="24" />
+                <Setter Property="Padding" Value="22" />
+            </Style>
+            <Style x:Key="KpiEyebrowStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="CharacterSpacing" Value="100" />
+                <Setter Property="Foreground" Value="{ThemeResource KpiMutedBrush}" />
+            </Style>
+            <Style x:Key="KpiCardTitleStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="17" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource KpiInkBrush}" />
+            </Style>
+            <Style x:Key="KpiMetricCardStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource KpiSurfaceBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource KpiBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="14" />
+                <Setter Property="Padding" Value="12,10" />
+            </Style>
+            <Style x:Key="KpiStatusCardStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource KpiSurfaceBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource KpiBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="14" />
+                <Setter Property="Padding" Value="12,10" />
+            </Style>
+        </ResourceDictionary>
     </Page.Resources>
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="24,18,24,18">
@@ -69,18 +124,18 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Border Width="52" Height="52" CornerRadius="14" Background="{StaticResource KpiForestBrush}" Margin="0,0,16,0">
-                <TextBlock Text="LIM" FontSize="15" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <Border Width="52" Height="52" CornerRadius="14" Background="{ThemeResource KpiForestBrush}" Margin="0,0,16,0">
+                <TextBlock Text="LIM" FontSize="15" FontWeight="Bold" Foreground="{ThemeResource KpiOnCategoryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                 <TextBlock Text="Environmental KPI Dashboard" FontSize="25" FontWeight="Bold" />
                 <TextBlock Text="Graphic outlook, design-scenario comparison, and detailed LIM reporting" Style="{StaticResource LimPageSubtitleStyle}" />
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <Border Background="#FFE5F2E1" CornerRadius="16" Padding="14,7">
+                <Border Background="{ThemeResource KpiBadgeBrush}" CornerRadius="16" Padding="14,7">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <Ellipse Width="8" Height="8" Fill="{StaticResource KpiLeafBrush}" VerticalAlignment="Center" />
-                        <TextBlock x:Name="CacheStatusText" Text="No snapshot loaded" Foreground="{StaticResource KpiForestBrush}" FontWeight="SemiBold" FontSize="13" />
+                        <Ellipse Width="8" Height="8" Fill="{ThemeResource KpiLeafBrush}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="CacheStatusText" Text="No snapshot loaded" Foreground="{ThemeResource KpiAccentTextBrush}" FontWeight="SemiBold" FontSize="13" />
                     </StackPanel>
                 </Border>
                 <Button Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
@@ -90,55 +145,57 @@
         <Border Grid.Row="1" Margin="0,14,0,4" Style="{StaticResource LimCardStyle}" Padding="16,12">
             <StackPanel Spacing="8">
                 <TextBlock Text="FILTERS &amp; SCOPE" Style="{StaticResource KpiEyebrowStyle}" />
-                <Grid ColumnSpacing="10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="135" />
-                        <ColumnDefinition Width="250" />
-                        <ColumnDefinition Width="145" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="150" />
-                        <ColumnDefinition Width="280" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <ComboBox x:Name="ScopeBox" Header="Model scope" SelectedIndex="0" HorizontalAlignment="Stretch">
-                        <ComboBoxItem Content="Whole model" />
-                        <ComboBoxItem Content="Current selection" />
-                    </ComboBox>
-                    <ComboBox Grid.Column="1" x:Name="DesignOptionBox" Header="Design option" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="DesignOptionBox_SelectionChanged">
-                        <ComboBoxItem Content="All design options" />
-                    </ComboBox>
-                    <ComboBox Grid.Column="2" x:Name="LevelBox" Header="Level" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="LevelBox_SelectionChanged">
-                        <ComboBoxItem Content="All levels" />
-                    </ComboBox>
-                    <TextBox Grid.Column="3" x:Name="SpeciesSearchBox" Header="Species filter" PlaceholderText="Code or common name" TextChanged="SpeciesSearchBox_TextChanged" />
-                    <ComboBox Grid.Column="4" x:Name="UnitSystemBox" Header="Display units" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="UnitSystemBox_SelectionChanged">
-                        <ComboBoxItem Content="Project default" />
-                        <ComboBoxItem Content="Metric" />
-                        <ComboBoxItem Content="Imperial" />
-                    </ComboBox>
-                    <!-- One stop per growth year, like the web dashboard's slicer. Stops come from the
-                         model's growth-year worksets (see GrowthYears), else the standard 5-25 outlook. -->
-                    <StackPanel Grid.Column="5" Spacing="0" ToolTipService.ToolTip="Growth year: trees on that year's workset (plus trees on no growth-year workset), with outlook totals over that many years.">
-                        <TextBlock x:Name="GrowthYearHeaderText" Text="Growth year" Margin="0,0,0,4" />
-                        <Slider x:Name="GrowthYearSlider" Minimum="0" Maximum="4" StepFrequency="1" TickFrequency="1" TickPlacement="None"
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
+                    <Grid ColumnSpacing="10" MinWidth="1360" Margin="0,0,0,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="135" />
+                            <ColumnDefinition Width="250" />
+                            <ColumnDefinition Width="145" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="280" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="ScopeBox" Header="Model scope" SelectedIndex="0" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="Whole model" />
+                            <ComboBoxItem Content="Current selection" />
+                        </ComboBox>
+                        <ComboBox Grid.Column="1" x:Name="DesignOptionBox" Header="Design option" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="DesignOptionBox_SelectionChanged">
+                            <ComboBoxItem Content="All design options" />
+                        </ComboBox>
+                        <ComboBox Grid.Column="2" x:Name="LevelBox" Header="Level" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="LevelBox_SelectionChanged">
+                            <ComboBoxItem Content="All levels" />
+                        </ComboBox>
+                        <TextBox Grid.Column="3" x:Name="SpeciesSearchBox" Header="Species filter" PlaceholderText="Code or common name" TextChanged="SpeciesSearchBox_TextChanged" />
+                        <ComboBox Grid.Column="4" x:Name="UnitSystemBox" Header="Display units" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="UnitSystemBox_SelectionChanged">
+                            <ComboBoxItem Content="Project default" />
+                            <ComboBoxItem Content="Metric" />
+                            <ComboBoxItem Content="Imperial" />
+                        </ComboBox>
+                        <!-- One stop per growth year, like the web dashboard's slicer. Stops come from the
+                        model's growth-year worksets (see GrowthYears), else the standard 5-25 outlook. -->
+                        <StackPanel Grid.Column="5" Spacing="0" ToolTipService.ToolTip="Growth year: trees on that year's workset (plus trees on no growth-year workset), with outlook totals over that many years.">
+                            <TextBlock x:Name="GrowthYearHeaderText" Text="Growth year" Margin="0,0,0,4" />
+                            <Slider x:Name="GrowthYearSlider" Minimum="0" Maximum="4" StepFrequency="1" TickFrequency="1" TickPlacement="None"
                                 SnapsTo="StepValues" IsThumbToolTipEnabled="False" Margin="8,0,8,0"
                                 AutomationProperties.Name="Growth year" ValueChanged="GrowthYearSlider_ValueChanged" />
-                        <Grid x:Name="GrowthYearTicks" Margin="0,-6,0,0" />
-                    </StackPanel>
-                    <Button Grid.Column="6" Click="Refresh_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="&#8635;" FontSize="14" />
-                            <TextBlock Text="Refresh model" />
+                            <Grid x:Name="GrowthYearTicks" Margin="0,-6,0,0" />
                         </StackPanel>
-                    </Button>
-                </Grid>
+                        <Button Grid.Column="6" Click="Refresh_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="&#8635;" FontSize="14" />
+                                <TextBlock Text="Refresh model" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </ScrollViewer>
             </StackPanel>
         </Border>
 
         <Pivot Grid.Row="2" x:Name="DashboardPages">
             <PivotItem Header="Executive overview">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                    <Grid x:Name="CaptureRoot" MinWidth="1180" Background="{StaticResource KpiCanvasBrush}" Padding="22" CornerRadius="20">
+                    <Grid x:Name="CaptureRoot" MinWidth="1180" Background="{ThemeResource KpiCanvasBrush}" Padding="22" CornerRadius="20">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -151,19 +208,19 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Spacing="3">
-                                <TextBlock Text="ENVIRONMENTAL PERFORMANCE" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiForestBrush}" />
-                                <TextBlock x:Name="ProjectTitleText" Text="LIM project snapshot" FontSize="25" FontWeight="Bold" Foreground="{StaticResource KpiInkBrush}" />
-                                <TextBlock x:Name="OutlookText" Text="10-year outlook · annual stored results × 10" Foreground="#FF667067" />
+                                <TextBlock Text="ENVIRONMENTAL PERFORMANCE" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAccentTextBrush}" />
+                                <TextBlock x:Name="ProjectTitleText" Text="LIM project snapshot" FontSize="25" FontWeight="Bold" Foreground="{ThemeResource KpiInkBrush}" />
+                                <TextBlock x:Name="OutlookText" Text="10-year outlook · annual stored results × 10" Foreground="{ThemeResource KpiMutedBrush}" />
                             </StackPanel>
-                            <Border Grid.Column="1" Background="{StaticResource KpiForestBrush}" CornerRadius="18" Padding="16,9" VerticalAlignment="Center">
-                                <TextBlock x:Name="ScenarioBadgeText" Text="ALL DESIGN OPTIONS" Foreground="White" FontWeight="SemiBold" />
+                            <Border Grid.Column="1" Background="{ThemeResource KpiForestBrush}" CornerRadius="18" Padding="16,9" VerticalAlignment="Center">
+                                <TextBlock x:Name="ScenarioBadgeText" Text="ALL DESIGN OPTIONS" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" />
                             </Border>
                         </Grid>
 
                         <!-- Headline banner: total ecosystem value plus the two inventory counts, kept
-                             separate from the three i-Tree benefit-category cards below so each category
-                             reads as its own card rather than one long stacked panel. -->
-                        <Border Grid.Row="1" Margin="0,14,0,0" Background="{StaticResource KpiForestBrush}" CornerRadius="24" Padding="26,20">
+                        separate from the three i-Tree benefit-category cards below so each category
+                        reads as its own card rather than one long stacked panel. -->
+                        <Border Grid.Row="1" Margin="0,14,0,0" Background="{ThemeResource KpiForestBrush}" CornerRadius="24" Padding="26,20">
                             <Grid ColumnSpacing="24">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -171,21 +228,21 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Spacing="6" VerticalAlignment="Center">
-                                    <TextBlock Text="ECOSYSTEM VALUE" Foreground="#FFCDE5D1" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="KpiEcosystemValueText" Text="—" FontSize="32" FontWeight="Bold" Foreground="{StaticResource KpiGoldBrush}" TextWrapping="Wrap" />
-                                    <TextBlock Text="Projected tree + planting-area monetary benefit" Foreground="White" Opacity="0.9" TextWrapping="Wrap" />
-                                    <ProgressBar x:Name="ReportingProgress" Margin="0,6,0,0" Height="7" MaxWidth="320" HorizontalAlignment="Left" Maximum="100" Foreground="{StaticResource KpiGoldBrush}" Background="#FF83A889" />
-                                    <TextBlock x:Name="ReportingCaptionText" Text="0% tree results ready" Foreground="#FFE5F3E7" FontSize="12" />
+                                    <TextBlock Text="ECOSYSTEM VALUE" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="KpiEcosystemValueText" Text="—" FontSize="32" FontWeight="Bold" Foreground="{ThemeResource KpiGoldBrush}" TextWrapping="Wrap" />
+                                    <TextBlock Text="Projected tree + planting-area monetary benefit" Foreground="{ThemeResource KpiOnCategoryBrush}" TextWrapping="Wrap" />
+                                    <ProgressBar x:Name="ReportingProgress" Margin="0,6,0,0" Height="7" MaxWidth="320" HorizontalAlignment="Left" Maximum="100" Foreground="{ThemeResource KpiGoldBrush}" Background="{ThemeResource KpiCategoryTrackBrush}" />
+                                    <TextBlock x:Name="ReportingCaptionText" Text="0% tree results ready" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12" />
                                 </StackPanel>
-                                <Border Grid.Column="1" Background="#558CC394" Margin="0,4" />
+                                <Border Grid.Column="1" Background="{ThemeResource KpiCategoryDividerBrush}" Margin="0,4" />
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="28" VerticalAlignment="Center">
                                     <StackPanel>
-                                        <TextBlock Text="TREES" Foreground="#FFCDE5D1" FontSize="11" />
-                                        <TextBlock x:Name="KpiTreeCountText" Text="—" Foreground="White" FontSize="24" FontWeight="SemiBold" />
+                                        <TextBlock Text="TREES" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="11" />
+                                        <TextBlock x:Name="KpiTreeCountText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="24" FontWeight="SemiBold" />
                                     </StackPanel>
                                     <StackPanel>
-                                        <TextBlock Text="PLANTING AREAS" Foreground="#FFCDE5D1" FontSize="11" />
-                                        <TextBlock x:Name="KpiPlantingAreaText" Text="—" Foreground="White" FontSize="24" FontWeight="SemiBold" />
+                                        <TextBlock Text="PLANTING AREAS" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="11" />
+                                        <TextBlock x:Name="KpiPlantingAreaText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="24" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </StackPanel>
                             </Grid>
@@ -204,73 +261,73 @@
                             </Grid.RowDefinitions>
 
                             <!-- One swim lane per i-Tree benefit category — Carbon / Stormwater / Air
-                                 Quality, same order and colors as the donut ring and species table above.
-                                 Each leads with its projected dollar value, then its own component
-                                 metrics, matching the public i-Tree "MyTree Benefits" report's structure. -->
-                            <Border Background="{StaticResource KpiForestBrush}" CornerRadius="24" Padding="22,20">
+                            Quality, same order and colors as the donut ring and species table above.
+                            Each leads with its projected dollar value, then its own component
+                            metrics, matching the public i-Tree "MyTree Benefits" report's structure. -->
+                            <Border Background="{ThemeResource KpiForestBrush}" CornerRadius="24" Padding="22,20">
                                 <StackPanel Spacing="6" VerticalAlignment="Center">
-                                    <TextBlock Text="CARBON DIOXIDE UPTAKE" Foreground="#FFCDE5D1" FontWeight="SemiBold" CharacterSpacing="60" FontSize="12" TextWrapping="Wrap" />
-                                    <TextBlock x:Name="HeroCarbonCostText" Text="—" FontSize="26" FontWeight="Bold" Foreground="{StaticResource KpiGoldBrush}" TextWrapping="Wrap" />
+                                    <TextBlock Text="CARBON DIOXIDE UPTAKE" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" CharacterSpacing="60" FontSize="12" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="HeroCarbonCostText" Text="—" FontSize="26" FontWeight="Bold" Foreground="{ThemeResource KpiGoldBrush}" TextWrapping="Wrap" />
                                     <Grid ColumnSpacing="6" Margin="0,6,0,0">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                        <TextBlock Text="Carbon Sequestered" Foreground="White" Opacity="0.85" FontSize="12.5" />
-                                        <TextBlock Grid.Column="1" x:Name="HeroCarbonSequesteredText" Text="—" Foreground="White" FontWeight="SemiBold" FontSize="12.5" />
+                                        <TextBlock Text="Carbon Sequestered" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12.5" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroCarbonSequesteredText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12.5" />
                                     </Grid>
                                     <Grid ColumnSpacing="6">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                        <TextBlock Text="CO2 Equivalent" Foreground="White" Opacity="0.85" FontSize="12.5" />
-                                        <TextBlock Grid.Column="1" x:Name="HeroCO2EquivalentText" Text="—" Foreground="White" FontWeight="SemiBold" FontSize="12.5" />
+                                        <TextBlock Text="CO2 Equivalent" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12.5" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroCO2EquivalentText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12.5" />
                                     </Grid>
-                                    <TextBlock Text="Trees + planting areas, over the selected outlook" Foreground="White" Opacity="0.7" FontSize="10.5" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    <TextBlock Text="Trees + planting areas, over the selected outlook" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="10.5" TextWrapping="Wrap" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Border>
 
-                            <Border Grid.Row="1" Background="{StaticResource KpiWaterBrush}" CornerRadius="24" Padding="22,20">
+                            <Border Grid.Row="1" Background="{ThemeResource KpiWaterBrush}" CornerRadius="24" Padding="22,20">
                                 <StackPanel Spacing="6" VerticalAlignment="Center">
-                                    <TextBlock Text="STORM WATER MITIGATION" Foreground="#FFD6E6F5" FontWeight="SemiBold" CharacterSpacing="60" FontSize="12" TextWrapping="Wrap" />
-                                    <TextBlock x:Name="HeroStormWaterCostText" Text="—" FontSize="26" FontWeight="Bold" Foreground="{StaticResource KpiGoldBrush}" TextWrapping="Wrap" />
+                                    <TextBlock Text="STORM WATER MITIGATION" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" CharacterSpacing="60" FontSize="12" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="HeroStormWaterCostText" Text="—" FontSize="26" FontWeight="Bold" Foreground="{ThemeResource KpiGoldBrush}" TextWrapping="Wrap" />
                                     <Grid ColumnSpacing="6" Margin="0,6,0,0">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                        <TextBlock Text="Runoff Avoided" Foreground="White" Opacity="0.85" FontSize="12.5" />
-                                        <TextBlock Grid.Column="1" x:Name="HeroRunoffAvoidedText" Text="—" Foreground="White" FontWeight="SemiBold" FontSize="12.5" />
+                                        <TextBlock Text="Runoff Avoided" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12.5" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroRunoffAvoidedText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12.5" />
                                     </Grid>
                                     <Grid ColumnSpacing="6">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                        <TextBlock Text="Rainfall Intercepted" Foreground="White" Opacity="0.85" FontSize="12.5" />
-                                        <TextBlock Grid.Column="1" x:Name="HeroRainfallInterceptedText" Text="—" Foreground="White" FontWeight="SemiBold" FontSize="12.5" />
+                                        <TextBlock Text="Rainfall Intercepted" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12.5" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroRainfallInterceptedText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12.5" />
                                     </Grid>
-                                    <TextBlock Text="Trees + planting areas, over the selected outlook" Foreground="White" Opacity="0.7" FontSize="10.5" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    <TextBlock Text="Trees + planting areas, over the selected outlook" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="10.5" TextWrapping="Wrap" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Border>
 
-                            <Border Grid.Row="2" Background="{StaticResource KpiAmberCardBrush}" CornerRadius="24" Padding="22,20">
+                            <Border Grid.Row="2" Background="{ThemeResource KpiAmberCardBrush}" CornerRadius="24" Padding="22,20">
                                 <StackPanel Spacing="6" VerticalAlignment="Center">
-                                    <TextBlock Text="AIR POLLUTION REMOVAL" Foreground="#FFF5E6C8" FontWeight="SemiBold" CharacterSpacing="60" FontSize="12" TextWrapping="Wrap" />
-                                    <TextBlock x:Name="HeroAirPollutionCostText" Text="—" FontSize="26" FontWeight="Bold" Foreground="White" TextWrapping="Wrap" />
+                                    <TextBlock Text="AIR POLLUTION REMOVAL" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" CharacterSpacing="60" FontSize="12" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="HeroAirPollutionCostText" Text="—" FontSize="26" FontWeight="Bold" Foreground="{ThemeResource KpiOnCategoryBrush}" TextWrapping="Wrap" />
                                     <Grid ColumnSpacing="6" Margin="0,6,0,0">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                        <TextBlock Text="Carbon Monoxide" Foreground="White" Opacity="0.85" FontSize="12" />
-                                        <TextBlock Grid.Column="1" x:Name="HeroCarbonMonoxideText" Text="—" Foreground="White" FontWeight="SemiBold" FontSize="12" />
+                                        <TextBlock Text="Carbon Monoxide" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroCarbonMonoxideText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12" />
                                     </Grid>
                                     <Grid ColumnSpacing="6">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                        <TextBlock Text="Ozone" Foreground="White" Opacity="0.85" FontSize="12" />
-                                        <TextBlock Grid.Column="1" x:Name="HeroOzoneText" Text="—" Foreground="White" FontWeight="SemiBold" FontSize="12" />
+                                        <TextBlock Text="Ozone" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroOzoneText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12" />
                                     </Grid>
                                     <Grid ColumnSpacing="6">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                        <TextBlock Text="Nitrogen Dioxide" Foreground="White" Opacity="0.85" FontSize="12" />
-                                        <TextBlock Grid.Column="1" x:Name="HeroNitrogenDioxideText" Text="—" Foreground="White" FontWeight="SemiBold" FontSize="12" />
+                                        <TextBlock Text="Nitrogen Dioxide" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroNitrogenDioxideText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12" />
                                     </Grid>
                                     <Grid ColumnSpacing="6">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                        <TextBlock Text="Sulfur Dioxide" Foreground="White" Opacity="0.85" FontSize="12" />
-                                        <TextBlock Grid.Column="1" x:Name="HeroSulfurDioxideText" Text="—" Foreground="White" FontWeight="SemiBold" FontSize="12" />
+                                        <TextBlock Text="Sulfur Dioxide" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroSulfurDioxideText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12" />
                                     </Grid>
                                     <Grid ColumnSpacing="6">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                        <TextBlock Text="PM2.5" Foreground="White" Opacity="0.85" FontSize="12" />
-                                        <TextBlock Grid.Column="1" x:Name="HeroPM25Text" Text="—" Foreground="White" FontWeight="SemiBold" FontSize="12" />
+                                        <TextBlock Text="PM2.5" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroPM25Text" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12" />
                                     </Grid>
                                 </StackPanel>
                             </Border>
@@ -278,14 +335,14 @@
                             <Border Grid.Column="1" Style="{StaticResource KpiSurfaceStyle}">
                                 <StackPanel Spacing="12">
                                     <TextBlock Text="Carbon outlook" Style="{StaticResource KpiCardTitleStyle}" />
-                                    <TextBlock Text="Cumulative projection from the current annual rate" Foreground="#FF69736A" FontSize="12" />
+                                    <TextBlock Text="Cumulative projection from the current annual rate" Foreground="{ThemeResource KpiMutedBrush}" FontSize="12" />
                                     <ItemsControl ItemsSource="{x:Bind ProjectionTrendRows}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="local:KpiBarRow">
                                                 <Grid Margin="0,4" ColumnSpacing="10">
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="58" /><ColumnDefinition Width="*" /><ColumnDefinition Width="105" /></Grid.ColumnDefinitions>
                                                     <TextBlock Text="{x:Bind Label}" VerticalAlignment="Center" FontWeight="SemiBold" />
-                                                    <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="11" Foreground="{StaticResource KpiLeafBrush}" Background="#FFE1E8DE" />
+                                                    <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="11" Foreground="{ThemeResource KpiLeafBrush}" Background="{ThemeResource KpiChartTrackBrush}" />
                                                     <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" />
                                                 </Grid>
                                             </DataTemplate>
@@ -302,17 +359,17 @@
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                         <StackPanel Spacing="4">
                                             <TextBlock Text="PLANTING AREA" Style="{StaticResource KpiEyebrowStyle}" />
-                                            <TextBlock x:Name="SnapshotAreaText" Text="—" FontSize="23" FontWeight="Bold" Foreground="{StaticResource KpiForestBrush}" />
-                                            <TextBlock Text="calculated surfaces" Foreground="#FF707970" FontSize="12" />
+                                            <TextBlock x:Name="SnapshotAreaText" Text="—" FontSize="23" FontWeight="Bold" Foreground="{ThemeResource KpiAccentTextBrush}" />
+                                            <TextBlock Text="calculated surfaces" Foreground="{ThemeResource KpiMutedBrush}" FontSize="12" />
                                             <TextBlock Text="EMBODIED CARBON" Style="{StaticResource KpiEyebrowStyle}" Margin="0,16,0,0"
-                                                       ToolTipService.ToolTip="One-off GWP of the planting areas' materials (product + transport) — paving, stone, etc. Payback = years of the planting's current yearly CO2e uptake needed to offset it." />
+                                                ToolTipService.ToolTip="One-off GWP of the planting areas' materials (product + transport) — paving, stone, etc. Payback = years of the planting's current yearly CO2e uptake needed to offset it." />
                                             <TextBlock x:Name="GwpBaselineText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                            <TextBlock x:Name="GwpPaybackText" Foreground="#FF707970" FontSize="12" TextWrapping="Wrap" />
+                                            <TextBlock x:Name="GwpPaybackText" Foreground="{ThemeResource KpiMutedBrush}" FontSize="12" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Spacing="4">
                                             <TextBlock Text="POLLUTION REMOVED" Style="{StaticResource KpiEyebrowStyle}" />
-                                            <TextBlock x:Name="KpiPollutionText" Text="—" FontSize="23" FontWeight="Bold" Foreground="{StaticResource KpiForestBrush}" TextWrapping="Wrap" />
-                                            <TextBlock Text="trees + planting areas" Foreground="#FF707970" FontSize="12" />
+                                            <TextBlock x:Name="KpiPollutionText" Text="—" FontSize="23" FontWeight="Bold" Foreground="{ThemeResource KpiAccentTextBrush}" TextWrapping="Wrap" />
+                                            <TextBlock Text="trees + planting areas" Foreground="{ThemeResource KpiMutedBrush}" FontSize="12" />
                                             <TextBlock Text="INVENTORY" Style="{StaticResource KpiEyebrowStyle}" Margin="0,16,0,0" />
                                             <TextBlock x:Name="SnapshotInventoryText" Text="—" FontSize="20" FontWeight="SemiBold" />
                                         </StackPanel>
@@ -323,14 +380,14 @@
                             <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource KpiSurfaceStyle}">
                                 <StackPanel Spacing="12">
                                     <TextBlock Text="Impact profile" Style="{StaticResource KpiCardTitleStyle}" />
-                                    <TextBlock Text="Share supplied by calculated trees; the balance comes from planting areas" Foreground="#FF69736A" FontSize="12" TextWrapping="Wrap" />
+                                    <TextBlock Text="Share supplied by calculated trees; the balance comes from planting areas" Foreground="{ThemeResource KpiMutedBrush}" FontSize="12" TextWrapping="Wrap" />
                                     <ItemsControl ItemsSource="{x:Bind ImpactProfileRows}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="local:KpiBarRow">
                                                 <StackPanel Margin="0,4" Spacing="4">
                                                     <Grid><TextBlock Text="{x:Bind Label}" FontWeight="SemiBold" /><TextBlock Text="{x:Bind ValueText}" HorizontalAlignment="Right" /></Grid>
-                                                    <ProgressBar Value="{x:Bind Percent}" Maximum="100" Height="12" Foreground="{StaticResource KpiForestBrush}" Background="{StaticResource KpiLimeBrush}" />
-                                                    <TextBlock Text="{x:Bind Detail}" Foreground="#FF707970" FontSize="11" />
+                                                    <ProgressBar Value="{x:Bind Percent}" Maximum="100" Height="12" Foreground="{ThemeResource KpiAccentTextBrush}" Background="{ThemeResource KpiLimeBrush}" />
+                                                    <TextBlock Text="{x:Bind Detail}" Foreground="{ThemeResource KpiMutedBrush}" FontSize="11" />
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -342,16 +399,16 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                     <Grid>
-                                        <ProgressRing x:Name="ReadinessRing" Width="150" Height="150" IsIndeterminate="False" Maximum="100" Foreground="{StaticResource KpiLeafBrush}" />
+                                        <ProgressRing x:Name="ReadinessRing" Width="150" Height="150" IsIndeterminate="False" Maximum="100" Foreground="{ThemeResource KpiLeafBrush}" />
                                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock x:Name="ReadinessPercentText" Text="0%" FontSize="27" FontWeight="Bold" HorizontalAlignment="Center" />
-                                            <TextBlock Text="ready" Foreground="#FF69736A" HorizontalAlignment="Center" />
+                                            <TextBlock Text="ready" Foreground="{ThemeResource KpiMutedBrush}" HorizontalAlignment="Center" />
                                         </StackPanel>
                                     </Grid>
                                     <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
                                         <TextBlock Text="Data readiness" Style="{StaticResource KpiCardTitleStyle}" />
-                                        <TextBlock Text="Only Calculated tree records contribute to benefit totals. Planting-area results are reported independently." Foreground="#FF69736A" TextWrapping="Wrap" />
-                                        <TextBlock x:Name="ReadinessDetailText" Text="Refresh to inspect status coverage." FontWeight="SemiBold" Foreground="{StaticResource KpiForestBrush}" TextWrapping="Wrap" />
+                                        <TextBlock Text="Only Calculated tree records contribute to benefit totals. Planting-area results are reported independently." Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
+                                        <TextBlock x:Name="ReadinessDetailText" Text="Refresh to inspect status coverage." FontWeight="SemiBold" Foreground="{ThemeResource KpiAccentTextBrush}" TextWrapping="Wrap" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -365,7 +422,7 @@
                                                 <Grid Margin="0,3" ColumnSpacing="10">
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="140" /><ColumnDefinition Width="*" /><ColumnDefinition Width="58" /></Grid.ColumnDefinitions>
                                                     <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Detail}" />
-                                                    <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="10" Foreground="{StaticResource KpiForestBrush}" Background="#FFE1E8DE" />
+                                                    <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="10" Foreground="{ThemeResource KpiAccentTextBrush}" Background="{ThemeResource KpiChartTrackBrush}" />
                                                     <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" FontWeight="SemiBold" />
                                                 </Grid>
                                             </DataTemplate>
@@ -383,7 +440,7 @@
                                                 <Grid Margin="0,3" ColumnSpacing="10">
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="150" /><ColumnDefinition Width="*" /><ColumnDefinition Width="78" /></Grid.ColumnDefinitions>
                                                     <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" />
-                                                    <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="10" Foreground="{StaticResource KpiLeafBrush}" Background="#FFE1E8DE" />
+                                                    <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="10" Foreground="{ThemeResource KpiLeafBrush}" Background="{ThemeResource KpiChartTrackBrush}" />
                                                     <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" FontWeight="SemiBold" />
                                                 </Grid>
                                             </DataTemplate>
@@ -398,11 +455,11 @@
 
             <PivotItem Header="Design scenarios">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <Grid Background="{StaticResource KpiCanvasBrush}" Padding="22" CornerRadius="20" RowSpacing="16">
+                    <Grid Background="{ThemeResource KpiCanvasBrush}" Padding="22" CornerRadius="20" RowSpacing="16">
                         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                         <StackPanel Spacing="4">
                             <TextBlock Text="Design-option comparison" FontSize="24" FontWeight="Bold" />
-                            <TextBlock Text="Compares every Revit design option in the loaded snapshot. A year found in an option name is used as that option's outlook; otherwise the selected outlook is used." Foreground="#FF687269" TextWrapping="Wrap" />
+                            <TextBlock Text="Compares every Revit design option in the loaded snapshot. A year found in an option name is used as that option's outlook; otherwise the selected outlook is used." Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                         </StackPanel>
                         <Border Grid.Row="1" Style="{StaticResource KpiSurfaceStyle}" Margin="0,2,0,0">
                             <StackPanel Spacing="12">
@@ -420,9 +477,9 @@
                                             <Grid ColumnSpacing="12" Margin="0,7">
                                                 <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="150" /><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /></Grid.ColumnDefinitions>
                                                 <TextBlock Text="{x:Bind DesignOption}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Grid.Column="1" Text="{x:Bind Inventory}" Foreground="#FF687269" />
-                                                <TextBlock Grid.Column="2" Text="{x:Bind SpeciesCount}" Foreground="#FF687269" TextWrapping="Wrap" />
-                                                <ProgressBar Grid.Column="3" Value="{x:Bind Percent}" Maximum="100" Height="15" Foreground="{StaticResource KpiForestBrush}" Background="#FFDCE6D8" />
+                                                <TextBlock Grid.Column="1" Text="{x:Bind Inventory}" Foreground="{ThemeResource KpiMutedBrush}" />
+                                                <TextBlock Grid.Column="2" Text="{x:Bind SpeciesCount}" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
+                                                <ProgressBar Grid.Column="3" Value="{x:Bind Percent}" Maximum="100" Height="15" Foreground="{ThemeResource KpiAccentTextBrush}" Background="{ThemeResource KpiChartTrackBrush}" />
                                                 <TextBlock Grid.Column="4" Text="{x:Bind ProjectedCarbon}" HorizontalAlignment="Right" FontWeight="SemiBold" />
                                             </Grid>
                                         </DataTemplate>
@@ -441,7 +498,7 @@
                                                 <Grid Margin="0,4" ColumnSpacing="10">
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="130" /><ColumnDefinition Width="*" /><ColumnDefinition Width="70" /></Grid.ColumnDefinitions>
                                                     <TextBlock Text="{x:Bind Label}" />
-                                                    <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="11" Foreground="{StaticResource KpiLeafBrush}" Background="#FFE1E8DE" />
+                                                    <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="11" Foreground="{ThemeResource KpiLeafBrush}" Background="{ThemeResource KpiChartTrackBrush}" />
                                                     <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" />
                                                 </Grid>
                                             </DataTemplate>
@@ -452,7 +509,7 @@
                             <Border Grid.Column="1" Style="{StaticResource KpiSurfaceStyle}">
                                 <StackPanel Spacing="8">
                                     <TextBlock Text="Projection method" Style="{StaticResource KpiCardTitleStyle}" />
-                                    <TextBlock Text="The graphic outlook multiplies the currently stored annual benefit rate by the selected year span. It is a transparent scenario view, not a growth simulation." TextWrapping="Wrap" Foreground="#FF586359" />
+                                    <TextBlock Text="The graphic outlook multiplies the currently stored annual benefit rate by the selected year span. It is a transparent scenario view, not a growth simulation." TextWrapping="Wrap" Foreground="{ThemeResource KpiMutedBrush}" />
                                     <TextBlock Text="• Tree currency is normalized to the project currency." TextWrapping="Wrap" />
                                     <TextBlock Text="• Carbon, pollution, and runoff combine compatible tree and planting-area results." TextWrapping="Wrap" />
                                     <TextBlock Text="• Planting-area GWP stays a one-time baseline." TextWrapping="Wrap" />
@@ -466,24 +523,24 @@
 
             <PivotItem Header="Data explorer">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <Grid Background="{StaticResource KpiCanvasBrush}" Padding="22" CornerRadius="20" RowSpacing="18">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="420" />
+                    <Grid Background="{ThemeResource KpiCanvasBrush}" Padding="22" CornerRadius="20" RowSpacing="18">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="420" />
                         </Grid.RowDefinitions>
 
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                             <StackPanel Spacing="3">
-                                <TextBlock Text="CALCULATION STATUS" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiForestBrush}" />
-                                <TextBlock Text="Tree records by status — select a card to isolate it below" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource KpiInkBrush}" />
+                                <TextBlock Text="CALCULATION STATUS" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAccentTextBrush}" />
+                                <TextBlock Text="Tree records by status — select a card to isolate it below" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource KpiInkBrush}" />
                             </StackPanel>
                             <ToggleSwitch Grid.Column="1" x:Name="PeriodToggle" IsOn="True" OnContent="Annual" OffContent="Lifetime" Toggled="PeriodToggle_Toggled" VerticalAlignment="Center" />
                         </Grid>
@@ -492,40 +549,40 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border x:Name="CalculatedCard" Style="{StaticResource KpiStatusCardStyle}" Tag="Calculated" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="CALCULATED" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiForestBrush}" /><TextBlock x:Name="CalculatedCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
-                            <Border x:Name="ReadyCard" Grid.Column="1" Style="{StaticResource KpiStatusCardStyle}" Tag="Ready" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="READY" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiForestBrush}" /><TextBlock x:Name="ReadyCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
-                            <Border x:Name="StaleCard" Grid.Column="2" Style="{StaticResource KpiStatusCardStyle}" Tag="Stale" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="STALE" Style="{StaticResource KpiEyebrowStyle}" Foreground="#FFB25E00" /><TextBlock x:Name="StaleCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
-                            <Border x:Name="MissingCard" Grid.Column="3" Style="{StaticResource KpiStatusCardStyle}" Tag="MissingInput" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="MISSING" Style="{StaticResource KpiEyebrowStyle}" Foreground="#FFB25E00" /><TextBlock x:Name="MissingCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
-                            <Border x:Name="InvalidCard" Grid.Column="4" Style="{StaticResource KpiStatusCardStyle}" Tag="InvalidInput" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="INVALID" Style="{StaticResource KpiEyebrowStyle}" Foreground="#FFC4262E" /><TextBlock x:Name="InvalidCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
-                            <Border x:Name="WarningCard" Grid.Column="5" Style="{StaticResource KpiStatusCardStyle}" Tag="APIWarning" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="API WARNING" Style="{StaticResource KpiEyebrowStyle}" Foreground="#FFB25E00" /><TextBlock x:Name="WarningCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
-                            <Border x:Name="ErrorCard" Grid.Column="6" Style="{StaticResource KpiStatusCardStyle}" Tag="APIError" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="API ERROR" Style="{StaticResource KpiEyebrowStyle}" Foreground="#FFC4262E" /><TextBlock x:Name="ErrorCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="CalculatedCard" Style="{StaticResource KpiStatusCardStyle}" Tag="Calculated" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="CALCULATED" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAccentTextBrush}" /><TextBlock x:Name="CalculatedCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="ReadyCard" Grid.Column="1" Style="{StaticResource KpiStatusCardStyle}" Tag="Ready" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="READY" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAccentTextBrush}" /><TextBlock x:Name="ReadyCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="StaleCard" Grid.Column="2" Style="{StaticResource KpiStatusCardStyle}" Tag="Stale" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="STALE" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource LimWarningBrush}" /><TextBlock x:Name="StaleCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="MissingCard" Grid.Column="3" Style="{StaticResource KpiStatusCardStyle}" Tag="MissingInput" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="MISSING" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource LimWarningBrush}" /><TextBlock x:Name="MissingCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="InvalidCard" Grid.Column="4" Style="{StaticResource KpiStatusCardStyle}" Tag="InvalidInput" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="INVALID" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource LimErrorBrush}" /><TextBlock x:Name="InvalidCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="WarningCard" Grid.Column="5" Style="{StaticResource KpiStatusCardStyle}" Tag="APIWarning" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="API WARNING" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource LimWarningBrush}" /><TextBlock x:Name="WarningCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
+                            <Border x:Name="ErrorCard" Grid.Column="6" Style="{StaticResource KpiStatusCardStyle}" Tag="APIError" Tapped="StatusCard_Tapped"><StackPanel Spacing="2"><TextBlock Text="API ERROR" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource LimErrorBrush}" /><TextBlock x:Name="ErrorCountText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel></Border>
                         </Grid>
 
-                        <TextBlock Grid.Row="2" x:Name="PeriodLabelText" Foreground="#FF69736A" Text="Showing Annual benefits — click a status card above to filter trees." />
+                        <TextBlock Grid.Row="2" x:Name="PeriodLabelText" Foreground="{ThemeResource KpiMutedBrush}" Text="Showing Annual benefits — click a status card above to filter trees." />
 
                         <Grid Grid.Row="3" ColumnSpacing="10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="TREES" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="TreeCountText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="TreeExcludedText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" /></StackPanel></Border>
-                            <Border Grid.Column="1" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA / COUNT" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="FloorCountText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorAreaText" FontSize="10" Foreground="#FF69736A" /></StackPanel></Border>
-                            <Border Grid.Column="2" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA CARBON / GWP" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="FloorCarbonText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorGwpText" FontSize="10" Foreground="#FF69736A" /></StackPanel></Border>
-                            <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA RUNOFF / POLLUTION" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" /><TextBlock x:Name="FloorRunoffText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorPollutionText" FontSize="10" Foreground="#FF69736A" /></StackPanel></Border>
+                            <Border Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="TREES" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="TreeCountText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="TreeExcludedText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" /></StackPanel></Border>
+                            <Border Grid.Column="1" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA / COUNT" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="FloorCountText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorAreaText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" /></StackPanel></Border>
+                            <Border Grid.Column="2" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA CARBON / GWP" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="FloorCarbonText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorGwpText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" /></StackPanel></Border>
+                            <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA RUNOFF / POLLUTION" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" /><TextBlock x:Name="FloorRunoffText" Text="—" FontSize="18" FontWeight="SemiBold" /><TextBlock x:Name="FloorPollutionText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" /></StackPanel></Border>
                             <Border Grid.Column="4" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="AREA BENEFIT" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="FloorCostSavedText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel></Border>
                             <Border Grid.Column="5" Style="{StaticResource KpiMetricCardStyle}"><StackPanel Spacing="2"><TextBlock Text="CURRENCY" Style="{StaticResource KpiEyebrowStyle}" /><TextBlock x:Name="CurrencyText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel></Border>
                         </Grid>
 
                         <!-- Benefit swim lanes: one per i-Tree benefit category, each a category total
-                             followed by its own component metrics — same grouping, order, and labels as
-                             the public i-Tree "MyTree Benefits" report (Carbon Dioxide Uptake / Storm
-                             Water Mitigation / Air Pollution Removal), Carbon first, then Stormwater,
-                             then Air Quality, matching every other category grouping in this dashboard. -->
-                        <Border Grid.Row="4" Background="White" BorderBrush="{StaticResource KpiForestBrush}" BorderThickness="6,1,1,1" CornerRadius="14" Padding="18,14">
+                        followed by its own component metrics — same grouping, order, and labels as
+                        the public i-Tree "MyTree Benefits" report (Carbon Dioxide Uptake / Storm
+                        Water Mitigation / Air Pollution Removal), Carbon first, then Stormwater,
+                        then Air Quality, matching every other category grouping in this dashboard. -->
+                        <Border Grid.Row="4" Background="{ThemeResource KpiSurfaceBrush}" BorderBrush="{ThemeResource KpiForestBrush}" BorderThickness="6,1,1,1" CornerRadius="14" Padding="18,14">
                             <Grid ColumnSpacing="24">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="230" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                 <StackPanel Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="CARBON DIOXIDE UPTAKE" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiForestBrush}" TextWrapping="Wrap" />
-                                    <TextBlock x:Name="CarbonUptakeCostText" Text="—" FontSize="22" FontWeight="Bold" Foreground="{StaticResource KpiInkBrush}" />
+                                    <TextBlock Text="CARBON DIOXIDE UPTAKE" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAccentTextBrush}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="CarbonUptakeCostText" Text="—" FontSize="22" FontWeight="Bold" Foreground="{ThemeResource KpiInkBrush}" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="36" VerticalAlignment="Center">
                                     <StackPanel>
@@ -540,12 +597,12 @@
                             </Grid>
                         </Border>
 
-                        <Border Grid.Row="5" Background="White" BorderBrush="{StaticResource KpiWaterBrush}" BorderThickness="6,1,1,1" CornerRadius="14" Padding="18,14">
+                        <Border Grid.Row="5" Background="{ThemeResource KpiSurfaceBrush}" BorderBrush="{ThemeResource KpiWaterTextBrush}" BorderThickness="6,1,1,1" CornerRadius="14" Padding="18,14">
                             <Grid ColumnSpacing="24">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="230" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                 <StackPanel Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="STORM WATER MITIGATION" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiWaterBrush}" TextWrapping="Wrap" />
-                                    <TextBlock x:Name="StormWaterCostText" Text="—" FontSize="22" FontWeight="Bold" Foreground="{StaticResource KpiInkBrush}" />
+                                    <TextBlock Text="STORM WATER MITIGATION" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiWaterTextBrush}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="StormWaterCostText" Text="—" FontSize="22" FontWeight="Bold" Foreground="{ThemeResource KpiInkBrush}" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="36" VerticalAlignment="Center">
                                     <StackPanel>
@@ -560,12 +617,12 @@
                             </Grid>
                         </Border>
 
-                        <Border Grid.Row="6" Background="White" BorderBrush="{StaticResource KpiAmberCardBrush}" BorderThickness="6,1,1,1" CornerRadius="14" Padding="18,14">
+                        <Border Grid.Row="6" Background="{ThemeResource KpiSurfaceBrush}" BorderBrush="{ThemeResource KpiAmberTextBrush}" BorderThickness="6,1,1,1" CornerRadius="14" Padding="18,14">
                             <Grid ColumnSpacing="24">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="230" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                 <StackPanel Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="AIR POLLUTION REMOVAL" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiAmberCardBrush}" TextWrapping="Wrap" />
-                                    <TextBlock x:Name="AirPollutionCostText" Text="—" FontSize="22" FontWeight="Bold" Foreground="{StaticResource KpiInkBrush}" />
+                                    <TextBlock Text="AIR POLLUTION REMOVAL" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAmberTextBrush}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="AirPollutionCostText" Text="—" FontSize="22" FontWeight="Bold" Foreground="{ThemeResource KpiInkBrush}" />
                                 </StackPanel>
                                 <ItemsControl Grid.Column="1" ItemsSource="{x:Bind AirPollutantRows}" VerticalAlignment="Center">
                                     <ItemsControl.ItemsPanel>
@@ -596,23 +653,23 @@
                                 </Grid>
                                 <StackPanel Grid.Column="1" Spacing="10" VerticalAlignment="Center">
                                     <TextBlock Text="Benefit composition" Style="{StaticResource KpiCardTitleStyle}" />
-                                    <TextBlock Text="Share of estimated dollar benefit by category" Foreground="#FF69736A" FontSize="12" TextWrapping="Wrap" />
+                                    <TextBlock Text="Share of estimated dollar benefit by category" Foreground="{ThemeResource KpiMutedBrush}" FontSize="12" TextWrapping="Wrap" />
                                     <StackPanel Spacing="8">
                                         <Grid ColumnSpacing="8">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                            <Ellipse Width="9" Height="9" Fill="{StaticResource KpiForestBrush}" VerticalAlignment="Center" />
+                                            <Ellipse Width="9" Height="9" Fill="{ThemeResource KpiAccentTextBrush}" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="1" Text="Carbon dioxide uptake" FontSize="12.5" Margin="6,0,0,0" />
                                             <TextBlock Grid.Column="2" x:Name="RingCarbonLegendText" Text="—" FontSize="12.5" FontWeight="SemiBold" />
                                         </Grid>
                                         <Grid ColumnSpacing="8">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                            <Ellipse Width="9" Height="9" Fill="{StaticResource KpiWaterBrush}" VerticalAlignment="Center" />
+                                            <Ellipse Width="9" Height="9" Fill="{ThemeResource KpiWaterTextBrush}" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="1" Text="Storm water mitigation" FontSize="12.5" Margin="6,0,0,0" />
                                             <TextBlock Grid.Column="2" x:Name="RingStormWaterLegendText" Text="—" FontSize="12.5" FontWeight="SemiBold" />
                                         </Grid>
                                         <Grid ColumnSpacing="8">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                            <Ellipse Width="9" Height="9" Fill="{StaticResource KpiChartAmberBrush}" VerticalAlignment="Center" />
+                                            <Ellipse Width="9" Height="9" Fill="{ThemeResource KpiChartAmberBrush}" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="1" Text="Air pollution removal" FontSize="12.5" Margin="6,0,0,0" />
                                             <TextBlock Grid.Column="2" x:Name="RingAirPollutionLegendText" Text="—" FontSize="12.5" FontWeight="SemiBold" />
                                         </Grid>
@@ -629,12 +686,12 @@
                                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                                     <TextBlock Text="By species (trees)" Style="{StaticResource KpiCardTitleStyle}" />
                                     <!-- Columns grouped into the same three i-Tree benefit categories, in the same
-                                         Carbon / Stormwater / Air Quality order, as the KPI cards and donut above. -->
+                                    Carbon / Stormwater / Air Quality order, as the KPI cards and donut above. -->
                                     <Grid Grid.Row="1" ColumnSpacing="6" Padding="5,0">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="48" /><ColumnDefinition Width="*" /><ColumnDefinition Width="42" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="3" Grid.ColumnSpan="2" Text="CARBON" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiForestBrush}" />
-                                        <TextBlock Grid.Column="5" Text="WATER" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiWaterBrush}" />
-                                        <TextBlock Grid.Column="6" Grid.ColumnSpan="2" Text="AIR QUALITY" Style="{StaticResource KpiEyebrowStyle}" Foreground="{StaticResource KpiChartAmberBrush}" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Column="3" Grid.ColumnSpan="2" Text="CARBON" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAccentTextBrush}" />
+                                        <TextBlock Grid.Column="5" Text="WATER" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiWaterTextBrush}" />
+                                        <TextBlock Grid.Column="6" Grid.ColumnSpan="2" Text="AIR QUALITY" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiChartAmberBrush}" TextWrapping="Wrap" />
                                     </Grid>
                                     <Grid Grid.Row="2" ColumnSpacing="6" Padding="5,0">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="48" /><ColumnDefinition Width="*" /><ColumnDefinition Width="42" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /><ColumnDefinition Width="65" /></Grid.ColumnDefinitions>
@@ -698,19 +755,19 @@
                                 </Grid>
                             </Border>
                         </Grid>
-                </Grid>
+                    </Grid>
                 </ScrollViewer>
             </PivotItem>
 
             <PivotItem Header="Site &amp; Biodiversity">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <Grid Background="{StaticResource KpiCanvasBrush}" Padding="22" CornerRadius="20" RowSpacing="16">
+                    <Grid Background="{ThemeResource KpiCanvasBrush}" Padding="22" CornerRadius="20" RowSpacing="16">
                         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                         <StackPanel Spacing="4">
                             <TextBlock Text="Site &amp; Biodiversity KPIs" FontSize="24" FontWeight="Bold" />
-                            <TextBlock Text="Canopy Cover and Softscape Surface Ratio are percentages of the site boundary chosen below: a Revit property line, all property lines, or the area entered on Project Information (!_S_PLT_Site_TotalArea_Area). Habitat Connectivity Score is entered after external GIS connectivity modelling, not calculated here." Foreground="#FF687269" TextWrapping="Wrap" />
+                            <TextBlock Text="Canopy Cover and Softscape Surface Ratio are percentages of the site boundary chosen below: a Revit property line, all property lines, or the area entered on Project Information (!_S_PLT_Site_TotalArea_Area). Habitat Connectivity Score is entered after external GIS connectivity modelling, not calculated here." Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                             <ComboBox x:Name="SiteBoundaryBox" Header="Site boundary (for Canopy Cover and Softscape Surface Ratio)" MinWidth="420" Margin="0,6,0,0"
-                                      DisplayMemberPath="Label" SelectionChanged="SiteBoundaryBox_SelectionChanged" />
+                                DisplayMemberPath="Label" SelectionChanged="SiteBoundaryBox_SelectionChanged" />
                         </StackPanel>
 
                         <Grid Grid.Row="1" ColumnSpacing="10">
@@ -719,28 +776,28 @@
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="CANOPY COVER" Style="{StaticResource KpiEyebrowStyle}" />
                                     <TextBlock x:Name="CanopyCoverText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="CanopyCoverDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="CanopyCoverDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="1" Style="{StaticResource KpiMetricCardStyle}">
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="SOFTSCAPE SURFACE RATIO" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
                                     <TextBlock x:Name="SoftscapeRatioText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="SoftscapeRatioDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="SoftscapeRatioDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="2" Style="{StaticResource KpiMetricCardStyle}">
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="BIODIVERSITY ADDED" Style="{StaticResource KpiEyebrowStyle}" />
                                     <TextBlock x:Name="BiodiversityAddedText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="BiodiversityAddedDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="BiodiversityAddedDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}">
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="NATIVE SPECIES RATIO" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
                                     <TextBlock x:Name="NativeSpeciesRatioText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="NativeSpeciesRatioDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="NativeSpeciesRatioDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                         </Grid>
@@ -751,28 +808,28 @@
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="PHENOLOGICAL RESILIENCE" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
                                     <TextBlock x:Name="PhenologicalResilienceText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="PhenologicalResilienceDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="PhenologicalResilienceDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="1" Style="{StaticResource KpiMetricCardStyle}">
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="FUNCTIONAL DIVERSITY INDEX" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
                                     <TextBlock x:Name="FunctionalDiversityText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="FunctionalDiversityDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="FunctionalDiversityDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="2" Style="{StaticResource KpiMetricCardStyle}">
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="HABITAT CONNECTIVITY SCORE" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
                                     <TextBlock x:Name="HabitatConnectivityText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="HabitatConnectivityDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="HabitatConnectivityDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}">
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="LIGHTING IMPACT REDUCTION" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
                                     <TextBlock x:Name="LightingImpactText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="LightingImpactDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="LightingImpactDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                         </Grid>
@@ -783,28 +840,28 @@
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="BNG NET CHANGE (ON-SITE HABITAT)" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
                                     <TextBlock x:Name="BngNetChangeText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="BngNetChangeDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="BngNetChangeDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="1" Style="{StaticResource KpiMetricCardStyle}">
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="BNG BASELINE UNITS" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
                                     <TextBlock x:Name="BngBaselineText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="BngBaselineDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="BngBaselineDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="2" Style="{StaticResource KpiMetricCardStyle}">
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="BNG POST-INTERVENTION UNITS" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
                                     <TextBlock x:Name="BngPostText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="BngPostDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="BngPostDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}">
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="BNG NEEDS ATTENTION" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
                                     <TextBlock x:Name="BngAttentionText" Text="—" FontSize="20" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="BngAttentionDetailText" FontSize="10" Foreground="#FF69736A" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="BngAttentionDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                         </Grid>
@@ -812,14 +869,14 @@
                         <Border Grid.Row="4" Style="{StaticResource KpiSurfaceStyle}">
                             <StackPanel Spacing="10">
                                 <TextBlock Text="BNG post-intervention habitat units by broad habitat" Style="{StaticResource KpiCardTitleStyle}" />
-                                <TextBlock x:Name="BngHabitatEmptyText" Foreground="#FF586359" TextWrapping="Wrap" Visibility="Collapsed" />
+                                <TextBlock x:Name="BngHabitatEmptyText" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
                                 <ItemsControl ItemsSource="{x:Bind BngHabitatRows}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="local:KpiBarRow">
                                             <Grid Margin="0,3" ColumnSpacing="10">
                                                 <Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="*" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
                                                 <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Detail}" />
-                                                <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="10" Foreground="{StaticResource KpiLeafBrush}" Background="#FFE1E8DE" />
+                                                <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="10" Foreground="{ThemeResource KpiLeafBrush}" Background="{ThemeResource KpiChartTrackBrush}" />
                                                 <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" FontWeight="SemiBold" />
                                             </Grid>
                                         </DataTemplate>
@@ -831,7 +888,7 @@
                         <Border Grid.Row="5" Style="{StaticResource KpiSurfaceStyle}">
                             <StackPanel Spacing="6">
                                 <TextBlock Text="Data entry" Style="{StaticResource KpiCardTitleStyle}" />
-                                <TextBlock TextWrapping="Wrap" Foreground="#FF586359" Text="Tag each Planting Type's !_S_PLT_iTreeSpecies_NativeStatus_Text, _BloomMonths_Text, and _EcologicalFunctions_Text; each Lighting Fixture Type's !_S_PLT_Lighting_DarkSkyCompliant_Text (Yes/No); and Project Information's !_S_PLT_Site_TotalArea_Area and !_S_PLT_Site_HabitatConnectivityScore_Number. Softscape Surface Ratio infers Pervious/Impervious automatically from each floor's LDS Type — tag !_S_PLT_LDS_SurfaceClass_Text only to override that guess. BNG units come from Floor Calculator's BNG tab and each floor's Revit phases: floors created in the first phase (e.g. Existing) are the baseline (metric sheet A-1) — retained, or lost if demolished, and enhanced (A-3) when !_S_PLT_BNGInput_Enhanced_YesNo is ticked; floors created later (e.g. New Construction) are new habitat (A-2). Net change = post-intervention (retained + enhanced + created) − baseline; recalculate in Floor Calculator if a floor shows as stale. Run &quot;Import Shared Parameter&quot; first if these parameters aren't bound yet." />
+                                <TextBlock TextWrapping="Wrap" Foreground="{ThemeResource KpiMutedBrush}" Text="Tag each Planting Type's !_S_PLT_iTreeSpecies_NativeStatus_Text, _BloomMonths_Text, and _EcologicalFunctions_Text; each Lighting Fixture Type's !_S_PLT_Lighting_DarkSkyCompliant_Text (Yes/No); and Project Information's !_S_PLT_Site_TotalArea_Area and !_S_PLT_Site_HabitatConnectivityScore_Number. Softscape Surface Ratio infers Pervious/Impervious automatically from each floor's LDS Type — tag !_S_PLT_LDS_SurfaceClass_Text only to override that guess. BNG units come from Floor Calculator's BNG tab and each floor's Revit phases: floors created in the first phase (e.g. Existing) are the baseline (metric sheet A-1) — retained, or lost if demolished, and enhanced (A-3) when !_S_PLT_BNGInput_Enhanced_YesNo is ticked; floors created later (e.g. New Construction) are new habitat (A-2). Net change = post-intervention (retained + enhanced + created) − baseline; recalculate in Floor Calculator if a floor shows as stale. Run &quot;Import Shared Parameter&quot; first if these parameters aren't bound yet." />
                             </StackPanel>
                         </Border>
                     </Grid>
@@ -842,7 +899,7 @@
         <Grid Grid.Row="3" Margin="0,8,0,0" ColumnSpacing="8">
             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
             <Button Grid.Column="4" Content="Show original data" Click="ShowOriginalData_Click" Style="{StaticResource LimSecondaryButtonStyle}"
-                    ToolTipService.ToolTip="One row per tree (or planting area) with every value exactly as stored in Revit" />
+                ToolTipService.ToolTip="One row per tree (or planting area) with every value exactly as stored in Revit" />
             <Button Content="Export PNG" Click="ExportImage_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
             <Button Grid.Column="1" Content="Export SVG" Click="ExportSvg_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
             <Button Grid.Column="2" Content="Export Excel" Click="ExportExcel_Click" Style="{StaticResource LimSecondaryButtonStyle}" />

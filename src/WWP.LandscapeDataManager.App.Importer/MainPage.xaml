@@ -5,348 +5,383 @@
     xmlns:models="using:WWP.LandscapeDataManager.Shared.Models"
     xmlns:local="using:WWP.LandscapeDataManager.App.Importer">
 
-    <ScrollViewer>
-        <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="{StaticResource LimPageMargin}">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="{StaticResource LimPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" ColumnSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Spacing="4">
-                    <TextBlock Text="Planting Data Sync" Style="{StaticResource LimPageTitleStyle}" />
-                    <TextBlock
-                        Text="Map source columns to Revit parameters, preview the changes, then apply. The source and instance pairing are under Source &amp; pairing."
-                        Style="{StaticResource LimPageSubtitleStyle}" />
-                </StackPanel>
-                <ToggleButton Grid.Column="1" x:Name="SourcePanelToggle" Content="Source &amp; pairing…" VerticalAlignment="Top"
-                              Checked="SourcePanelToggle_Changed" Unchecked="SourcePanelToggle_Changed"
-                              ToolTipService.ToolTip="Choose the data source (Airtable or Excel), reload it, and set up how Revit instances pair with source rows." />
-                <Button Grid.Column="2" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
-            </Grid>
-
-            <!-- Always-visible source status -->
-            <Grid Grid.Row="1" Margin="0,12,0,0" ColumnSpacing="10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="ConnectStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" TextWrapping="Wrap"
-                           Text="Loading the source and Revit catalogs automatically..." />
-                <Button Grid.Column="1" Content="Reload" Click="Connect_Click" Style="{StaticResource LimSecondaryButtonStyle}"
-                        ToolTipService.ToolTip="Reload the source data and the Revit catalogs." />
-            </Grid>
-
-            <!-- Source & pairing (hidden until asked for) -->
-            <StackPanel Grid.Row="2" x:Name="SourcePanel" Visibility="Collapsed" Spacing="16" Margin="0,16,0,0">
-                <Border Style="{StaticResource LimCardStyle}">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="SOURCE" Style="{StaticResource LimSectionHeaderStyle}" />
-                        <ComboBox x:Name="SourceKindBox" Header="Data source" SelectedIndex="0"
-                                  SelectionChanged="SourceKindBox_SelectionChanged" HorizontalAlignment="Stretch">
-                            <ComboBoxItem Content="Airtable (API token)" />
-                            <ComboBoxItem Content="Excel workbook" />
-                        </ComboBox>
-
-                        <StackPanel x:Name="AirtablePanel" Spacing="6">
-                            <TextBlock x:Name="AirtableTokenStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
-                            <TextBlock x:Name="AirtableSourceStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
-                        </StackPanel>
-
-                        <Grid x:Name="ExcelPanel" ColumnSpacing="8" Visibility="Collapsed">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="ExcelPathBox" Header="Excel workbook" PlaceholderText="Select an .xlsx or .xlsm file" />
-                            <Button Grid.Column="1" Content="Browse..." Click="BrowseExcel_Click"
-                                    VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
-                        </Grid>
-
-                        <Button x:Name="ConnectButton" Content="Reload source &amp; Revit catalogs" Click="Connect_Click"
-                                Style="{StaticResource LimSecondaryButtonStyle}" />
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource LimCardStyle}">
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="INSTANCE PAIRING" Style="{StaticResource LimSectionHeaderStyle}" />
-                        <TextBlock
-                            Text="An instance with no prior sync has no stable link to a source row yet — this tool never guesses a first match by name. Match many at once by a value both sides share (e.g. a Mark/tag number), or pair one Revit selection at a time."
-                            Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
-
-                        <Grid ColumnSpacing="10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <ComboBox x:Name="InstanceKeyParameterBox" Header="Match Revit instances by parameter"
-                                      ItemsSource="{x:Bind InstanceKeyParameterOptions}" DisplayMemberPath="DisplayName"
-                                      PlaceholderText="Select a Revit parameter" HorizontalAlignment="Stretch" />
-                            <ComboBox Grid.Column="1" x:Name="InstanceKeySourceFieldBox" Header="...to this source column"
-                                      ItemsSource="{x:Bind SourceHeaderOptions}"
-                                      PlaceholderText="Select a source column" HorizontalAlignment="Stretch" />
-                            <Button Grid.Column="2" Content="Save matching" Click="SaveInstanceMatchKey_Click"
-                                    VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
-                            <Button Grid.Column="3" Content="Clear" Click="ClearInstanceMatchKey_Click"
-                                    VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
-                        </Grid>
-                        <TextBlock x:Name="InstanceMatchKeyStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
-
-                        <Grid ColumnSpacing="10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="PairSourceRecordIdBox" Header="Or pair one: source record ID for the current Revit selection" />
-                            <Button Grid.Column="1" Content="Pair selected Revit element" Click="PairSelected_Click"
-                                    VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
-                        </Grid>
-                        <TextBlock x:Name="PairingStatusText" Style="{StaticResource LimMutedTextStyle}" Text="—" />
-                    </StackPanel>
-                </Border>
+        <Grid Grid.Row="0" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Planting Data Sync" Style="{StaticResource LimPageTitleStyle}" />
+                <TextBlock
+                    Text="Map source columns to Revit parameters, preview the changes, then apply. The source and instance pairing are under Source &amp; pairing."
+                    Style="{StaticResource LimPageSubtitleStyle}" />
             </StackPanel>
-
-            <!-- Map columns -->
-            <Border Grid.Row="3" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
-                <StackPanel Spacing="12">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="MAP COLUMNS" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Content="Auto-map all" Click="AutoMap_Click"
-                                Style="{StaticResource LimSecondaryButtonStyle}" />
-                    </Grid>
-
-                    <TextBlock Text="One row per source column. Choose Type (growth ratios, max dimensions, species assignment — one value per Revit type) or Instance (tree year, condition, crown exposure — can differ per instance). Drag a column header's edge to resize it."
-                               Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
-
-                    <Grid Padding="18,0,18,0" ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="60" />
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C0, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C1, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C2, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C3, Mode=OneWay}" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Use" Style="{StaticResource LimColumnHeaderStyle}" />
-                        <Grid Grid.Column="1">
-                            <TextBlock Text="Source column" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Mapping:0" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <Grid Grid.Column="2">
-                            <TextBlock Text="Scope" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Mapping:1" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <Grid Grid.Column="3">
-                            <TextBlock Text="Revit parameter" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Mapping:2" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <Grid Grid.Column="4">
-                            <TextBlock Text="Unit conversion" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Mapping:3" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <TextBlock Grid.Column="5" Text="Status" Style="{StaticResource LimColumnHeaderStyle}" />
-                    </Grid>
-
-                    <ListView x:Name="MappingList" ItemsSource="{x:Bind MappingRows}" SelectionMode="None" MaxHeight="520">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="models:MappingRow">
-                                <Grid Padding="6" ColumnSpacing="10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="60" />
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C0, Mode=OneWay}" />
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C1, Mode=OneWay}" />
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C2, Mode=OneWay}" />
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C3, Mode=OneWay}" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <ToggleSwitch IsOn="{x:Bind Enabled, Mode=TwoWay}" MinWidth="0" OnContent="" OffContent="" />
-                                    <TextBlock Grid.Column="1" Text="{x:Bind SelectedAirtableField}" VerticalAlignment="Center" TextWrapping="Wrap"
-                                               ToolTipService.ToolTip="{x:Bind SelectedAirtableField}" />
-                                    <ComboBox Grid.Column="2" ItemsSource="{x:Bind ScopeOptions}" SelectedItem="{x:Bind Scope, Mode=TwoWay}"
-                                              HorizontalAlignment="Stretch" />
-                                    <ComboBox Grid.Column="3" ItemsSource="{x:Bind TargetOptions, Mode=OneWay}" SelectedItem="{x:Bind SelectedTarget, Mode=TwoWay}"
-                                              DisplayMemberPath="DisplayName" PlaceholderText="Select Revit parameter" HorizontalAlignment="Stretch" />
-                                    <ComboBox Grid.Column="4" ItemsSource="{x:Bind ConversionOptions}" SelectedItem="{x:Bind SelectedConversion, Mode=TwoWay}" HorizontalAlignment="Stretch" />
-                                    <TextBlock Grid.Column="5" Text="{x:Bind MappingStatus, Mode=OneWay}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </StackPanel>
-            </Border>
-
-            <!-- Preview & Apply -->
-            <Border Grid.Row="4" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
-                <StackPanel Spacing="12">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="PREVIEW &amp; APPLY" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Content="Preview changes" Click="Preview_Click"
-                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,10,0" />
-                        <Button Grid.Column="2" x:Name="ApplyButton" Content="Apply to Revit" Click="Apply_Click"
-                                Style="{StaticResource LimPrimaryButtonStyle}" IsEnabled="False" />
-                    </Grid>
-                    <TextBlock x:Name="PreviewStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
-                               Text="Map at least one column, then select Preview changes." />
-                    <CheckBox x:Name="ShowIssueRowsCheckBox"
-                              Content="Show unmatched &amp; skipped rows"
-                              Checked="ShowIssueRows_Changed"
-                              Unchecked="ShowIssueRows_Changed" />
-
-                    <TextBlock Text="Type results" FontWeight="SemiBold" />
-                    <Grid Padding="18,0,18,0" ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C0, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C1, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C2, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C3, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C4, Mode=OneWay}" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid>
-                            <TextBlock Text="Status" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Results:0" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <Grid Grid.Column="1">
-                            <TextBlock Text="Family : Type" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Results:1" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <Grid Grid.Column="2">
-                            <TextBlock Text="Revit parameter" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Results:2" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <Grid Grid.Column="3">
-                            <TextBlock Text="Current" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Results:3" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <Grid Grid.Column="4">
-                            <TextBlock Text="New" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Results:4" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <TextBlock Grid.Column="5" Text="Message" Style="{StaticResource LimColumnHeaderStyle}" />
-                    </Grid>
-                    <ListView x:Name="TypeResultsList" ItemsSource="{x:Bind TypeSyncRows}" SelectionMode="None" MaxHeight="420">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="local:TypeSyncRow">
-                                <Grid Padding="6" ColumnSpacing="10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C0, Mode=OneWay}" />
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C1, Mode=OneWay}" />
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C2, Mode=OneWay}" />
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C3, Mode=OneWay}" />
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C4, Mode=OneWay}" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{x:Bind Status}" FontWeight="SemiBold" />
-                                    <TextBlock Grid.Column="1" Text="{x:Bind TypeName}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind TypeName}" />
-                                    <TextBlock Grid.Column="2" Text="{x:Bind Parameter}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Parameter}" />
-                                    <TextBlock Grid.Column="3" Text="{x:Bind CurrentValue}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="4" Text="{x:Bind ProposedValue}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="5" Text="{x:Bind Message}" Opacity="0.75" TextWrapping="Wrap" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-
-                    <TextBlock Text="Instance results" FontWeight="SemiBold" />
-                    <Grid Padding="18,0,18,0" ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C0, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C1, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C2, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C3, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C4, Mode=OneWay}" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid>
-                            <TextBlock Text="Status" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Results:0" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <Grid Grid.Column="1">
-                            <TextBlock Text="Family : Type" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Results:1" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <Grid Grid.Column="2">
-                            <TextBlock Text="Revit parameter" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Results:2" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <Grid Grid.Column="3">
-                            <TextBlock Text="Current" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Results:3" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <Grid Grid.Column="4">
-                            <TextBlock Text="New" Style="{StaticResource LimColumnHeaderStyle}" />
-                            <local:ColumnResizeGrip Tag="Results:4" Resized="ColumnGrip_Resized" />
-                        </Grid>
-                        <TextBlock Grid.Column="5" Text="Message" Style="{StaticResource LimColumnHeaderStyle}" />
-                    </Grid>
-                    <ListView x:Name="InstanceResultsList" ItemsSource="{x:Bind InstanceSyncRows}" SelectionMode="None" MaxHeight="420">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="local:InstanceSyncRow">
-                                <Grid Padding="6" ColumnSpacing="10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C0, Mode=OneWay}" />
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C1, Mode=OneWay}" />
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C2, Mode=OneWay}" />
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C3, Mode=OneWay}" />
-                                        <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C4, Mode=OneWay}" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{x:Bind Status}" FontWeight="SemiBold" />
-                                    <TextBlock Grid.Column="1" Text="{x:Bind FamilyType}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind FamilyType}" />
-                                    <TextBlock Grid.Column="2" Text="{x:Bind Parameter}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Parameter}" />
-                                    <TextBlock Grid.Column="3" Text="{x:Bind CurrentValue}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="4" Text="{x:Bind ProposedValue}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="5" Text="{x:Bind Message}" Opacity="0.75" TextWrapping="Wrap" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Button Content="Select failed" Click="SelectFailedInstances_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                        <Button Grid.Column="1" Content="Zoom to failed" Click="ZoomFailedInstances_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                        <Button Grid.Column="2" Content="Colour override failed (red)" Click="ColourFailedInstances_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                        <Button Grid.Column="3" Content="Reset colours" Click="ResetFailedColours_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                        <TextBlock Grid.Column="4" x:Name="InstanceActionStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <ProgressRing x:Name="BusyIndicator"
-                          Grid.RowSpan="5"
-                          Width="40"
-                          Height="40"
-                          IsActive="False"
-                          Visibility="Collapsed"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Center" />
+            <ToggleButton Grid.Column="1" x:Name="SourcePanelToggle" Content="Source &amp; pairing…" VerticalAlignment="Top"
+                Checked="SourcePanelToggle_Changed" Unchecked="SourcePanelToggle_Changed"
+                ToolTipService.ToolTip="Choose the data source (Airtable or Excel), reload it, and set up how Revit instances pair with source rows." />
+            <Button Grid.Column="2" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
         </Grid>
-    </ScrollViewer>
+
+        <!-- Always-visible source status -->
+        <Grid Grid.Row="1" Margin="0,12,0,0" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="ConnectStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" TextWrapping="Wrap"
+                Text="Loading the source and Revit catalogs automatically..." />
+            <Button Grid.Column="1" Content="Reload" Click="Connect_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                ToolTipService.ToolTip="Reload the source data and the Revit catalogs." />
+        </Grid>
+
+
+
+        <Pivot Grid.Row="2" x:Name="WorkflowTabs" SelectionChanged="WorkflowTabs_SelectionChanged">
+            <PivotItem Header="Map columns">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
+                    <Border MinWidth="1100" Margin="0,8,0,0" Style="{StaticResource LimCardStyle}">
+                        <Grid RowSpacing="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="MAP COLUMNS" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Content="Auto-map all" Click="AutoMap_Click"
+                                    Style="{StaticResource LimSecondaryButtonStyle}" />
+                            </Grid>
+
+                            <TextBlock Grid.Row="1" MaxWidth="{Binding ActualWidth, ElementName=MappingList}" Text="One row per source column. Choose Type (growth ratios, max dimensions, species assignment — one value per Revit type) or Instance (tree year, condition, crown exposure — can differ per instance). Drag a column header's edge to resize it."
+                                Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+
+                            <Grid Grid.Row="2" Padding="18,0,18,0" ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="60" />
+                                    <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C0, Mode=OneWay}" />
+                                    <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C1, Mode=OneWay}" />
+                                    <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C2, Mode=OneWay}" />
+                                    <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C3, Mode=OneWay}" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Use" Style="{StaticResource LimColumnHeaderStyle}" />
+                                <Grid Grid.Column="1">
+                                    <TextBlock Text="Source column" Style="{StaticResource LimColumnHeaderStyle}" />
+                                    <local:ColumnResizeGrip Tag="Mapping:0" Resized="ColumnGrip_Resized" />
+                                </Grid>
+                                <Grid Grid.Column="2">
+                                    <TextBlock Text="Scope" Style="{StaticResource LimColumnHeaderStyle}" />
+                                    <local:ColumnResizeGrip Tag="Mapping:1" Resized="ColumnGrip_Resized" />
+                                </Grid>
+                                <Grid Grid.Column="3">
+                                    <TextBlock Text="Revit parameter" Style="{StaticResource LimColumnHeaderStyle}" />
+                                    <local:ColumnResizeGrip Tag="Mapping:2" Resized="ColumnGrip_Resized" />
+                                </Grid>
+                                <Grid Grid.Column="4">
+                                    <TextBlock Text="Unit conversion" Style="{StaticResource LimColumnHeaderStyle}" />
+                                    <local:ColumnResizeGrip Tag="Mapping:3" Resized="ColumnGrip_Resized" />
+                                </Grid>
+                                <TextBlock Grid.Column="5" Text="Status" Style="{StaticResource LimColumnHeaderStyle}" />
+                            </Grid>
+
+                            <ListView Grid.Row="3" x:Name="MappingList" AutomationProperties.Name="Source column mappings" ItemsSource="{x:Bind MappingRows}" SelectionMode="None">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="models:MappingRow">
+                                        <Grid Padding="6" ColumnSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="60" />
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C0, Mode=OneWay}" />
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C1, Mode=OneWay}" />
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C2, Mode=OneWay}" />
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Mapping.C3, Mode=OneWay}" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <ToggleSwitch AutomationProperties.Name="{x:Bind SelectedAirtableField}" IsOn="{x:Bind Enabled, Mode=TwoWay}" MinWidth="0" OnContent="" OffContent="" />
+                                            <TextBlock Grid.Column="1" Text="{x:Bind SelectedAirtableField}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                                ToolTipService.ToolTip="{x:Bind SelectedAirtableField}" />
+                                            <ComboBox Grid.Column="2" AutomationProperties.Name="Mapping scope" ItemsSource="{x:Bind ScopeOptions}" SelectedItem="{x:Bind Scope, Mode=TwoWay}"
+                                                HorizontalAlignment="Stretch" />
+                                            <ComboBox Grid.Column="3" AutomationProperties.Name="Revit target parameter" ItemsSource="{x:Bind TargetOptions, Mode=OneWay}" SelectedItem="{x:Bind SelectedTarget, Mode=TwoWay}"
+                                                DisplayMemberPath="DisplayName" PlaceholderText="Select Revit parameter" HorizontalAlignment="Stretch" />
+                                            <ComboBox Grid.Column="4" AutomationProperties.Name="Unit conversion" ItemsSource="{x:Bind ConversionOptions}" SelectedItem="{x:Bind SelectedConversion, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+                                            <TextBlock Grid.Column="5" Text="{x:Bind MappingStatus, Mode=OneWay}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
+                    </Border>
+                </ScrollViewer>
+            </PivotItem>
+            <PivotItem Header="Preview &amp; apply">
+                <Border Margin="0,8,0,0" Style="{StaticResource LimCardStyle}">
+                    <Grid RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="PREVIEW &amp; APPLY" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Content="Preview changes" Click="Preview_Click"
+                                Style="{StaticResource LimSecondaryButtonStyle}" Margin="0,0,10,0" />
+                            <Button Grid.Column="2" x:Name="ApplyButton" Content="Apply to Revit" Click="Apply_Click"
+                                Style="{StaticResource LimPrimaryButtonStyle}" IsEnabled="False" />
+                        </Grid>
+                        <TextBlock Grid.Row="1" x:Name="PreviewStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
+                            Text="Map at least one column, then select Preview changes." />
+                        <CheckBox Grid.Row="2" x:Name="ShowIssueRowsCheckBox"
+                            Content="Show unmatched &amp; skipped rows"
+                            Checked="ShowIssueRows_Changed"
+                            Unchecked="ShowIssueRows_Changed" />
+
+                        <Pivot Grid.Row="3">
+                            <PivotItem Header="Type results">
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
+                                    <Grid MinWidth="1100" RowSpacing="8">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                        </Grid.RowDefinitions>
+                                        <Grid Padding="18,0,18,0" ColumnSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C0, Mode=OneWay}" />
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C1, Mode=OneWay}" />
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C2, Mode=OneWay}" />
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C3, Mode=OneWay}" />
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C4, Mode=OneWay}" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid>
+                                                <TextBlock Text="Status" Style="{StaticResource LimColumnHeaderStyle}" />
+                                                <local:ColumnResizeGrip Tag="Results:0" Resized="ColumnGrip_Resized" />
+                                            </Grid>
+                                            <Grid Grid.Column="1">
+                                                <TextBlock Text="Family : Type" Style="{StaticResource LimColumnHeaderStyle}" />
+                                                <local:ColumnResizeGrip Tag="Results:1" Resized="ColumnGrip_Resized" />
+                                            </Grid>
+                                            <Grid Grid.Column="2">
+                                                <TextBlock Text="Revit parameter" Style="{StaticResource LimColumnHeaderStyle}" />
+                                                <local:ColumnResizeGrip Tag="Results:2" Resized="ColumnGrip_Resized" />
+                                            </Grid>
+                                            <Grid Grid.Column="3">
+                                                <TextBlock Text="Current" Style="{StaticResource LimColumnHeaderStyle}" />
+                                                <local:ColumnResizeGrip Tag="Results:3" Resized="ColumnGrip_Resized" />
+                                            </Grid>
+                                            <Grid Grid.Column="4">
+                                                <TextBlock Text="New" Style="{StaticResource LimColumnHeaderStyle}" />
+                                                <local:ColumnResizeGrip Tag="Results:4" Resized="ColumnGrip_Resized" />
+                                            </Grid>
+                                            <TextBlock Grid.Column="5" Text="Message" Style="{StaticResource LimColumnHeaderStyle}" />
+                                        </Grid>
+                                        <ListView Grid.Row="1" x:Name="TypeResultsList" AutomationProperties.Name="Type sync preview" ItemsSource="{x:Bind TypeSyncRows}" SelectionMode="None">
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate x:DataType="local:TypeSyncRow">
+                                                    <Grid Padding="6" ColumnSpacing="10">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C0, Mode=OneWay}" />
+                                                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C1, Mode=OneWay}" />
+                                                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C2, Mode=OneWay}" />
+                                                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C3, Mode=OneWay}" />
+                                                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C4, Mode=OneWay}" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{x:Bind Status}" FontWeight="SemiBold" />
+                                                        <TextBlock Grid.Column="1" Text="{x:Bind TypeName}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind TypeName}" />
+                                                        <TextBlock Grid.Column="2" Text="{x:Bind Parameter}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Parameter}" />
+                                                        <TextBlock Grid.Column="3" Text="{x:Bind CurrentValue}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Grid.Column="4" Text="{x:Bind ProposedValue}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Grid.Column="5" Text="{x:Bind Message}" Opacity="0.75" TextWrapping="Wrap" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
+                                    </Grid>
+                                </ScrollViewer>
+                            </PivotItem>
+                            <PivotItem Header="Instance results">
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
+                                    <Grid MinWidth="1100" RowSpacing="8">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                        </Grid.RowDefinitions>
+                                        <Grid Padding="18,0,18,0" ColumnSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C0, Mode=OneWay}" />
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C1, Mode=OneWay}" />
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C2, Mode=OneWay}" />
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C3, Mode=OneWay}" />
+                                                <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C4, Mode=OneWay}" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid>
+                                                <TextBlock Text="Status" Style="{StaticResource LimColumnHeaderStyle}" />
+                                                <local:ColumnResizeGrip Tag="Results:0" Resized="ColumnGrip_Resized" />
+                                            </Grid>
+                                            <Grid Grid.Column="1">
+                                                <TextBlock Text="Family : Type" Style="{StaticResource LimColumnHeaderStyle}" />
+                                                <local:ColumnResizeGrip Tag="Results:1" Resized="ColumnGrip_Resized" />
+                                            </Grid>
+                                            <Grid Grid.Column="2">
+                                                <TextBlock Text="Revit parameter" Style="{StaticResource LimColumnHeaderStyle}" />
+                                                <local:ColumnResizeGrip Tag="Results:2" Resized="ColumnGrip_Resized" />
+                                            </Grid>
+                                            <Grid Grid.Column="3">
+                                                <TextBlock Text="Current" Style="{StaticResource LimColumnHeaderStyle}" />
+                                                <local:ColumnResizeGrip Tag="Results:3" Resized="ColumnGrip_Resized" />
+                                            </Grid>
+                                            <Grid Grid.Column="4">
+                                                <TextBlock Text="New" Style="{StaticResource LimColumnHeaderStyle}" />
+                                                <local:ColumnResizeGrip Tag="Results:4" Resized="ColumnGrip_Resized" />
+                                            </Grid>
+                                            <TextBlock Grid.Column="5" Text="Message" Style="{StaticResource LimColumnHeaderStyle}" />
+                                        </Grid>
+                                        <ListView Grid.Row="1" x:Name="InstanceResultsList" AutomationProperties.Name="Instance sync preview" ItemsSource="{x:Bind InstanceSyncRows}" SelectionMode="None">
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate x:DataType="local:InstanceSyncRow">
+                                                    <Grid Padding="6" ColumnSpacing="10">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C0, Mode=OneWay}" />
+                                                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C1, Mode=OneWay}" />
+                                                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C2, Mode=OneWay}" />
+                                                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C3, Mode=OneWay}" />
+                                                            <ColumnDefinition Width="{x:Bind local:ImporterColumns.Results.C4, Mode=OneWay}" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{x:Bind Status}" FontWeight="SemiBold" />
+                                                        <TextBlock Grid.Column="1" Text="{x:Bind FamilyType}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind FamilyType}" />
+                                                        <TextBlock Grid.Column="2" Text="{x:Bind Parameter}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Parameter}" />
+                                                        <TextBlock Grid.Column="3" Text="{x:Bind CurrentValue}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Grid.Column="4" Text="{x:Bind ProposedValue}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Grid.Column="5" Text="{x:Bind Message}" Opacity="0.75" TextWrapping="Wrap" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
+                                    </Grid>
+                                </ScrollViewer>
+                            </PivotItem>
+                        </Pivot>
+                        <ScrollViewer Grid.Row="4" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
+                            <Grid ColumnSpacing="10" MinWidth="1040">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Button Content="Select failed" Click="SelectFailedInstances_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                                <Button Grid.Column="1" Content="Zoom to failed" Click="ZoomFailedInstances_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                                <Button Grid.Column="2" Content="Colour override failed (red)" Click="ColourFailedInstances_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                                <Button Grid.Column="3" Content="Reset colours" Click="ResetFailedColours_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                                <TextBlock Grid.Column="4" x:Name="InstanceActionStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
+                            </Grid>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </PivotItem>
+            <PivotItem Header="Source &amp; pairing" x:Name="SourceTab">
+                    <ScrollViewer x:Name="SourceScroller" HorizontalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="SourcePanel" Spacing="16" Margin="0,16,0,0" MinWidth="900"
+                                    Width="{Binding ViewportWidth, ElementName=SourceScroller}" Padding="0,0,20,20">
+                        <Border Style="{StaticResource LimCardStyle}">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="SOURCE" Style="{StaticResource LimSectionHeaderStyle}" />
+                                <ComboBox x:Name="SourceKindBox" Header="Data source" SelectedIndex="0"
+                                    SelectionChanged="SourceKindBox_SelectionChanged" HorizontalAlignment="Stretch">
+                                    <ComboBoxItem Content="Airtable (API token)" />
+                                    <ComboBoxItem Content="Excel workbook" />
+                                </ComboBox>
+
+                                <StackPanel x:Name="AirtablePanel" Spacing="6">
+                                    <TextBlock x:Name="AirtableTokenStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="AirtableSourceStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <Grid x:Name="ExcelPanel" ColumnSpacing="8" Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="ExcelPathBox" Header="Excel workbook" PlaceholderText="Select an .xlsx or .xlsm file" />
+                                    <Button Grid.Column="1" Content="Browse..." Click="BrowseExcel_Click"
+                                        VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
+                                </Grid>
+
+                                <Button x:Name="ConnectButton" Content="Reload source &amp; Revit catalogs" Click="Connect_Click"
+                                    Style="{StaticResource LimSecondaryButtonStyle}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource LimCardStyle}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="INSTANCE PAIRING" Style="{StaticResource LimSectionHeaderStyle}" />
+                                <TextBlock
+                                    Text="An instance with no prior sync has no stable link to a source row yet — this tool never guesses a first match by name. Match many at once by a value both sides share (e.g. a Mark/tag number), or pair one Revit selection at a time."
+                                    Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+
+                                <Grid ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="InstanceKeyParameterBox" Header="Match Revit instances by parameter"
+                                        ItemsSource="{x:Bind InstanceKeyParameterOptions}" DisplayMemberPath="DisplayName"
+                                        PlaceholderText="Select a Revit parameter" HorizontalAlignment="Stretch" />
+                                    <ComboBox Grid.Column="1" x:Name="InstanceKeySourceFieldBox" Header="...to this source column"
+                                        ItemsSource="{x:Bind SourceHeaderOptions}"
+                                        PlaceholderText="Select a source column" HorizontalAlignment="Stretch" />
+                                    <Button Grid.Column="2" Content="Save matching" Click="SaveInstanceMatchKey_Click"
+                                        VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
+                                    <Button Grid.Column="3" Content="Clear" Click="ClearInstanceMatchKey_Click"
+                                        VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
+                                </Grid>
+                                <TextBlock x:Name="InstanceMatchKeyStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
+
+                                <Grid ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="PairSourceRecordIdBox" Header="Or pair one: source record ID for the current Revit selection" />
+                                    <Button Grid.Column="1" Content="Pair selected Revit element" Click="PairSelected_Click"
+                                        VerticalAlignment="Bottom" Style="{StaticResource LimSecondaryButtonStyle}" />
+                                </Grid>
+                                <TextBlock x:Name="PairingStatusText" Style="{StaticResource LimMutedTextStyle}" Text="—" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </PivotItem>
+        </Pivot>
+
+        <ProgressRing x:Name="BusyIndicator" Grid.RowSpan="3" Width="40" Height="40"
+            IsActive="False" Visibility="Collapsed"
+            HorizontalAlignment="Center" VerticalAlignment="Center"
+            AutomationProperties.Name="Loading Planting Data Sync" />
+    </Grid>
 </Page>

@@ -61,8 +61,30 @@ public sealed partial class MainPage : Page
         Loaded += Page_Loaded;
     }
 
-    private void SourcePanelToggle_Changed(object sender, RoutedEventArgs e) =>
-        SourcePanel.Visibility = SourcePanelToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+    private void SourcePanelToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        if (WorkflowTabs is null || SourceTab is null)
+        {
+            return;
+        }
+
+        if (SourcePanelToggle.IsChecked == true)
+        {
+            WorkflowTabs.SelectedItem = SourceTab;
+        }
+        else if (ReferenceEquals(WorkflowTabs.SelectedItem, SourceTab))
+        {
+            WorkflowTabs.SelectedIndex = 0;
+        }
+    }
+
+    private void WorkflowTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (SourcePanelToggle is not null && SourceTab is not null)
+        {
+            SourcePanelToggle.IsChecked = ReferenceEquals(WorkflowTabs.SelectedItem, SourceTab);
+        }
+    }
 
     /// <summary>Header grips are tagged "Table:column", e.g. "Mapping:2".</summary>
     private void ColumnGrip_Resized(object? sender, double change)

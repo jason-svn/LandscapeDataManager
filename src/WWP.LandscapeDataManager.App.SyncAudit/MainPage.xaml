@@ -78,11 +78,11 @@
             </ToggleButton>
             <ToggleButton x:Name="ConflictCard" Grid.Column="2" Style="{StaticResource LimCardToggleButtonStyle}" Tag="Conflict" Click="StatusCard_Click"
                           AutomationProperties.Name="Filter to Conflict rows">
-                <StackPanel Spacing="2"><TextBlock Text="CONFLICT" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ConflictCountText" Text="—" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource LimWarningBrush}" /></StackPanel>
+                <StackPanel Spacing="2"><TextBlock Text="CONFLICT" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="ConflictCountText" Text="—" FontSize="16" FontWeight="SemiBold" Foreground="{ThemeResource LimWarningBrush}" /></StackPanel>
             </ToggleButton>
             <ToggleButton x:Name="RemovedCard" Grid.Column="3" Style="{StaticResource LimCardToggleButtonStyle}" Tag="Removed from source" Click="StatusCard_Click"
                           AutomationProperties.Name="Filter to Removed rows">
-                <StackPanel Spacing="2"><TextBlock Text="REMOVED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="RemovedCountText" Text="—" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource LimErrorBrush}" /></StackPanel>
+                <StackPanel Spacing="2"><TextBlock Text="REMOVED" Style="{StaticResource LimSectionHeaderStyle}" /><TextBlock x:Name="RemovedCountText" Text="—" FontSize="16" FontWeight="SemiBold" Foreground="{ThemeResource LimErrorBrush}" /></StackPanel>
             </ToggleButton>
             <ToggleButton x:Name="CalcStaleCard" Grid.Column="4" Style="{StaticResource LimCardToggleButtonStyle}" Tag="Calculation stale" Click="StatusCard_Click"
                           AutomationProperties.Name="Filter to Calculation stale rows">

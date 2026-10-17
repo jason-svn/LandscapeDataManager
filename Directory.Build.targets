@@ -1,0 +1,9 @@
+<Project>
+  <!-- Native UI helpers are linked into each tool, never into the Revit connector or tests. -->
+  <ItemGroup Condition="'$(UseWinUI)' == 'true'">
+    <Compile Include="$(MSBuildThisFileDirectory)src\WWP.LandscapeDataManager.SharedUI\WindowSizing.cs"
+             Link="SharedUI\WindowSizing.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)src\WWP.LandscapeDataManager.SharedUI\ThemeResources.cs"
+             Link="SharedUI\ThemeResources.cs" />
+  </ItemGroup>
+</Project>

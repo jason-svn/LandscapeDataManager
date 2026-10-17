@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Media;
 using Windows.System;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
+using WWP.LandscapeDataManager.SharedUI;
 
 namespace WWP.LandscapeDataManager.App.FloorCalculator;
 
@@ -44,6 +45,16 @@ public sealed partial class BngTab : UserControl
         // handledEventsToo: the ListView inside consumes wheel events for its own vertical scrolling.
         TableScroller.AddHandler(PointerWheelChangedEvent, new PointerEventHandler(TableScroller_PointerWheelChanged), true);
         UpdateCounts();
+        ThemeResources.Observe(this, () =>
+        {
+            foreach (var row in AllRows)
+            {
+                row.RefreshTheme();
+            }
+
+            UpdateFilterCardBorders();
+            UpdateCounts();
+        });
     }
 
     /// <summary>Every loaded floor; <see cref="FilteredRows"/> is what the list shows.</summary>
@@ -866,6 +877,12 @@ public sealed partial class BngTab : UserControl
             FilteredRows.Add(row);
         }
 
+        UpdateFilterCardBorders();
+        UpdateCounts();
+    }
+
+    private void UpdateFilterCardBorders()
+    {
         foreach (var card in StatusCards())
         {
             if (_activeFilter is not null && (string)card.Tag == _activeFilter)
@@ -880,7 +897,6 @@ public sealed partial class BngTab : UserControl
             }
         }
 
-        UpdateCounts();
     }
 
     // ---- Design option filter ----

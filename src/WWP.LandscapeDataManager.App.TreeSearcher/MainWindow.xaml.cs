@@ -1,20 +1,16 @@
 using System.Runtime.InteropServices;
 using Microsoft.UI.Composition.SystemBackdrops;
-using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
-using Windows.Graphics;
 using WinRT.Interop;
 
 using WWP.LandscapeDataManager.Shared.Services;
+using WWP.LandscapeDataManager.SharedUI;
 
 namespace WWP.LandscapeDataManager.App.TreeSearcher;
 
 public sealed partial class MainWindow : Window
 {
-    [DllImport("user32.dll")]
-    private static extern uint GetDpiForWindow(nint hWnd);
-
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(nint hwnd, int attribute, ref int attributeValue, int attributeSize);
 
@@ -44,19 +40,7 @@ public sealed partial class MainWindow : Window
         DwmSetWindowAttribute(windowHandle, DwmwaTransitionsForceDisabled, ref disableTransitions, sizeof(int));
 
         MainContent.Initialize(pipeName, windowHandle);
-        var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(windowHandle);
-        var appWindow = AppWindow.GetFromWindowId(windowId);
-        appWindow.SetPresenter(AppWindowPresenterKind.Default);
-
-        // Activate before Resize, not after: resizing an AppWindow before it's ever been shown
-        // changes the OS window frame but the XAML content's own layout stays measured against the
-        // pre-resize size until a real WM_SIZE arrives — which previously only happened once the
-        // user manually dragged the window border. Activating first wires up the content pipeline
-        // so the subsequent Resize (in physical pixels — AppWindow.Resize doesn't take DIPs, so this
-        // still has to scale by the monitor's DPI) actually reaches the content on the first frame.
-        Activate();
-        var scale = GetDpiForWindow(windowHandle) / 96.0;
-        appWindow.Resize(new SizeInt32((int)(820 * scale), (int)(680 * scale)));
+        WindowSizing.SetInitialSize(this, 820, 680);
 
         Closed += OnClosed;
     }

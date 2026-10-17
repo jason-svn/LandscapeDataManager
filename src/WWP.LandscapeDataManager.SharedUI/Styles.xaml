@@ -13,17 +13,33 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives">
 
-    <!-- Brand accent — used sparingly (primary action, active state), never as a background wash. -->
-    <Color x:Key="LimAccent">#FF00A6A6</Color>
-    <SolidColorBrush x:Key="LimAccentBrush" Color="{StaticResource LimAccent}" />
-
-    <!-- Status colors, shared by every tool's report/status surfaces. -->
-    <Color x:Key="LimSuccess">#FF1A7F37</Color>
-    <Color x:Key="LimWarning">#FFB25E00</Color>
-    <Color x:Key="LimError">#FFC4262E</Color>
-    <SolidColorBrush x:Key="LimSuccessBrush" Color="{StaticResource LimSuccess}" />
-    <SolidColorBrush x:Key="LimWarningBrush" Color="{StaticResource LimWarning}" />
-    <SolidColorBrush x:Key="LimErrorBrush" Color="{StaticResource LimError}" />
+    <!-- Status is always accompanied by text. Contrast themes use the user's system palette. -->
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="LimAccentBrush" Color="#FF00A6A6" />
+            <SolidColorBrush x:Key="LimSuccessBrush" Color="#FF1A7F37" />
+            <SolidColorBrush x:Key="LimWarningBrush" Color="#FF9D5300" />
+            <SolidColorBrush x:Key="LimErrorBrush" Color="#FFC4262E" />
+            <SolidColorBrush x:Key="LimNeutralBrush" Color="#FF616161" />
+            <SolidColorBrush x:Key="LimInfoBrush" Color="#FF007F7F" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="LimAccentBrush" Color="#FF57D4D4" />
+            <SolidColorBrush x:Key="LimSuccessBrush" Color="#FF83D99A" />
+            <SolidColorBrush x:Key="LimWarningBrush" Color="#FFF4BE70" />
+            <SolidColorBrush x:Key="LimErrorBrush" Color="#FFFF99A0" />
+            <SolidColorBrush x:Key="LimNeutralBrush" Color="#FFC5C5C5" />
+            <SolidColorBrush x:Key="LimInfoBrush" Color="#FF57D4D4" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <SolidColorBrush x:Key="LimAccentBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="LimSuccessBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="LimWarningBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="LimErrorBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="LimNeutralBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="LimInfoBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
 
     <!-- Scrollbars: a persistent, rounded handle with an 18px drag target. Keep the native
          ScrollBar parts so WinUI still owns thumb sizing, dragging, arrows, and page clicks.
