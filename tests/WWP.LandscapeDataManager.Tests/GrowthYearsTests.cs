@@ -19,6 +19,7 @@ public class GrowthYearsTests
     [InlineData("Planting Zone 10", null)]
     [InlineData("Phase 5", null)]
     [InlineData("Trees_10", null)]
+    [InlineData("LIM_Growth_75yr", 75)] // made before the 40-year limit — still a growth year, not "every year"
     [InlineData("Trees - 150 Years", null)] // not a growth-year stop
     [InlineData("Workset1", null)]
     [InlineData("Shared Levels and Grids", null)]
