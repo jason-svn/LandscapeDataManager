@@ -45,52 +45,79 @@ internal static class DashboardUnitLabels
     private static bool IsMetric(string unitSystem) => string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
 }
 
+/// <summary>
+/// The dashboard's display units for one unit-system choice, and the conversions from the canonical
+/// kilograms/cubic metres/square metres. Carbon, CO₂e and oxygen display per pound, pollutants per
+/// ounce (see <see cref="DashboardAggregationService.NormalizeTree"/>).
+/// </summary>
+internal sealed record DisplayUnits(bool Metric)
+{
+    public static DisplayUnits For(string unitSystem) => new(string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase));
+
+    public string Carbon => Metric ? "kg" : "lb";
+    public string Pollutant => Metric ? "kg" : "oz";
+    public string Water => Metric ? "m³" : "gal";
+    public string Area => Metric ? "m²" : "ft²";
+
+    public double Mass(double kilograms) => Metric ? kilograms : kilograms / UnitConversions.KilogramsPerPound;
+    public double PollutantMass(double kilograms) => Metric ? kilograms : kilograms / UnitConversions.KilogramsPerOunce;
+    public double Volume(double cubicMetres) => Metric ? cubicMetres : cubicMetres / UnitConversions.CubicMetresPerGallon;
+    public double AreaOf(double squareMetres) => Metric ? squareMetres : squareMetres * 10.7639104167d;
+}
+
+internal static class DashboardFormat
+{
+    /// <summary>Thousands separated, with fewer decimals as numbers grow: 1,234 · 56.7 · 0.42.</summary>
+    public static string Number(double value) => Math.Abs(value) switch
+    {
+        >= 1000d => value.ToString("N0"),
+        >= 10d => value.ToString("N1"),
+        _ => value.ToString("N2")
+    };
+}
+
+/// <summary>A Data explorer species row: plain numbers, with the units in the column headers.</summary>
 public sealed class SpeciesSubtotalRow
 {
-    public SpeciesSubtotalRow(SpeciesSubtotal subtotal, string unitSystem, string currencyCode, bool showAnnual)
+    public SpeciesSubtotalRow(SpeciesSubtotal subtotal, bool showAnnual)
     {
         SpeciesCode = subtotal.SpeciesCode;
         CommonName = subtotal.CommonName;
         TreeCount = subtotal.TreeCount;
-
-        var carbon = showAnnual ? subtotal.CarbonSequesteredAnnual : subtotal.CarbonSequesteredLifetimeTotal;
-        var pollutionMass = showAnnual
-            ? subtotal.PM25RemovedAnnual + subtotal.NO2RemovedAnnual + subtotal.O3RemovedAnnual + subtotal.SO2RemovedAnnual + subtotal.CORemovedAnnual
-            : subtotal.PM25RemovedLifetimeTotal + subtotal.NO2RemovedLifetimeTotal + subtotal.O3RemovedLifetimeTotal + subtotal.SO2RemovedLifetimeTotal + subtotal.CORemovedLifetimeTotal;
-        var carbonCost = showAnnual ? subtotal.CarbonCostSavedAnnual : subtotal.CarbonCostSavedLifetimeTotal;
-        var stormWaterCost = showAnnual ? subtotal.StormWaterCostSavedAnnual : subtotal.StormWaterCostSavedLifetimeTotal;
-        var airPollutionCost = showAnnual ? subtotal.AirPollutionCostSavedAnnual : subtotal.AirPollutionCostSavedLifetimeTotal;
-
-        CarbonSequestered = $"{carbon:N1} {DashboardUnitLabels.CarbonUnit(unitSystem)}";
-        PollutionMassRemoved = $"{pollutionMass:N2} {DashboardUnitLabels.PollutantUnit(unitSystem)}";
-        CarbonCostSaved = $"{carbonCost:N2} {currencyCode}";
-        StormWaterCostSaved = $"{stormWaterCost:N2} {currencyCode}";
-        AirPollutionCostSaved = $"{airPollutionCost:N2} {currencyCode}";
+        CarbonSequestered = DashboardFormat.Number(showAnnual ? subtotal.CarbonSequesteredAnnual : subtotal.CarbonSequesteredLifetimeTotal);
+        OxygenProduced = DashboardFormat.Number(showAnnual ? subtotal.OxygenProducedAnnual : subtotal.OxygenProducedLifetimeTotal);
+        PollutionMassRemoved = DashboardFormat.Number(showAnnual ? subtotal.PollutionRemovedAnnual : subtotal.PollutionRemovedLifetimeTotal);
+        CarbonCostSaved = DashboardFormat.Number(showAnnual ? subtotal.CarbonCostSavedAnnual : subtotal.CarbonCostSavedLifetimeTotal);
+        StormWaterCostSaved = DashboardFormat.Number(showAnnual ? subtotal.StormWaterCostSavedAnnual : subtotal.StormWaterCostSavedLifetimeTotal);
+        AirPollutionCostSaved = DashboardFormat.Number(showAnnual ? subtotal.AirPollutionCostSavedAnnual : subtotal.AirPollutionCostSavedLifetimeTotal);
     }
 
     public string SpeciesCode { get; }
     public string CommonName { get; }
     public int TreeCount { get; }
     public string CarbonSequestered { get; }
+    public string OxygenProduced { get; }
     public string PollutionMassRemoved { get; }
     public string CarbonCostSaved { get; }
     public string StormWaterCostSaved { get; }
     public string AirPollutionCostSaved { get; }
 }
 
-/// <summary><see cref="CostSaved"/> is labeled "as calculated" — Floor Calculator never records which currency it used, so there is nothing reliable to normalize from (see <see cref="FloorTypeSubtotal"/>).</summary>
+/// <summary>A Data explorer planting-area row in the display units; cost is as Floor Calculator wrote it, in the project currency.</summary>
 public sealed class FloorSubtotalRow
 {
-    public FloorSubtotalRow(FloorTypeSubtotal subtotal)
+    internal FloorSubtotalRow(FloorTypeSubtotal subtotal, DisplayUnits units)
     {
         LdsType = subtotal.LdsType;
         FloorCount = subtotal.FloorCount;
-        AreaSquareMeters = $"{subtotal.AreaSquareMeters:N1} m²";
-        CarbonSequestered = $"{subtotal.CarbonSequesteredAnnual:N1} kg";
-        RunoffAvoided = $"{subtotal.RunoffAvoidedAnnual:N1} m³";
-        PollutionMassRemoved = $"{subtotal.PollutionMassRemovedAnnual:N2} kg";
-        TotalGwp = subtotal.TotalGwp.ToString("N1");
-        CostSaved = $"{subtotal.CostSavedAnnual:N2} (as calculated)";
+        AreaSquareMeters = DashboardFormat.Number(units.AreaOf(subtotal.AreaSquareMeters));
+        CarbonSequestered = DashboardFormat.Number(units.Mass(subtotal.CarbonSequesteredAnnual));
+        RunoffAvoided = DashboardFormat.Number(units.Volume(subtotal.RunoffAvoidedAnnual));
+        PollutionMassRemoved = DashboardFormat.Number(units.PollutantMass(subtotal.PollutionMassRemovedAnnual));
+        OxygenProduced = DashboardFormat.Number(units.Mass(subtotal.OxygenProducedAnnual));
+        TotalGwp = DashboardFormat.Number(units.Mass(subtotal.TotalGwp));
+        MaintenanceCost = DashboardFormat.Number(subtotal.MaintenanceCostAnnual);
+        CostSaved = DashboardFormat.Number(subtotal.CostSavedAnnual);
     }
 
     public string LdsType { get; }
@@ -99,10 +126,48 @@ public sealed class FloorSubtotalRow
     public string CarbonSequestered { get; }
     public string RunoffAvoided { get; }
     public string PollutionMassRemoved { get; }
+    public string OxygenProduced { get; }
     public string TotalGwp { get; }
+    public string MaintenanceCost { get; }
     public string CostSaved { get; }
 }
 
+/// <summary>One species in the Executive overview's tree palette: its trees and their benefits over the outlook.</summary>
+public sealed class SpeciesPaletteRow
+{
+    internal SpeciesPaletteRow(string speciesCode, string commonName, int count, double value, double co2, double runoff, double pollution, double oxygen, DisplayUnits units, string currency)
+    {
+        SpeciesCode = speciesCode;
+        CommonName = commonName;
+        Count = count;
+        Value = value;
+        Co2 = co2;
+        Runoff = runoff;
+        Pollution = pollution;
+        Oxygen = oxygen;
+        CountText = count.ToString("N0");
+        ValueText = DashboardFormat.Number(value);
+        Co2Text = DashboardFormat.Number(co2);
+        RunoffText = DashboardFormat.Number(runoff);
+        PollutionText = DashboardFormat.Number(pollution);
+        OxygenText = DashboardFormat.Number(oxygen);
+    }
+
+    public string SpeciesCode { get; }
+    public string CommonName { get; }
+    public int Count { get; }
+    public double Value { get; }
+    public double Co2 { get; }
+    public double Runoff { get; }
+    public double Pollution { get; }
+    public double Oxygen { get; }
+    public string CountText { get; }
+    public string ValueText { get; }
+    public string Co2Text { get; }
+    public string RunoffText { get; }
+    public string PollutionText { get; }
+    public string OxygenText { get; }
+}
 public sealed class DashboardTreeRow
 {
     public DashboardTreeRow(NormalizedTreeMetrics metrics, string unitSystem, string currencyCode, bool showAnnual)

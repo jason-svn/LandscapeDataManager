@@ -73,6 +73,10 @@ public static class ITreeInstanceResultMapper
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CostSavedAnnual_Currency", ToPreferredCurrency(GetOrZero("Annual_Benefit_USD"))));
         items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass",
             FromPounds(GetOrZero("Annual_CO2Equivalent_lb"))));
+        // Oxygen released = CO2e × 32/44 (i-Tree reports carbon; CO2e is carbon × 3.67). Shares the
+        // calculated oxygen parameter Floor Calculator writes for planting areas.
+        items.Add(Mass(uniqueId, "!_S_PLT_Result_OxygenProducedAnnual_Mass",
+            FromPounds(GetOrZero("Annual_CO2Equivalent_lb")) * UnitConversions.OxygenToCo2MassRatio));
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CarbonCostSavedAnnual_Currency", ToPreferredCurrency(GetOrZero("Annual_CarbonBenefit_USD"))));
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_StormWaterCostSavedAnnual_Currency", ToPreferredCurrency(GetOrZero("Annual_StormWaterBenefit_USD"))));
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Currency", ToPreferredCurrency(GetOrZero("Annual_AirPollutionBenefit_USD"))));
@@ -97,6 +101,8 @@ public static class ITreeInstanceResultMapper
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CostSavedLifetimeTotal_Currency", ToPreferredCurrency(GetOrZero("Benefit_20yr_USD"))));
         items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CO2EquivalentLifetimeTotal_Mass",
             FromPounds(GetOrZero("CO2Equivalent_20yr_lb"))));
+        items.Add(Mass(uniqueId, "!_S_PLT_Result_OxygenProducedLifetimeTotal_Mass",
+            FromPounds(GetOrZero("CO2Equivalent_20yr_lb")) * UnitConversions.OxygenToCo2MassRatio));
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CarbonCostSavedLifetimeTotal_Currency", ToPreferredCurrency(GetOrZero("CarbonBenefit_20yr_USD"))));
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_StormWaterCostSavedLifetimeTotal_Currency", ToPreferredCurrency(GetOrZero("StormWaterBenefit_20yr_USD"))));
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_AirPollutionCostSavedLifetimeTotal_Currency", ToPreferredCurrency(GetOrZero("AirPollutionBenefit_20yr_USD"))));

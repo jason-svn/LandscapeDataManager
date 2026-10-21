@@ -213,4 +213,17 @@ public class ITreeInstanceResultMapperTests
             item => item.RevitParameter == "!_S_PLT_iTreeResult_CurrencyUsed_Text").SourceValue);
         Assert.Equal(0.8d, Value("!_S_PLT_iTreeResult_ExchangeRateUsed_Number"), precision: 6);
     }
+
+    [Fact]
+    public void Writes_oxygen_as_co2_equivalent_times_32_over_44()
+    {
+        var outcome = new ITreeInstanceCalculationOutcome(
+            new Dictionary<string, object?> { ["Annual_CO2Equivalent_lb"] = 44d, ["CO2Equivalent_20yr_lb"] = 440d }, null);
+
+        var items = ITreeInstanceResultMapper.BuildWriteItems("uid-1", "Calculated", null, "sig-1", outcome, "Metric");
+
+        double Value(string parameter) => double.Parse(Assert.Single(items, item => item.RevitParameter == parameter).SourceValue, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Equal(44d * UnitConversions.KilogramsPerPound * 32 / 44, Value("!_S_PLT_Result_OxygenProducedAnnual_Mass"), precision: 6);
+        Assert.Equal(440d * UnitConversions.KilogramsPerPound * 32 / 44, Value("!_S_PLT_Result_OxygenProducedLifetimeTotal_Mass"), precision: 6);
+    }
 }

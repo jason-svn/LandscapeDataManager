@@ -81,6 +81,11 @@ public sealed partial class MainPage : Page
     public ObservableCollection<KpiBarRow> BngHabitatRows { get; } = [];
     public ObservableCollection<KpiBarRow> StatusBreakdownRows { get; } = [];
     public ObservableCollection<KpiBarRow> AirPollutantRows { get; } = [];
+    public ObservableCollection<KpiBarRow> RunoffTrendRows { get; } = [];
+    public ObservableCollection<KpiBarRow> PollutionTrendRows { get; } = [];
+    public ObservableCollection<KpiBarRow> ConnectivityBandRows { get; } = [];
+    public ObservableCollection<KpiBarRow> HabitatMixRows { get; } = [];
+    public ObservableCollection<SpeciesPaletteRow> PaletteRows { get; } = [];
 
     public void Initialize(string pipeName, nint windowHandle)
     {
@@ -279,24 +284,26 @@ public sealed partial class MainPage : Page
             .Where(floor => MatchesDimensionFilters(floor.DesignOption, floor.LevelName))
             .ToList();
         // Same filters without the growth-year one: the outlook needs every year's copies.
-        var treeOutlook = CreateTreeOutlook(normalizedTrees
+        var treesForOutlook = normalizedTrees
             .Where(tree => MatchesDimensionFilters(tree.Source.DesignOption, tree.Source.LevelName))
             .Where(MatchesSearch)
             .Where(tree => _activeStatusFilter is null || tree.Source.Status == _activeStatusFilter)
-            .ToList(), unitSystem);
+            .ToList();
+        var treeOutlook = CreateTreeOutlook(treesForOutlook, unitSystem);
 
+        var units = DisplayUnits.For(unitSystem);
         var speciesSubtotals = DashboardAggregationService.AggregateTreesBySpecies(filteredTrees);
         SpeciesSubtotals.Clear();
         foreach (var subtotal in speciesSubtotals)
         {
-            SpeciesSubtotals.Add(new SpeciesSubtotalRow(subtotal, unitSystem, _preferredCurrency, _showAnnual));
+            SpeciesSubtotals.Add(new SpeciesSubtotalRow(subtotal, _showAnnual));
         }
 
         var floorSubtotals = DashboardAggregationService.AggregateFloorsByType(filteredFloors);
         FloorSubtotals.Clear();
         foreach (var subtotal in floorSubtotals)
         {
-            FloorSubtotals.Add(new FloorSubtotalRow(subtotal));
+            FloorSubtotals.Add(new FloorSubtotalRow(subtotal, units));
         }
 
         TreeRows.Clear();
@@ -312,9 +319,24 @@ public sealed partial class MainPage : Page
         }
 
         var grandTotal = DashboardAggregationService.BuildGrandTotal(filteredTrees, filteredFloors);
-        var carbonUnit = DashboardUnitLabels.CarbonUnit(unitSystem);
-        var pollutantUnit = DashboardUnitLabels.PollutantUnit(unitSystem);
         var period = _showAnnual ? "Annual" : "Lifetime";
+        var perPeriod = _showAnnual ? "/yr" : " lifetime";
+        var currency = _preferredCurrency;
+
+        // Data explorer. Units live in the column headers, so table cells stay plain numbers.
+        SpeciesCarbonHeader.Text = $"Carbon ({units.Carbon}{perPeriod})";
+        SpeciesOxygenHeader.Text = $"Oxygen ({units.Carbon}{perPeriod})";
+        SpeciesCarbonCostHeader.Text = $"Carbon ({currency})";
+        SpeciesStormCostHeader.Text = $"Water ({currency})";
+        SpeciesPollutionHeader.Text = $"Pollution ({units.Pollutant}{perPeriod})";
+        SpeciesAirCostHeader.Text = $"Air ({currency})";
+        FloorAreaHeader.Text = $"Area ({units.Area})";
+        FloorCarbonHeader.Text = $"Carbon ({units.Carbon}/yr)";
+        FloorRunoffHeader.Text = $"Runoff ({units.Water}/yr)";
+        FloorPollutionHeader.Text = $"Pollution ({units.Pollutant}/yr)";
+        FloorOxygenHeader.Text = $"Oxygen ({units.Carbon}/yr)";
+        FloorEmbodiedHeader.Text = $"Embodied ({units.Carbon} CO₂e)";
+        FloorMaintenanceHeader.Text = $"Upkeep ({currency}/yr)";
 
         TreeCountText.Text = grandTotal.TreeCount.ToString("N0");
         TreeExcludedText.Text = grandTotal.TreesExcludedFromTotals > 0
@@ -322,34 +344,21 @@ public sealed partial class MainPage : Page
             : string.Empty;
         // Grouped and ordered to match the public i-Tree "MyTree Benefits" report's own three
         // categories and their component metrics — each swim lane leads with that category's
-        // dollar value, then the metrics behind it, in the report's own order.
-        CarbonUptakeCostText.Text = _showAnnual
-            ? $"{grandTotal.CarbonCostSavedAnnual:N2} {_preferredCurrency}"
-            : $"{grandTotal.CarbonCostSavedLifetimeTotal:N2} {_preferredCurrency}";
-        CarbonSequesteredSubText.Text = _showAnnual
-            ? $"{grandTotal.CarbonSequesteredAnnual:N1} {carbonUnit}"
-            : $"{grandTotal.CarbonSequesteredLifetimeTotal:N1} {carbonUnit}";
-        CO2EquivalentSubText.Text = _showAnnual
-            ? $"{grandTotal.CO2EquivalentAnnual:N1} {carbonUnit}"
-            : $"{grandTotal.CO2EquivalentLifetimeTotal:N1} {carbonUnit}";
+        // money value, then the metrics behind it, in the report's own order.
+        string Money(double value) => $"{DashboardFormat.Number(value)} {currency}";
+        CarbonUptakeCostText.Text = Money(_showAnnual ? grandTotal.CarbonCostSavedAnnual : grandTotal.CarbonCostSavedLifetimeTotal);
+        CarbonSequesteredSubText.Text = $"{DashboardFormat.Number(_showAnnual ? grandTotal.CarbonSequesteredAnnual : grandTotal.CarbonSequesteredLifetimeTotal)} {units.Carbon}";
+        CO2EquivalentSubText.Text = $"{DashboardFormat.Number(_showAnnual ? grandTotal.CO2EquivalentAnnual : grandTotal.CO2EquivalentLifetimeTotal)} {units.Carbon}";
+        OxygenSubText.Text = $"{DashboardFormat.Number(_showAnnual ? grandTotal.OxygenProducedAnnual : grandTotal.OxygenProducedLifetimeTotal)} {units.Carbon}";
 
-        StormWaterCostText.Text = _showAnnual
-            ? $"{grandTotal.StormWaterCostSavedAnnual:N2} {_preferredCurrency}"
-            : $"{grandTotal.StormWaterCostSavedLifetimeTotal:N2} {_preferredCurrency}";
-        RunoffAvoidedSubText.Text = _showAnnual
-            ? $"{grandTotal.RunoffAvoidedAnnual:N1} m³"
-            : $"{grandTotal.RunoffAvoidedLifetimeTotal:N1} m³";
-        RainfallInterceptedSubText.Text = _showAnnual
-            ? $"{grandTotal.RainfallInterceptedAnnual:N1} m³"
-            : $"{grandTotal.RainfallInterceptedLifetimeTotal:N1} m³";
+        StormWaterCostText.Text = Money(_showAnnual ? grandTotal.StormWaterCostSavedAnnual : grandTotal.StormWaterCostSavedLifetimeTotal);
+        RunoffAvoidedSubText.Text = $"{DashboardFormat.Number(units.Volume(_showAnnual ? grandTotal.RunoffAvoidedAnnual : grandTotal.RunoffAvoidedLifetimeTotal))} {units.Water}";
+        RainfallInterceptedSubText.Text = $"{DashboardFormat.Number(units.Volume(_showAnnual ? grandTotal.RainfallInterceptedAnnual : grandTotal.RainfallInterceptedLifetimeTotal))} {units.Water}";
 
-        AirPollutionCostText.Text = _showAnnual
-            ? $"{grandTotal.AirPollutionCostSavedAnnual:N2} {_preferredCurrency}"
-            : $"{grandTotal.AirPollutionCostSavedLifetimeTotal:N2} {_preferredCurrency}";
+        AirPollutionCostText.Text = Money(_showAnnual ? grandTotal.AirPollutionCostSavedAnnual : grandTotal.AirPollutionCostSavedLifetimeTotal);
 
         // Bar chart: one nominal category per pollutant, all bars the same accent hue (a value-ramp
         // here would double-encode magnitude as both length and darkness — see dataviz anti-patterns).
-        // Bar length is each pollutant's share of the five combined, matching SpeciesMixRows/FloorMixRows' convention below.
         AirPollutantRows.Clear();
         var pollutants = new (string Label, double Value)[]
         {
@@ -364,7 +373,7 @@ public sealed partial class MainPage : Page
         {
             AirPollutantRows.Add(new KpiBarRow(
                 label,
-                $"{value:N1} {pollutantUnit}",
+                $"{DashboardFormat.Number(value)} {units.Pollutant}",
                 pollutantTotal <= 0d ? 0d : 100d * value / pollutantTotal));
         }
 
@@ -376,7 +385,7 @@ public sealed partial class MainPage : Page
         var airCostRaw = _showAnnual ? grandTotal.AirPollutionCostSavedAnnual : grandTotal.AirPollutionCostSavedLifetimeTotal;
         var benefitTotal = carbonCostRaw + stormCostRaw + airCostRaw;
 
-        RingTotalText.Text = $"{Compact(benefitTotal)} {_preferredCurrency}";
+        RingTotalText.Text = $"{Compact(benefitTotal)} {currency}";
         RingCarbonLegendText.Text = benefitTotal > 0d ? $"{100d * carbonCostRaw / benefitTotal:N0}%" : "—";
         RingStormWaterLegendText.Text = benefitTotal > 0d ? $"{100d * stormCostRaw / benefitTotal:N0}%" : "—";
         RingAirPollutionLegendText.Text = benefitTotal > 0d ? $"{100d * airCostRaw / benefitTotal:N0}%" : "—";
@@ -389,17 +398,20 @@ public sealed partial class MainPage : Page
         ], (Brush)Resources["KpiChartTrackBrush"]);
 
         FloorCountText.Text = grandTotal.FloorCount.ToString("N0");
-        FloorAreaText.Text = $"{grandTotal.FloorAreaSquareMeters:N1} m²";
-        FloorCarbonText.Text = $"{grandTotal.FloorCarbonSequesteredAnnual:N1} kg";
-        FloorRunoffText.Text = $"{grandTotal.FloorRunoffAvoidedAnnual:N1} m³";
-        FloorPollutionText.Text = $"{grandTotal.FloorPollutionMassRemovedAnnual:N2} kg";
-        FloorGwpText.Text = grandTotal.FloorTotalGwp.ToString("N1");
-        FloorCostSavedText.Text = $"{grandTotal.FloorCostSavedAnnual:N2} (as calculated)";
+        FloorAreaText.Text = $"{DashboardFormat.Number(units.AreaOf(grandTotal.FloorAreaSquareMeters))} {units.Area}";
+        FloorCarbonText.Text = $"{DashboardFormat.Number(units.Mass(grandTotal.FloorCarbonSequesteredAnnual))} {units.Carbon}/yr";
+        FloorGwpText.Text = $"embodied {DashboardFormat.Number(units.Mass(grandTotal.FloorTotalGwp))} {units.Carbon} CO₂e, one-off";
+        FloorRunoffText.Text = $"{DashboardFormat.Number(units.Volume(grandTotal.FloorRunoffAvoidedAnnual))} {units.Water}/yr";
+        FloorPollutionText.Text = $"{DashboardFormat.Number(units.PollutantMass(grandTotal.FloorPollutionMassRemovedAnnual))} {units.Pollutant}/yr pollution removed";
+        FloorCostSavedText.Text = $"{DashboardFormat.Number(grandTotal.FloorCostSavedAnnual)} {currency}/yr";
+        MaintenanceSummaryText.Text = grandTotal.MaintenanceCostAnnual > 0
+            ? $"upkeep {DashboardFormat.Number(grandTotal.MaintenanceCostAnnual)} {currency}/yr (trees {DashboardFormat.Number(grandTotal.TreeMaintenanceCostAnnual)}, areas {DashboardFormat.Number(grandTotal.FloorMaintenanceCostAnnual)})"
+            : "no maintenance rates imported yet";
 
         PeriodLabelText.Text = $"Showing {period} benefits for {DesignScenarios.Label(_scenario, _sets)}.";
 
         RebuildGraphicDashboard(
-            normalizedTrees,
+            treesForOutlook,
             filteredTrees,
             filteredFloors,
             speciesSubtotals,
@@ -419,7 +431,7 @@ public sealed partial class MainPage : Page
         new(treesAllYears, _growthYearsFromWorksets ? _growthYearStops : [], _lastReport?.TreeTimelines, unitSystem, _usdExchangeRate);
 
     private void RebuildGraphicDashboard(
-        IReadOnlyList<NormalizedTreeMetrics> allNormalizedTrees,
+        IReadOnlyList<NormalizedTreeMetrics> treesForOutlook,
         IReadOnlyList<NormalizedTreeMetrics> filteredTrees,
         IReadOnlyList<DashboardFloorItem> filteredFloors,
         IReadOnlyList<SpeciesSubtotal> speciesSubtotals,
@@ -430,119 +442,214 @@ public sealed partial class MainPage : Page
         Func<string?, bool> matchesLevel,
         Func<NormalizedTreeMetrics, bool> matchesSearch)
     {
-        var metric = string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
-        var carbonUnit = DashboardUnitLabels.CarbonUnit(unitSystem);
-        var pollutantUnit = DashboardUnitLabels.PollutantUnit(unitSystem);
-        var waterUnit = metric ? "m³" : "gal";
-        var areaUnit = metric ? "m²" : "ft²";
-
-        double FloorCarbon(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerPound;
-        double FloorPollution(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerOunce;
-        double Water(double cubicMetres) => metric ? cubicMetres : cubicMetres / UnitConversions.CubicMetresPerGallon;
-        double Area(double squareMetres) => metric ? squareMetres : squareMetres * 10.7639104167d;
+        var units = DisplayUnits.For(unitSystem);
+        var currency = _preferredCurrency;
 
         // Over the outlook: trees add up year by year (see TreeOutlook). Planting areas don't grow,
         // so their Airtable rate holds every year and they're annual × years.
         var years = _projectionYears;
         double Trees(Func<DashboardGrandTotal, double> annual) => treeOutlook.Accumulate(annual, years);
-        var floorCarbonAnnual = FloorCarbon(grandTotal.FloorCarbonSequesteredAnnual);
-        var floorPollutionAnnual = FloorPollution(grandTotal.FloorPollutionMassRemovedAnnual);
-        var floorRunoffAnnual = Water(grandTotal.FloorRunoffAvoidedAnnual);
-        var floorCo2EquivalentAnnual = FloorCarbon(grandTotal.FloorCarbonSequesteredAnnual * UnitConversions.CarbonToCo2MassRatio);
+        var floorCarbonAnnual = units.Mass(grandTotal.FloorCarbonSequesteredAnnual);
+        var floorCo2EquivalentAnnual = units.Mass(grandTotal.FloorCarbonSequesteredAnnual * UnitConversions.CarbonToCo2MassRatio);
+        var floorPollutionAnnual = units.PollutantMass(grandTotal.FloorPollutionMassRemovedAnnual);
+        var floorRunoffAnnual = units.Volume(grandTotal.FloorRunoffAvoidedAnnual);
+        var floorOxygenAnnual = units.Mass(grandTotal.FloorOxygenProducedAnnual);
         var treeCarbon = Trees(total => total.CarbonSequesteredAnnual);
+        var treeCo2Equivalent = Trees(total => total.CO2EquivalentAnnual);
         var treePollution = Trees(total => total.TotalPollutionMassRemovedAnnual);
-        var treeRunoff = Water(Trees(total => total.RunoffAvoidedAnnual));
+        var treeRunoff = units.Volume(Trees(total => total.RunoffAvoidedAnnual));
         var projectedCarbon = treeCarbon + floorCarbonAnnual * years;
+        var projectedCo2Equivalent = treeCo2Equivalent + floorCo2EquivalentAnnual * years;
         var projectedPollution = treePollution + floorPollutionAnnual * years;
         var projectedWater = treeRunoff + floorRunoffAnnual * years;
+        var projectedOxygen = Trees(total => total.OxygenProducedAnnual) + floorOxygenAnnual * years;
+        var projectedRainfall = units.Volume(Trees(total => total.RainfallInterceptedAnnual));
         // Floor cost is already in the project currency (Floor Calculator converts it when writing).
-        var projectedValue = Trees(total => total.TreeCostSavedAnnual) + grandTotal.FloorCostSavedAnnual * years;
+        var treeCarbonValue = Trees(total => total.CarbonCostSavedAnnual);
+        var treeWaterValue = Trees(total => total.StormWaterCostSavedAnnual);
+        var treeAirValue = Trees(total => total.AirPollutionCostSavedAnnual);
+        var floorValue = grandTotal.FloorCostSavedAnnual * years;
+        var projectedValue = Trees(total => total.TreeCostSavedAnnual) + floorValue;
+        var maintenance = grandTotal.MaintenanceCostAnnual * years;
+        string Money(double value) => $"{Compact(value)} {currency}";
 
-        var readyPercent = filteredTrees.Count == 0 ? 0d : 100d * grandTotal.TreeCount / filteredTrees.Count;
         ScenarioBadgeText.Text = _scenario.Name.ToUpperInvariant();
         ToolTipService.SetToolTip(ScenarioBadgeText, DesignScenarios.Describe(_scenario, _sets));
         OutlookText.Text = OutlookMethodText(treeOutlook, years);
-        KpiEcosystemValueText.Text = $"{Compact(projectedValue)} {_preferredCurrency}";
-        KpiPollutionText.Text = $"{Compact(projectedPollution)} {pollutantUnit}";
+
+        // Banner: the value split by benefit, then upkeep and what's left.
+        KpiEcosystemValueText.Text = Money(projectedValue);
+        EcosystemValueCaptionText.Text = $"over {years} years · trees (i-Tree) + planting areas (WWP sheet)";
+        BannerCarbonValueText.Text = Money(treeCarbonValue);
+        BannerWaterValueText.Text = Money(treeWaterValue);
+        BannerAirValueText.Text = Money(treeAirValue);
+        BannerFloorValueText.Text = Money(floorValue);
+        BannerMaintenanceText.Text = maintenance > 0 ? $"−{Money(maintenance)}" : Money(0);
+        BannerNetValueText.Text = Money(projectedValue - maintenance);
+        BannerMaintenanceDetailText.Text = grandTotal.MaintenanceCostAnnual > 0
+            ? $"{Money(grandTotal.MaintenanceCostAnnual)}/yr"
+            : "no maintenance rates imported";
         KpiTreeCountText.Text = grandTotal.TreeCount.ToString("N0");
-
-        // Executive overview swim lanes: same three i-Tree benefit categories as the Data explorer
-        // tab, each led by its own value over the selected outlook rather than the Annual/Lifetime
-        // toggle those detail-view figures use.
-        HeroCarbonCostText.Text = $"{Compact(Trees(total => total.CarbonCostSavedAnnual))} {_preferredCurrency}";
-        HeroCarbonSequesteredText.Text = $"{Compact(projectedCarbon)} {carbonUnit}";
-        HeroCO2EquivalentText.Text = $"{Compact(Trees(total => total.CO2EquivalentAnnual) + floorCo2EquivalentAnnual * years)} {carbonUnit}";
-
-        HeroStormWaterCostText.Text = $"{Compact(Trees(total => total.StormWaterCostSavedAnnual))} {_preferredCurrency}";
-        HeroRunoffAvoidedText.Text = $"{Compact(projectedWater)} {waterUnit}";
-        HeroRainfallInterceptedText.Text = $"{Compact(Water(Trees(total => total.RainfallInterceptedAnnual)))} {waterUnit}";
-
-        HeroAirPollutionCostText.Text = $"{Compact(Trees(total => total.AirPollutionCostSavedAnnual))} {_preferredCurrency}";
-        HeroCarbonMonoxideText.Text = $"{Compact(Trees(total => total.CORemovedAnnual))} {pollutantUnit}";
-        HeroFloorPollutionText.Text = $"{Compact(floorPollutionAnnual * years)} {pollutantUnit}";
-        HeroOzoneText.Text = $"{Compact(Trees(total => total.O3RemovedAnnual))} {pollutantUnit}";
-        HeroNitrogenDioxideText.Text = $"{Compact(Trees(total => total.NO2RemovedAnnual))} {pollutantUnit}";
-        HeroSulfurDioxideText.Text = $"{Compact(Trees(total => total.SO2RemovedAnnual))} {pollutantUnit}";
-        HeroPM25Text.Text = $"{Compact(Trees(total => total.PM25RemovedAnnual))} {pollutantUnit}";
         KpiPlantingAreaText.Text = grandTotal.FloorCount.ToString("N0");
-        SnapshotAreaText.Text = $"{Compact(Area(grandTotal.FloorAreaSquareMeters))} {areaUnit}";
+
+        // Category cards: value over the outlook, the amounts behind it over the outlook, and the
+        // yearly rate today next to them.
+        HeroCarbonCostText.Text = Money(treeCarbonValue);
+        HeroCarbonSequesteredText.Text = $"{Compact(projectedCarbon)} {units.Carbon}";
+        HeroCO2EquivalentText.Text = $"{Compact(projectedCo2Equivalent)} {units.Carbon}";
+        HeroOxygenText.Text = $"{Compact(projectedOxygen)} {units.Carbon}";
+        HeroCarbonRateText.Text = $"Now {Compact(grandTotal.CO2EquivalentAnnual + floorCo2EquivalentAnnual)} {units.Carbon} CO₂e/yr · over {years} yr: {Compact(projectedCo2Equivalent)} {units.Carbon}";
+
+        HeroStormWaterCostText.Text = Money(treeWaterValue);
+        HeroRunoffAvoidedText.Text = $"{Compact(projectedWater)} {units.Water}";
+        HeroRainfallInterceptedText.Text = $"{Compact(projectedRainfall)} {units.Water}";
+        HeroWaterRateText.Text = $"Now {Compact(units.Volume(grandTotal.RunoffAvoidedAnnual) + floorRunoffAnnual)} {units.Water}/yr runoff avoided · over {years} yr: {Compact(projectedWater)} {units.Water}";
+
+        HeroAirPollutionCostText.Text = Money(treeAirValue);
+        HeroPollutionTotalText.Text = $"{Compact(projectedPollution)} {units.Pollutant}";
+        HeroCarbonMonoxideText.Text = $"{Compact(Trees(total => total.CORemovedAnnual))} {units.Pollutant}";
+        HeroFloorPollutionText.Text = $"{Compact(floorPollutionAnnual * years)} {units.Pollutant}";
+        HeroOzoneText.Text = $"{Compact(Trees(total => total.O3RemovedAnnual))} {units.Pollutant}";
+        HeroNitrogenDioxideText.Text = $"{Compact(Trees(total => total.NO2RemovedAnnual))} {units.Pollutant}";
+        HeroSulfurDioxideText.Text = $"{Compact(Trees(total => total.SO2RemovedAnnual))} {units.Pollutant}";
+        HeroPM25Text.Text = $"{Compact(Trees(total => total.PM25RemovedAnnual))} {units.Pollutant}";
+        HeroAirRateText.Text = $"Now {Compact(grandTotal.TotalPollutionMassRemovedAnnual + floorPollutionAnnual)} {units.Pollutant}/yr · over {years} yr: {Compact(projectedPollution)} {units.Pollutant}";
+
+        // Readiness now sits in Data explorer next to the status cards it summarises.
+        var readyPercent = filteredTrees.Count == 0 ? 0d : 100d * grandTotal.TreeCount / filteredTrees.Count;
+        ReadinessRing.Value = readyPercent;
+        ReadinessPercentText.Text = $"{readyPercent:N0}%";
+        ReadinessDetailText.Text = $"{grandTotal.TreeCount:N0} of {filteredTrees.Count:N0} filtered tree records are Calculated.";
+
+        // Outlooks: carbon, runoff and pollution totals at each outlook year.
+        OutlookCaptionText.Text = treeOutlook.Method switch
+        {
+            TreeOutlookMethod.Timeline => "Totals added up year by year from i-Tree's forecast for each tree; planting areas at their yearly rate.",
+            TreeOutlookMethod.GrowthWorksets => "Totals added up year by year, interpolating between growth-year worksets; planting areas at their yearly rate.",
+            _ => "Annual results × years: no tree growth is modelled yet (run Tree Calculator's timeline, or Growth Projections)."
+        };
+        IReadOnlyList<int> trendYears = _growthYearsFromWorksets ? _growthYearStops.Where(year => year > 0).ToList() : [5, 10, 20, 25];
+        void FillTrend(ObservableCollection<KpiBarRow> rows, Func<int, double> valueAt, string unit)
+        {
+            rows.Clear();
+            var points = trendYears.Select(year => (Year: year, Value: valueAt(year))).ToList();
+            var maximum = points.Count == 0 ? 0d : points.Max(point => point.Value);
+            foreach (var (year, value) in points)
+            {
+                rows.Add(new KpiBarRow($"{year} yr", $"{Compact(value)} {unit}", maximum <= 0d ? 0d : 100d * value / maximum));
+            }
+        }
+
+        FillTrend(ProjectionTrendRows, year => treeOutlook.Accumulate(total => total.CO2EquivalentAnnual, year) + floorCo2EquivalentAnnual * year, units.Carbon);
+        FillTrend(RunoffTrendRows, year => units.Volume(treeOutlook.Accumulate(total => total.RunoffAvoidedAnnual, year)) + floorRunoffAnnual * year, units.Water);
+        FillTrend(PollutionTrendRows, year => treeOutlook.Accumulate(total => total.TotalPollutionMassRemovedAnnual, year) + floorPollutionAnnual * year, units.Pollutant);
+
+        // Ordered Carbon / Stormwater / Air Quality — the same three i-Tree benefit categories,
+        // in the same order, as the KPI cards and donut ring.
+        ImpactProfileRows.Clear();
+        AddImpactShare("Carbon", treeCarbon, floorCarbonAnnual * years, units.Carbon);
+        AddImpactShare("Runoff", treeRunoff, floorRunoffAnnual * years, units.Water);
+        AddImpactShare("Pollution", treePollution, floorPollutionAnnual * years, units.Pollutant);
+
+        // Project snapshot.
+        var site = DashboardAggregationService.BuildSiteKpiSummary(filteredTrees, filteredFloors, [], _siteBoundary?.AreaSquareMeters, null);
+        SnapshotCanopyText.Text = site.CanopyCoverPercent is { } canopyPercent ? $"{canopyPercent:N1}%" : "—";
+        SnapshotCanopyDetailText.Text = site.CanopyCoverPercent is null
+            ? $"{Compact(units.AreaOf(site.CanopyAreaSquareMeters))} {units.Area} canopy · pick a site boundary on Site & Biodiversity"
+            : $"{Compact(units.AreaOf(site.CanopyAreaSquareMeters))} {units.Area} canopy, overlaps counted once";
+        SnapshotWaterText.Text = $"{Compact(projectedWater)} {units.Water}";
+        SnapshotWaterDetailText.Text = $"runoff avoided over {years} yr · {Compact(projectedRainfall)} {units.Water} rainfall intercepted by trees";
+        SnapshotSpeciesText.Text = site.DistinctSpeciesCount.ToString("N0");
+        var habitats = HabitatAreas(filteredFloors);
+        if (habitats.Count > 0)
+        {
+            SnapshotHabitatText.Text = habitats.Count.ToString("N0");
+            SnapshotHabitatDetailText.Text = $"BNG habitats on {Compact(units.AreaOf(habitats.Sum(habitat => habitat.Area)))} {units.Area}";
+        }
+        else
+        {
+            SnapshotHabitatText.Text = floorSubtotals.Count.ToString("N0");
+            SnapshotHabitatDetailText.Text = "planting types — no BNG habitats assigned yet";
+        }
+
+        SnapshotAreaText.Text = $"{Compact(units.AreaOf(grandTotal.FloorAreaSquareMeters))} {units.Area}";
         // Embodied carbon of the hard surfaces vs the planting's yearly CO2e uptake (trees + floors).
-        var embodied = FloorCarbon(grandTotal.FloorTotalGwp);
-        var sequesteredPerYear = grandTotal.CO2EquivalentAnnual + FloorCarbon(grandTotal.FloorCarbonSequesteredAnnual * UnitConversions.CarbonToCo2MassRatio);
-        GwpBaselineText.Text = $"{Compact(embodied)} {carbonUnit} CO₂e";
+        var embodied = units.Mass(grandTotal.FloorTotalGwp);
+        var sequesteredPerYear = grandTotal.CO2EquivalentAnnual + floorCo2EquivalentAnnual;
+        GwpBaselineText.Text = $"{Compact(embodied)} {units.Carbon} CO₂e";
         GwpPaybackText.Text = EmbodiedCarbon.PaybackYears(embodied, sequesteredPerYear) switch
         {
             0 => "no embodied carbon recorded",
             { } payback => $"payback ≈ {payback:N1} yrs of current planting uptake",
             null => "no sequestration yet to offset it"
         };
-        SnapshotInventoryText.Text = $"{grandTotal.TreeCount + grandTotal.FloorCount:N0} assets";
-        ReportingProgress.Value = readyPercent;
-        ReportingCaptionText.Text = $"{readyPercent:N0}% tree results ready";
-        ReadinessRing.Value = readyPercent;
-        ReadinessPercentText.Text = $"{readyPercent:N0}%";
-        ReadinessDetailText.Text = $"{grandTotal.TreeCount:N0} of {filteredTrees.Count:N0} filtered tree records are Calculated.";
 
-        ProjectionTrendRows.Clear();
-        IReadOnlyList<int> trendYears = _growthYearsFromWorksets ? _growthYearStops.Where(year => year > 0).ToList() : [5, 10, 20, 25];
-        var trend = trendYears
-            .Select(trendYear => (Year: trendYear, Value: treeOutlook.Accumulate(total => total.CarbonSequesteredAnnual, trendYear) + floorCarbonAnnual * trendYear))
-            .ToList();
-        var trendMaximum = trend.Count == 0 ? 0d : trend.Max(point => point.Value);
-        foreach (var (trendYear, value) in trend)
+        // Habitat & connectivity.
+        var bng = DashboardAggregationService.BuildBngSummary(filteredFloors, BngMetricCatalog.Default);
+        if (bng.NetChangePercent is { } bngPercent)
         {
-            ProjectionTrendRows.Add(new KpiBarRow($"{trendYear} yr", $"{Compact(value)} {carbonUnit}", trendMaximum <= 0d ? 0d : 100d * value / trendMaximum));
+            OverviewBngText.Text = $"{bngPercent:+0.0;-0.0;0.0}%";
+            OverviewBngText.Foreground = Tier(bngPercent, high: BngSummary.StatutoryNetGainPercent, medium: 0d);
+            OverviewBngDetailText.Text = $"{bng.BaselineUnits:N2} → {bng.PostInterventionUnits:N2} habitat units" + (bng.IsComplete ? "" : " · provisional, some floors stale or not assessed");
+        }
+        else
+        {
+            OverviewBngText.Text = "—";
+            OverviewBngText.ClearValue(TextBlock.ForegroundProperty);
+            OverviewBngDetailText.Text = "No BNG baseline yet — assess floors in Floor Calculator's BNG tab.";
         }
 
-        // Ordered Carbon / Stormwater / Air Quality — the same three i-Tree benefit categories,
-        // in the same order, as the KPI cards and donut ring below.
-        ImpactProfileRows.Clear();
-        AddImpactShare("Carbon", treeCarbon, floorCarbonAnnual * years, carbonUnit);
-        AddImpactShare("Runoff", treeRunoff, floorRunoffAnnual * years, waterUnit);
-        AddImpactShare("Pollution", treePollution, floorPollutionAnnual * years, pollutantUnit);
+        ConnectivityBandRows.Clear();
+        var bands = site.ConnectivityBandCounts;
+        var assessed = bands.Take(4).Sum();
+        string[] bandNames = ["1 · Low", "2 · Moderate", "3 · Strong connector", "4 · Critical"];
+        if (assessed > 0)
+        {
+            for (var band = 3; band >= 0; band--)
+            {
+                ConnectivityBandRows.Add(new KpiBarRow(bandNames[band], bands[band].ToString("N0"), 100d * bands[band] / assessed,
+                    $"{bands[band]:N0} trees and planting areas in band {band + 1}"));
+            }
+        }
 
+        ConnectivityEmptyText.Text = assessed == 0
+            ? "No connectivity results yet — run the Connectivity Calculator."
+            : bands[4] > 0 ? $"{bands[4]:N0} not assessed (new since the last Connectivity run, or not in a primary option)." : string.Empty;
+
+        // Planting-area mix: planting types by area, and the BNG habitat types they make.
+        FloorMixRows.Clear();
+        var totalArea = floorSubtotals.Sum(row => row.AreaSquareMeters);
+        foreach (var row in floorSubtotals.OrderByDescending(row => row.AreaSquareMeters).Take(8))
+        {
+            FloorMixRows.Add(new KpiBarRow(
+                row.LdsType,
+                $"{Compact(units.AreaOf(row.AreaSquareMeters))} {units.Area}",
+                totalArea <= 0d ? 0d : 100d * row.AreaSquareMeters / totalArea,
+                $"{row.LdsType}: {row.FloorCount:N0} floor(s)"));
+        }
+
+        HabitatMixRows.Clear();
+        var habitatArea = habitats.Sum(habitat => habitat.Area);
+        foreach (var habitat in habitats.Take(8))
+        {
+            HabitatMixRows.Add(new KpiBarRow(
+                habitat.Name,
+                $"{Compact(units.AreaOf(habitat.Area))} {units.Area}",
+                habitatArea <= 0d ? 0d : 100d * habitat.Area / habitatArea,
+                $"{habitat.Name}: {habitat.Floors:N0} floor(s)"));
+        }
+
+        HabitatMixEmptyText.Text = habitats.Count == 0 ? "No habitats assigned yet — Floor Calculator › BNG." : string.Empty;
+
+        // Kept for the SVG export's species strip: the five most planted species.
         SpeciesMixRows.Clear();
         var totalTrees = Math.Max(1, speciesSubtotals.Sum(row => row.TreeCount));
         foreach (var row in speciesSubtotals.OrderByDescending(row => row.TreeCount).Take(5))
         {
-            SpeciesMixRows.Add(new KpiBarRow(
-                row.SpeciesCode,
-                row.TreeCount.ToString("N0"),
-                100d * row.TreeCount / totalTrees,
-                row.CommonName));
+            SpeciesMixRows.Add(new KpiBarRow(row.SpeciesCode, row.TreeCount.ToString("N0"), 100d * row.TreeCount / totalTrees, row.CommonName));
         }
 
-        FloorMixRows.Clear();
-        var totalArea = floorSubtotals.Sum(row => row.AreaSquareMeters);
-        foreach (var row in floorSubtotals.OrderByDescending(row => row.AreaSquareMeters).Take(5))
-        {
-            var displayArea = Area(row.AreaSquareMeters);
-            FloorMixRows.Add(new KpiBarRow(
-                row.LdsType,
-                $"{Compact(displayArea)} {areaUnit}",
-                totalArea <= 0d ? 0d : 100d * row.AreaSquareMeters / totalArea));
-        }
-
+        RebuildPalette(treesForOutlook, filteredTrees, unitSystem, years);
         RebuildScenarioOverview(unitSystem, matchesLevel, matchesSearch);
         UpdateSiteKpiCards(filteredTrees, filteredFloors);
 
@@ -559,6 +666,94 @@ public sealed partial class MainPage : Page
         }
     }
 
+    /// <summary>Floor area per BNG habitat: the proposed habitat, or the baseline one for a retained floor; lost floors are gone.</summary>
+    private static IReadOnlyList<(string Name, double Area, int Floors)> HabitatAreas(IReadOnlyList<DashboardFloorItem> floors) =>
+        floors
+            .Where(floor => floor.Bng is { } bng && bng.PhaseRole != BngPhaseRoles.Lost && bng.PhaseRole != BngPhaseRoles.Excluded)
+            .Select(floor => (Floor: floor, Name: floor.Bng!.PhaseRole == BngPhaseRoles.Retained ? floor.Bng.BaselineHabitat : floor.Bng.ProposedHabitat))
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Name))
+            .GroupBy(pair => pair.Name!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => (group.Key, group.Sum(pair => pair.Floor.AreaSquareMeters), group.Count()))
+            .OrderByDescending(habitat => habitat.Item2)
+            .ToList();
+
+    // ---- Tree palette: one row per species, over the outlook, sortable ----
+
+    private string _paletteSortKey = "Value";
+    private bool _paletteDescending = true;
+
+    private void RebuildPalette(IReadOnlyList<NormalizedTreeMetrics> treesForOutlook, IReadOnlyList<NormalizedTreeMetrics> treesThisYear, string unitSystem, int years)
+    {
+        var units = DisplayUnits.For(unitSystem);
+        var counts = treesThisYear
+            .Where(tree => tree.CountsTowardTotals)
+            .GroupBy(SpeciesKey)
+            .ToDictionary(group => group.Key, group => group.Count());
+        var rows = treesForOutlook
+            .Where(tree => tree.CountsTowardTotals)
+            .GroupBy(SpeciesKey)
+            .Select(group =>
+            {
+                var outlook = CreateTreeOutlook(group.ToList(), unitSystem);
+                double Over(Func<DashboardGrandTotal, double> annual) => outlook.Accumulate(annual, years);
+                return new SpeciesPaletteRow(
+                    group.Key.Code,
+                    group.Key.Name,
+                    counts.GetValueOrDefault(group.Key),
+                    Over(total => total.TreeCostSavedAnnual),
+                    Over(total => total.CO2EquivalentAnnual),
+                    units.Volume(Over(total => total.RunoffAvoidedAnnual)),
+                    Over(total => total.TotalPollutionMassRemovedAnnual),
+                    Over(total => total.OxygenProducedAnnual),
+                    units,
+                    _preferredCurrency);
+            })
+            .ToList();
+
+        Func<SpeciesPaletteRow, IComparable> key = _paletteSortKey switch
+        {
+            "Name" => row => row.SpeciesCode,
+            "Count" => row => row.Count,
+            "Co2" => row => row.Co2,
+            "Runoff" => row => row.Runoff,
+            "Pollution" => row => row.Pollution,
+            "Oxygen" => row => row.Oxygen,
+            _ => row => row.Value
+        };
+        var sorted = _paletteDescending ? rows.OrderByDescending(key) : rows.OrderBy(key);
+        PaletteRows.Clear();
+        foreach (var row in sorted)
+        {
+            PaletteRows.Add(row);
+        }
+
+        string Arrow(string column) => column == _paletteSortKey ? (_paletteDescending ? " ▼" : " ▲") : string.Empty;
+        PaletteNameHeader.Text = "Species" + Arrow("Name");
+        PaletteCountHeader.Text = "Trees" + Arrow("Count");
+        PaletteValueHeader.Text = $"Money saved ({_preferredCurrency})" + Arrow("Value");
+        PaletteCo2Header.Text = $"CO₂e ({units.Carbon})" + Arrow("Co2");
+        PaletteRunoffHeader.Text = $"Runoff ({units.Water})" + Arrow("Runoff");
+        PalettePollutionHeader.Text = $"Pollution ({units.Pollutant})" + Arrow("Pollution");
+        PaletteOxygenHeader.Text = $"O₂ ({units.Carbon})" + Arrow("Oxygen");
+        PaletteCaptionText.Text = rows.Count == 0
+            ? "No calculated trees in this scenario yet."
+            : $"{rows.Count:N0} species · totals over {years} years · select a column to sort";
+
+        static (string Code, string Name) SpeciesKey(NormalizedTreeMetrics tree) =>
+            (tree.Source.SpeciesCode ?? "Unassigned", tree.Source.CommonName ?? tree.Source.SpeciesCode ?? "Unassigned");
+    }
+
+    private void PaletteSort_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string column })
+        {
+            return;
+        }
+
+        _paletteDescending = column == _paletteSortKey ? !_paletteDescending : column != "Name";
+        _paletteSortKey = column;
+        RebuildRows();
+    }
     private void UpdateSiteKpiCards(IReadOnlyList<NormalizedTreeMetrics> filteredTrees, IReadOnlyList<DashboardFloorItem> filteredFloors)
     {
         if (_lastReport is null)
@@ -620,15 +815,27 @@ public sealed partial class MainPage : Page
         FunctionalDiversityText.Text = $"{summary.DistinctEcologicalFunctionsCount} function{(summary.DistinctEcologicalFunctionsCount == 1 ? "" : "s")}";
         FunctionalDiversityDetailText.Text = $"{summary.MultiFunctionAreaSquareMeters:N0} m² of canopy from multi-function species.";
 
-        if (summary.HabitatConnectivityScore is { } connectivityScore)
+        // The Connectivity Calculator's bands come first; the hand-entered GIS score is the fallback.
+        var bands = summary.ConnectivityBandCounts;
+        var assessed = bands.Take(4).Sum();
+        if (assessed > 0)
+        {
+            var connectors = bands[2] + bands[3];
+            HabitatConnectivityText.Text = $"{100d * connectors / assessed:N0}% connectors";
+            HabitatConnectivityDetailText.Text =
+                $"Band 4 critical {bands[3]:N0} · 3 strong {bands[2]:N0} · 2 moderate {bands[1]:N0} · 1 low {bands[0]:N0}" +
+                (bands[4] > 0 ? $" · {bands[4]:N0} not assessed" : string.Empty) +
+                (summary.HabitatConnectivityScore is { } gisScore ? $" · GIS score {gisScore:N1}/10" : string.Empty);
+        }
+        else if (summary.HabitatConnectivityScore is { } connectivityScore)
         {
             HabitatConnectivityText.Text = $"{connectivityScore:N1} / 10";
-            HabitatConnectivityDetailText.Text = "Entered from external GIS connectivity modelling (site-wide, not per design option).";
+            HabitatConnectivityDetailText.Text = "Entered from external GIS connectivity modelling (site-wide, not per design option). Run the Connectivity Calculator for per-element bands.";
         }
         else
         {
             HabitatConnectivityText.Text = "—";
-            HabitatConnectivityDetailText.Text = "Enter !_S_PLT_Site_HabitatConnectivityScore_Number on Project Information after running GIS analysis.";
+            HabitatConnectivityDetailText.Text = "Run the Connectivity Calculator, or enter !_S_PLT_Site_HabitatConnectivityScore_Number on Project Information after GIS analysis.";
         }
 
         SetPercentCard(LightingImpactText, LightingImpactDetailText, summary.LightingCompliancePercent,
@@ -1165,7 +1372,7 @@ public sealed partial class MainPage : Page
                 KpiEcosystemValueText.Text,
                 HeroCarbonCostText.Text,
                 HeroStormWaterCostText.Text,
-                KpiPollutionText.Text,
+                HeroPollutionTotalText.Text,
                 SnapshotAreaText.Text,
                 ReadinessPercentText.Text,
                 ProjectionTrendRows.ToList(),

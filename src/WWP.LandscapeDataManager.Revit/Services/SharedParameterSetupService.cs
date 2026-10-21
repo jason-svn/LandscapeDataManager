@@ -832,6 +832,29 @@ internal static class SharedParameterSetupService
             PlantingAndFloorType("!_S_PLT_LDS_MaintenanceCostAnnual_Currency", GroupTypeId.AnalysisResults,
                 "Estimated annual maintenance cost for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area (Revit Currency parameter).",
                 legacyAliases: ["!_S_PLT_LDS_MaintenanceCostAnnual_Number"]),
+            // Calculated from the rate above: per tree for Planting, per m² × area for a Floor (see
+            // MaintenanceCost). Refreshed whenever Tree Calculator or Floor Calculator writes results.
+            PlantingAndFloorInstance("!_S_PLT_Result_MaintenanceCostAnnual_Currency", GroupTypeId.AnalysisResults,
+                "Yearly maintenance cost: the WWP sheet rate per tree, or per m² × area for a floor (Revit Currency parameter)."),
+            // Trees: CO2e × 32/44 over the i-Tree forecast; the annual figure shares
+            // Result_OxygenProducedAnnual_Mass with planting areas.
+            PlantingInstance("!_S_PLT_Result_OxygenProducedLifetimeTotal_Mass", GroupTypeId.AnalysisResults,
+                "Oxygen this tree releases over its forecast: CO2 equivalent × 32/44 (Revit Mass parameter)."),
+            // i-Tree timeline (one stored forecast per unique planting input, see TreeTimelineStore):
+            // the key this tree uses, and its totals over the standard outlooks so schedules can add them up.
+            PlantingInstance("!_S_PLT_Result_iTreeTimelineKey_Text", GroupTypeId.AnalysisResults,
+                "Which stored i-Tree year-by-year forecast this tree uses. Application-managed."),
+            .. new[] { 5, 10, 20, 25 }.SelectMany(years => new[]
+            {
+                PlantingInstance($"!_S_PLT_Result_CO2Equivalent{years}yr_Mass", GroupTypeId.AnalysisResults,
+                    $"CO2 equivalent taken up over the first {years} years after planting, from the i-Tree forecast."),
+                PlantingInstance($"!_S_PLT_Result_RunoffAvoided{years}yr_Volume", GroupTypeId.AnalysisResults,
+                    $"Runoff avoided over the first {years} years after planting, from the i-Tree forecast."),
+                PlantingInstance($"!_S_PLT_Result_PollutantsRemoved{years}yr_Mass", GroupTypeId.AnalysisResults,
+                    $"Air pollution removed over the first {years} years after planting, from the i-Tree forecast."),
+                PlantingInstance($"!_S_PLT_Result_CostSaved{years}yr_Currency", GroupTypeId.AnalysisResults,
+                    $"Value of the tree's benefits over the first {years} years after planting, from the i-Tree forecast."),
+            }),
             PlantingAndFloorInstance("!_S_PLT_Result_PollutantsRemovedAnnual_Mass", GroupTypeId.AnalysisResults,
                 "Estimated annual pollutants removed, from the WWP landscape data sheet's per-square-metre coefficient times area (Revit Mass parameter).",
                 legacyAliases: ["!_S_PLT_LDS_PollutantsRemovedAnnual_Mass", "!_S_PLT_LDS_PollutantsRemovedAnnual_Number"]),

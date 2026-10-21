@@ -33,6 +33,14 @@ internal static class KpiScheduleBuilderService
         IReadOnlyList<string> SkippedEmpty,
         IReadOnlyList<string> MissingFields);
 
+    /// <summary>The Connectivity Calculator's result for each tree and planting area: band 1–4, its name, and the score.</summary>
+    private static readonly IReadOnlyList<FieldSpec> ConnectivityFields =
+    [
+        new("!_S_PLT_ConnectivityResult_Band_Number", Totals: false),
+        new("!_S_PLT_ConnectivityResult_Class_Text", Totals: false),
+        new("!_S_PLT_ConnectivityResult_Score_Number", Totals: false)
+    ];
+
     private static readonly IReadOnlyList<FieldSpec> PlantingFields =
     [
         new(PlantingGroupingParameter, Totals: false),
@@ -66,7 +74,19 @@ internal static class KpiScheduleBuilderService
         new("!_S_PLT_iTreeResult_RainfallInterceptedAnnual_Volume", Totals: true),
         new("!_S_PLT_iTreeResult_RainfallInterceptedLifetimeTotal_Volume", Totals: true),
         new("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume", Totals: true),
-        new("!_S_PLT_iTreeResult_RunoffAvoidedLifetimeTotal_Volume", Totals: true)
+        new("!_S_PLT_iTreeResult_RunoffAvoidedLifetimeTotal_Volume", Totals: true),
+        new("!_S_PLT_Result_OxygenProducedAnnual_Mass", Totals: true),
+        new("!_S_PLT_Result_OxygenProducedLifetimeTotal_Mass", Totals: true),
+        new("!_S_PLT_Result_MaintenanceCostAnnual_Currency", Totals: true),
+        // i-Tree forecast totals over the standard outlooks (see TreeTimelineStore).
+        .. new[] { 5, 10, 20, 25 }.SelectMany(years => new FieldSpec[]
+        {
+            new($"!_S_PLT_Result_CO2Equivalent{years}yr_Mass", Totals: true),
+            new($"!_S_PLT_Result_RunoffAvoided{years}yr_Volume", Totals: true),
+            new($"!_S_PLT_Result_PollutantsRemoved{years}yr_Mass", Totals: true),
+            new($"!_S_PLT_Result_CostSaved{years}yr_Currency", Totals: true),
+        }),
+        .. ConnectivityFields
     ];
 
     private static readonly IReadOnlyList<FieldSpec> FloorFields =
@@ -80,8 +100,10 @@ internal static class KpiScheduleBuilderService
         new("!_S_PLT_iTreeResult_CostSavedAnnual_Currency", Totals: true),
         new("!_S_PLT_Result_OxygenProducedAnnual_Mass", Totals: true),
         new("!_S_PLT_Result_EmbodiedGWP_Mass", Totals: true),
+        new("!_S_PLT_Result_MaintenanceCostAnnual_Currency", Totals: true),
         new("!_S_PLT_LDS_SurfaceTempReduction_Number", Totals: false),
-        new("!_S_PLT_LDS_AirTempReduction_Number", Totals: false)
+        new("!_S_PLT_LDS_AirTempReduction_Number", Totals: false),
+        .. ConnectivityFields
     ];
 
     public static KpiScheduleResult CreateSchedules(Document document)

@@ -76,27 +76,26 @@ Every dashboard number depends on picking the right scenario, so this comes befo
 
 ## Phase 3: Dashboard redesign
 
-Follows the marked-up screenshot.
+Follows the marked-up screenshot. Built on branch `roadmap-phases-2-5`, not released yet.
 
-- [ ] **Ecosystem value band:** split into CO₂ uptake, water runoff and pollution values.
-- [ ] **Accumulated amounts:** every benefit card shows kg and m³ over the outlook, not only money.
-- [ ] **Outlooks:** add pollution and runoff outlooks next to the carbon outlook.
-- [ ] **Project snapshot:** canopy cover, water (runoff avoided and rainfall intercepted), plus the number of species and habitat types. Remove "Pollution removed" and "Inventory".
-- [ ] **Readiness moves to Data Explorer.** The Dashboard keeps results only.
-- [ ] **Data Explorer layout:**
-  - Fix the number formatting and the clipped columns.
-  - Put the planting-area table **under** the tree table, not beside it, so both get the full width.
-- [ ] **Units per year:** the carbon, water and air-quality cards show the annual rate (kg/yr, m³/yr) next to the outlook total.
-- [ ] **Maintenance cost:**
-  - Today `!_S_PLT_LDS_MaintenanceCostAnnual_Currency` is imported from Airtable onto each type but **never used**: nothing multiplies it out and no report shows it.
-  - Calculate it: per tree × tree count, and per m² × floor area for planting areas and surfaces. Store the result as a calculated instance value (`!_S_PLT_Result_MaintenanceCostAnnual_Currency`).
-  - Dashboard: show maintenance cost per year and over the outlook, and **net value** = ecosystem value − maintenance. Add it to the scenario comparison too.
-  - Naming: per the rules, the imported rate should become `…MaintenanceCostRate_Currency` (new GUID, old name in `legacyAliases`). Decide before building.
-- [ ] **Planting-area mix:** fill it with the species and habitat-type lists.
-- [ ] **Top tree palette:** replace it with a per-species table: count, money saved, CO₂, runoff, pollution and O₂ per row, sortable, defaulting to money saved.
-- [ ] **Tree oxygen:** add `iTreeResult_OxygenProducedAnnual/LifetimeTotal_Mass` = CO₂e × 32/44 (≈ 0.727), or i-Tree's "Carbon Sequestered" (kg of carbon) × 2.67.
-- [ ] **Connectivity:** band counts on the dashboard, plus the connectivity fields in KPI Schedules.
-- [ ] **Captions:** fix the cards that say "trees + planting areas" but count trees only (ecosystem value, CO₂ equivalent, runoff).
+- [x] **Ecosystem value band:** split into CO₂ uptake, water runoff and pollution values (trees, i-Tree), plus planting areas (the WWP sheet gives one combined saving), then maintenance and net value.
+- [x] **Accumulated amounts:** every benefit card shows kg and m³ over the outlook, not only money; carbon also shows oxygen released.
+- [x] **Outlooks:** CO₂e, runoff and pollution outlooks side by side.
+- [x] **Project snapshot:** canopy cover (overlaps counted once), water (runoff avoided and rainfall intercepted), number of species and habitat types (BNG habitats, else planting types), planting area and embodied carbon. "Pollution removed" and "Inventory" are gone.
+- [x] **Readiness moves to Data Explorer**, next to the status cards. The Dashboard keeps results only.
+- [x] **Data Explorer layout:**
+  - Units are in the column headers, cells are plain right-aligned numbers (1,234 · 56.7 · 0.42), and columns are wide enough not to clip. Planting-area values follow the Metric/Imperial toggle too.
+  - The planting-area table is **under** the tree table, both full width, with oxygen, embodied carbon and upkeep columns.
+- [x] **Units per year:** the carbon, water and air-quality cards show the yearly rate now (kg/yr, m³/yr) next to the outlook total.
+- [x] **Maintenance cost:**
+  - Kept the imported rate's name, `!_S_PLT_LDS_MaintenanceCostAnnual_Currency` (decided 2026-10-21: no rename).
+  - Calculated per tree, and per m² × floor area for planting areas, into `!_S_PLT_Result_MaintenanceCostAnnual_Currency`. Tree Calculator (any instance write) and Floor Calculator refresh it; the Dashboard works it out live from the rate.
+  - Dashboard: maintenance per year and over the outlook, and **net value** = ecosystem value − maintenance, in the banner and the scenario comparison.
+- [x] **Planting-area mix:** planting types by area, and BNG habitat types by area.
+- [x] **Top tree palette:** now a per-species table over the outlook — trees, money saved, CO₂e, runoff, pollution and O₂ — sortable by any column, money saved first.
+- [x] **Tree oxygen:** Tree Calculator writes `!_S_PLT_Result_OxygenProducedAnnual_Mass` (shared with planting areas) and the new `!_S_PLT_Result_OxygenProducedLifetimeTotal_Mass` = CO₂e × 32/44. Named `Result_` per the naming rules rather than `iTreeResult_`. Trees calculated before this get it from their CO₂e on the Dashboard.
+- [x] **Connectivity:** band counts on the Executive overview and Site & Biodiversity, and band/class/score in KPI Schedules (trees and planting areas).
+- [x] **Captions:** each card says what it covers — amounts are trees + planting areas, money and rainfall intercepted are trees only.
 
 ## Phase 4: i-Tree timeline instead of growth copies
 
