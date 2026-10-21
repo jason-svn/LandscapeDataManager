@@ -5,13 +5,22 @@ namespace WWP.LandscapeDataManager.Contracts;
 /// <summary>
 /// The naming rule for growth years: a workset (or, in older models, a design option) whose name
 /// carries a year count — e.g. "Trees - 15 Years", "LIM_Growth_10yr", "LIM_Growth_0yr - Baseline" —
-/// holds the planting as it stands that many years after planting (0 = as planted). Any whole
-/// number of years from 0 to <see cref="MaximumYear"/> counts, so Growth Projections can add custom
-/// years. Shared by the Revit connector (tree age sync, Growth Projections) and the tools.
+/// holds the planting as it stands that many years after planting (0 = as planted). Growth
+/// Projections makes whole years from 1 to <see cref="MaximumYear"/>; names are read up to
+/// <see cref="MaximumNamedYear"/>. Shared by the Revit connector (tree age sync, Growth
+/// Projections) and the tools.
 /// </summary>
 public static partial class GrowthYearNames
 {
-    public const int MaximumYear = 100;
+    /// <summary>The latest growth year Growth Projections makes — trees are at full size by then or soon after.</summary>
+    public const int MaximumYear = 40;
+
+    /// <summary>
+    /// The largest year count a name is read as — above <see cref="MaximumYear"/> so growth-year
+    /// worksets made when the limit was 100 (e.g. "LIM_Growth_50yr") still count as growth years.
+    /// Otherwise their trees would read as on no growth-year workset and be added to every year.
+    /// </summary>
+    public const int MaximumNamedYear = 100;
 
     [GeneratedRegex(@"(?<!\d)(\d{1,3})(?!\d)\s*(?:years?|yrs?)(?![A-Za-z0-9])|\b(?:year|yr)\s*(\d{1,3})(?!\d)", RegexOptions.IgnoreCase)]
     private static partial Regex ExplicitYearPattern();
@@ -34,7 +43,7 @@ public static partial class GrowthYearNames
         var value = match.Groups.Cast<Group>().Skip(1).FirstOrDefault(group => group.Success)?.Value;
         if (value is not null && int.TryParse(value, out var years))
         {
-            return years <= MaximumYear ? years : null;
+            return years <= MaximumNamedYear ? years : null;
         }
 
         // Bare numeric suffixes occur in the newer LIM_Growth_10 convention, but accepting them on
@@ -45,7 +54,7 @@ public static partial class GrowthYearNames
         }
 
         match = GrowthSuffixPattern().Match(name);
-        return match.Success && int.TryParse(match.Groups[1].Value, out years) && years <= MaximumYear ? years : null;
+        return match.Success && int.TryParse(match.Groups[1].Value, out years) && years <= MaximumNamedYear ? years : null;
     }
 
     /// <summary>

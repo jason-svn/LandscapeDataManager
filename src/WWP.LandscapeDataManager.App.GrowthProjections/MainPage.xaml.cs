@@ -63,7 +63,7 @@ public sealed partial class MainPage : Page
     private void ShowYears(IEnumerable<int> years)
     {
         YearRows.Clear();
-        foreach (var year in years.Where(year => year > 0).Distinct().Order())
+        foreach (var year in years.Where(year => year is > 0 and <= GrowthYearNames.MaximumYear).Distinct().Order())
         {
             YearRows.Add(new GrowthYearRow(year));
         }
@@ -109,6 +109,11 @@ public sealed partial class MainPage : Page
         if (_status.GroupedTrees > 0)
         {
             warnings.Add($"{_status.GroupedTrees:N0} tree(s) are in groups. Trees in a group share one age and growth year, so they're skipped here — ungroup them (Health Check lists them).");
+        }
+
+        if (_status.Worksets.Where(workset => workset.Year > GrowthYearNames.MaximumYear).Select(workset => workset.WorksetName).ToList() is { Count: > 0 } pastLimit)
+        {
+            warnings.Add($"Growth-year worksets past the {GrowthYearNames.MaximumYear}-year limit: {string.Join(", ", pastLimit)}. Their trees stay in the model, but this tool no longer refreshes them and the online dashboard leaves them out — delete them if you no longer need them.");
         }
 
         if (_status.UnlinkedGrowthTrees > 0)
