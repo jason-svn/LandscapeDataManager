@@ -88,6 +88,10 @@ public static class DashboardExcelExportService
         WriteRow("Planting areas — pollution mitigated (kg)", total.FloorPollutionMassRemovedAnnual.ToString("N2"));
         WriteRow("Planting areas — total GWP", total.FloorTotalGwp.ToString("N1"));
         WriteRow("Planting areas — cost saved (as calculated)", total.FloorCostSavedAnnual.ToString("N2"));
+        row += 1;
+        WriteRow($"Maintenance cost per year — trees ({request.PreferredCurrency})", total.TreeMaintenanceCostAnnual.ToString("N2"));
+        WriteRow($"Maintenance cost per year — planting areas ({request.PreferredCurrency})", total.FloorMaintenanceCostAnnual.ToString("N2"));
+        WriteRow($"Maintenance cost per year — total ({request.PreferredCurrency})", total.MaintenanceCostAnnual.ToString("N2"));
 
         sheet.Column(1).Width = 42;
         sheet.Column(2).Width = 22;
@@ -100,7 +104,7 @@ public static class DashboardExcelExportService
         [
             "Species code", "Common name", "Tree count",
             "Carbon sequestered", "PM2.5 removed", "NO2 removed", "O3 removed", "SO2 removed", "CO removed",
-            "Cost saved"
+            "Cost saved", "Maintenance cost per year"
         ];
         WriteHeaderRow(sheet, headers);
 
@@ -118,6 +122,7 @@ public static class DashboardExcelExportService
             sheet.Cell(row, 8).Value = isAnnual ? subtotal.SO2RemovedAnnual : subtotal.SO2RemovedLifetimeTotal;
             sheet.Cell(row, 9).Value = isAnnual ? subtotal.CORemovedAnnual : subtotal.CORemovedLifetimeTotal;
             sheet.Cell(row, 10).Value = isAnnual ? subtotal.CostSavedAnnual : subtotal.CostSavedLifetimeTotal;
+            sheet.Cell(row, 11).Value = subtotal.MaintenanceCostAnnual;
             row += 1;
         }
 
@@ -130,7 +135,8 @@ public static class DashboardExcelExportService
         string[] headers =
         [
             "Landscape data sheet type", "Planting area count", "Area (m2)", "Carbon sequestered (kg)",
-            "Runoff avoided (m3)", "Pollution mitigated (kg)", "Total GWP", "Cost saved (as calculated)"
+            "Runoff avoided (m3)", "Pollution mitigated (kg)", "Total GWP", "Cost saved (as calculated)",
+            "Maintenance cost per year"
         ];
         WriteHeaderRow(sheet, headers);
 
@@ -145,6 +151,7 @@ public static class DashboardExcelExportService
             sheet.Cell(row, 6).Value = subtotal.PollutionMassRemovedAnnual;
             sheet.Cell(row, 7).Value = subtotal.TotalGwp;
             sheet.Cell(row, 8).Value = subtotal.CostSavedAnnual;
+            sheet.Cell(row, 9).Value = subtotal.MaintenanceCostAnnual;
             row += 1;
         }
 
@@ -158,7 +165,7 @@ public static class DashboardExcelExportService
         [
             "Category", "Family : Type", "Species code", "Level", "Design option", "Status",
             "Carbon sequestered", "PM2.5 removed", "NO2 removed", "O3 removed", "SO2 removed", "CO removed",
-            "Cost saved"
+            "Cost saved", "Maintenance cost per year"
         ];
         WriteHeaderRow(sheet, headers);
 
@@ -180,6 +187,7 @@ public static class DashboardExcelExportService
             sheet.Cell(row, 11).Value = isAnnual ? tree.SO2RemovedAnnual : tree.SO2RemovedLifetimeTotal;
             sheet.Cell(row, 12).Value = isAnnual ? tree.CORemovedAnnual : tree.CORemovedLifetimeTotal;
             sheet.Cell(row, 13).Value = isAnnual ? tree.CostSavedAnnual : tree.CostSavedLifetimeTotal;
+            sheet.Cell(row, 14).Value = tree.MaintenanceCostAnnual;
             row += 1;
         }
 
@@ -198,6 +206,7 @@ public static class DashboardExcelExportService
             sheet.Cell(row, 11).Value = "n/a";
             sheet.Cell(row, 12).Value = "n/a";
             sheet.Cell(row, 13).Value = floor.CostSavedAnnual;
+            sheet.Cell(row, 14).Value = floor.MaintenanceCostAnnual;
             row += 1;
         }
 

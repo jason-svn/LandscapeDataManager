@@ -305,7 +305,7 @@ public sealed partial class MainPage : Page
         SpeciesSubtotals.Clear();
         foreach (var subtotal in speciesSubtotals)
         {
-            SpeciesSubtotals.Add(new SpeciesSubtotalRow(subtotal, _showAnnual));
+            SpeciesSubtotals.Add(new SpeciesSubtotalRow(subtotal, units, _showAnnual));
         }
 
         var floorSubtotals = DashboardAggregationService.AggregateFloorsByType(filteredFloors);
@@ -337,7 +337,9 @@ public sealed partial class MainPage : Page
         SpeciesCarbonHeader.Text = $"Carbon\n{units.Carbon} {periodUnit}";
         SpeciesOxygenHeader.Text = $"Oxygen\n{units.Carbon} {periodUnit}";
         SpeciesCarbonCostHeader.Text = $"Carbon\n{currency} {periodUnit}";
+        SpeciesRunoffHeader.Text = $"Runoff\n{units.Water} {periodUnit}";
         SpeciesStormCostHeader.Text = $"Water\n{currency} {periodUnit}";
+        SpeciesUpkeepHeader.Text = $"Cost\n{currency} per year";
         SpeciesPollutionHeader.Text = $"Pollution\n{units.Pollutant} {periodUnit}";
         SpeciesAirCostHeader.Text = $"Air\n{currency} {periodUnit}";
         FloorAreaHeader.Text = $"Area\n{units.Area}";
@@ -346,7 +348,7 @@ public sealed partial class MainPage : Page
         FloorPollutionHeader.Text = $"Pollution\n{units.Pollutant} per year";
         FloorOxygenHeader.Text = $"Oxygen\n{units.Carbon} per year";
         FloorEmbodiedHeader.Text = $"Embodied\n{units.Carbon} CO₂e";
-        FloorMaintenanceHeader.Text = $"Upkeep\n{currency} per year";
+        FloorMaintenanceHeader.Text = $"Cost\n{currency} per year";
 
         TreeCountText.Text = grandTotal.TreeCount.ToString("N0");
         TreeExcludedText.Text = grandTotal.TreesExcludedFromTotals > 0
@@ -415,7 +417,7 @@ public sealed partial class MainPage : Page
         FloorPollutionText.Text = $"{DashboardFormat.Number(units.PollutantMass(grandTotal.FloorPollutionMassRemovedAnnual))} {units.Pollutant}/yr pollution removed";
         FloorCostSavedText.Text = $"{DashboardFormat.Number(grandTotal.FloorCostSavedAnnual)} {currency}/yr";
         MaintenanceSummaryText.Text = grandTotal.MaintenanceCostAnnual > 0
-            ? $"upkeep {DashboardFormat.Number(grandTotal.MaintenanceCostAnnual)} {currency}/yr (trees {DashboardFormat.Number(grandTotal.TreeMaintenanceCostAnnual)}, areas {DashboardFormat.Number(grandTotal.FloorMaintenanceCostAnnual)})"
+            ? $"maintenance {DashboardFormat.Number(grandTotal.MaintenanceCostAnnual)} {currency}/yr (trees {DashboardFormat.Number(grandTotal.TreeMaintenanceCostAnnual)}, areas {DashboardFormat.Number(grandTotal.FloorMaintenanceCostAnnual)})"
             : "no maintenance rates imported yet";
 
         PeriodLabelText.Text = $"Showing {period} benefits for {DesignScenarios.Label(_scenario, _sets)}." + (_benefitsFromForecast
@@ -721,6 +723,7 @@ public sealed partial class MainPage : Page
                     units.Volume(Over(total => total.RunoffAvoidedAnnual)),
                     Over(total => total.TotalPollutionMassRemovedAnnual),
                     Over(total => total.OxygenProducedAnnual),
+                    Over(total => total.TreeMaintenanceCostAnnual),
                     units,
                     _preferredCurrency);
             })
@@ -734,6 +737,7 @@ public sealed partial class MainPage : Page
             "Runoff" => row => row.Runoff,
             "Pollution" => row => row.Pollution,
             "Oxygen" => row => row.Oxygen,
+            "Upkeep" => row => row.Upkeep,
             _ => row => row.Value
         };
         var sorted = _paletteDescending ? rows.OrderByDescending(key) : rows.OrderBy(key);
@@ -751,6 +755,7 @@ public sealed partial class MainPage : Page
         PaletteRunoffHeader.Text = $"Runoff ({units.Water})" + Arrow("Runoff");
         PalettePollutionHeader.Text = $"Pollution ({units.Pollutant})" + Arrow("Pollution");
         PaletteOxygenHeader.Text = $"O₂ ({units.Carbon})" + Arrow("Oxygen");
+        PaletteUpkeepHeader.Text = $"Maintenance ({_preferredCurrency})" + Arrow("Upkeep");
         PaletteCaptionText.Text = rows.Count == 0
             ? "No calculated trees in this scenario yet."
             : $"{rows.Count:N0} species · totals over {years} years · select a column to sort";

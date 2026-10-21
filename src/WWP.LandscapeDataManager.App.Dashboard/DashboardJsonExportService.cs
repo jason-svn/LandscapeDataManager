@@ -44,7 +44,9 @@ internal sealed record DashboardJsonTotals(
     double FloorPollutionMassRemovedAnnualKg,
     double FloorOxygenProducedAnnualKg,
     double FloorTotalGwp,
-    double FloorCostSavedAnnual);
+    double FloorCostSavedAnnual,
+    double TreeMaintenanceCostAnnual = 0,
+    double FloorMaintenanceCostAnnual = 0);
 
 internal sealed record DashboardJsonSpecies(
     string SpeciesCode,
@@ -59,7 +61,8 @@ internal sealed record DashboardJsonSpecies(
     double StormWaterCostSavedAnnual,
     double StormWaterCostSavedLifetime,
     double AirPollutionCostSavedAnnual,
-    double AirPollutionCostSavedLifetime);
+    double AirPollutionCostSavedLifetime,
+    double MaintenanceCostAnnual = 0);
 
 /// <summary><see cref="CostSavedAnnual"/> is "as calculated" — Floor Calculator never records which currency it used (see <see cref="FloorTypeSubtotal"/>).</summary>
 internal sealed record DashboardJsonFloorType(
@@ -71,7 +74,8 @@ internal sealed record DashboardJsonFloorType(
     double PollutionMassRemovedAnnualKg,
     double OxygenProducedAnnualKg,
     double TotalGwp,
-    double CostSavedAnnual);
+    double CostSavedAnnual,
+    double MaintenanceCostAnnual = 0);
 
 internal sealed record DashboardJsonSiteKpi(
     double? CanopyCoverPercent,
@@ -259,7 +263,9 @@ internal static class DashboardJsonExportService
             grandTotal.FloorPollutionMassRemovedAnnual,
             floorSubtotals.Sum(f => f.OxygenProducedAnnual),
             grandTotal.FloorTotalGwp,
-            grandTotal.FloorCostSavedAnnual);
+            grandTotal.FloorCostSavedAnnual,
+            grandTotal.TreeMaintenanceCostAnnual,
+            grandTotal.FloorMaintenanceCostAnnual);
 
         var species = speciesSubtotals.Select(s => new DashboardJsonSpecies(
             s.SpeciesCode,
@@ -270,13 +276,14 @@ internal static class DashboardJsonExportService
             s.PM25RemovedLifetimeTotal + s.NO2RemovedLifetimeTotal + s.O3RemovedLifetimeTotal + s.SO2RemovedLifetimeTotal + s.CORemovedLifetimeTotal,
             s.CarbonCostSavedAnnual, s.CarbonCostSavedLifetimeTotal,
             s.StormWaterCostSavedAnnual, s.StormWaterCostSavedLifetimeTotal,
-            s.AirPollutionCostSavedAnnual, s.AirPollutionCostSavedLifetimeTotal))
+            s.AirPollutionCostSavedAnnual, s.AirPollutionCostSavedLifetimeTotal,
+            s.MaintenanceCostAnnual))
             .ToList();
 
         var floorTypes = floorSubtotals.Select(f => new DashboardJsonFloorType(
             f.LdsType, f.FloorCount, f.AreaSquareMeters,
             f.CarbonSequesteredAnnual, f.RunoffAvoidedAnnual, f.PollutionMassRemovedAnnual,
-            f.OxygenProducedAnnual, f.TotalGwp, f.CostSavedAnnual))
+            f.OxygenProducedAnnual, f.TotalGwp, f.CostSavedAnnual, f.MaintenanceCostAnnual))
             .ToList();
 
         var siteKpiJson = new DashboardJsonSiteKpi(

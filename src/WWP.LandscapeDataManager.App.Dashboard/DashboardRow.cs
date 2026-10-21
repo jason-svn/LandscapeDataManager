@@ -79,7 +79,7 @@ internal static class DashboardFormat
 /// <summary>A Data explorer species row: plain numbers, with the units in the column headers.</summary>
 public sealed class SpeciesSubtotalRow
 {
-    public SpeciesSubtotalRow(SpeciesSubtotal subtotal, bool showAnnual)
+    internal SpeciesSubtotalRow(SpeciesSubtotal subtotal, DisplayUnits units, bool showAnnual)
     {
         SpeciesCode = subtotal.SpeciesCode;
         CommonName = subtotal.CommonName;
@@ -87,6 +87,9 @@ public sealed class SpeciesSubtotalRow
         CarbonSequestered = DashboardFormat.Number(showAnnual ? subtotal.CarbonSequesteredAnnual : subtotal.CarbonSequesteredLifetimeTotal);
         OxygenProduced = DashboardFormat.Number(showAnnual ? subtotal.OxygenProducedAnnual : subtotal.OxygenProducedLifetimeTotal);
         PollutionMassRemoved = DashboardFormat.Number(showAnnual ? subtotal.PollutionRemovedAnnual : subtotal.PollutionRemovedLifetimeTotal);
+        RunoffAvoided = DashboardFormat.Number(units.Volume(showAnnual ? subtotal.RunoffAvoidedAnnual : subtotal.RunoffAvoidedLifetimeTotal));
+        // Upkeep is always per year: the WWP sheet rate per tree.
+        MaintenanceCost = DashboardFormat.Number(subtotal.MaintenanceCostAnnual);
         CarbonCostSaved = DashboardFormat.Number(showAnnual ? subtotal.CarbonCostSavedAnnual : subtotal.CarbonCostSavedLifetimeTotal);
         StormWaterCostSaved = DashboardFormat.Number(showAnnual ? subtotal.StormWaterCostSavedAnnual : subtotal.StormWaterCostSavedLifetimeTotal);
         AirPollutionCostSaved = DashboardFormat.Number(showAnnual ? subtotal.AirPollutionCostSavedAnnual : subtotal.AirPollutionCostSavedLifetimeTotal);
@@ -98,6 +101,8 @@ public sealed class SpeciesSubtotalRow
     public string CarbonSequestered { get; }
     public string OxygenProduced { get; }
     public string PollutionMassRemoved { get; }
+    public string RunoffAvoided { get; }
+    public string MaintenanceCost { get; }
     public string CarbonCostSaved { get; }
     public string StormWaterCostSaved { get; }
     public string AirPollutionCostSaved { get; }
@@ -135,7 +140,7 @@ public sealed class FloorSubtotalRow
 /// <summary>One species in the Executive overview's tree palette: its trees and their benefits over the outlook.</summary>
 public sealed class SpeciesPaletteRow
 {
-    internal SpeciesPaletteRow(string speciesCode, string commonName, int count, double value, double co2, double runoff, double pollution, double oxygen, DisplayUnits units, string currency)
+    internal SpeciesPaletteRow(string speciesCode, string commonName, int count, double value, double co2, double runoff, double pollution, double oxygen, double upkeep, DisplayUnits units, string currency)
     {
         SpeciesCode = speciesCode;
         CommonName = commonName;
@@ -145,6 +150,8 @@ public sealed class SpeciesPaletteRow
         Runoff = runoff;
         Pollution = pollution;
         Oxygen = oxygen;
+        Upkeep = upkeep;
+        UpkeepText = DashboardFormat.Number(upkeep);
         CountText = count.ToString("N0");
         ValueText = DashboardFormat.Number(value);
         Co2Text = DashboardFormat.Number(co2);
@@ -161,6 +168,8 @@ public sealed class SpeciesPaletteRow
     public double Runoff { get; }
     public double Pollution { get; }
     public double Oxygen { get; }
+    public double Upkeep { get; }
+    public string UpkeepText { get; }
     public string CountText { get; }
     public string ValueText { get; }
     public string Co2Text { get; }
