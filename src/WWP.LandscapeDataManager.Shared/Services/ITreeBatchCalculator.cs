@@ -3,7 +3,7 @@ using WWP.LandscapeDataManager.Contracts;
 namespace WWP.LandscapeDataManager.Shared.Services;
 
 /// <summary>What one batch of i-Tree calculations did. <see cref="Message"/> is set when nothing ran (no key, no exchange rate).</summary>
-public sealed record ITreeBatchSummary(int Instances, int Succeeded, int Failed, string CurrencyCode, string? Message = null)
+public sealed record ITreeBatchSummary(int Instances, int Succeeded, int Failed, string CurrencyCode, string? Message = null, TreeTimelineSummary? Timeline = null)
 {
     public bool Ran => Message is null;
 }
@@ -74,10 +74,15 @@ public static class ITreeBatchCalculator
             PipeCommands.ApplyInstanceParameterWrites,
             new InstanceParameterWriteBatch(writeItems));
 
+        // Then each planted tree's year-by-year forecast: one request per unique planting input not
+        // already stored, written back as 5/10/20/25-year and lifetime totals (see TreeTimelines).
+        var timeline = await ITreeTimelineCalculator.RunAsync(client, items, apiKey.Trim(), iTreeApiClient, exchangeRate.UsdRate);
+
         return new ITreeBatchSummary(
             items.Count,
             outcomes.Values.Count(outcome => outcome.Error is null),
             outcomes.Values.Count(outcome => outcome.Error is not null),
-            exchangeRate.CurrencyCode);
+            exchangeRate.CurrencyCode,
+            Timeline: timeline);
     }
 }

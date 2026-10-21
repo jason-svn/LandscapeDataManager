@@ -99,20 +99,20 @@ Follows the marked-up screenshot. Built on branch `roadmap-phases-2-5`, not rele
 
 ## Phase 4: i-Tree timeline instead of growth copies
 
-For now every growth year is still modelled as copies on its `LIM_Growth_<N>yr` workset, and i-Tree runs on each copy. This phase replaces that for the numbers.
+Every growth year is still modelled as copies on its `LIM_Growth_<N>yr` workset for drawings, but the numbers now come from i-Tree's own forecast. Built on branch `roadmap-phases-2-5`, not released yet.
 
-- [ ] **Why:** an outlook is an accumulated value (year 1 + year 2 + … + year N). Annual × years under-reports a growing tree, and a year-N copy's annual × N over-reports it.
-- [ ] **i-Tree year-by-year forecast (run once, project without copies):**
-  - Live test, 2026-10-21: a 25-year request takes about 3 s and returns 220 KB; a 100-year request takes about 9 s and returns 870 KB. Identical trees share one call, so this is affordable.
-  - i-Tree already returns one entry per year (`benefits.annual[]`), with its own trunk growth. Today LIM keeps only the year-1 figure and the total; the outlooks then use annual × years, which under-reports growing trees.
-  - Run i-Tree once per **unique input**: species, planting DBH, condition, crown exposure and location. Identical trees share one call. Keep the whole timeline.
-  - **Horizon: at most 35 years, and no further than the type's maturity** (`Mature Age` − `AgeAtPlanting`). After maturity the tree's benefit holds at its mature value.
-  - Store the timeline once per input in the project (extensible storage). Write each tree's 5/10/20/25-year totals from it, with no new i-Tree calls.
-  - Dashboard and scenario comparison read any outlook year from the timeline. **Growth-copy worksets are no longer needed for the numbers**, only for drawings, canopy cover by year and clash checks.
-  - Re-run only when an input changes: new species, planting size, condition or site location.
-  - Caveat: i-Tree grows the trunk with its own model, not the family's `TrunkDiameterbyYear` and `Mature Age`, so its year-10 figure can differ from a year-10 copy. Pick one source of truth. Recommended: i-Tree's timeline for benefits, and the family for geometry.
-  - Floors don't need this. Their benefits are Airtable rate × area, which is constant every year, so the outlook is rate × area × years.
-- [ ] **Lifetime parameters:** `…LifetimeTotal` is currently summed over each tree's `Years` (its age) from its current DBH, so it means something different on every tree. Redefine it against the timeline.
+- [x] **Why:** an outlook is an accumulated value (year 1 + year 2 + … + year N). Annual × years under-reports a growing tree, and a year-N copy's annual × N over-reports it.
+- [x] **i-Tree year-by-year forecast (run once, project without copies):**
+  - Tree Calculator and Growth Projections' "i-Tree by growth year" both run it after the usual calculation (`ITreeTimelineCalculator`, shared through `ITreeBatchCalculator`).
+  - One request per **unique planting input**: species, planting DBH, condition, crown exposure, location and horizon (`TreeTimelines.Key`). Identical trees share it. Live check 2026-10-21: Acer campestre, 25 years, 2.8 s.
+  - **Horizon: the family's `Mature Age` − `AgeAtPlanting`, at most 35 years**; 25 when the family has no mature age (its own cap). After the horizon the benefit holds at its mature value.
+  - Stored once per input in the project (extensible storage on one DataStorage element, vendor EGIS: `TreeTimelineStore`). Each planted tree carries `!_S_PLT_Result_iTreeTimelineKey_Text` and its 5/10/20/25-year totals: `Result_CO2Equivalent{N}yr_Mass`, `Result_RunoffAvoided{N}yr_Volume`, `Result_PollutantsRemoved{N}yr_Mass`, `Result_CostSaved{N}yr_Currency` (also in KPI Schedules).
+  - The Dashboard and the scenario comparison read any outlook year from the timeline (`TreeOutlook`), leaving growth copies out of the numbers; growth worksets and annual × years remain the fallbacks, and the outlook line says which one is in use.
+  - Re-run only when an input changes: a stored key is never requested again.
+  - Source of truth: **i-Tree's timeline for benefits, the family for geometry** (the recommended choice).
+  - Floors don't need this: their benefits are Airtable rate × area, constant every year.
+- [x] **Lifetime parameters:** for planted trees, `…LifetimeTotal` is now the whole forecast (planting to maturity), the same span on every tree. Growth-year copies keep their own per-year calculation.
+- [ ] **Check the family data:** two Prunus avium types report `Mature Age` = 1, below their planting age of 5, so their forecast is one year long. Probably a units slip in their max height.
 
 ## Phase 5: Live Revit testing
 

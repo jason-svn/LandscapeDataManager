@@ -251,7 +251,7 @@ public sealed partial class MainPage : Page
             var summary = await ITreeBatchCalculator.CalculateAsync(
                 GetClient(), targets, _iTreeCredentialStore.Load(), _preferredUnitSystem, _preferredCurrency, _iTreeApiClient, _exchangeRateService);
             status.Add(summary.Ran
-                ? $"i-Tree: calculated {summary.Succeeded:N0} unique input set(s), {summary.Failed:N0} failed, written to {summary.Instances:N0} tree(s) in {summary.CurrencyCode}."
+                ? $"i-Tree: calculated {summary.Succeeded:N0} unique input set(s), {summary.Failed:N0} failed, written to {summary.Instances:N0} tree(s) in {summary.CurrencyCode}. {summary.Timeline?.Describe()}"
                 : $"i-Tree not run: {summary.Message}");
             await ScanGrowthTreesAsync();
         }

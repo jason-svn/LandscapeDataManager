@@ -278,6 +278,73 @@ public sealed class ITreeApiClient
         ITreeExportProfile profile,
         CancellationToken cancellationToken)
     {
+        var (root, tree) = await RequestTreeAsync(input, apiKey, cancellationToken);
+        var fields = CreateBaseFields(input, profile.Metadata);
+        AddSummaryFields(tree, input.Years, profile, fields);
+        AddStandardFields(root, tree, profile, fields);
+        AddTimelineFields(tree, profile, fields);
+        if (profile.FullResponse)
+        {
+            Flatten(root, "Raw", fields, profile);
+        }
+
+        return new ITreeExportRecord(input.SpeciesCode, fields);
+    }
+
+    /// <summary>
+    /// i-Tree's year-by-year forecast for one planting input over <paramref name="horizonYears"/>:
+    /// one request with <c>years</c> = the horizon, read back from <c>benefits.annual[]</c> — i-Tree
+    /// grows the trunk itself from the planting DBH, so nothing else needs modelling.
+    /// </summary>
+    public async Task<IReadOnlyList<TreeBenefitYear>> ForecastAsync(
+        ITreeRevitInput plantingInput,
+        int horizonYears,
+        string apiKey,
+        CancellationToken cancellationToken = default)
+    {
+        var (_, tree) = await RequestTreeAsync(plantingInput with { Years = horizonYears }, apiKey.Trim(), cancellationToken);
+        var years = ParseAnnualTimeline(tree);
+        if (years.Count == 0)
+        {
+            throw new InvalidOperationException("i-Tree returned no year-by-year benefits.");
+        }
+
+        return years;
+    }
+
+    /// <summary>One entry per year of <c>benefits.annual.category[]</c> on a response's tree: masses in kg, volumes in m³, money in USD.</summary>
+    public static IReadOnlyList<TreeBenefitYear> ParseAnnualTimeline(JsonElement tree)
+    {
+        if (!TryGetPath(tree, out var annualCategory, "benefits", "annual", "category") || annualCategory.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return annualCategory.EnumerateArray()
+            .Select((year, index) => new TreeBenefitYear(
+                index + 1,
+                ReadNumber(year, "carbon", "sequestration"),
+                ReadNumber(year, "hydrology", "runoff-avoided"),
+                ReadNumber(year, "hydrology", "interception"),
+                ReadNumber(year, "pollution-removed", "co"),
+                ReadNumber(year, "pollution-removed", "no2"),
+                ReadNumber(year, "pollution-removed", "o3"),
+                ReadNumber(year, "pollution-removed", "so2"),
+                ReadNumber(year, "pollution-removed", "pm25"),
+                ReadNumber(year, "carbon", "sequestration-worth"),
+                ReadNumber(year, "hydrology", "runoff-avoided-worth"),
+                SumPollutionRemovedWorth(year)))
+            .ToList();
+    }
+
+    /// <summary>The tree element of a parsed response — the first tree, as <see cref="RequestTreeAsync"/> reads it.</summary>
+    public static bool TryGetResponseTree(JsonElement root, out JsonElement tree) => TryGetTree(root, out tree);
+
+    private static async Task<(JsonElement Root, JsonElement Tree)> RequestTreeAsync(
+        ITreeRevitInput input,
+        string apiKey,
+        CancellationToken cancellationToken)
+    {
         var payload = new Dictionary<string, string>
         {
             ["mortality-rate"] = "0",
@@ -324,8 +391,9 @@ public sealed class ITreeApiClient
                 $"HTTP {(int)response.StatusCode} ({response.ReasonPhrase}): {DescribeErrorBody(json)}");
         }
 
+        // Cloned so the elements outlive the document.
         using var document = JsonDocument.Parse(json);
-        var root = document.RootElement;
+        var root = document.RootElement.Clone();
         if (root.TryGetProperty("status", out var status) &&
             !string.Equals(status.GetString(), "ok", StringComparison.OrdinalIgnoreCase))
         {
@@ -337,16 +405,7 @@ public sealed class ITreeApiClient
             throw new InvalidOperationException("The response did not contain tree benefit data.");
         }
 
-        var fields = CreateBaseFields(input, profile.Metadata);
-        AddSummaryFields(tree, input.Years, profile, fields);
-        AddStandardFields(root, tree, profile, fields);
-        AddTimelineFields(tree, profile, fields);
-        if (profile.FullResponse)
-        {
-            Flatten(root, "Raw", fields, profile);
-        }
-
-        return new ITreeExportRecord(input.SpeciesCode, fields);
+        return (root, tree);
     }
 
     private static Dictionary<string, object?> CreateBaseFields(ITreeRevitInput input, bool includeMetadata)

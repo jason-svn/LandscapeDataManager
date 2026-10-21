@@ -238,7 +238,7 @@ public sealed partial class MainPage : Page
             return;
         }
 
-        CalculateStatusText.Text = $"Calculated {summary.Succeeded:N0} unique signature(s), {summary.Failed:N0} failed, applied to {summary.Instances:N0} instance(s) in {summary.CurrencyCode}.";
+        CalculateStatusText.Text = $"Calculated {summary.Succeeded:N0} unique signature(s), {summary.Failed:N0} failed, applied to {summary.Instances:N0} instance(s) in {summary.CurrencyCode}. {summary.Timeline?.Describe()}";
         await RefreshReportAsync();
     }
 

@@ -24,6 +24,10 @@ internal static class PlantingInstanceValidationScanner
     private const string LastUpdatedParameter = "!_S_PLT_iTreeResult_LastUpdated_Text";
     private const string EngineVersionParameter = "!_S_PLT_iTreeResult_EngineVersion_Text";
     private const string InputSignatureParameter = "!_S_PLT_iTreeResult_InputSignature_Text";
+    private const string AgeAtPlantingParameter = "!_S_PLT_TreeGrowth_AgeAtPlanting_Number";
+
+    /// <summary>The planting family's own type parameter (not shared): the age the tree reaches its mature size, 0 without one.</summary>
+    private const string MatureAgeParameter = "Mature Age";
 
     public static ValidatePlantingInstancesResult Scan(UIApplication application, bool selectedOnly = false)
     {
@@ -86,7 +90,9 @@ internal static class PlantingInstanceValidationScanner
                     GetNullableText(element, EngineVersionParameter) ?? string.Empty,
                     GetNullableText(element, InputSignatureParameter) ?? string.Empty,
                     document.IsWorkshared ? GrowthYearNames.FromName(document.GetWorksetTable().GetWorkset(element.WorksetId)?.Name) : null,
-                    element.GroupId != ElementId.InvalidElementId);
+                    element.GroupId != ElementId.InvalidElementId,
+                    GetNullableInt(element, AgeAtPlantingParameter),
+                    elementType is not null && GetNullableInt(elementType, MatureAgeParameter) is > 0 and var matureAge ? matureAge : null);
             })
             .OrderBy(item => item.FamilyName)
             .ThenBy(item => item.TypeName)
