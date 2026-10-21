@@ -76,7 +76,16 @@ public static class ITreeBatchCalculator
 
         // Then each planted tree's year-by-year forecast: one request per unique planting input not
         // already stored, written back as 5/10/20/25-year and lifetime totals (see TreeTimelines).
-        var timeline = await ITreeTimelineCalculator.RunAsync(client, items, apiKey.Trim(), iTreeApiClient, exchangeRate.UsdRate);
+        // The results above are already written, so a forecast that fails mustn't fail the batch.
+        TreeTimelineSummary timeline;
+        try
+        {
+            timeline = await ITreeTimelineCalculator.RunAsync(client, items, apiKey.Trim(), iTreeApiClient, exchangeRate.UsdRate);
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or InvalidOperationException or InvalidDataException or HttpRequestException)
+        {
+            timeline = new TreeTimelineSummary(0, 0, 0, 0, 0, 0, $"i-Tree forecast not stored: {exception.Message}");
+        }
 
         return new ITreeBatchSummary(
             items.Count,
