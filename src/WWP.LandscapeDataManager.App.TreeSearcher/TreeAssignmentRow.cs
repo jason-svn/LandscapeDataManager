@@ -10,6 +10,13 @@ namespace WWP.LandscapeDataManager.App.TreeSearcher;
 /// <summary>One distinct selected Planting type, with whatever species match (automatic or manual) is currently chosen for it.</summary>
 public sealed class TreeAssignmentRow(SelectedPlantingTypeItem item) : INotifyPropertyChanged
 {
+    public const string SavedMatch = "Saved match";
+    public const string RememberedMatch = "Remembered match";
+    public const string AutoMatched = "Auto-matched";
+    public const string ManuallySelected = "Manually selected";
+    public const string Assigned = "Assigned";
+    public const string NoMatch = "No match found";
+
     private string? _currentSpeciesCode = item.CurrentSpeciesCode;
     private SpeciesCatalogueRecord? _selectedSpecies;
     private string _matchStatus = "Searching…";
@@ -75,12 +82,17 @@ public sealed class TreeAssignmentRow(SelectedPlantingTypeItem item) : INotifyPr
         }
     }
 
+    /// <summary>A pick made by hand, now or in an earlier session: remembered when it's assigned.</summary>
+    public bool IsManualMatch => MatchStatus is ManuallySelected or RememberedMatch;
+
     public SolidColorBrush MatchStatusBrush => MatchStatus switch
     {
-        "Auto-matched" => new SolidColorBrush(Colors.SeaGreen),
-        "Assigned" => new SolidColorBrush(Colors.SeaGreen),
-        "Manually selected" => new SolidColorBrush(Colors.SteelBlue),
-        "No match found" => new SolidColorBrush(Colors.DarkOrange),
+        SavedMatch => new SolidColorBrush(Colors.SeaGreen),
+        AutoMatched => new SolidColorBrush(Colors.SeaGreen),
+        Assigned => new SolidColorBrush(Colors.SeaGreen),
+        RememberedMatch => new SolidColorBrush(Colors.Teal),
+        ManuallySelected => new SolidColorBrush(Colors.SteelBlue),
+        NoMatch => new SolidColorBrush(Colors.DarkOrange),
         _ => new SolidColorBrush(Colors.Gray)
     };
 

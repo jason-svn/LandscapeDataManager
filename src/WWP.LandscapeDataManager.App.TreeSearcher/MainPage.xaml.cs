@@ -13,12 +13,15 @@ public sealed partial class MainPage : Page
     private static readonly string[] TypeKeyFields = ["Types", "Planting type", "Species names", "species", "type"];
 
     private readonly SpeciesCatalogueDatabase _catalogueDatabase = new();
+    private readonly SpeciesMatchMemory _matchMemory = new();
     private readonly AirtableApiClient _airtableApiClient = new();
     private readonly AirtableCredentialStore _airtableCredentialStore = new();
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
     private string _pipeName = string.Empty;
     private IReadOnlyList<SpeciesCatalogueRecord> _allSpecies = [];
+    private IReadOnlyDictionary<string, SpeciesCatalogueRecord> _catalogueByCode = new Dictionary<string, SpeciesCatalogueRecord>();
+    private IReadOnlyDictionary<string, string> _rememberedMatches = new Dictionary<string, string>();
     private AirtableApiSettings _airtableSettings = new(string.Empty, string.Empty, null);
 
     public MainPage()
@@ -51,6 +54,9 @@ public sealed partial class MainPage : Page
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
         _allSpecies = await _catalogueDatabase.GetAllAsync();
+        _catalogueByCode = _allSpecies
+            .GroupBy(record => record.SpeciesCode, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var metadata = await _catalogueDatabase.GetMetadataAsync();
         var lastUpdated = metadata.FormatDownloadedAtLocal();
         var version = string.IsNullOrEmpty(metadata.Version) ? "unknown" : $"{metadata.Version[..Math.Min(8, metadata.Version.Length)]}...";
@@ -93,6 +99,15 @@ public sealed partial class MainPage : Page
     private async Task LoadTreesAsync(string command, string sourceDescription)
     {
         var result = await GetClient().SendAsync<SelectedPlantingTypesResult>(command, null);
+        try
+        {
+            _rememberedMatches = await _matchMemory.LoadAsync();
+        }
+        catch (Exception)
+        {
+            // Matching still works without the remembered picks; they just aren't suggested.
+            _rememberedMatches = new Dictionary<string, string>();
+        }
 
         Rows.Clear();
         foreach (var item in result.Items)
@@ -105,24 +120,79 @@ public sealed partial class MainPage : Page
         RowsCountText.Text = $"{Rows.Count:N0} distinct planting type(s) {sourceDescription}.";
         UpdateAssignAllEnabled();
 
-        var autoMatched = Rows.Count(row => row.MatchStatus == "Auto-matched");
+        int Count(string status) => Rows.Count(row => row.MatchStatus == status);
+        var found = new List<string>();
+        if (Count(TreeAssignmentRow.SavedMatch) > 0)
+        {
+            found.Add($"{Count(TreeAssignmentRow.SavedMatch):N0} already assigned");
+        }
+
+        if (Count(TreeAssignmentRow.RememberedMatch) > 0)
+        {
+            found.Add($"{Count(TreeAssignmentRow.RememberedMatch):N0} from your earlier manual matches");
+        }
+
+        if (Count(TreeAssignmentRow.AutoMatched) > 0)
+        {
+            found.Add($"{Count(TreeAssignmentRow.AutoMatched):N0} auto-matched by name");
+        }
+
+        var unmatched = Count(TreeAssignmentRow.NoMatch);
         SetTextWithTooltip(StatusText, Rows.Count == 0
             ? "Nothing to load."
-            : $"Auto-matched {autoMatched:N0} of {Rows.Count:N0} row(s). Search and pick a species manually for the rest, then assign.");
+            : $"{Rows.Count:N0} row(s): {(found.Count == 0 ? "none matched yet" : string.Join(", ", found))}." +
+              (unmatched > 0 ? $" Search and pick a species for the other {unmatched:N0}, then assign — manual matches are remembered for next time." : string.Empty));
     }
 
+    /// <summary>
+    /// The species already on the type comes first, then the one picked by hand for this family and
+    /// type before (in any project), then a guess from the name.
+    /// </summary>
     private void ApplyAutoMatch(TreeAssignmentRow row)
     {
-        var match = SpeciesFuzzyMatcher.FindBestMatch(row.FamilyName, row.TypeName, _allSpecies);
+        var (match, source) = SpeciesMatchResolver.Resolve(
+            row.FamilyName,
+            row.TypeName,
+            row.CurrentSpeciesCode,
+            _catalogueByCode,
+            _rememberedMatches,
+            () => SpeciesFuzzyMatcher.FindBestMatch(row.FamilyName, row.TypeName, _allSpecies));
         if (match is null)
         {
-            row.MatchStatus = "No match found";
+            row.MatchStatus = TreeAssignmentRow.NoMatch;
             return;
         }
 
         row.SelectedSpecies = match;
         row.SearchQuery = new SpeciesRow(match).Display;
-        row.MatchStatus = "Auto-matched";
+        row.MatchStatus = source switch
+        {
+            SpeciesMatchSource.SavedOnType => TreeAssignmentRow.SavedMatch,
+            SpeciesMatchSource.Remembered => TreeAssignmentRow.RememberedMatch,
+            _ => TreeAssignmentRow.AutoMatched
+        };
+    }
+
+    /// <summary>Remembers the hand-picked species among <paramref name="rows"/> once they're assigned.</summary>
+    private async Task RememberManualMatchesAsync(IReadOnlyList<TreeAssignmentRow> rows)
+    {
+        var picks = rows
+            .Select(row => new RememberedSpeciesMatch(row.FamilyName, row.TypeName, row.SelectedSpecies!.SpeciesCode))
+            .ToList();
+        if (picks.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await _matchMemory.RememberAsync(picks);
+            _rememberedMatches = await _matchMemory.LoadAsync();
+        }
+        catch (Exception exception)
+        {
+            SetTextWithTooltip(StatusText, $"{StatusText.Text} (Couldn't remember the manual match: {exception.Message})");
+        }
     }
 
     private void RowSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
@@ -181,7 +251,7 @@ public sealed partial class MainPage : Page
     private void SelectManualMatch(TreeAssignmentRow row, SpeciesRow chosen)
     {
         row.SelectedSpecies = chosen.Record;
-        row.MatchStatus = "Manually selected";
+        row.MatchStatus = TreeAssignmentRow.ManuallySelected;
         row.SearchQuery = chosen.Display;
         UpdateAssignAllEnabled();
     }
@@ -200,6 +270,7 @@ public sealed partial class MainPage : Page
         }
 
         var species = row.SelectedSpecies;
+        var manual = row.IsManualMatch;
         await RunBusyAsync(async () =>
         {
             var result = await GetClient().SendAsync<AssignSpeciesBatchResult>(
@@ -209,12 +280,17 @@ public sealed partial class MainPage : Page
             if (result.UpdatedTypeNames.Count > 0)
             {
                 row.CurrentSpeciesCode = species.SpeciesCode;
-                row.MatchStatus = "Assigned";
+                row.MatchStatus = TreeAssignmentRow.Assigned;
             }
 
             SetTextWithTooltip(StatusText, result.UpdatedTypeNames.Count > 0
-                ? $"Assigned {species.CommonName} ({species.SpeciesCode}) to '{row.DisplayName}'."
+                ? $"Assigned {species.CommonName} ({species.SpeciesCode}) to '{row.DisplayName}'." +
+                  (manual ? " Remembered for this family type next time." : string.Empty)
                 : "Nothing was updated.");
+            if (manual && result.UpdatedTypeNames.Count > 0)
+            {
+                await RememberManualMatchesAsync([row]);
+            }
         });
     }
 
@@ -232,13 +308,19 @@ public sealed partial class MainPage : Page
             var assignments = toAssign
                 .Select(row => new TypeSpeciesAssignment(row.UniqueId, row.SelectedSpecies!))
                 .ToList();
+            var manualRows = toAssign.Where(row => row.IsManualMatch).ToList();
             var result = await GetClient().SendAsync<AssignSpeciesBatchResult>(
                 PipeCommands.AssignSpeciesBatch, new AssignSpeciesBatchRequest(assignments));
 
             foreach (var row in toAssign)
             {
                 row.CurrentSpeciesCode = row.SelectedSpecies!.SpeciesCode;
-                row.MatchStatus = "Assigned";
+                row.MatchStatus = TreeAssignmentRow.Assigned;
+            }
+
+            if (result.UpdatedTypeNames.Count > 0)
+            {
+                await RememberManualMatchesAsync(manualRows);
             }
 
             var remaining = Rows.Count(row => row.SelectedSpecies is null);
