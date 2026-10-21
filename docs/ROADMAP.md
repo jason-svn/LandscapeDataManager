@@ -89,7 +89,16 @@ Follows the marked-up screenshot.
 - [ ] **Planting-area mix:** fill it with the species and habitat-type lists.
 - [ ] **Top tree palette:** replace it with a per-species table: count, money saved, CO₂, runoff, pollution and O₂ per row, sortable, defaulting to money saved.
 - [ ] **Tree oxygen:** add `iTreeResult_OxygenProducedAnnual/LifetimeTotal_Mass` = CO₂e × 32/44 (≈ 0.727), or i-Tree's "Carbon Sequestered" (kg of carbon) × 2.67.
+- [ ] **Connectivity:** band counts on the dashboard, plus the connectivity fields in KPI Schedules.
+- [ ] **Captions:** fix the cards that say "trees + planting areas" but count trees only (ecosystem value, CO₂ equivalent, runoff).
+
+## Phase 4: i-Tree timeline instead of growth copies
+
+For now every growth year is still modelled as copies on its `LIM_Growth_<N>yr` workset, and i-Tree runs on each copy. This phase replaces that for the numbers.
+
+- [ ] **Why:** an outlook is an accumulated value (year 1 + year 2 + … + year N). Annual × years under-reports a growing tree, and a year-N copy's annual × N over-reports it.
 - [ ] **i-Tree year-by-year forecast (run once, project without copies):**
+  - Live test, 2026-10-21: a 25-year request takes about 3 s and returns 220 KB; a 100-year request takes about 9 s and returns 870 KB. Identical trees share one call, so this is affordable.
   - i-Tree already returns one entry per year (`benefits.annual[]`), with its own trunk growth. Today LIM keeps only the year-1 figure and the total; the outlooks then use annual × years, which under-reports growing trees.
   - Run i-Tree once per **unique input**: species, planting DBH, condition, crown exposure and location. Identical trees share one call. Request the longest outlook (e.g. 50 years) and keep the whole timeline.
   - Store the timeline once per input in the project (extensible storage). Write each tree's 5/10/20/25-year totals from it, with no new i-Tree calls.
@@ -97,10 +106,9 @@ Follows the marked-up screenshot.
   - Re-run only when an input changes: new species, planting size, condition or site location.
   - Caveat: i-Tree grows the trunk with its own model, not the family's `TrunkDiameterbyYear` and `Mature Age`, so its year-10 figure can differ from a year-10 copy. Pick one source of truth. Recommended: i-Tree's timeline for benefits, and the family for geometry.
   - Floors don't need this. Their benefits are Airtable rate × area, which is constant every year, so the outlook is rate × area × years.
-- [ ] **Connectivity:** band counts on the dashboard, plus the connectivity fields in KPI Schedules.
-- [ ] **Captions:** fix the cards that say "trees + planting areas" but count trees only (ecosystem value, CO₂ equivalent, runoff).
+- [ ] **Lifetime parameters:** `…LifetimeTotal` is currently summed over each tree's `Years` (its age) from its current DBH, so it means something different on every tree. Redefine it against the timeline.
 
-## Phase 4: Live Revit testing
+## Phase 5: Live Revit testing
 
 - [ ] Run every tool against a real workshared project: Import Shared Parameter, Excel Importer, Floor Calculator + BNG, Connectivity, Growth Projections (incl. i-Tree), Dashboard and KPI Schedules.
 - [ ] Growth Projections: check copies in a design option that **isn't** active, and that existing copies refresh correctly.
