@@ -454,7 +454,9 @@ public sealed partial class MainPage : Page
         var projectedCarbon = (grandTotal.CarbonSequesteredAnnual + floorCarbonAnnual) * _projectionYears;
         var projectedPollution = (grandTotal.TotalPollutionMassRemovedAnnual + floorPollutionAnnual) * _projectionYears;
         var projectedWater = (treeRunoffDisplay + floorRunoffAnnual) * _projectionYears;
-        var projectedValue = grandTotal.TreeCostSavedAnnual * _projectionYears;
+        // Floor cost is already in the project currency (Floor Calculator converts it when writing).
+        var projectedValue = (grandTotal.TreeCostSavedAnnual + grandTotal.FloorCostSavedAnnual) * _projectionYears;
+        var floorCo2EquivalentAnnual = FloorCarbon(grandTotal.FloorCarbonSequesteredAnnual * UnitConversions.CarbonToCo2MassRatio);
 
         var readyPercent = filteredTrees.Count == 0 ? 0d : 100d * grandTotal.TreeCount / filteredTrees.Count;
         var scenarioLabel = _selectedDesignOption == AllDesignOptions ? "All design options" : _selectedDesignOption;
@@ -469,14 +471,15 @@ public sealed partial class MainPage : Page
         // outlook) rather than the Annual/Lifetime toggle those detail-view figures use.
         HeroCarbonCostText.Text = $"{Compact(grandTotal.CarbonCostSavedAnnual * _projectionYears)} {_preferredCurrency}";
         HeroCarbonSequesteredText.Text = $"{Compact(projectedCarbon)} {carbonUnit}";
-        HeroCO2EquivalentText.Text = $"{Compact(grandTotal.CO2EquivalentAnnual * _projectionYears)} {carbonUnit}";
+        HeroCO2EquivalentText.Text = $"{Compact((grandTotal.CO2EquivalentAnnual + floorCo2EquivalentAnnual) * _projectionYears)} {carbonUnit}";
 
         HeroStormWaterCostText.Text = $"{Compact(grandTotal.StormWaterCostSavedAnnual * _projectionYears)} {_preferredCurrency}";
-        HeroRunoffAvoidedText.Text = $"{Compact(treeRunoffDisplay * _projectionYears)} {waterUnit}";
+        HeroRunoffAvoidedText.Text = $"{Compact((treeRunoffDisplay + floorRunoffAnnual) * _projectionYears)} {waterUnit}";
         HeroRainfallInterceptedText.Text = $"{Compact(Water(grandTotal.RainfallInterceptedAnnual) * _projectionYears)} {waterUnit}";
 
         HeroAirPollutionCostText.Text = $"{Compact(grandTotal.AirPollutionCostSavedAnnual * _projectionYears)} {_preferredCurrency}";
         HeroCarbonMonoxideText.Text = $"{Compact(grandTotal.CORemovedAnnual * _projectionYears)} {pollutantUnit}";
+        HeroFloorPollutionText.Text = $"{Compact(floorPollutionAnnual * _projectionYears)} {pollutantUnit}";
         HeroOzoneText.Text = $"{Compact(grandTotal.O3RemovedAnnual * _projectionYears)} {pollutantUnit}";
         HeroNitrogenDioxideText.Text = $"{Compact(grandTotal.NO2RemovedAnnual * _projectionYears)} {pollutantUnit}";
         HeroSulfurDioxideText.Text = $"{Compact(grandTotal.SO2RemovedAnnual * _projectionYears)} {pollutantUnit}";

@@ -278,7 +278,7 @@
                                         <TextBlock Text="CO2 Equivalent" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12.5" />
                                         <TextBlock Grid.Column="1" x:Name="HeroCO2EquivalentText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12.5" />
                                     </Grid>
-                                    <TextBlock Text="Trees + planting areas, over the selected outlook" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="10.5" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    <TextBlock Text="Carbon and CO2e: trees + planting areas. £: trees only — the WWP sheet doesn't split planting-area savings by benefit; they're in Ecosystem value. Over the selected outlook." Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="10.5" TextWrapping="Wrap" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Border>
 
@@ -296,7 +296,7 @@
                                         <TextBlock Text="Rainfall Intercepted" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12.5" />
                                         <TextBlock Grid.Column="1" x:Name="HeroRainfallInterceptedText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12.5" />
                                     </Grid>
-                                    <TextBlock Text="Trees + planting areas, over the selected outlook" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="10.5" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    <TextBlock Text="Runoff: trees + planting areas. Rainfall intercepted and £: trees only (i-Tree). Over the selected outlook." Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="10.5" TextWrapping="Wrap" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Border>
 
@@ -329,6 +329,12 @@
                                         <TextBlock Text="PM2.5" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12" />
                                         <TextBlock Grid.Column="1" x:Name="HeroPM25Text" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12" />
                                     </Grid>
+                                    <Grid ColumnSpacing="6">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="Planting areas (all pollutants)" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroFloorPollutionText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12" />
+                                    </Grid>
+                                    <TextBlock Text="Per pollutant and £: trees only (i-Tree). Planting areas: total removed, from the WWP sheet. Over the selected outlook." Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="10.5" TextWrapping="Wrap" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Border>
 
