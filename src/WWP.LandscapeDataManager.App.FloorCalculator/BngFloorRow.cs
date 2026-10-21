@@ -176,7 +176,8 @@ public sealed class BngFloorRow : INotifyPropertyChanged
     /// <summary>"Set : Option" for a floor in a Design Option, else "Main model".</summary>
     public string DesignOptionLabel => DesignOption.SetName is null
         ? "Main model"
-        : $"{DesignOption.SetName} : {DesignOption.OptionName}{(DesignOption.IsPrimary ? " (primary)" : string.Empty)}";
+        // Revit appends " <primary>" to the primary option's own name; "(primary)" says it once.
+        : $"{DesignOption.SetName} : {DesignOption.OptionName?.Replace("<primary>", string.Empty, StringComparison.OrdinalIgnoreCase).Trim()}{(DesignOption.IsPrimary ? " (primary)" : string.Empty)}";
 
     /// <summary>True when Revit already held BNG inputs for this floor when it was loaded.</summary>
     public bool HadStoredInputs { get; }
