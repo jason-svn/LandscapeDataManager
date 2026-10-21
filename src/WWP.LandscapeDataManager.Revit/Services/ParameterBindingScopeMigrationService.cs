@@ -209,6 +209,145 @@ internal static class ParameterBindingScopeMigrationService
         }
     }
 
+    /// <summary>Type → Instance parameters, e.g. age at planting, which turned out to differ tree by tree.</summary>
+    public static bool SupportsTypeToInstance(string parameterName) => parameterName is
+        "!_S_PLT_TreeGrowth_AgeAtPlanting_Number";
+
+    /// <summary>
+    /// Re-binds a Type parameter as Instance (same GUID, same data type) and gives every instance its
+    /// type's previous value, so nothing typed in on the types is lost. The parameter may vary between
+    /// group instances afterwards. All-or-nothing: on any failure the Type binding and values return.
+    /// </summary>
+    public static SharedParameterSetupRow MigrateToInstance(
+        Document document,
+        UIApplication application,
+        ExternalDefinition definition,
+        InternalDefinition existingDefinition,
+        CategorySet existingCategories,
+        IReadOnlyList<BuiltInCategory> expectedCategories,
+        ForgeTypeId group,
+        string description,
+        bool apply)
+    {
+        SharedParameterSetupRow Result(string status, string message) => new(
+            definition.Name, definition.GUID.ToString(), "Instance",
+            string.Join(", ", expectedCategories), status, message, description);
+
+        if (!SupportsTypeToInstance(definition.Name))
+        {
+            return Result("Conflict", "This parameter is not eligible for automatic scope migration. Left unchanged.");
+        }
+
+        if (document.GetElement(existingDefinition.Id) is not SharedParameterElement shared ||
+            shared.GuidValue != definition.GUID ||
+            !existingDefinition.GetDataType().Equals(definition.GetDataType()))
+        {
+            return Result("Conflict", "The existing parameter's shared ID or data type differs. Left unchanged.");
+        }
+
+        var categories = application.Application.Create.NewCategorySet();
+        var includedCategoryIds = new HashSet<long>();
+        foreach (Category category in existingCategories)
+        {
+            categories.Insert(category);
+            includedCategoryIds.Add(category.Id.Value);
+        }
+        foreach (var category in expectedCategories)
+        {
+            var expectedCategory = document.Settings.Categories.get_Item(category);
+            if (includedCategoryIds.Add(expectedCategory.Id.Value))
+            {
+                categories.Insert(expectedCategory);
+            }
+        }
+
+        // Snapshot every type's value, then which instances use those types (all design options).
+        var typeValues = new Dictionary<long, int>();
+        var categoryIds = categories.Cast<Category>().Select(category => category.Id).ToList();
+        foreach (var type in new FilteredElementCollector(document)
+                     .WhereElementIsElementType()
+                     .WherePasses(new ElementMulticategoryFilter(categoryIds))
+                     .OfType<ElementType>())
+        {
+            if (type.get_Parameter(definition.GUID) is { HasValue: true, StorageType: StorageType.Integer } parameter)
+            {
+                typeValues[type.Id.Value] = parameter.AsInteger();
+            }
+        }
+
+        var instancesToFill = new FilteredElementCollector(document)
+            .WhereElementIsNotElementType()
+            .WherePasses(new ElementMulticategoryFilter(categoryIds))
+            .Where(instance => typeValues.ContainsKey(instance.GetTypeId().Value))
+            .Select(instance => instance.Id)
+            .ToList();
+
+        var summary = $"Convert Type to Instance; {instancesToFill.Count:N0} instance(s) take their type's value " +
+                      $"({typeValues.Count:N0} type(s) had one), and the value may then differ tree by tree.";
+        if (!apply)
+        {
+            return Result("Will update", summary);
+        }
+
+        using var migration = new SubTransaction(document);
+        if (migration.Start() != TransactionStatus.Started)
+        {
+            return Result("Conflict", "Could not start scope migration. Binding and values left unchanged.");
+        }
+
+        try
+        {
+            if (!document.ParameterBindings.ReInsert(existingDefinition, application.Application.Create.NewInstanceBinding(categories), group))
+            {
+                throw new InvalidOperationException("Revit rejected the Instance binding.");
+            }
+
+            document.Regenerate();
+            if (document.GetElement(existingDefinition.Id) is SharedParameterElement { } element &&
+                element.GetDefinition() is { VariesAcrossGroups: false } bound)
+            {
+                bound.SetAllowVaryBetweenGroups(document, true);
+            }
+
+            foreach (var id in instancesToFill)
+            {
+                var instance = document.GetElement(id);
+                var parameter = instance?.get_Parameter(definition.GUID);
+                if (parameter is null || parameter.StorageType != StorageType.Integer || parameter.IsReadOnly)
+                {
+                    throw new InvalidOperationException($"The Instance parameter is unavailable or read-only on element {id.Value}.");
+                }
+
+                var value = typeValues[instance!.GetTypeId().Value];
+                if (!(parameter.HasValue && parameter.AsInteger() == value) && !parameter.Set(value))
+                {
+                    throw new InvalidOperationException($"Revit rejected the value for element {id.Value}.");
+                }
+            }
+
+            if (migration.Commit() != TransactionStatus.Committed)
+            {
+                throw new InvalidOperationException("Revit did not commit the scope migration.");
+            }
+
+            return Result("Updated", $"Converted Type to Instance; {instancesToFill.Count:N0} instance(s) kept their type's value.");
+        }
+        catch (Exception exception)
+        {
+            if (migration.GetStatus() == TransactionStatus.Started &&
+                migration.RollBack() != TransactionStatus.RolledBack)
+            {
+                throw new InvalidOperationException("Could not roll back the scope migration; cancel parameter setup.", exception);
+            }
+            if (migration.GetStatus() != TransactionStatus.RolledBack)
+            {
+                throw;
+            }
+
+            return Result("Conflict", $"Scope migration failed: {exception.Message} The previous Type binding and values were restored.");
+        }
+    }
+
     private static BindingMigrationValue ReadValue(Parameter parameter) => !parameter.HasValue
         ? new BindingMigrationValue()
         : parameter.StorageType == StorageType.String

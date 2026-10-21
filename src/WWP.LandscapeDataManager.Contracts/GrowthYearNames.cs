@@ -50,7 +50,7 @@ public static partial class GrowthYearNames
 
     /// <summary>
     /// A tree's actual age in a growth year: the years it had already grown when planted (nursery
-    /// stock, <c>!_S_PLT_TreeGrowth_AgeAtPlanting_Number</c> on its type) plus the years since
+    /// stock, <c>!_S_PLT_TreeGrowth_AgeAtPlanting_Number</c> on the tree) plus the years since
     /// planting. Negative or missing ages at planting count as 0.
     /// </summary>
     public static int ActualAge(int? ageAtPlanting, int growthYear) => Math.Max(0, ageAtPlanting ?? 0) + growthYear;

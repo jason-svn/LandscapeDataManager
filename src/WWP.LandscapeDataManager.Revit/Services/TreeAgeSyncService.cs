@@ -4,16 +4,25 @@ using WWP.LandscapeDataManager.Contracts;
 namespace WWP.LandscapeDataManager.Revit.Services;
 
 /// <summary>
-/// Keeps each tree's modelled age (<c>!_S_PLT_TreeGrowth_Years_Number</c>, which drives the
-/// planting family's growth formulas and so its DBH, crown and height) equal to its actual age:
-/// the age at planting on its type plus the growth year of its workset (see
-/// <see cref="GrowthYearNames"/>). Runs before Tree Calculator reads its inputs, so i-Tree sees
-/// the tree at its real age. Trees on no growth-year workset are never touched.
+/// Keeps each growth-year tree's <c>!_S_PLT_TreeGrowth_ProjectedYears_Number</c> equal to the
+/// growth year of its workset (see <see cref="GrowthYearNames"/>). The planting family computes the
+/// modelled age (<c>!_S_PLT_TreeGrowth_Years_Number</c>, which drives DBH, crown and height) as
+/// AgeAtPlanting + ProjectedYears. For a family that doesn't have that formula yet — Years is still a
+/// plain editable value — Years is also set here (age at planting + year, capped at mature size), so
+/// projections keep working until the family is updated. Runs before Tree Calculator reads its
+/// inputs, so i-Tree sees the tree at its projected age. Trees on no growth-year workset are never touched.
 /// </summary>
 internal static class TreeAgeSyncService
 {
     internal const string YearsParameter = "!_S_PLT_TreeGrowth_Years_Number";
     internal const string AgeAtPlantingParameter = "!_S_PLT_TreeGrowth_AgeAtPlanting_Number";
+    internal const string ProjectedYearsParameter = "!_S_PLT_TreeGrowth_ProjectedYears_Number";
+
+    /// <summary>The tree's own age at planting — on the instance, or its type in projects not yet migrated.</summary>
+    internal static int? AgeAtPlanting(Element tree) =>
+        ElementParameters.LookupOnInstanceOrType(tree, AgeAtPlantingParameter) is { HasValue: true, StorageType: StorageType.Integer } age
+            ? age.AsInteger()
+            : null;
 
     public static TreeAgeSyncSummary Apply(Document document, IReadOnlyList<Element> trees)
     {
@@ -25,7 +34,7 @@ internal static class TreeAgeSyncService
         var worksets = document.GetWorksetTable();
         var matureAges = TreeMaturityService.GetMatureAges(
             document, trees.Where(tree => GrowthYearNames.FromName(worksets.GetWorkset(tree.WorksetId)?.Name) is not null));
-        var candidates = new List<(Element Tree, Parameter Years, int Age)>();
+        var candidates = new List<(Element Tree, List<(Parameter Parameter, int Value)> Writes)>();
         int onGrowthWorksets = 0, notEditable = 0, missingYears = 0, skippedGrouped = 0, capped = 0;
         foreach (var tree in trees)
         {
@@ -35,42 +44,55 @@ internal static class TreeAgeSyncService
             }
 
             onGrowthWorksets++;
-            if (tree.LookupParameter(YearsParameter) is not { StorageType: StorageType.Integer } years)
+            var projected = tree.LookupParameter(ProjectedYearsParameter) is { StorageType: StorageType.Integer } p ? p : null;
+            var years = tree.LookupParameter(YearsParameter) is { StorageType: StorageType.Integer } y ? y : null;
+            // Nothing to drive the age: no ProjectedYears to write, and Years is missing or formula-driven.
+            if (projected is null && years is not { IsReadOnly: false })
             {
                 missingYears++;
                 continue;
             }
 
             if (tree.GroupId != ElementId.InvalidElementId &&
-                years.Definition is InternalDefinition { VariesAcrossGroups: false })
+                new[] { projected, years }.Any(parameter => parameter?.Definition is InternalDefinition { VariesAcrossGroups: false }))
             {
                 skippedGrouped++;
                 continue;
             }
 
-            var ageAtPlanting = (document.GetElement(tree.GetTypeId()) as ElementType)?.LookupParameter(AgeAtPlantingParameter) is
-                { HasValue: true, StorageType: StorageType.Integer } age
-                ? age.AsInteger()
-                : (int?)null;
+            var writes = new List<(Parameter Parameter, int Value)>();
+            if (projected is not null && !(projected.HasValue && projected.AsInteger() == growthYear))
+            {
+                if (projected.IsReadOnly)
+                {
+                    notEditable++;
+                    continue;
+                }
+
+                writes.Add((projected, growthYear));
+            }
+
+            var ageAtPlanting = AgeAtPlanting(tree);
             var actualAge = GrowthYearNames.ModelledAge(
                 ageAtPlanting, growthYear, matureAges.TryGetValue(tree.GetTypeId().Value, out var mature) ? mature : null);
-            if (actualAge < GrowthYearNames.ActualAge(ageAtPlanting, growthYear))
+            // A read-only Years is the family's own AgeAtPlanting + ProjectedYears formula: leave it to the family.
+            if (years is { IsReadOnly: false })
             {
-                capped++;
+                if (actualAge < GrowthYearNames.ActualAge(ageAtPlanting, growthYear))
+                {
+                    capped++;
+                }
+
+                if (!(years.HasValue && years.AsInteger() == actualAge))
+                {
+                    writes.Add((years, actualAge));
+                }
             }
 
-            if (years.HasValue && years.AsInteger() == actualAge)
+            if (writes.Count > 0)
             {
-                continue;
+                candidates.Add((tree, writes));
             }
-
-            if (years.IsReadOnly)
-            {
-                notEditable++;
-                continue;
-            }
-
-            candidates.Add((tree, years, actualAge));
         }
 
         if (candidates.Count == 0)
@@ -101,9 +123,12 @@ internal static class TreeAgeSyncService
                 onGrowthWorksets, 0, notEditable + editable.Count, missingYears, skippedGrouped);
         }
 
-        foreach (var (_, years, age) in editable)
+        foreach (var (_, writes) in editable)
         {
-            years.Set(age);
+            foreach (var (parameter, value) in writes)
+            {
+                parameter.Set(value);
+            }
         }
 
         var commitStatus = transaction.Commit();

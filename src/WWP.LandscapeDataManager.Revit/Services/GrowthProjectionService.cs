@@ -51,13 +51,12 @@ internal static class GrowthProjectionService
             .ToList();
 
         var sampleTree = model.Trees.FirstOrDefault();
-        var sampleType = sampleTree is null ? null : document.GetElement(sampleTree.GetTypeId());
         var activeId = ActiveOptionId(document);
         return new GrowthProjectionStatus(
             document.Title,
             document.IsWorkshared,
-            sampleTree?.LookupParameter(TreeAgeSyncService.YearsParameter) is not null,
-            sampleType?.LookupParameter(TreeAgeSyncService.AgeAtPlantingParameter) is not null,
+            sampleTree?.LookupParameter(TreeAgeSyncService.ProjectedYearsParameter) is not null,
+            sampleTree is not null && ElementParameters.LookupOnInstanceOrType(sampleTree, TreeAgeSyncService.AgeAtPlantingParameter) is not null,
             activeId is null ? "Main model" : OptionLabel(document, (DesignOption)document.GetElement(new ElementId(activeId.Value))),
             model.Originals.Count,
             model.Originals.Count(tree => selected.Contains(tree.Id.Value)),
@@ -113,14 +112,13 @@ internal static class GrowthProjectionService
 
         // Measured before the transaction: it probes sample trees in a rolled-back transaction of its own.
         var matureAges = TreeMaturityService.GetMatureAges(document, inScope);
-        var cappedTypes = 0;
-        foreach (var (typeId, matureAge) in matureAges)
-        {
-            if (years.Any(year => GrowthYearNames.ModelledAge(AgeAtPlanting(document, typeId), year, matureAge) < GrowthYearNames.ActualAge(AgeAtPlanting(document, typeId), year)))
-            {
-                cappedTypes++;
-            }
-        }
+        var cappedTypes = inScope
+            .Where(tree => matureAges.TryGetValue(tree.GetTypeId().Value, out var matureAge) &&
+                           years.Any(year => GrowthYearNames.ModelledAge(TreeAgeSyncService.AgeAtPlanting(tree), year, matureAge) <
+                                             GrowthYearNames.ActualAge(TreeAgeSyncService.AgeAtPlanting(tree), year)))
+            .Select(tree => tree.GetTypeId().Value)
+            .Distinct()
+            .Count();
 
         if (cappedTypes > 0)
         {
@@ -369,8 +367,18 @@ internal static class GrowthProjectionService
     }
 
     /// <summary>Modelled age = the type's age at planting + the growth year, capped at the type's mature age (see <see cref="GrowthYearNames.ModelledAge"/>).</summary>
+    /// <summary>
+    /// Writes the tree's growth year to <c>!_S_PLT_TreeGrowth_ProjectedYears_Number</c>; the family
+    /// computes its age from that. Only when the family has no such formula yet (Years still editable)
+    /// is Years set directly: age at planting + year, capped at mature size.
+    /// </summary>
     private static void SetAge(Document document, Element tree, int growthYear, IReadOnlyDictionary<long, int> matureAges)
     {
+        if (tree.LookupParameter(TreeAgeSyncService.ProjectedYearsParameter) is { IsReadOnly: false, StorageType: StorageType.Integer } projected)
+        {
+            projected.Set(growthYear);
+        }
+
         if (tree.LookupParameter(TreeAgeSyncService.YearsParameter) is not { IsReadOnly: false, StorageType: StorageType.Integer } years)
         {
             return;
@@ -378,14 +386,8 @@ internal static class GrowthProjectionService
 
         var typeId = tree.GetTypeId().Value;
         years.Set(GrowthYearNames.ModelledAge(
-            AgeAtPlanting(document, typeId), growthYear, matureAges.TryGetValue(typeId, out var mature) ? mature : null));
+            TreeAgeSyncService.AgeAtPlanting(tree), growthYear, matureAges.TryGetValue(typeId, out var mature) ? mature : null));
     }
-
-    private static int? AgeAtPlanting(Document document, long typeId) =>
-        document.GetElement(new ElementId(typeId))?.LookupParameter(TreeAgeSyncService.AgeAtPlantingParameter) is
-            { HasValue: true, StorageType: StorageType.Integer } age
-            ? age.AsInteger()
-            : null;
 
     /// <summary>Moves, rotates and retypes a copy to match its original, and copies its i-Tree inputs (condition, crown exposure...).</summary>
     private static void MatchOriginal(Document document, Element source, Element copy)
@@ -412,7 +414,8 @@ internal static class GrowthProjectionService
 
         foreach (Parameter parameter in source.Parameters)
         {
-            if (!parameter.Definition.Name.StartsWith(InputParameterPrefix, StringComparison.Ordinal) ||
+            if (!(parameter.Definition.Name.StartsWith(InputParameterPrefix, StringComparison.Ordinal) ||
+                  parameter.Definition.Name == TreeAgeSyncService.AgeAtPlantingParameter) ||
                 copy.LookupParameter(parameter.Definition.Name) is not { IsReadOnly: false } target ||
                 target.StorageType != parameter.StorageType)
             {

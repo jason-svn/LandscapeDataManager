@@ -110,8 +110,8 @@ public sealed partial class MainPage : Page
         var notes = new List<string>
         {
             sync.Updated > 0
-                ? $"Updated the age of {sync.Updated:N0} tree(s) to age at planting + their growth-year workset."
-                : "Tree ages already match age at planting + their growth-year workset."
+                ? $"Updated {sync.Updated:N0} growth-year tree(s) to their workset's projected year."
+                : "Growth-year trees already match their workset's projected year."
         };
         if (sync.SkippedNotEditable > 0)
         {
@@ -125,7 +125,7 @@ public sealed partial class MainPage : Page
 
         if (sync.MissingYearsParameter > 0)
         {
-            notes.Add($"{sync.MissingYearsParameter:N0} tree(s) have no !_S_PLT_TreeGrowth_Years_Number — run Import Shared Parameter.");
+            notes.Add($"{sync.MissingYearsParameter:N0} tree(s) have no !_S_PLT_TreeGrowth_ProjectedYears_Number — run Import Shared Parameter.");
         }
 
         if (sync.CappedAtMaturity > 0)

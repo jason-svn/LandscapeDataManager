@@ -28,6 +28,16 @@ Shipped in **v1.3.0 / v1.3.1**:
   - "Embodied carbon" with carbon payback.
   - Softscape ratio falls back to the floor type name.
 
+## Tree growth in the family (in progress)
+
+The planting family computes the tree's age; LIM supplies the inputs.
+
+- [x] `!_S_PLT_TreeGrowth_ProjectedYears_Number` (Instance): Growth Projections writes the growth year (0 = Baseline, 5, 10, … from the workset).
+- [x] `!_S_PLT_TreeGrowth_AgeAtPlanting_Number` changed from Type to **Instance**, same GUID. Import Shared Parameter moves each type's value onto its trees, and growth copies inherit their original's value.
+- [x] Fallback: while a family has no formula yet (its `Years` is still editable), LIM keeps setting `Years` itself, capped as before.
+- [ ] Family formula, by you: `Years = AgeAtPlanting + if(ProjectedYears > MaxGrowthYears, MaxGrowthYears, ProjectedYears)`.
+- [ ] **Decide:** add `!_S_PLT_TreeGrowth_MaxGrowthYears_Number` (Type) = growth years until the tree stops growing. 25 when there's no max size; otherwise measured by LIM from the LDS max height/width, filling empty values only. Then drop LIM's own age cap.
+
 ## Phase 2: Design-option scenarios
 
 Every dashboard number depends on picking the right scenario, so this comes before the redesign.

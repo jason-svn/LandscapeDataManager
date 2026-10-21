@@ -18,6 +18,8 @@ internal static class SharedParameterSetupService
     private const string SharedGroupName = "PLANTING - iTree";
     private const string SharedParameterResourceName = "LIM.LandscapeData.SharedParameters.txt";
     private const string TreeGrowthYearsParameter = "!_S_PLT_TreeGrowth_Years_Number";
+    private const string TreeGrowthProjectedYearsParameter = "!_S_PLT_TreeGrowth_ProjectedYears_Number";
+    private const string TreeGrowthAgeAtPlantingParameter = "!_S_PLT_TreeGrowth_AgeAtPlanting_Number";
 
     /// <summary>
     /// Read-only dry run: reports what <see cref="EnsureParameters"/> would do for every known
@@ -356,6 +358,13 @@ internal static class SharedParameterSetupService
                     ownership.Categories, ownership.Group, ownership.Description, apply);
             }
 
+            if (!isInstance && expectedIsInstance && ParameterBindingScopeMigrationService.SupportsTypeToInstance(ownership.Name))
+            {
+                return ParameterBindingScopeMigrationService.MigrateToInstance(
+                    document, application, definition, internalDefinition, boundCategories,
+                    ownership.Categories, ownership.Group, ownership.Description, apply);
+            }
+
             return new SharedParameterSetupRow(
                 ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
                 "Conflict",
@@ -468,8 +477,12 @@ internal static class SharedParameterSetupService
         }
     }
 
+    /// <summary>The per-tree growth parameters, whose values must differ between instances of the same group.</summary>
     private static bool IsTreeGrowthYears(ParameterOwnership ownership) =>
-        ownership.Scope == "Instance" && string.Equals(ownership.Name, TreeGrowthYearsParameter, StringComparison.Ordinal);
+        ownership.Scope == "Instance" &&
+        (string.Equals(ownership.Name, TreeGrowthYearsParameter, StringComparison.Ordinal) ||
+         string.Equals(ownership.Name, TreeGrowthProjectedYearsParameter, StringComparison.Ordinal) ||
+         string.Equals(ownership.Name, TreeGrowthAgeAtPlantingParameter, StringComparison.Ordinal));
 
     private sealed record ParameterBindingState(
         bool IsInstance, CategorySet Categories, ForgeTypeId Group, InternalDefinition Definition);
@@ -608,8 +621,15 @@ internal static class SharedParameterSetupService
                 "Instance-specific modeled tree age used by family growth formulas."),
             // Nursery stock is often already several years old when planted. On a growth-year
             // workset, Tree Calculator sets the instance's Years to this + the workset's year.
-            PlantingType("!_S_PLT_TreeGrowth_AgeAtPlanting_Number", GroupTypeId.Constraints,
-                "Years this planting type has already grown when planted (nursery stock age). On a growth-year workset the tree's modeled age is this plus the workset's growth year."),
+            // Growth Projections writes the tree's growth year here (from its growth-year workset);
+            // the planting family computes its modelled age as AgeAtPlanting + ProjectedYears.
+            PlantingInstance("!_S_PLT_TreeGrowth_ProjectedYears_Number", GroupTypeId.Constraints,
+                "Growth years after planting this tree is projected to (0 = Baseline, as planted), written by Growth Projections from the tree's growth-year workset. The planting family computes the modelled age (!_S_PLT_TreeGrowth_Years_Number) as AgeAtPlanting + this."),
+            // Instance: trees of one type can go in at different nursery ages (and retained trees
+            // are older again). Was Type — Import Shared Parameter migrates the binding in place
+            // (same GUID) and gives each tree its type's old value.
+            PlantingInstance("!_S_PLT_TreeGrowth_AgeAtPlanting_Number", GroupTypeId.Constraints,
+                "Years this tree had already grown when planted (nursery stock age; the tree's own age for a retained tree). The planting family computes the modelled age (!_S_PLT_TreeGrowth_Years_Number) as this plus !_S_PLT_TreeGrowth_ProjectedYears_Number."),
             // Also bound to Floors: the same "condition" input feeds Floor Calculator's BNG tab, where
             // it holds the Statutory Biodiversity Metric's condition instead (each category is
             // validated against its own vocabulary).

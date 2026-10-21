@@ -98,12 +98,12 @@ public sealed partial class MainPage : Page
 
         if (!_status.YearsParameterBound)
         {
-            warnings.Add("!_S_PLT_TreeGrowth_Years_Number isn't on the trees — run Import Shared Parameter, or the copies won't get their ages.");
+            warnings.Add("!_S_PLT_TreeGrowth_ProjectedYears_Number isn't on the trees — run Import Shared Parameter, or the copies won't get their growth year.");
         }
 
         if (!_status.AgeAtPlantingBound)
         {
-            warnings.Add("!_S_PLT_TreeGrowth_AgeAtPlanting_Number isn't on the planting types yet — run Import Shared Parameter and fill in each type's nursery age. Until then, ages count from 0 at planting.");
+            warnings.Add("!_S_PLT_TreeGrowth_AgeAtPlanting_Number isn't on the trees yet — run Import Shared Parameter (it moves the old type value onto each tree) and fill in each tree's age at planting. Until then, ages count from 0 at planting.");
         }
 
         if (_status.UnlinkedGrowthTrees > 0)

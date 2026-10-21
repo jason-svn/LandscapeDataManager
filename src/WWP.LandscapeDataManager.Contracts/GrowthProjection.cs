@@ -28,7 +28,7 @@ public sealed record GrowthYearWorkset(int Year, string WorksetName, int TreeCou
 public sealed record GrowthProjectionStatus(
     string DocumentTitle,
     bool IsWorkshared,
-    bool YearsParameterBound,
+    bool YearsParameterBound, // !_S_PLT_TreeGrowth_ProjectedYears_Number is on the trees
     bool AgeAtPlantingBound,
     string ActiveOptionLabel,
     int OriginalTreeCount,
