@@ -35,7 +35,8 @@ public sealed record GrowthProjectionStatus(
     int SelectedOriginalCount,
     int UnlinkedGrowthTrees,
     IReadOnlyList<GrowthDesignOptionChoice> Options,
-    IReadOnlyList<GrowthYearWorkset> Worksets);
+    IReadOnlyList<GrowthYearWorkset> Worksets,
+    int GroupedTrees = 0);
 
 /// <summary>
 /// <see cref="Years"/> are the growth years to project (above 0 — year 0 is always the originals).

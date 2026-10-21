@@ -572,7 +572,8 @@ public sealed record PlantingInstanceValidationItem(
     string StoredLastUpdatedUtc,
     string StoredEngineVersion,
     string StoredInputSignature,
-    int? GrowthYear = null);
+    int? GrowthYear = null,
+    bool InGroup = false);
 
 public sealed record ValidatePlantingInstancesRequest(bool SelectedOnly = false);
 

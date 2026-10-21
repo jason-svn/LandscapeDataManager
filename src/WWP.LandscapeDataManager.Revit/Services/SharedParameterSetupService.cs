@@ -17,9 +17,6 @@ internal static class SharedParameterSetupService
 {
     private const string SharedGroupName = "PLANTING - iTree";
     private const string SharedParameterResourceName = "LIM.LandscapeData.SharedParameters.txt";
-    private const string TreeGrowthYearsParameter = "!_S_PLT_TreeGrowth_Years_Number";
-    private const string TreeGrowthProjectedYearsParameter = "!_S_PLT_TreeGrowth_ProjectedYears_Number";
-    private const string TreeGrowthAgeAtPlantingParameter = "!_S_PLT_TreeGrowth_AgeAtPlanting_Number";
 
     /// <summary>
     /// Read-only dry run: reports what <see cref="EnsureParameters"/> would do for every known
@@ -328,16 +325,10 @@ internal static class SharedParameterSetupService
                 : application.Application.Create.NewTypeBinding(categorySet);
 
             var inserted = document.ParameterBindings.Insert(definition, binding, ownership.Group);
-            string? createdVaryWarning = null;
-            if (inserted && FindExistingBinding(document, ownership.Name) is { Definition: var insertedDefinition })
-            {
-                createdVaryWarning = EnsureTreeGrowthYearsVaryAcrossGroups(document, ownership, insertedDefinition);
-            }
-
             return inserted
                 ? new SharedParameterSetupRow(
                     ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
-                    "Created", createdVaryWarning, ownership.Description)
+                    "Created", null, ownership.Description)
                 : new SharedParameterSetupRow(
                     ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
                     "Error", "Revit rejected the new parameter binding.", ownership.Description);
@@ -377,9 +368,8 @@ internal static class SharedParameterSetupService
         // since Instance/Type bindings aren't interchangeable without risking data loss.
         var needsCategoryExpansion = missingCategories.Count > 0;
         var needsRegroup = !existingGroup.Equals(ownership.Group);
-        var needsGroupVariation = IsTreeGrowthYears(ownership) && !internalDefinition.VariesAcrossGroups;
 
-        if (!needsCategoryExpansion && !needsRegroup && !needsGroupVariation)
+        if (!needsCategoryExpansion && !needsRegroup)
         {
             return new SharedParameterSetupRow(
                 ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
@@ -395,11 +385,6 @@ internal static class SharedParameterSetupService
         if (needsRegroup)
         {
             changeNotes.Add($"move from '{LabelUtils.GetLabelForGroup(existingGroup)}' to '{LabelUtils.GetLabelForGroup(ownership.Group)}'");
-        }
-
-        if (needsGroupVariation)
-        {
-            changeNotes.Add("allow values to vary between group instances");
         }
 
         var changeSummary = string.Join("; ", changeNotes) + ".";
@@ -434,55 +419,12 @@ internal static class SharedParameterSetupService
             internalDefinition.SetGroupTypeId(ownership.Group);
         }
 
-        var varyWarning = EnsureTreeGrowthYearsVaryAcrossGroups(document, ownership, internalDefinition);
-        if (varyWarning is not null)
-        {
-            // Revit refused only the vary-between-groups part; any category/group change above still applied.
-            return new SharedParameterSetupRow(
-                ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
-                needsCategoryExpansion || needsRegroup ? "Updated" : "Conflict", varyWarning, ownership.Description);
-        }
-
+        // Trees are never grouped, so the growth parameters don't need "values can vary by group
+        // instance" — Revit refuses it anyway for parameters a loaded family defines.
         return new SharedParameterSetupRow(
             ownership.Name, guidText, ownership.Scope, string.Join(", ", ownership.Categories),
             "Updated", changeSummary, ownership.Description);
     }
-
-    /// <summary>
-    /// Growth-year worksets can differ between placed group instances, so their corresponding tree
-    /// members must carry different formula-driving ages instead of sharing the last written value.
-    /// Returns a warning instead of throwing when Revit refuses (e.g. the parameter drives a family
-    /// formula or a schedule key), so one refusal no longer rolls back every other binding.
-    /// </summary>
-    private static string? EnsureTreeGrowthYearsVaryAcrossGroups(
-        Document document, ParameterOwnership ownership, InternalDefinition definition)
-    {
-        if (!IsTreeGrowthYears(ownership) || definition.VariesAcrossGroups)
-        {
-            return null;
-        }
-
-        try
-        {
-            definition.SetAllowVaryBetweenGroups(document, true);
-            return null;
-        }
-        catch (Autodesk.Revit.Exceptions.ArgumentException exception)
-        {
-            return $"Revit won't let this parameter vary between group instances ({exception.Message.Split('\n')[0].Trim()}). Everything else was applied; in Revit, set it via Manage > Project Parameters > Values can vary by group instance if needed.";
-        }
-        catch (Autodesk.Revit.Exceptions.InvalidOperationException exception)
-        {
-            return $"Revit won't let this parameter vary between group instances ({exception.Message.Split('\n')[0].Trim()}). Everything else was applied.";
-        }
-    }
-
-    /// <summary>The per-tree growth parameters, whose values must differ between instances of the same group.</summary>
-    private static bool IsTreeGrowthYears(ParameterOwnership ownership) =>
-        ownership.Scope == "Instance" &&
-        (string.Equals(ownership.Name, TreeGrowthYearsParameter, StringComparison.Ordinal) ||
-         string.Equals(ownership.Name, TreeGrowthProjectedYearsParameter, StringComparison.Ordinal) ||
-         string.Equals(ownership.Name, TreeGrowthAgeAtPlantingParameter, StringComparison.Ordinal));
 
     private sealed record ParameterBindingState(
         bool IsInstance, CategorySet Categories, ForgeTypeId Group, InternalDefinition Definition);

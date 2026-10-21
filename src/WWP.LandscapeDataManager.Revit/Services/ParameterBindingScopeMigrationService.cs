@@ -215,8 +215,8 @@ internal static class ParameterBindingScopeMigrationService
 
     /// <summary>
     /// Re-binds a Type parameter as Instance (same GUID, same data type) and gives every instance its
-    /// type's previous value, so nothing typed in on the types is lost. The parameter may vary between
-    /// group instances afterwards. All-or-nothing: on any failure the Type binding and values return.
+    /// type's previous value, so nothing typed in on the types is lost. All-or-nothing: on any failure
+    /// the Type binding and values return.
     /// </summary>
     public static SharedParameterSetupRow MigrateToInstance(
         Document document,
@@ -303,12 +303,6 @@ internal static class ParameterBindingScopeMigrationService
             }
 
             document.Regenerate();
-            if (document.GetElement(existingDefinition.Id) is SharedParameterElement { } element &&
-                element.GetDefinition() is { VariesAcrossGroups: false } bound)
-            {
-                bound.SetAllowVaryBetweenGroups(document, true);
-            }
-
             foreach (var id in instancesToFill)
             {
                 var instance = document.GetElement(id);

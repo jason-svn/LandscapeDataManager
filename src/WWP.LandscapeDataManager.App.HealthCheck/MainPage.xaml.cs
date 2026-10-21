@@ -90,6 +90,14 @@ public sealed partial class MainPage : Page
     /// <summary>Evaluates a raw Planting scan item exactly the way i-Tree Calculator and Refresh &amp; Audit do, then reduces it to Health Check's Success/NeedsAttention verdict.</summary>
     private static HealthCheckItem ToHealthCheckItem(PlantingInstanceValidationItem item)
     {
+        // Trees aren't meant to be grouped: every instance of a group shares one age and growth
+        // year, so growth projections can't age them separately.
+        if (item.InGroup)
+        {
+            return new HealthCheckItem(item.UniqueId, "Planting", item.FamilyName, item.TypeName, "NeedsAttention",
+                "In a group — it shares one age and growth year with the rest of the group, so growth projections can't age it on its own. Ungroup it.");
+        }
+
         var status = PlantingInstanceStatusEvaluator.Evaluate(item, SignatureEngineVersion);
         if (status.Status == "Calculated")
         {

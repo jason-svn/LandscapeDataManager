@@ -62,7 +62,8 @@ internal static class GrowthProjectionService
             model.Originals.Count(tree => selected.Contains(tree.Id.Value)),
             model.UnlinkedGrowthTrees,
             options,
-            worksets);
+            worksets,
+            model.Trees.Count(tree => tree.GroupId != ElementId.InvalidElementId));
     }
 
     public static GrowthProjectionResult Run(UIApplication application, GrowthProjectionRequest request)

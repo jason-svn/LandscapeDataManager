@@ -106,6 +106,11 @@ public sealed partial class MainPage : Page
             warnings.Add("!_S_PLT_TreeGrowth_AgeAtPlanting_Number isn't on the trees yet — run Import Shared Parameter (it moves the old type value onto each tree) and fill in each tree's age at planting. Until then, ages count from 0 at planting.");
         }
 
+        if (_status.GroupedTrees > 0)
+        {
+            warnings.Add($"{_status.GroupedTrees:N0} tree(s) are in groups. Trees in a group share one age and growth year, so they're skipped here — ungroup them (Health Check lists them).");
+        }
+
         if (_status.UnlinkedGrowthTrees > 0)
         {
             warnings.Add($"{_status.UnlinkedGrowthTrees:N0} tree(s) are already on growth-year worksets but weren't made by this tool (copied by hand?). They're left alone — delete them if these projections replace them.");

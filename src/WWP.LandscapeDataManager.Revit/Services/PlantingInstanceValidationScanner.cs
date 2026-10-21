@@ -85,7 +85,8 @@ internal static class PlantingInstanceValidationScanner
                     GetNullableText(element, LastUpdatedParameter) ?? string.Empty,
                     GetNullableText(element, EngineVersionParameter) ?? string.Empty,
                     GetNullableText(element, InputSignatureParameter) ?? string.Empty,
-                    document.IsWorkshared ? GrowthYearNames.FromName(document.GetWorksetTable().GetWorkset(element.WorksetId)?.Name) : null);
+                    document.IsWorkshared ? GrowthYearNames.FromName(document.GetWorksetTable().GetWorkset(element.WorksetId)?.Name) : null,
+                    element.GroupId != ElementId.InvalidElementId);
             })
             .OrderBy(item => item.FamilyName)
             .ThenBy(item => item.TypeName)

@@ -120,7 +120,7 @@ public sealed partial class MainPage : Page
 
         if (sync.SkippedGrouped > 0)
         {
-            notes.Add($"{sync.SkippedGrouped:N0} grouped tree(s) don't allow different ages between group instances — run Shared Parameter Setup.");
+            notes.Add($"{sync.SkippedGrouped:N0} tree(s) are in groups and were left alone — trees in a group share one age and growth year. Ungroup them.");
         }
 
         if (sync.MissingYearsParameter > 0)
