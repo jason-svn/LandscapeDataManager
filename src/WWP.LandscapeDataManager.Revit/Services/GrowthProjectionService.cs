@@ -450,7 +450,7 @@ internal static class GrowthProjectionService
         var set = option.get_Parameter(BuiltInParameter.OPTION_SET_ID) is { HasValue: true } setParameter
             ? document.GetElement(setParameter.AsElementId())?.Name
             : null;
-        return $"{set ?? "Option set"} : {option.Name}{(option.IsPrimary ? " (primary)" : string.Empty)}";
+        return $"{set ?? "Option set"} : {DesignOptionScenarioService.CleanOptionName(option.Name)}{(option.IsPrimary ? " (primary)" : string.Empty)}";
     }
 
     /// <summary>The hidden link each copy carries to its original (vendor EGIS, matching the add-in manifest).</summary>

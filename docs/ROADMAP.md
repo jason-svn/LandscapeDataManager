@@ -127,22 +127,18 @@ Checked by script on 2026-10-21, with Revit still running the v1.4 connector:
 - [x] `HOST_AREA_COMPUTED` matches a floor's Area, so maintenance per m² × area uses the right area.
 - [x] Live i-Tree forecast for one planting input: 25 years in 2.8 s, parsed year by year.
 
-Needs the new build in Revit. Close Revit, run `dotnet build WWP.LandscapeDataManager.sln -c Debug` (it deploys to `%APPDATA%\Autodesk\Revit\Addins\2025`), reopen the sandbox, then:
+Run live on 2026-10-21 with the new build installed (connector driven over its pipe, plus the Dashboard and Floor Calculator UIs). Test data added to the sandbox, **not saved or synced**: Variante 1 Option 1 = Baseline's 541 trees with every other one a Quercus robur; Variante 1 Option 2 = every third Baseline tree (181); Test Option 2 = Test Option 1's 541 trees, a third Betula, no planting areas; four saved scenarios (Scheme A–D); a "LIM test - scenario view" 3D view.
 
-- [ ] **Import Shared Parameter:** the 19 new `!_S_PLT_Result_*` parameters bind (maintenance, lifetime oxygen, timeline key, 5/10/20/25-year totals).
-- [ ] **Tree Calculator:** the status line ends with "i-Tree forecast: … unique planting input(s)". Planted trees get `Result_iTreeTimelineKey_Text`, the `…{N}yr` totals and oxygen; growth copies don't get a key. Run it again: "already stored", no new requests.
-- [ ] **Floor Calculator:** `Result_MaintenanceCostAnnual_Currency` = rate × area once maintenance rates are imported.
-- [ ] **Dashboard:**
-  - Every option is listed in Edit…, including empty ones.
-  - Switch a view to a non-primary option (Visibility/Graphics › Design Options), then Use current view.
-  - Save two scenarios, pick a reference, compare.
-  - The outlook line says "i-Tree's year-by-year forecast".
-  - Export JSON (schema 5).
-- [ ] **BNG tab:** the scenario filter lists the saved scenarios, and totals follow it.
-- [ ] **KPI Schedules:** delete and rebuild them; the connectivity, oxygen, maintenance and forecast columns appear.
-- [ ] **Connectivity Calculator:** after a run, the Dashboard shows band counts.
-- [ ] Run every tool against the workshared project: Import Shared Parameter, Excel Importer, Floor Calculator + BNG, Connectivity, Growth Projections (incl. i-Tree), Dashboard and KPI Schedules.
-- [ ] **Growth Projections:** check copies in a design option that **isn't** active, and that existing copies refresh correctly.
+- [x] **Import Shared Parameter:** the 19 new parameters bound ("Created: 19"), no conflicts.
+- [x] **Tree Calculator:** 13 unique i-Tree inputs for 2,949 trees; the forecast covered 10 unique planting inputs (horizons 1–35 years), written to every planted tree; growth copies got no key. A second run requested nothing ("already stored"). Values match the stand-alone forecast (Acer campestre 44.7 kg CO₂e over 10 years, 165.8 kg over 25; lifetime = the 25-year forecast).
+- [x] **Maintenance:** trees store £20/yr; floors store rate × area (e.g. wetland £8 × 20,406 m²), matching the Dashboard's live total (£3.64M/yr; the sandbox floors are site-sized). Tested through the instance writer; Floor Calculator's own run writes the same way.
+- [x] **Dashboard:** every option listed, including empty ones; "Use current view" returned Variante 1 = Option 1 in a view showing it; four saved scenarios compared against Scheme A (table and charts); the outlook line reads "i-Tree's year-by-year forecast"; JSON export is schema 5 with 4 schemes × 4 growth years, `designOption` and `choices`.
+- [x] **BNG tab:** the scenario filter lists the saved schemes; Scheme A +13.2%, Scheme D −24.4%, the same as the Dashboard.
+- [x] **KPI Schedules:** rebuilt (9, including the new options) with the connectivity, oxygen, maintenance and forecast columns.
+- [x] **Connectivity:** band counts show on the Dashboard (312 critical, 537 strong, 453 moderate, 321 low, 43 not assessed).
+- [x] **Growth Projections:** for a design option that isn't active, the run moves the originals to the Baseline workset and skips the copies with a note to activate the option; with it active, 543 copies were created in that option on the right worksets (ProjectedYears 10 → Years 15); a rerun updated the 543 and created none.
+- Fixed while testing: Floor Calculator crashed on launch (an incomplete `.pri` from an incremental build — a clean rebuild fixed it; it now logs startup crashes to `%TEMP%`); "Raingarden" and wetland types now count as pervious; `WWP_Surfaces_Building` floors (matched to Asphalt) are left out as buildings; KPI schedule and Growth Projections labels no longer say "primary" twice (connector change: needs the next install, then rebuild KPI schedules).
+- [ ] **Excel Importer** wasn't run (maintenance rates were already on the types).
 - [ ] Check the mature-size measurement against the real planting families (see the Prunus avium `Mature Age` = 1 note in Phase 4).
 
 ## Follow-ups
