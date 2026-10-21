@@ -5,6 +5,16 @@ Tick items off here as they land, and add the release they shipped in.
 
 ## Done
 
+Shipped in **v1.4.0**:
+
+- **Tree growth driven by the family:**
+  - New `!_S_PLT_TreeGrowth_ProjectedYears_Number`; Growth Projections writes the growth year.
+  - `AgeAtPlanting` is now per tree, and Import Shared Parameter migrates it from the type.
+  - LIM still sets `Years` for families without the formula.
+- **Grouped trees are flagged** in Health Check, Growth Projections and Tree Calculator. Trees aren't meant to be grouped, so the growth parameters no longer try to vary by group.
+- **Growth Projections warns when a type's DBH never changes** between years.
+- **Floor Calculator remembers matches:** on load it restores the landscape match saved in Revit, and a manual pick applies to every floor of that type.
+
 Shipped in **v1.3.0 / v1.3.1**:
 
 - **Importer:** the page opens at Map Columns. Source and instance pairing moved to a "Source & pairing…" panel.
