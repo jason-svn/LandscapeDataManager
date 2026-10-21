@@ -494,9 +494,6 @@ public sealed partial class MainPage : Page
         // Banner: the value split by benefit, then upkeep and what's left.
         KpiEcosystemValueText.Text = Money(projectedValue);
         EcosystemValueCaptionText.Text = $"over {years} years · trees (i-Tree) + planting areas (WWP sheet)";
-        BannerCarbonValueText.Text = Money(treeCarbonValue);
-        BannerWaterValueText.Text = Money(treeWaterValue);
-        BannerAirValueText.Text = Money(treeAirValue);
         BannerFloorValueText.Text = Money(floorValue);
         BannerMaintenanceText.Text = maintenance > 0 ? $"−{Money(maintenance)}" : Money(0);
         BannerNetValueText.Text = Money(projectedValue - maintenance);
@@ -513,12 +510,12 @@ public sealed partial class MainPage : Page
         HeroCO2EquivalentText.Text = $"{Compact(projectedCo2Equivalent)} {units.Carbon}";
         HeroOxygenText.Text = $"{Compact(projectedOxygen)} {units.Carbon}";
         var rateLabel = _benefitsFromForecast ? $"In year {_projectionYears}" : "Now";
-        HeroCarbonRateText.Text = $"{rateLabel} {Compact(grandTotal.CO2EquivalentAnnual + floorCo2EquivalentAnnual)} {units.Carbon} CO₂e/yr · over {years} yr: {Compact(projectedCo2Equivalent)} {units.Carbon}";
+        HeroCarbonRateText.Text = $"{rateLabel} {Compact(grandTotal.CO2EquivalentAnnual + floorCo2EquivalentAnnual)} {units.Carbon} CO₂e/yr";
 
         HeroStormWaterCostText.Text = Money(treeWaterValue);
         HeroRunoffAvoidedText.Text = $"{Compact(projectedWater)} {units.Water}";
         HeroRainfallInterceptedText.Text = $"{Compact(projectedRainfall)} {units.Water}";
-        HeroWaterRateText.Text = $"{rateLabel} {Compact(units.Volume(grandTotal.RunoffAvoidedAnnual) + floorRunoffAnnual)} {units.Water}/yr runoff avoided · over {years} yr: {Compact(projectedWater)} {units.Water}";
+        HeroWaterRateText.Text = $"{rateLabel} {Compact(units.Volume(grandTotal.RunoffAvoidedAnnual) + floorRunoffAnnual)} {units.Water}/yr runoff avoided";
 
         HeroAirPollutionCostText.Text = Money(treeAirValue);
         HeroPollutionTotalText.Text = $"{Compact(projectedPollution)} {units.Pollutant}";
@@ -528,7 +525,7 @@ public sealed partial class MainPage : Page
         HeroNitrogenDioxideText.Text = $"{Compact(Trees(total => total.NO2RemovedAnnual))} {units.Pollutant}";
         HeroSulfurDioxideText.Text = $"{Compact(Trees(total => total.SO2RemovedAnnual))} {units.Pollutant}";
         HeroPM25Text.Text = $"{Compact(Trees(total => total.PM25RemovedAnnual))} {units.Pollutant}";
-        HeroAirRateText.Text = $"{rateLabel} {Compact(grandTotal.TotalPollutionMassRemovedAnnual + floorPollutionAnnual)} {units.Pollutant}/yr · over {years} yr: {Compact(projectedPollution)} {units.Pollutant}";
+        HeroAirRateText.Text = $"{rateLabel} {Compact(grandTotal.TotalPollutionMassRemovedAnnual + floorPollutionAnnual)} {units.Pollutant}/yr removed";
 
         // Readiness now sits in Data explorer next to the status cards it summarises.
         var readyPercent = filteredTrees.Count == 0 ? 0d : 100d * grandTotal.TreeCount / filteredTrees.Count;

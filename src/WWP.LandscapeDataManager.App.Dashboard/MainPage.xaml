@@ -246,29 +246,14 @@
                                     <TextBlock x:Name="EcosystemValueCaptionText" Text="Trees (i-Tree) + planting areas (WWP sheet)" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12" TextWrapping="Wrap" />
                                 </StackPanel>
                                 <Border Grid.Column="1" Background="{ThemeResource KpiCategoryDividerBrush}" Margin="0,4" />
-                                <Grid Grid.Column="2" ColumnSpacing="18" VerticalAlignment="Center">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                    <StackPanel Spacing="2">
-                                        <TextBlock Text="CO₂ UPTAKE" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="11" CharacterSpacing="40" />
-                                        <TextBlock x:Name="BannerCarbonValueText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                        <TextBlock Text="trees" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="11" Opacity="0.8" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Spacing="2">
-                                        <TextBlock Text="WATER RUNOFF" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="11" CharacterSpacing="40" />
-                                        <TextBlock x:Name="BannerWaterValueText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                        <TextBlock Text="trees" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="11" Opacity="0.8" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2" Spacing="2">
-                                        <TextBlock Text="POLLUTION" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="11" CharacterSpacing="40" />
-                                        <TextBlock x:Name="BannerAirValueText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                        <TextBlock Text="trees" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="11" Opacity="0.8" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="3" Spacing="2" ToolTipService.ToolTip="The WWP landscape data sheet gives planting areas one combined saving, not split by benefit.">
-                                        <TextBlock Text="PLANTING AREAS" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="11" CharacterSpacing="40" />
-                                        <TextBlock x:Name="BannerFloorValueText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                        <TextBlock Text="all benefits" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="11" Opacity="0.8" />
-                                    </StackPanel>
-                                </Grid>
+                                <!-- Only what the cards below don't show: the planting areas' share. The trees'
+                                share is the three cards, split by benefit. -->
+                                <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center"
+                                    ToolTipService.ToolTip="The WWP landscape data sheet gives planting areas one combined saving, not split by benefit.">
+                                    <TextBlock Text="OF WHICH PLANTING AREAS" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="11" CharacterSpacing="40" />
+                                    <TextBlock x:Name="BannerFloorValueText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Text="WWP sheet, all benefits · the trees' share is split in the cards below" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="11" Opacity="0.8" TextWrapping="Wrap" />
+                                </StackPanel>
                                 <Border Grid.Column="3" Background="{ThemeResource KpiCategoryDividerBrush}" Margin="0,4" />
                                 <StackPanel Grid.Column="4" Spacing="2" VerticalAlignment="Center"
                                     ToolTipService.ToolTip="Maintenance: the WWP sheet's yearly rate per tree, or per m² for planting areas (!_S_PLT_LDS_MaintenanceCostAnnual_Currency), over the outlook. Net value = ecosystem value − maintenance.">
