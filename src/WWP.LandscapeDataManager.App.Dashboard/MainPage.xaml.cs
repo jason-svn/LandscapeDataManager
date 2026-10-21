@@ -295,6 +295,12 @@ public sealed partial class MainPage : Page
         var filteredFloors = _lastReport.Floors
             .Where(floor => MatchesDimensionFilters(floor.DesignOption, floor.LevelName))
             .ToList();
+        // Same filters without the growth-year one: the outlook needs every year's copies.
+        var treeOutlook = TreeOutlook(normalizedTrees
+            .Where(tree => MatchesDimensionFilters(tree.Source.DesignOption, tree.Source.LevelName))
+            .Where(MatchesSearch)
+            .Where(tree => _activeStatusFilter is null || tree.Source.Status == _activeStatusFilter)
+            .ToList());
 
         var speciesSubtotals = DashboardAggregationService.AggregateTreesBySpecies(filteredTrees);
         SpeciesSubtotals.Clear();
@@ -418,9 +424,30 @@ public sealed partial class MainPage : Page
             speciesSubtotals,
             floorSubtotals,
             grandTotal,
+            treeOutlook,
             unitSystem,
             MatchesLevel,
             MatchesSearch);
+    }
+
+    /// <summary>
+    /// Tree benefits accumulated over an outlook of N years. With growth-year worksets, each year's
+    /// copies give the benefit in that year, as i-Tree calculated it, and <see cref="GrowthOutlook"/>
+    /// adds up the years in between. Without them, it's the stored annual figure × N.
+    /// </summary>
+    private Func<Func<DashboardGrandTotal, double>, int, double> TreeOutlook(IReadOnlyList<NormalizedTreeMetrics> treesAllYears)
+    {
+        if (!_growthYearsFromWorksets)
+        {
+            var total = DashboardAggregationService.BuildGrandTotal(treesAllYears, []);
+            return (metric, years) => metric(total) * years;
+        }
+
+        var byYear = _growthYearStops
+            .Select(year => (Year: year, Total: DashboardAggregationService.BuildGrandTotal(
+                treesAllYears.Where(tree => GrowthYears.CountsIn(tree.Source, year)).ToList(), [])))
+            .ToList();
+        return (metric, years) => GrowthOutlook.Accumulate(byYear.Select(stop => (stop.Year, metric(stop.Total))), years);
     }
 
     private void RebuildGraphicDashboard(
@@ -430,6 +457,7 @@ public sealed partial class MainPage : Page
         IReadOnlyList<SpeciesSubtotal> speciesSubtotals,
         IReadOnlyList<FloorTypeSubtotal> floorSubtotals,
         DashboardGrandTotal grandTotal,
+        Func<Func<DashboardGrandTotal, double>, int, double> treeOutlook,
         string unitSystem,
         Func<string?, bool> matchesLevel,
         Func<NormalizedTreeMetrics, bool> matchesSearch)
@@ -445,45 +473,51 @@ public sealed partial class MainPage : Page
         double Water(double cubicMetres) => metric ? cubicMetres : cubicMetres / UnitConversions.CubicMetresPerGallon;
         double Area(double squareMetres) => metric ? squareMetres : squareMetres * 10.7639104167d;
 
-        var countedTrees = filteredTrees.Where(tree => tree.CountsTowardTotals).ToList();
-        var treeRunoffAnnual = countedTrees.Sum(tree => tree.RunoffAvoidedAnnual);
+        // Over the outlook: trees add up their growth-year copies (see TreeOutlook). Planting areas
+        // don't grow, so their Airtable rate holds every year and they're annual × years.
+        var years = _projectionYears;
+        double Trees(Func<DashboardGrandTotal, double> annual) => treeOutlook(annual, years);
         var floorCarbonAnnual = FloorCarbon(grandTotal.FloorCarbonSequesteredAnnual);
         var floorPollutionAnnual = FloorPollution(grandTotal.FloorPollutionMassRemovedAnnual);
         var floorRunoffAnnual = Water(grandTotal.FloorRunoffAvoidedAnnual);
-        var treeRunoffDisplay = Water(treeRunoffAnnual);
-        var projectedCarbon = (grandTotal.CarbonSequesteredAnnual + floorCarbonAnnual) * _projectionYears;
-        var projectedPollution = (grandTotal.TotalPollutionMassRemovedAnnual + floorPollutionAnnual) * _projectionYears;
-        var projectedWater = (treeRunoffDisplay + floorRunoffAnnual) * _projectionYears;
-        // Floor cost is already in the project currency (Floor Calculator converts it when writing).
-        var projectedValue = (grandTotal.TreeCostSavedAnnual + grandTotal.FloorCostSavedAnnual) * _projectionYears;
         var floorCo2EquivalentAnnual = FloorCarbon(grandTotal.FloorCarbonSequesteredAnnual * UnitConversions.CarbonToCo2MassRatio);
+        var treeCarbon = Trees(total => total.CarbonSequesteredAnnual);
+        var treePollution = Trees(total => total.TotalPollutionMassRemovedAnnual);
+        var treeRunoff = Water(Trees(total => total.RunoffAvoidedAnnual));
+        var projectedCarbon = treeCarbon + floorCarbonAnnual * years;
+        var projectedPollution = treePollution + floorPollutionAnnual * years;
+        var projectedWater = treeRunoff + floorRunoffAnnual * years;
+        // Floor cost is already in the project currency (Floor Calculator converts it when writing).
+        var projectedValue = Trees(total => total.TreeCostSavedAnnual) + grandTotal.FloorCostSavedAnnual * years;
 
         var readyPercent = filteredTrees.Count == 0 ? 0d : 100d * grandTotal.TreeCount / filteredTrees.Count;
         var scenarioLabel = _selectedDesignOption == AllDesignOptions ? "All design options" : _selectedDesignOption;
         ScenarioBadgeText.Text = scenarioLabel.ToUpperInvariant();
-        OutlookText.Text = $"{_projectionYears}-year outlook · current annual stored results × {_projectionYears}";
+        OutlookText.Text = _growthYearsFromWorksets
+            ? $"{years}-year outlook · trees: each growth-year workset as calculated, years in between interpolated · planting areas: annual × {years}"
+            : $"{years}-year outlook · annual results × {years} (no growth-year worksets, so trees don't grow)";
         KpiEcosystemValueText.Text = $"{Compact(projectedValue)} {_preferredCurrency}";
         KpiPollutionText.Text = $"{Compact(projectedPollution)} {pollutantUnit}";
         KpiTreeCountText.Text = grandTotal.TreeCount.ToString("N0");
 
         // Executive overview swim lanes: same three i-Tree benefit categories as the Data explorer
-        // tab, each led by its own projected dollar value (current annual rate × the selected
-        // outlook) rather than the Annual/Lifetime toggle those detail-view figures use.
-        HeroCarbonCostText.Text = $"{Compact(grandTotal.CarbonCostSavedAnnual * _projectionYears)} {_preferredCurrency}";
+        // tab, each led by its own value over the selected outlook rather than the Annual/Lifetime
+        // toggle those detail-view figures use.
+        HeroCarbonCostText.Text = $"{Compact(Trees(total => total.CarbonCostSavedAnnual))} {_preferredCurrency}";
         HeroCarbonSequesteredText.Text = $"{Compact(projectedCarbon)} {carbonUnit}";
-        HeroCO2EquivalentText.Text = $"{Compact((grandTotal.CO2EquivalentAnnual + floorCo2EquivalentAnnual) * _projectionYears)} {carbonUnit}";
+        HeroCO2EquivalentText.Text = $"{Compact(Trees(total => total.CO2EquivalentAnnual) + floorCo2EquivalentAnnual * years)} {carbonUnit}";
 
-        HeroStormWaterCostText.Text = $"{Compact(grandTotal.StormWaterCostSavedAnnual * _projectionYears)} {_preferredCurrency}";
-        HeroRunoffAvoidedText.Text = $"{Compact((treeRunoffDisplay + floorRunoffAnnual) * _projectionYears)} {waterUnit}";
-        HeroRainfallInterceptedText.Text = $"{Compact(Water(grandTotal.RainfallInterceptedAnnual) * _projectionYears)} {waterUnit}";
+        HeroStormWaterCostText.Text = $"{Compact(Trees(total => total.StormWaterCostSavedAnnual))} {_preferredCurrency}";
+        HeroRunoffAvoidedText.Text = $"{Compact(projectedWater)} {waterUnit}";
+        HeroRainfallInterceptedText.Text = $"{Compact(Water(Trees(total => total.RainfallInterceptedAnnual)))} {waterUnit}";
 
-        HeroAirPollutionCostText.Text = $"{Compact(grandTotal.AirPollutionCostSavedAnnual * _projectionYears)} {_preferredCurrency}";
-        HeroCarbonMonoxideText.Text = $"{Compact(grandTotal.CORemovedAnnual * _projectionYears)} {pollutantUnit}";
-        HeroFloorPollutionText.Text = $"{Compact(floorPollutionAnnual * _projectionYears)} {pollutantUnit}";
-        HeroOzoneText.Text = $"{Compact(grandTotal.O3RemovedAnnual * _projectionYears)} {pollutantUnit}";
-        HeroNitrogenDioxideText.Text = $"{Compact(grandTotal.NO2RemovedAnnual * _projectionYears)} {pollutantUnit}";
-        HeroSulfurDioxideText.Text = $"{Compact(grandTotal.SO2RemovedAnnual * _projectionYears)} {pollutantUnit}";
-        HeroPM25Text.Text = $"{Compact(grandTotal.PM25RemovedAnnual * _projectionYears)} {pollutantUnit}";
+        HeroAirPollutionCostText.Text = $"{Compact(Trees(total => total.AirPollutionCostSavedAnnual))} {_preferredCurrency}";
+        HeroCarbonMonoxideText.Text = $"{Compact(Trees(total => total.CORemovedAnnual))} {pollutantUnit}";
+        HeroFloorPollutionText.Text = $"{Compact(floorPollutionAnnual * years)} {pollutantUnit}";
+        HeroOzoneText.Text = $"{Compact(Trees(total => total.O3RemovedAnnual))} {pollutantUnit}";
+        HeroNitrogenDioxideText.Text = $"{Compact(Trees(total => total.NO2RemovedAnnual))} {pollutantUnit}";
+        HeroSulfurDioxideText.Text = $"{Compact(Trees(total => total.SO2RemovedAnnual))} {pollutantUnit}";
+        HeroPM25Text.Text = $"{Compact(Trees(total => total.PM25RemovedAnnual))} {pollutantUnit}";
         KpiPlantingAreaText.Text = grandTotal.FloorCount.ToString("N0");
         SnapshotAreaText.Text = $"{Compact(Area(grandTotal.FloorAreaSquareMeters))} {areaUnit}";
         // Embodied carbon of the hard surfaces vs the planting's yearly CO2e uptake (trees + floors).
@@ -493,7 +527,7 @@ public sealed partial class MainPage : Page
         GwpPaybackText.Text = EmbodiedCarbon.PaybackYears(embodied, sequesteredPerYear) switch
         {
             0 => "no embodied carbon recorded",
-            { } years => $"payback ≈ {years:N1} yrs of current planting uptake",
+            { } payback => $"payback ≈ {payback:N1} yrs of current planting uptake",
             null => "no sequestration yet to offset it"
         };
         SnapshotInventoryText.Text = $"{grandTotal.TreeCount + grandTotal.FloorCount:N0} assets";
@@ -504,18 +538,22 @@ public sealed partial class MainPage : Page
         ReadinessDetailText.Text = $"{grandTotal.TreeCount:N0} of {filteredTrees.Count:N0} filtered tree records are Calculated.";
 
         ProjectionTrendRows.Clear();
-        foreach (var years in new[] { 5, 10, 20, 25 })
+        IReadOnlyList<int> trendYears = _growthYearsFromWorksets ? _growthYearStops.Where(year => year > 0).ToList() : [5, 10, 20, 25];
+        var trend = trendYears
+            .Select(trendYear => (Year: trendYear, Value: treeOutlook(total => total.CarbonSequesteredAnnual, trendYear) + floorCarbonAnnual * trendYear))
+            .ToList();
+        var trendMaximum = trend.Count == 0 ? 0d : trend.Max(point => point.Value);
+        foreach (var (trendYear, value) in trend)
         {
-            var value = (grandTotal.CarbonSequesteredAnnual + floorCarbonAnnual) * years;
-            ProjectionTrendRows.Add(new KpiBarRow($"{years} yr", $"{Compact(value)} {carbonUnit}", 100d * years / 25d));
+            ProjectionTrendRows.Add(new KpiBarRow($"{trendYear} yr", $"{Compact(value)} {carbonUnit}", trendMaximum <= 0d ? 0d : 100d * value / trendMaximum));
         }
 
         // Ordered Carbon / Stormwater / Air Quality — the same three i-Tree benefit categories,
         // in the same order, as the KPI cards and donut ring below.
         ImpactProfileRows.Clear();
-        AddImpactShare("Carbon", grandTotal.CarbonSequesteredAnnual, floorCarbonAnnual, carbonUnit);
-        AddImpactShare("Runoff", treeRunoffDisplay, floorRunoffAnnual, waterUnit);
-        AddImpactShare("Pollution", grandTotal.TotalPollutionMassRemovedAnnual, floorPollutionAnnual, pollutantUnit);
+        AddImpactShare("Carbon", treeCarbon, floorCarbonAnnual * years, carbonUnit);
+        AddImpactShare("Runoff", treeRunoff, floorRunoffAnnual * years, waterUnit);
+        AddImpactShare("Pollution", treePollution, floorPollutionAnnual * years, pollutantUnit);
 
         SpeciesMixRows.Clear();
         var totalTrees = Math.Max(1, speciesSubtotals.Sum(row => row.TreeCount));
@@ -542,6 +580,7 @@ public sealed partial class MainPage : Page
         RebuildScenarioRows(allNormalizedTrees, unitSystem, matchesLevel, matchesSearch);
         UpdateSiteKpiCards(filteredTrees, filteredFloors);
 
+        // Both values are already totals over the outlook.
         void AddImpactShare(string label, double treeValue, double floorValue, string valueUnit)
         {
             var total = treeValue + floorValue;
@@ -550,7 +589,7 @@ public sealed partial class MainPage : Page
                 label,
                 $"{treePercent:N0}% trees",
                 treePercent,
-                $"{Compact(total * _projectionYears)} {valueUnit} over {_projectionYears} years"));
+                $"{Compact(total)} {valueUnit} over {years} years"));
         }
     }
 
@@ -578,11 +617,15 @@ public sealed partial class MainPage : Page
         var values = scenarios.Select(scenario =>
         {
             var option = scenario.Label;
-            var trees = scenario.Trees;
             var floors = scenario.Floors;
-            var total = DashboardAggregationService.BuildGrandTotal(trees, floors);
             var years = DashboardUnitLabels.ExtractProjectionYears(option) ?? _projectionYears;
-            var carbon = (total.CarbonSequesteredAnnual + FloorCarbon(total.FloorCarbonSequesteredAnnual)) * years;
+            // Counts are for the growth year on screen; carbon adds up every year's copies.
+            var trees = _growthYearsFromWorksets
+                ? scenario.Trees.Where(tree => GrowthYears.CountsIn(tree.Source, _projectionYears)).ToList()
+                : scenario.Trees;
+            var total = DashboardAggregationService.BuildGrandTotal(trees, floors);
+            var carbon = TreeOutlook(scenario.Trees)(grand => grand.CarbonSequesteredAnnual, years) +
+                FloorCarbon(total.FloorCarbonSequesteredAnnual) * years;
             var speciesCount = trees
                 .Select(tree => tree.Source.SpeciesCode ?? tree.Source.CommonName ?? "Unassigned")
                 .Distinct(StringComparer.OrdinalIgnoreCase)

@@ -5,6 +5,12 @@ Tick items off here as they land, and add the release they shipped in.
 
 ## Done
 
+Not released yet (branch `dashboard-include-floors`):
+
+- **Dashboard outlook adds up the growth years.** Trees: each growth-year workset's copies as i-Tree calculated them, with the years in between interpolated (trapezoid rule). No more annual × years, which over-reported with worksets. Planting areas don't grow, so they're the Airtable rate × years. Without growth worksets, trees fall back to annual × years, and the outlook line says so.
+- **KPI Schedules group the planting schedule by workset** when growth years exist, with a subtotal per year, so a tree isn't counted once per growth year. Delete existing KPI schedules to rebuild them.
+- Dashboard cards include planting-area (Airtable) carbon, runoff, pollution and cost. BNG labels no longer say "primary" twice.
+
 Shipped in **v1.4.0**:
 
 - **Tree growth driven by the family:**
@@ -100,7 +106,8 @@ For now every growth year is still modelled as copies on its `LIM_Growth_<N>yr` 
 - [ ] **i-Tree year-by-year forecast (run once, project without copies):**
   - Live test, 2026-10-21: a 25-year request takes about 3 s and returns 220 KB; a 100-year request takes about 9 s and returns 870 KB. Identical trees share one call, so this is affordable.
   - i-Tree already returns one entry per year (`benefits.annual[]`), with its own trunk growth. Today LIM keeps only the year-1 figure and the total; the outlooks then use annual × years, which under-reports growing trees.
-  - Run i-Tree once per **unique input**: species, planting DBH, condition, crown exposure and location. Identical trees share one call. Request the longest outlook (e.g. 50 years) and keep the whole timeline.
+  - Run i-Tree once per **unique input**: species, planting DBH, condition, crown exposure and location. Identical trees share one call. Keep the whole timeline.
+  - **Horizon: at most 35 years, and no further than the type's maturity** (`Mature Age` − `AgeAtPlanting`). After maturity the tree's benefit holds at its mature value.
   - Store the timeline once per input in the project (extensible storage). Write each tree's 5/10/20/25-year totals from it, with no new i-Tree calls.
   - Dashboard and scenario comparison read any outlook year from the timeline. **Growth-copy worksets are no longer needed for the numbers**, only for drawings, canopy cover by year and clash checks.
   - Re-run only when an input changes: new species, planting size, condition or site location.

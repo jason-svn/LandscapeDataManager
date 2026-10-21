@@ -108,6 +108,10 @@ internal static class KpiScheduleBuilderService
 
         var missingFields = new HashSet<string>();
         var plantingByLabel = StampAndGroup(document, plantingInstances);
+        // Growth Projections puts each growth year's copies on its own workset. A schedule that
+        // totalled them together would count every tree once per year, so group by workset first.
+        var groupPlantingByWorkset = document.IsWorkshared && plantingInstances.Any(element =>
+            GrowthYearNames.FromName(document.GetWorksetTable().GetWorkset(element.WorksetId)?.Name) is not null);
         var floorByLabel = StampAndGroup(document, floorInstances);
 
         var created = new List<ScheduleOutcome>();
@@ -122,15 +126,17 @@ internal static class KpiScheduleBuilderService
             var nameSafeLabel = SanitizeForViewName(label);
             ProcessOne(
                 $"KPI - Planting Report - {nameSafeLabel}",
-                BuiltInCategory.OST_Planting, label, plantingByLabel.GetValueOrDefault(label), PlantingFields, PlantingGroupingParameter);
+                BuiltInCategory.OST_Planting, label, plantingByLabel.GetValueOrDefault(label), PlantingFields, PlantingGroupingParameter,
+                groupPlantingByWorkset);
             ProcessOne(
                 $"KPI - Planting Area Report - {nameSafeLabel}",
-                BuiltInCategory.OST_Floors, label, floorByLabel.GetValueOrDefault(label), FloorFields, FloorGroupingParameter);
+                BuiltInCategory.OST_Floors, label, floorByLabel.GetValueOrDefault(label), FloorFields, FloorGroupingParameter,
+                groupByWorkset: false);
         }
 
         return new KpiScheduleResult(true, created, alreadyExisting, skippedEmpty, missingFields.OrderBy(field => field).ToList());
 
-        void ProcessOne(string scheduleName, BuiltInCategory category, string label, int count, IReadOnlyList<FieldSpec> fields, string groupingParameter)
+        void ProcessOne(string scheduleName, BuiltInCategory category, string label, int count, IReadOnlyList<FieldSpec> fields, string groupingParameter, bool groupByWorkset)
         {
             if (count == 0)
             {
@@ -144,7 +150,7 @@ internal static class KpiScheduleBuilderService
                 return;
             }
 
-            BuildSchedule(document, scheduleName, category, label, fields, groupingParameter, missingFields);
+            BuildSchedule(document, scheduleName, category, label, fields, groupingParameter, groupByWorkset, missingFields);
             created.Add(new ScheduleOutcome(scheduleName, Created: true));
         }
     }
@@ -169,6 +175,7 @@ internal static class KpiScheduleBuilderService
         string label,
         IReadOnlyList<FieldSpec> fields,
         string groupingParameter,
+        bool groupByWorkset,
         HashSet<string> missingFields)
     {
         var schedule = ViewSchedule.CreateSchedule(document, new ElementId(category));
@@ -221,6 +228,16 @@ internal static class KpiScheduleBuilderService
         // confirms at a glance which option this particular schedule reflects.
         var labelField = definition.AddField(schedulableByName[DesignOptionLabelParameter]);
         definition.AddFilter(new ScheduleFilter(labelField.FieldId, ScheduleFilterType.Equal, label));
+
+        if (groupByWorkset &&
+            definition.GetSchedulableFields().FirstOrDefault(field =>
+                field.ParameterId == new ElementId(BuiltInParameter.ELEM_PARTITION_PARAM)) is { } worksetSchedulable)
+        {
+            // One block per growth year, each with its own subtotal footer.
+            var worksetField = definition.AddField(worksetSchedulable);
+            definition.IsItemized = false;
+            definition.AddSortGroupField(new ScheduleSortGroupField(worksetField.FieldId) { ShowHeader = true, ShowFooter = true });
+        }
 
         if (groupingFieldId is not null)
         {
