@@ -81,8 +81,6 @@ public sealed partial class MainPage : Page
     public ObservableCollection<KpiBarRow> BngHabitatRows { get; } = [];
     public ObservableCollection<KpiBarRow> StatusBreakdownRows { get; } = [];
     public ObservableCollection<KpiBarRow> AirPollutantRows { get; } = [];
-    public ObservableCollection<KpiBarRow> RunoffTrendRows { get; } = [];
-    public ObservableCollection<KpiBarRow> PollutionTrendRows { get; } = [];
     public ObservableCollection<KpiBarRow> ConnectivityBandRows { get; } = [];
     public ObservableCollection<KpiBarRow> HabitatMixRows { get; } = [];
     public ObservableCollection<SpeciesPaletteRow> PaletteRows { get; } = [];
@@ -528,21 +526,25 @@ public sealed partial class MainPage : Page
             TreeOutlookMethod.GrowthWorksets => "Totals added up year by year, interpolating between growth-year worksets; planting areas at their yearly rate.",
             _ => "Annual results × years: no tree growth is modelled yet (run Tree Calculator's timeline, or Growth Projections)."
         };
-        IReadOnlyList<int> trendYears = _growthYearsFromWorksets ? _growthYearStops.Where(year => year > 0).ToList() : [5, 10, 20, 25];
-        void FillTrend(ObservableCollection<KpiBarRow> rows, Func<int, double> valueAt, string unit)
-        {
-            rows.Clear();
-            var points = trendYears.Select(year => (Year: year, Value: valueAt(year))).ToList();
-            var maximum = points.Count == 0 ? 0d : points.Max(point => point.Value);
-            foreach (var (year, value) in points)
-            {
-                rows.Add(new KpiBarRow($"{year} yr", $"{Compact(value)} {unit}", maximum <= 0d ? 0d : 100d * value / maximum));
-            }
-        }
+        IReadOnlyList<int> trendYears = _growthYearsFromWorksets ? _growthYearStops.Where(year => year > 0).ToList() : [5, 10, 25];
+        IReadOnlyList<(int Year, double Value)> Trend(Func<int, double> valueAt) => trendYears.Select(year => (year, valueAt(year))).ToList();
+        var co2Trend = Trend(year => treeOutlook.Accumulate(total => total.CO2EquivalentAnnual, year) + floorCo2EquivalentAnnual * year);
+        BuildOutlookBars(
+        [
+            ("CO₂E UPTAKE", (Brush)Resources["KpiAccentTextBrush"], units.Carbon, co2Trend),
+            ("RUNOFF AVOIDED", (Brush)Resources["KpiWaterTextBrush"], units.Water,
+                Trend(year => units.Volume(treeOutlook.Accumulate(total => total.RunoffAvoidedAnnual, year)) + floorRunoffAnnual * year)),
+            ("POLLUTION REMOVED", (Brush)Resources["KpiChartAmberBrush"], units.Pollutant,
+                Trend(year => treeOutlook.Accumulate(total => total.TotalPollutionMassRemovedAnnual, year) + floorPollutionAnnual * year)),
+        ]);
 
-        FillTrend(ProjectionTrendRows, year => treeOutlook.Accumulate(total => total.CO2EquivalentAnnual, year) + floorCo2EquivalentAnnual * year, units.Carbon);
-        FillTrend(RunoffTrendRows, year => units.Volume(treeOutlook.Accumulate(total => total.RunoffAvoidedAnnual, year)) + floorRunoffAnnual * year, units.Water);
-        FillTrend(PollutionTrendRows, year => treeOutlook.Accumulate(total => total.TotalPollutionMassRemovedAnnual, year) + floorPollutionAnnual * year, units.Pollutant);
+        // Kept for the SVG export's outlook strip.
+        ProjectionTrendRows.Clear();
+        var co2Maximum = co2Trend.Count == 0 ? 0d : co2Trend.Max(point => point.Value);
+        foreach (var (year, value) in co2Trend)
+        {
+            ProjectionTrendRows.Add(new KpiBarRow($"{year} yr", $"{Compact(value)} {units.Carbon}", co2Maximum <= 0d ? 0d : 100d * value / co2Maximum));
+        }
 
         // Ordered Carbon / Stormwater / Air Quality — the same three i-Tree benefit categories,
         // in the same order, as the KPI cards and donut ring.
@@ -981,6 +983,57 @@ public sealed partial class MainPage : Page
             });
 
             cumulativeFraction += fraction;
+        }
+    }
+
+    /// <summary>
+    /// One bar per metric with every outlook year layered on it, each a shade of the metric's colour:
+    /// the longest outlook is the full, lightest bar and shorter ones sit on top, darker, so the bar
+    /// reads as the total growing from year 5 to year 25. A legend under each bar gives the values.
+    /// </summary>
+    private void BuildOutlookBars(IReadOnlyList<(string Title, Brush Brush, string Unit, IReadOnlyList<(int Year, double Value)> Points)> metrics)
+    {
+        OutlookBarsHost.Children.Clear();
+        double[] opacities = [1.0, 0.62, 0.36, 0.2];
+        var track = (Brush)Resources["KpiChartTrackBrush"];
+        foreach (var (title, brush, unit, points) in metrics)
+        {
+            var color = (brush as SolidColorBrush)?.Color ?? Microsoft.UI.Colors.Gray;
+            var ordered = points.OrderBy(point => point.Year).ToList();
+            var maximum = ordered.Count == 0 ? 0d : ordered.Max(point => point.Value);
+            Brush Shade(int index) => new SolidColorBrush(color) { Opacity = opacities[Math.Min(index, opacities.Length - 1)] };
+
+            var section = new StackPanel { Spacing = 6 };
+            section.Children.Add(new TextBlock { Text = title, Style = (Style)Resources["KpiEyebrowStyle"], Foreground = brush });
+
+            var bar = new Grid { Height = 16 };
+            bar.Children.Add(new Border { Background = track, CornerRadius = new CornerRadius(8) });
+            // Longest first, so each shorter (darker) layer is drawn over it.
+            for (var index = ordered.Count - 1; index >= 0; index--)
+            {
+                var share = maximum <= 0d ? 0d : Math.Clamp(ordered[index].Value / maximum, 0d, 1d);
+                var layer = new Grid();
+                layer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(share, GridUnitType.Star) });
+                layer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1d - share, GridUnitType.Star) });
+                layer.Children.Add(new Border { Background = Shade(index), CornerRadius = new CornerRadius(8) });
+                ToolTipService.SetToolTip(layer, $"{ordered[index].Year} years: {Compact(ordered[index].Value)} {unit}");
+                bar.Children.Add(layer);
+            }
+
+            section.Children.Add(bar);
+
+            var legend = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
+            for (var index = 0; index < ordered.Count; index++)
+            {
+                var entry = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                entry.Children.Add(new Border { Width = 10, Height = 10, CornerRadius = new CornerRadius(2), Background = Shade(index), VerticalAlignment = VerticalAlignment.Center });
+                entry.Children.Add(new TextBlock { Text = $"{ordered[index].Year} yr", FontSize = 12, Foreground = (Brush)Resources["KpiMutedBrush"] });
+                entry.Children.Add(new TextBlock { Text = $"{Compact(ordered[index].Value)} {unit}", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+                legend.Children.Add(entry);
+            }
+
+            section.Children.Add(legend);
+            OutlookBarsHost.Children.Add(section);
         }
     }
 

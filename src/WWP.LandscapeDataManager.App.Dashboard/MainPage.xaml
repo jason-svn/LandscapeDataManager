@@ -294,7 +294,7 @@
 
                         <Grid Grid.Row="2" ColumnSpacing="16" RowSpacing="16" Margin="0,16,0,0">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="320" />
+                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
@@ -305,9 +305,10 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <!-- One card per i-Tree benefit category — Carbon / Stormwater / Air Quality, the
-                            order and colours used throughout. Each leads with its value over the outlook,
-                            then the amounts behind it over the outlook, then the yearly rate now. -->
+                            <!-- One card per i-Tree benefit category, side by side under the ecosystem value
+                            banner — Carbon / Stormwater / Air Quality, the order and colours used throughout.
+                            Each leads with its value over the outlook, then the amounts behind it over the
+                            outlook, then the yearly rate now. -->
                             <Border Background="{ThemeResource KpiForestBrush}" CornerRadius="24" Padding="22,20">
                                 <StackPanel Spacing="6">
                                     <TextBlock Text="CARBON DIOXIDE UPTAKE" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" CharacterSpacing="60" FontSize="12" TextWrapping="Wrap" />
@@ -332,7 +333,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border Grid.Row="1" Background="{ThemeResource KpiWaterBrush}" CornerRadius="24" Padding="22,20">
+                            <Border Grid.Column="1" Background="{ThemeResource KpiWaterBrush}" CornerRadius="24" Padding="22,20">
                                 <StackPanel Spacing="6">
                                     <TextBlock Text="STORM WATER MITIGATION" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" CharacterSpacing="60" FontSize="12" TextWrapping="Wrap" />
                                     <TextBlock x:Name="HeroStormWaterCostText" Text="—" FontSize="26" FontWeight="Bold" Foreground="{ThemeResource KpiGoldBrush}" TextWrapping="Wrap" />
@@ -351,7 +352,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border Grid.Row="2" Background="{ThemeResource KpiAmberCardBrush}" CornerRadius="24" Padding="22,20">
+                            <Border Grid.Column="2" Background="{ThemeResource KpiAmberCardBrush}" CornerRadius="24" Padding="22,20">
                                 <StackPanel Spacing="6">
                                     <TextBlock Text="AIR POLLUTION REMOVAL" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" CharacterSpacing="60" FontSize="12" TextWrapping="Wrap" />
                                     <TextBlock x:Name="HeroAirPollutionCostText" Text="—" FontSize="26" FontWeight="Bold" Foreground="{ThemeResource KpiOnCategoryBrush}" TextWrapping="Wrap" />
@@ -395,59 +396,13 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- Carbon, runoff and pollution outlooks side by side. -->
-                            <Border Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource KpiSurfaceStyle}">
+                            <!-- Carbon, runoff and pollution outlooks: one bar each, the outlook years layered
+                            in shades of the metric's colour (built in code, see BuildOutlookBars). -->
+                            <Border Grid.Row="1" Style="{StaticResource KpiSurfaceStyle}">
                                 <StackPanel Spacing="10">
                                     <TextBlock Text="Outlooks" Style="{StaticResource KpiCardTitleStyle}" />
                                     <TextBlock x:Name="OutlookCaptionText" Text="Totals added up year by year" Foreground="{ThemeResource KpiMutedBrush}" FontSize="12" TextWrapping="Wrap" />
-                                    <Grid ColumnSpacing="24">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="CO₂E UPTAKE" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAccentTextBrush}" />
-                                            <ItemsControl ItemsSource="{x:Bind ProjectionTrendRows}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="local:KpiBarRow">
-                                                        <Grid Margin="0,3" ColumnSpacing="8">
-                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="40" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                                            <TextBlock Text="{x:Bind Label}" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12" />
-                                                            <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="10" Foreground="{ThemeResource KpiLeafBrush}" Background="{ThemeResource KpiChartTrackBrush}" />
-                                                            <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12" />
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Spacing="4">
-                                            <TextBlock Text="RUNOFF AVOIDED" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiWaterTextBrush}" />
-                                            <ItemsControl ItemsSource="{x:Bind RunoffTrendRows}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="local:KpiBarRow">
-                                                        <Grid Margin="0,3" ColumnSpacing="8">
-                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="40" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                                            <TextBlock Text="{x:Bind Label}" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12" />
-                                                            <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="10" Foreground="{ThemeResource KpiWaterBrush}" Background="{ThemeResource KpiChartTrackBrush}" />
-                                                            <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12" />
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="2" Spacing="4">
-                                            <TextBlock Text="POLLUTION REMOVED" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAmberTextBrush}" />
-                                            <ItemsControl ItemsSource="{x:Bind PollutionTrendRows}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="local:KpiBarRow">
-                                                        <Grid Margin="0,3" ColumnSpacing="8">
-                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="40" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                                            <TextBlock Text="{x:Bind Label}" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12" />
-                                                            <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="10" Foreground="{ThemeResource KpiChartAmberBrush}" Background="{ThemeResource KpiChartTrackBrush}" />
-                                                            <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12" />
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                    </Grid>
+                                    <StackPanel x:Name="OutlookBarsHost" Spacing="16" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Border>
 
@@ -517,7 +472,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource KpiSurfaceStyle}">
+                            <Border Grid.Row="2" Style="{StaticResource KpiSurfaceStyle}">
                                 <StackPanel Spacing="12">
                                     <TextBlock Text="Impact profile" Style="{StaticResource KpiCardTitleStyle}" />
                                     <TextBlock Text="Share supplied by calculated trees; the balance comes from planting areas" Foreground="{ThemeResource KpiMutedBrush}" FontSize="12" TextWrapping="Wrap" />
@@ -536,7 +491,7 @@
                             </Border>
 
                             <!-- What's planted: planting types by area, and the BNG habitat types they make. -->
-                            <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource KpiSurfaceStyle}">
+                            <Border Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource KpiSurfaceStyle}">
                                 <StackPanel Spacing="10">
                                     <TextBlock Text="Planting-area mix" Style="{StaticResource KpiCardTitleStyle}" />
                                     <Grid ColumnSpacing="18">
@@ -661,7 +616,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="local:KpiBarRow">
                                                 <Grid Margin="0,4" ColumnSpacing="10">
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="130" /><ColumnDefinition Width="*" /><ColumnDefinition Width="70" /></Grid.ColumnDefinitions>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="130" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" MinWidth="90" /></Grid.ColumnDefinitions>
                                                     <TextBlock Text="{x:Bind Label}" />
                                                     <ProgressBar Grid.Column="1" Value="{x:Bind Percent}" Maximum="100" Height="11" Foreground="{ThemeResource KpiLeafBrush}" Background="{ThemeResource KpiChartTrackBrush}" />
                                                     <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" HorizontalAlignment="Right" />

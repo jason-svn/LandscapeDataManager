@@ -288,9 +288,14 @@ internal static class KpiScheduleBuilderService
             return "Primary model";
         }
 
-        var name = string.IsNullOrWhiteSpace(option.SetName)
-            ? option.OptionName ?? "Unnamed option"
-            : $"{option.SetName} : {option.OptionName ?? "Unnamed option"}";
+        // Revit appends " <primary>" to the primary option's name; "(Primary)" says it once.
+        var optionName = DesignOptionScenarioService.CleanOptionName(option.OptionName);
+        if (optionName.Length == 0)
+        {
+            optionName = "Unnamed option";
+        }
+
+        var name = string.IsNullOrWhiteSpace(option.SetName) ? optionName : $"{option.SetName} : {optionName}";
         return option.IsPrimary ? $"{name} (Primary)" : name;
     }
 }

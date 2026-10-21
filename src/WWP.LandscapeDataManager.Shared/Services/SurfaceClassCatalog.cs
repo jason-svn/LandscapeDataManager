@@ -35,9 +35,11 @@ public static class SurfaceClassCatalog
 
     /// <summary>
     /// True for a building floor slab, which isn't landscape at all. A floor tagged "Building" (or
-    /// "Excluded") always is. A floor with an LDS type or another surface class tag never is — it was
-    /// matched as landscape. Otherwise it is when Revit marks it structural, or its type or family name
-    /// says so ("Structural slab", "Suspended slab", a "slab" that isn't a paving slab, …).
+    /// "Excluded") always is, and so is one whose type or family name says "building" (e.g.
+    /// "WWP_Surfaces_Building", even when it was matched to a stand-in LDS type such as Asphalt).
+    /// Otherwise a floor with an LDS type or another surface class tag never is — it was matched as
+    /// landscape — and one without is when Revit marks it structural, or its name says so
+    /// ("Structural slab", "Suspended slab", a "slab" that isn't a paving slab, …).
     /// </summary>
     public static bool IsBuildingSlab(string? surfaceClassTag, string? ldsType, bool isStructural, params string?[] names)
     {
@@ -45,6 +47,11 @@ public static class SurfaceClassCatalog
         {
             var tag = surfaceClassTag.Trim();
             return tag.Equals(Building, StringComparison.OrdinalIgnoreCase) || tag.Equals("Excluded", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (names.Any(name => name?.Contains("building", StringComparison.OrdinalIgnoreCase) == true))
+        {
+            return true;
         }
 
         if (!string.IsNullOrWhiteSpace(ldsType))
@@ -69,7 +76,7 @@ public static class SurfaceClassCatalog
     [
         "permeable", "porous", "pervious", "grasscrete", "grass reinforced", "reinforced grass",
         "grass paver", "grass block", "green roof", "living roof", "brown roof", "sedum", "hoggin",
-        "rain garden", "bioretention", "bio-retention", "swale", "soakaway"
+        "rain garden", "raingarden", "bioretention", "bio-retention", "swale", "soakaway"
     ];
 
     private static readonly string[] SyntheticOverrides =
@@ -86,7 +93,7 @@ public static class SurfaceClassCatalog
     private static readonly string[] PerviousKeywords =
     [
         "lawn", "meadow", "grass", "turf", "soil", "mulch", "bark", "gravel", "planting", "planter",
-        "shrub", "hedge", "wildflower", "woodland", "bed", "vegetation", "vegetated"
+        "shrub", "hedge", "wildflower", "woodland", "bed", "vegetation", "vegetated", "wetland", "reedbed", "reed bed", "marsh"
     ];
 
     /// <summary>

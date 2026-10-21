@@ -36,6 +36,7 @@ public sealed class GreenspaceRatioTests
     [InlineData(null, "Paving Slab 600x600", false, false)]  // a landscape paving slab
     [InlineData("Granite", "Structural Slab", false, false)] // matched to an LDS type: landscape
     [InlineData(null, "Lawn", true, true)]                    // Revit says structural
+    [InlineData("Asphalt - Asphalt", "WWP_Surfaces_Building", false, true)] // a building type matched to a stand-in LDS type
     public void Building_slabs_are_told_apart_from_landscape(string? ldsType, string typeName, bool structural, bool expected) =>
         Assert.Equal(expected, SurfaceClassCatalog.IsBuildingSlab(null, ldsType, structural, typeName));
 

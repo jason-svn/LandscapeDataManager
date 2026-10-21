@@ -18,6 +18,8 @@ public sealed class SiteSurfaceAndCanopyTests
     [InlineData("Sedum Green Roof")]
     [InlineData("Extensive Green Roof")]
     [InlineData("Rain Garden")]
+    [InlineData("Raingarden - Raingarden")]
+    [InlineData("Wetland - Wetland")]
     [InlineData("Bioretention Planter")]
     [InlineData("Self-binding Hoggin")]
     [InlineData("Bark Mulch")]

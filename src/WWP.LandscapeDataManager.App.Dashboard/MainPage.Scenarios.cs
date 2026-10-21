@@ -583,9 +583,9 @@ public sealed partial class MainPage
             {
                 var isReference = ReferenceEquals(performance, reference);
                 var row = new Grid { ColumnSpacing = 8 };
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(92) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
                 var label = new TextBlock
                 {
                     Text = performance.Scenario.Name,
