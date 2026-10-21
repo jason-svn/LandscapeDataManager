@@ -35,8 +35,16 @@ The planting family computes the tree's age; LIM supplies the inputs.
 - [x] `!_S_PLT_TreeGrowth_ProjectedYears_Number` (Instance): Growth Projections writes the growth year (0 = Baseline, 5, 10, … from the workset).
 - [x] `!_S_PLT_TreeGrowth_AgeAtPlanting_Number` changed from Type to **Instance**, same GUID. Import Shared Parameter moves each type's value onto its trees, and growth copies inherit their original's value.
 - [x] Fallback: while a family has no formula yet (its `Years` is still editable), LIM keeps setting `Years` itself, capped as before.
-- [ ] Family formula, by you: `Years = AgeAtPlanting + if(ProjectedYears > MaxGrowthYears, MaxGrowthYears, ProjectedYears)`.
-- [ ] **Decide:** add `!_S_PLT_TreeGrowth_MaxGrowthYears_Number` (Type) = growth years until the tree stops growing. 25 when there's no max size; otherwise measured by LIM from the LDS max height/width, filling empty values only. Then drop LIM's own age cap.
+- [x] `WWP_Vegetation_Tree` family (2026-10-21, saved by you):
+  - `Mature Age` (family type parameter) = `roundup(MaxHeight / (HeightRatio × 1000 mm))`, worked out from the family's own data. 0 means no max height.
+  - `Years` = `AgeAtPlanting + ProjectedYears`, stopped at `Mature Age`. With no max height it's `AgeAtPlanting + min(ProjectedYears, 25)`.
+  - `DBH` = `5.4 cm + (Years − AgeAtPlanting) × TrunkDiameterbyYear × 1 cm`, so it grows from the 16/18-girth planting size and stops at maturity.
+  - Height and width caps now compare real metres. 16 types had their max size typed in mm; those were converted.
+- [ ] **Trunk growth rates:** `!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number` (cm/yr) is 0 for every type, so DBH stays at 5.4 cm until real rates are entered. There's no column for it in the Airtable sheet yet.
+- [ ] **Family geometry, not changed:**
+  - `TreeOverall_Height = Foliage_Height + TreeTrunk_Diameter` probably should be `+ TreeTrunk_Height`.
+  - The drawn trunk (`TreeTrunk_Diameter`, 7.5 cm) isn't linked to DBH.
+- [ ] **Other planting families:** give them the same parameters and formulas.
 
 ## Phase 2: Design-option scenarios
 
