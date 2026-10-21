@@ -220,9 +220,29 @@ public sealed partial class MainPage : Page
         Rows.Clear();
         foreach (var item in result.Items)
         {
-            var row = new FloorAssignmentRow(item);
-            Rows.Add(row);
-            ApplyAutoMatch(row);
+            Rows.Add(new FloorAssignmentRow(item));
+        }
+
+        // The landscape type belongs to the floor type, so a match saved on any floor of a type
+        // (written to Revit by Calculate) applies to every floor of that type.
+        var savedByType = Rows
+            .Select(row => (row, Record: FindSavedRecord(row)))
+            .Where(entry => entry.Record is not null)
+            .GroupBy(entry => entry.row.DisplayName, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First().Record!, StringComparer.Ordinal);
+        foreach (var row in Rows)
+        {
+            if ((FindSavedRecord(row) ?? savedByType.GetValueOrDefault(row.DisplayName)) is { } saved)
+            {
+                row.SelectedRecord = saved;
+                row.SearchQuery = new CoefficientRow(saved).Display;
+                row.MatchStatus = "Saved match";
+                UpdateComputedValues(row);
+            }
+            else
+            {
+                ApplyAutoMatch(row);
+            }
         }
 
         RowsCountText.Text = allFloors
@@ -231,9 +251,24 @@ public sealed partial class MainPage : Page
         UpdateCalculateAllEnabled();
 
         var autoMatched = Rows.Count(row => row.MatchStatus == "Auto-matched");
+        var restored = Rows.Count(row => row.MatchStatus == "Saved match");
         StatusText.Text = Rows.Count == 0
             ? "Nothing to load."
-            : $"Auto-matched {autoMatched:N0} of {Rows.Count:N0} row(s). Search and pick manually for the rest, then calculate.";
+            : $"{restored:N0} row(s) restored from their saved match, {autoMatched:N0} auto-matched, of {Rows.Count:N0}. Search and pick manually for the rest (a pick applies to every floor of that type), then calculate — calculating saves the match in Revit.";
+    }
+
+    /// <summary>The sheet row this floor was last calculated with: by its stored match key, else by its stored landscape type name.</summary>
+    private WwpLdsCoefficientRecord? FindSavedRecord(FloorAssignmentRow row)
+    {
+        if (!string.IsNullOrWhiteSpace(row.CurrentLdsMatchKey) &&
+            _allCoefficients.FirstOrDefault(record => string.Equals(record.MatchKey, row.CurrentLdsMatchKey, StringComparison.OrdinalIgnoreCase)) is { } byKey)
+        {
+            return byKey;
+        }
+
+        return string.IsNullOrWhiteSpace(row.CurrentLdsType)
+            ? null
+            : _allCoefficients.FirstOrDefault(record => string.Equals(new CoefficientRow(record).DisplayName, row.CurrentLdsType, StringComparison.OrdinalIgnoreCase));
     }
 
     private void ApplyAutoMatch(FloorAssignmentRow row)
@@ -375,12 +410,17 @@ public sealed partial class MainPage : Page
         SelectManualMatch(row, chosen);
     }
 
+    /// <summary>A pick applies to every loaded floor of the same type — the landscape type is a property of the floor type.</summary>
     private void SelectManualMatch(FloorAssignmentRow row, CoefficientRow chosen)
     {
-        row.SelectedRecord = chosen.Record;
-        row.MatchStatus = "Manually selected";
-        row.SearchQuery = chosen.Display;
-        UpdateComputedValues(row);
+        foreach (var sameType in Rows.Where(other => other.DisplayName == row.DisplayName))
+        {
+            sameType.SelectedRecord = chosen.Record;
+            sameType.MatchStatus = "Manually selected";
+            sameType.SearchQuery = chosen.Display;
+            UpdateComputedValues(sameType);
+        }
+
         UpdateCalculateAllEnabled();
     }
 

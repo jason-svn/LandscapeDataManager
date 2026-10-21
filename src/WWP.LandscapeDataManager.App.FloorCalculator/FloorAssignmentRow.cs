@@ -22,6 +22,9 @@ public sealed class FloorAssignmentRow(SelectedFloorItem item) : INotifyProperty
     public string AreaDisplay => $"{AreaSquareMeters:N1} m²";
     public string? CurrentLdsType { get; } = item.CurrentLdsType;
 
+    /// <summary>The landscape data sheet row this floor was last calculated with (stored in Revit), if any.</summary>
+    public string? CurrentLdsMatchKey { get; } = item.CurrentLdsMatchKey;
+
     public ObservableCollection<CoefficientRow> SearchResults { get; } = [];
 
     /// <summary>Fixed 8 metrics in a stable order: CO2, Runoff, PollutionMassRemoved, CostSaved, Oxygen, GWP, SurfaceTemp, AirTemp (see the named index constants below).</summary>
@@ -90,6 +93,7 @@ public sealed class FloorAssignmentRow(SelectedFloorItem item) : INotifyProperty
     {
         "Auto-matched" or "Coefficient table" or "Manual entry" or "Coefficient table + manual entry" => "LimSuccessBrush",
         "Manually selected" => "LimInfoBrush",
+        "Saved match" => "LimSuccessBrush",
         "No match found" => "LimWarningBrush",
         _ => "LimNeutralBrush"
     }];
