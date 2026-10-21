@@ -75,6 +75,28 @@ public sealed class TreeOutlookTests
     }
 
     [Fact]
+    public void A_growth_years_benefits_come_from_each_planted_trees_forecast_for_that_year()
+    {
+        var trees = new[]
+        {
+            Tree(1, "k", "LIM_Growth_0yr - Baseline") with { CarbonSequesteredLifetimeTotal = 42 },
+            Tree(1, "k2", "LIM_Growth_10yr"),   // a copy that didn't grow: left out
+            Tree(4),                            // planted, never forecast: keeps its stored figure
+        };
+        var outlook = new TreeOutlook(trees, [0, 10], [Timeline("k", 1, 2, 3)], "Metric", 1);
+
+        var year0 = outlook.InYear(0);
+        var year2 = outlook.InYear(2);
+        var year10 = outlook.InYear(10);
+
+        Assert.Equal(2, year10.Count);
+        Assert.Equal([1d, 4d], year0.Select(tree => tree.CarbonSequesteredAnnual));
+        Assert.Equal([2d, 4d], year2.Select(tree => tree.CarbonSequesteredAnnual));
+        Assert.Equal([3d, 4d], year10.Select(tree => tree.CarbonSequesteredAnnual)); // mature after year 3
+        Assert.Equal(42, year10[0].CarbonSequesteredLifetimeTotal);                    // lifetime is the whole forecast
+    }
+
+    [Fact]
     public void A_timeline_shorter_than_the_outlook_repeats_its_last_year() =>
         Assert.Equal(1 + 4 + 4 + 4, TimelineSum.Over(Timeline("k", 1, 4), 4).CarbonKg, 9);
 }

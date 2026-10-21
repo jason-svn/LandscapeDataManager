@@ -53,6 +53,9 @@ public sealed partial class MainPage : Page
     private DesignScenario? _unsavedScenario;
     private string? _referenceScenarioName;
 
+    // True when a growth year's benefit figures come from the trees' i-Tree forecasts (see RebuildRows).
+    private bool _benefitsFromForecast;
+
     private OriginalDataWindow? _originalDataWindow;
 
     // When set, the report on screen came from DashboardSnapshotCache rather than live Revit.
@@ -267,27 +270,35 @@ public sealed partial class MainPage : Page
         bool MatchesDimensionFilters(DesignOptionInfo designOption, string? levelName) =>
             DesignScenarios.Includes(_scenario, designOption, _sets) && MatchesLevel(levelName);
 
-        var treesInScope = normalizedTrees
+        bool MatchesStatus(NormalizedTreeMetrics tree) => _activeStatusFilter is null || tree.Source.Status == _activeStatusFilter;
+        var allYearTrees = normalizedTrees
             .Where(tree => MatchesDimensionFilters(tree.Source.DesignOption, tree.Source.LevelName))
-            .Where(tree => !_growthYearsFromWorksets || GrowthYears.CountsIn(tree.Source, _projectionYears))
             .Where(MatchesSearch)
             .ToList();
+        // The growth year's trees as modelled: that year's copies plus trees on no growth workset.
+        // They drive canopy and the other geometry-based site figures.
+        var geometryTrees = allYearTrees
+            .Where(tree => !_growthYearsFromWorksets || GrowthYears.CountsIn(tree.Source, _projectionYears))
+            .ToList();
+
+        // Same filters without the growth-year one: the outlook needs every year's copies.
+        var treesForOutlook = allYearTrees.Where(MatchesStatus).ToList();
+        var treeOutlook = CreateTreeOutlook(treesForOutlook, unitSystem);
+
+        // With i-Tree forecasts, a growth year's benefits are each planted tree's forecast for that
+        // year: copies whose trunk doesn't grow in the family would report the planting-size benefit.
+        _benefitsFromForecast = _growthYearsFromWorksets && treeOutlook.Method == TreeOutlookMethod.Timeline;
+        var treesInScope = _benefitsFromForecast
+            ? CreateTreeOutlook(allYearTrees, unitSystem).InYear(_projectionYears)
+            : geometryTrees;
 
         UpdateStatusCounts(treesInScope);
 
-        var filteredTrees = treesInScope
-            .Where(tree => _activeStatusFilter is null || tree.Source.Status == _activeStatusFilter)
-            .ToList();
+        var filteredTrees = treesInScope.Where(MatchesStatus).ToList();
+        var filteredGeometryTrees = geometryTrees.Where(MatchesStatus).ToList();
         var filteredFloors = _lastReport.Floors
             .Where(floor => MatchesDimensionFilters(floor.DesignOption, floor.LevelName))
             .ToList();
-        // Same filters without the growth-year one: the outlook needs every year's copies.
-        var treesForOutlook = normalizedTrees
-            .Where(tree => MatchesDimensionFilters(tree.Source.DesignOption, tree.Source.LevelName))
-            .Where(MatchesSearch)
-            .Where(tree => _activeStatusFilter is null || tree.Source.Status == _activeStatusFilter)
-            .ToList();
-        var treeOutlook = CreateTreeOutlook(treesForOutlook, unitSystem);
 
         var units = DisplayUnits.For(unitSystem);
         var speciesSubtotals = DashboardAggregationService.AggregateTreesBySpecies(filteredTrees);
@@ -318,23 +329,24 @@ public sealed partial class MainPage : Page
 
         var grandTotal = DashboardAggregationService.BuildGrandTotal(filteredTrees, filteredFloors);
         var period = _showAnnual ? "Annual" : "Lifetime";
-        var perPeriod = _showAnnual ? "/yr" : " lifetime";
         var currency = _preferredCurrency;
 
         // Data explorer. Units live in the column headers, so table cells stay plain numbers.
-        SpeciesCarbonHeader.Text = $"Carbon ({units.Carbon}{perPeriod})";
-        SpeciesOxygenHeader.Text = $"Oxygen ({units.Carbon}{perPeriod})";
-        SpeciesCarbonCostHeader.Text = $"Carbon ({currency})";
-        SpeciesStormCostHeader.Text = $"Water ({currency})";
-        SpeciesPollutionHeader.Text = $"Pollution ({units.Pollutant}{perPeriod})";
-        SpeciesAirCostHeader.Text = $"Air ({currency})";
-        FloorAreaHeader.Text = $"Area ({units.Area})";
-        FloorCarbonHeader.Text = $"Carbon ({units.Carbon}/yr)";
-        FloorRunoffHeader.Text = $"Runoff ({units.Water}/yr)";
-        FloorPollutionHeader.Text = $"Pollution ({units.Pollutant}/yr)";
-        FloorOxygenHeader.Text = $"Oxygen ({units.Carbon}/yr)";
-        FloorEmbodiedHeader.Text = $"Embodied ({units.Carbon} CO₂e)";
-        FloorMaintenanceHeader.Text = $"Upkeep ({currency}/yr)";
+        // Two-line headers — the metric, then its unit — so no header has to clip.
+        var periodUnit = _showAnnual ? "per year" : "lifetime";
+        SpeciesCarbonHeader.Text = $"Carbon\n{units.Carbon} {periodUnit}";
+        SpeciesOxygenHeader.Text = $"Oxygen\n{units.Carbon} {periodUnit}";
+        SpeciesCarbonCostHeader.Text = $"Carbon\n{currency} {periodUnit}";
+        SpeciesStormCostHeader.Text = $"Water\n{currency} {periodUnit}";
+        SpeciesPollutionHeader.Text = $"Pollution\n{units.Pollutant} {periodUnit}";
+        SpeciesAirCostHeader.Text = $"Air\n{currency} {periodUnit}";
+        FloorAreaHeader.Text = $"Area\n{units.Area}";
+        FloorCarbonHeader.Text = $"Carbon\n{units.Carbon} per year";
+        FloorRunoffHeader.Text = $"Runoff\n{units.Water} per year";
+        FloorPollutionHeader.Text = $"Pollution\n{units.Pollutant} per year";
+        FloorOxygenHeader.Text = $"Oxygen\n{units.Carbon} per year";
+        FloorEmbodiedHeader.Text = $"Embodied\n{units.Carbon} CO₂e";
+        FloorMaintenanceHeader.Text = $"Upkeep\n{currency} per year";
 
         TreeCountText.Text = grandTotal.TreeCount.ToString("N0");
         TreeExcludedText.Text = grandTotal.TreesExcludedFromTotals > 0
@@ -406,11 +418,14 @@ public sealed partial class MainPage : Page
             ? $"upkeep {DashboardFormat.Number(grandTotal.MaintenanceCostAnnual)} {currency}/yr (trees {DashboardFormat.Number(grandTotal.TreeMaintenanceCostAnnual)}, areas {DashboardFormat.Number(grandTotal.FloorMaintenanceCostAnnual)})"
             : "no maintenance rates imported yet";
 
-        PeriodLabelText.Text = $"Showing {period} benefits for {DesignScenarios.Label(_scenario, _sets)}.";
+        PeriodLabelText.Text = $"Showing {period} benefits for {DesignScenarios.Label(_scenario, _sets)}." + (_benefitsFromForecast
+            ? $" Annual = each planted tree's i-Tree forecast for growth year {_projectionYears}; lifetime = its whole forecast, planting to maturity, so it's the same at every growth year."
+            : _showAnnual ? string.Empty : " Lifetime = each tree's whole i-Tree forecast.");
 
         RebuildGraphicDashboard(
             treesForOutlook,
             filteredTrees,
+            filteredGeometryTrees,
             filteredFloors,
             speciesSubtotals,
             floorSubtotals,
@@ -431,6 +446,7 @@ public sealed partial class MainPage : Page
     private void RebuildGraphicDashboard(
         IReadOnlyList<NormalizedTreeMetrics> treesForOutlook,
         IReadOnlyList<NormalizedTreeMetrics> filteredTrees,
+        IReadOnlyList<NormalizedTreeMetrics> geometryTrees,
         IReadOnlyList<DashboardFloorItem> filteredFloors,
         IReadOnlyList<SpeciesSubtotal> speciesSubtotals,
         IReadOnlyList<FloorTypeSubtotal> floorSubtotals,
@@ -496,12 +512,13 @@ public sealed partial class MainPage : Page
         HeroCarbonSequesteredText.Text = $"{Compact(projectedCarbon)} {units.Carbon}";
         HeroCO2EquivalentText.Text = $"{Compact(projectedCo2Equivalent)} {units.Carbon}";
         HeroOxygenText.Text = $"{Compact(projectedOxygen)} {units.Carbon}";
-        HeroCarbonRateText.Text = $"Now {Compact(grandTotal.CO2EquivalentAnnual + floorCo2EquivalentAnnual)} {units.Carbon} CO₂e/yr · over {years} yr: {Compact(projectedCo2Equivalent)} {units.Carbon}";
+        var rateLabel = _benefitsFromForecast ? $"In year {_projectionYears}" : "Now";
+        HeroCarbonRateText.Text = $"{rateLabel} {Compact(grandTotal.CO2EquivalentAnnual + floorCo2EquivalentAnnual)} {units.Carbon} CO₂e/yr · over {years} yr: {Compact(projectedCo2Equivalent)} {units.Carbon}";
 
         HeroStormWaterCostText.Text = Money(treeWaterValue);
         HeroRunoffAvoidedText.Text = $"{Compact(projectedWater)} {units.Water}";
         HeroRainfallInterceptedText.Text = $"{Compact(projectedRainfall)} {units.Water}";
-        HeroWaterRateText.Text = $"Now {Compact(units.Volume(grandTotal.RunoffAvoidedAnnual) + floorRunoffAnnual)} {units.Water}/yr runoff avoided · over {years} yr: {Compact(projectedWater)} {units.Water}";
+        HeroWaterRateText.Text = $"{rateLabel} {Compact(units.Volume(grandTotal.RunoffAvoidedAnnual) + floorRunoffAnnual)} {units.Water}/yr runoff avoided · over {years} yr: {Compact(projectedWater)} {units.Water}";
 
         HeroAirPollutionCostText.Text = Money(treeAirValue);
         HeroPollutionTotalText.Text = $"{Compact(projectedPollution)} {units.Pollutant}";
@@ -511,7 +528,7 @@ public sealed partial class MainPage : Page
         HeroNitrogenDioxideText.Text = $"{Compact(Trees(total => total.NO2RemovedAnnual))} {units.Pollutant}";
         HeroSulfurDioxideText.Text = $"{Compact(Trees(total => total.SO2RemovedAnnual))} {units.Pollutant}";
         HeroPM25Text.Text = $"{Compact(Trees(total => total.PM25RemovedAnnual))} {units.Pollutant}";
-        HeroAirRateText.Text = $"Now {Compact(grandTotal.TotalPollutionMassRemovedAnnual + floorPollutionAnnual)} {units.Pollutant}/yr · over {years} yr: {Compact(projectedPollution)} {units.Pollutant}";
+        HeroAirRateText.Text = $"{rateLabel} {Compact(grandTotal.TotalPollutionMassRemovedAnnual + floorPollutionAnnual)} {units.Pollutant}/yr · over {years} yr: {Compact(projectedPollution)} {units.Pollutant}";
 
         // Readiness now sits in Data explorer next to the status cards it summarises.
         var readyPercent = filteredTrees.Count == 0 ? 0d : 100d * grandTotal.TreeCount / filteredTrees.Count;
@@ -554,7 +571,7 @@ public sealed partial class MainPage : Page
         AddImpactShare("Pollution", treePollution, floorPollutionAnnual * years, units.Pollutant);
 
         // Project snapshot.
-        var site = DashboardAggregationService.BuildSiteKpiSummary(filteredTrees, filteredFloors, [], _siteBoundary?.AreaSquareMeters, null);
+        var site = DashboardAggregationService.BuildSiteKpiSummary(geometryTrees, filteredFloors, [], _siteBoundary?.AreaSquareMeters, null);
         SnapshotCanopyText.Text = site.CanopyCoverPercent is { } canopyPercent ? $"{canopyPercent:N1}%" : "—";
         SnapshotCanopyDetailText.Text = site.CanopyCoverPercent is null
             ? $"{Compact(units.AreaOf(site.CanopyAreaSquareMeters))} {units.Area} canopy · pick a site boundary on Site & Biodiversity"
@@ -653,7 +670,7 @@ public sealed partial class MainPage : Page
 
         RebuildPalette(treesForOutlook, filteredTrees, unitSystem, years);
         RebuildScenarioOverview(unitSystem, matchesLevel, matchesSearch);
-        UpdateSiteKpiCards(filteredTrees, filteredFloors);
+        UpdateSiteKpiCards(geometryTrees, filteredFloors);
 
         // Both values are already totals over the outlook.
         void AddImpactShare(string label, double treeValue, double floorValue, string valueUnit)

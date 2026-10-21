@@ -120,9 +120,28 @@ public sealed class TreeOutlook
         MaintenanceCostAnnual = tree.MaintenanceCostAnnual * years
     };
 
-    private NormalizedTreeMetrics FromTimeline(NormalizedTreeMetrics tree, TreeBenefitTimeline timeline, int years)
+    /// <summary>
+    /// The planted trees with their benefit in growth year <paramref name="growthYear"/> as their annual
+    /// figures: a tree with a forecast takes that year of it (year 0 is the first year, as planted;
+    /// past maturity, the mature year), a tree without one keeps its stored annual figure. Growth-year
+    /// copies are left out, as in <see cref="Over"/>: the forecast already grows the original, and a
+    /// copy whose trunk doesn't grow in the family reports the same benefit as at planting. Lifetime
+    /// figures are kept: they're each tree's whole forecast.
+    /// </summary>
+    public IReadOnlyList<NormalizedTreeMetrics> InYear(int growthYear) =>
+        _trees
+            .Where(tree => IsPlanted(tree.Source))
+            .Select(tree => HasTimeline(tree.Source)
+                ? WithAnnual(tree, TimelineSum.InYear(_timelines[tree.Source.TimelineKey!], growthYear), tree.MaintenanceCostAnnual)
+                : tree)
+            .ToList();
+
+    private NormalizedTreeMetrics FromTimeline(NormalizedTreeMetrics tree, TreeBenefitTimeline timeline, int years) =>
+        WithAnnual(tree, TimelineSum.Over(timeline, years), tree.MaintenanceCostAnnual * years);
+
+    /// <summary><paramref name="tree"/> with <paramref name="sum"/> (kg, m³, USD) as its annual figures, in the display units and currency.</summary>
+    private NormalizedTreeMetrics WithAnnual(NormalizedTreeMetrics tree, TreeBenefitYear sum, double maintenance)
     {
-        var sum = TimelineSum.Over(timeline, years);
         double Pounds(double kilograms) => _metric ? kilograms : kilograms / UnitConversions.KilogramsPerPound;
         double Ounces(double kilograms) => _metric ? kilograms : kilograms / UnitConversions.KilogramsPerOunce;
         var carbonCost = sum.CarbonUsd * _usdToTargetRate;
@@ -145,7 +164,7 @@ public sealed class TreeOutlook
             RunoffAvoidedAnnual = sum.RunoffM3,
             CO2EquivalentAnnual = co2Equivalent,
             OxygenProducedAnnual = co2Equivalent * UnitConversions.OxygenToCo2MassRatio,
-            MaintenanceCostAnnual = tree.MaintenanceCostAnnual * years
+            MaintenanceCostAnnual = maintenance
         };
     }
 }
@@ -153,6 +172,15 @@ public sealed class TreeOutlook
 /// <summary>Sums a timeline's years 1..N; past the horizon, the last (mature) year repeats.</summary>
 public static class TimelineSum
 {
+    /// <summary>The benefit in one growth year: year 0 (as planted) is the first forecast year; past the horizon, the mature year.</summary>
+    public static TreeBenefitYear InYear(TreeBenefitTimeline timeline, int growthYear)
+    {
+        var ordered = timeline.Years.OrderBy(year => year.Year).ToList();
+        return ordered.Count == 0
+            ? new TreeBenefitYear(growthYear, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            : ordered[Math.Clamp(growthYear, 1, ordered.Count) - 1];
+    }
+
     public static TreeBenefitYear Over(TreeBenefitTimeline timeline, int years)
     {
         var ordered = timeline.Years.OrderBy(year => year.Year).ToList();
