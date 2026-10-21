@@ -127,7 +127,7 @@ Checked by script on 2026-10-21, with Revit still running the v1.4 connector:
 - [x] `HOST_AREA_COMPUTED` matches a floor's Area, so maintenance per m² × area uses the right area.
 - [x] Live i-Tree forecast for one planting input: 25 years in 2.8 s, parsed year by year.
 
-Needs the new build in Revit. Close Revit, run `dotnet build WWP.LandscapeDataManager.sln -c Debug` (it deploys to `%APPDATA%\Autodesk\Revit\Addins5`), reopen the sandbox, then:
+Needs the new build in Revit. Close Revit, run `dotnet build WWP.LandscapeDataManager.sln -c Debug` (it deploys to `%APPDATA%\Autodesk\Revit\Addins\2025`), reopen the sandbox, then:
 
 - [ ] **Import Shared Parameter:** the 19 new `!_S_PLT_Result_*` parameters bind (maintenance, lifetime oxygen, timeline key, 5/10/20/25-year totals).
 - [ ] **Tree Calculator:** the status line ends with "i-Tree forecast: … unique planting input(s)". Planted trees get `Result_iTreeTimelineKey_Text`, the `…{N}yr` totals and oxygen; growth copies don't get a key. Run it again: "already stored", no new requests.
