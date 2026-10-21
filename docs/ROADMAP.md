@@ -8,7 +8,7 @@ Tick items off here as they land, and add the release they shipped in.
 Not released yet (branch `dashboard-include-floors`):
 
 - **Dashboard outlook adds up the growth years.** Trees: each growth-year workset's copies as i-Tree calculated them, with the years in between interpolated (trapezoid rule). No more annual × years, which over-reported with worksets. Planting areas don't grow, so they're the Airtable rate × years. Without growth worksets, trees fall back to annual × years, and the outlook line says so.
-- **KPI Schedules group the planting schedule by workset** when growth years exist, with a subtotal per year, so a tree isn't counted once per growth year. Delete existing KPI schedules to rebuild them.
+- **KPI Schedules group the planting schedule by workset** when growth years exist, with a subtotal per year, so a tree isn't counted once per growth year. (Since Phase 3, running KPI Schedules again adds newer columns to existing schedules; delete one only to change its grouping.)
 - Dashboard cards include planting-area (Airtable) carbon, runoff, pollution and cost. BNG labels no longer say "primary" twice.
 
 Shipped in **v1.4.0**:
@@ -96,6 +96,8 @@ Follows the marked-up screenshot. Built on branch `roadmap-phases-2-5`, not rele
 - [x] **Tree oxygen:** Tree Calculator writes `!_S_PLT_Result_OxygenProducedAnnual_Mass` (shared with planting areas) and the new `!_S_PLT_Result_OxygenProducedLifetimeTotal_Mass` = CO₂e × 32/44. Named `Result_` per the naming rules rather than `iTreeResult_`. Trees calculated before this get it from their CO₂e on the Dashboard.
 - [x] **Connectivity:** band counts on the Executive overview and Site & Biodiversity, and band/class/score in KPI Schedules (trees and planting areas).
 - [x] **Captions:** each card says what it covers — amounts are trees + planting areas, money and rainfall intercepted are trees only.
+- [x] **One table language in every tool:** swim-lane column groups with a little white space between lanes, two-line headers (name over unit), plain right-aligned numbers — Health Check, Connectivity, Parameters, Tree Searcher, Growth Projections, Importer, Tree Calculator, iTree Downloader, Sync Audit, Floor Calculator (coefficients and BNG), the Dashboard palette, scenario overview and Original data. Shared styles in `SharedUI/Styles.xaml`; `TableLanes.FollowRows` ends the lanes at the last row. The BNG tab's extra column scroll strip is gone.
+- [x] **KPI Schedules is the last button** (Reporting panel, after the Dashboard) and covers the latest parameters: CO₂ equivalent, allergenic, connectivity dPC, and for planting areas CO₂e and BNG (role, baseline habitat/condition/units, proposed habitat, distinctiveness, condition, strategic significance, habitat units, status). Running it again **updates** schedules it made before — missing columns are inserted in place, keeping their filter, grouping, formatting and sheet placement — instead of leaving them unchanged.
 
 ## Phase 4: i-Tree timeline instead of growth copies
 

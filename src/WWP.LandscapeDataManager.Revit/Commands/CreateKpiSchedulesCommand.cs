@@ -50,11 +50,21 @@ public sealed class CreateKpiSchedulesCommand : IExternalCommand
             }
         }
 
-        if (result.AlreadyExisting.Count > 0)
+        if (result.Updated.Count > 0)
         {
             summary.AppendLine();
-            summary.AppendLine($"Already existed, left unchanged ({result.AlreadyExisting.Count}):");
-            foreach (var name in result.AlreadyExisting)
+            summary.AppendLine($"Updated to the latest parameters ({result.Updated.Count}) — new columns added, your formatting kept:");
+            foreach (var update in result.Updated)
+            {
+                summary.AppendLine($"  • {update.ScheduleName} (+{update.AddedColumns} column{(update.AddedColumns == 1 ? "" : "s")})");
+            }
+        }
+
+        if (result.UpToDate.Count > 0)
+        {
+            summary.AppendLine();
+            summary.AppendLine($"Already up to date ({result.UpToDate.Count}):");
+            foreach (var name in result.UpToDate)
             {
                 summary.AppendLine($"  • {name}");
             }

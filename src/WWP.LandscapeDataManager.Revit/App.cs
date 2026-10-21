@@ -111,13 +111,6 @@ public sealed class App : IExternalApplication
             "LF",
             "Location Finder",
             "Pick a location on a map (or search an address, or read the project's existing Site Location) and publish it to the i-Tree latitude/longitude parameters.");
-        AddWorkflowButton<CreateKpiSchedulesCommand>(
-            projectSetupPanel,
-            "LIMCreateKpiSchedules",
-            "KPI\nSchedules",
-            "KS",
-            "Create KPI Schedules",
-            "Create a Planting and a Planting Area schedule per Design Option, covering every KPI parameter the Dashboard reports, grouped by species/landscape type with counts and totals.");
         AddWorkflowButton<CheckForUpdatesCommand>(
             projectSetupPanel,
             "LIMCheckForUpdates",
@@ -192,6 +185,14 @@ public sealed class App : IExternalApplication
             "DB",
             "Landscape Benefits Dashboard",
             "Roll up the i-Tree and landscape data sheet results already stored on Planting and Floor elements into per-species and planting-area subtotals and a grand total, filterable by Design Option and level, exportable as an image or Excel workbook.");
+        // Last of all the tools: the schedules collect what every tool before it has written.
+        AddWorkflowButton<CreateKpiSchedulesCommand>(
+            reportingPanel,
+            "LIMCreateKpiSchedules",
+            "KPI\nSchedules",
+            "KS",
+            "Create KPI Schedules",
+            "Create a Planting and a Planting Area schedule per Design Option, covering every KPI parameter the Dashboard reports (i-Tree, oxygen, maintenance, forecast outlooks, BNG and connectivity), grouped by species/landscape type with counts and totals. Run it again to add newer parameters to schedules it made before.");
 
         StartBackgroundUpdateCheck(application);
         return Result.Succeeded;

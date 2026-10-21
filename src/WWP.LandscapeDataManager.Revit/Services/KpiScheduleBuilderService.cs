@@ -7,7 +7,8 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 /// Builds one Planting + one Planting Area (Floor) schedule per Design Option, covering the exact
 /// same parameter set the Dashboard reports (<c>DashboardTreeItem</c>/<c>DashboardFloorItem</c>),
 /// grouped by species/landscape type with a Count column — the Revit-native mirror of the
-/// Dashboard's "By species" and "Planting areas by type" subtotal tables.
+/// Dashboard's "By species" and "Planting areas by type" subtotal tables. Running it again adds
+/// any newer parameters to the schedules an earlier version made (see <see cref="AddMissingFields"/>).
 ///
 /// Revit has no native way to show or filter a schedule by Design Option (confirmed live: it's
 /// absent from <see cref="ScheduleDefinition.GetSchedulableFields"/>, <see cref="View.DesignOption"/>
@@ -26,21 +27,28 @@ internal static class KpiScheduleBuilderService
 
     public sealed record ScheduleOutcome(string ScheduleName, bool Created);
 
+    /// <summary>An existing KPI schedule that was brought up to date, and how many columns it gained.</summary>
+    public sealed record ScheduleUpdate(string ScheduleName, int AddedColumns);
+
     public sealed record KpiScheduleResult(
         bool DesignOptionLabelBound,
         IReadOnlyList<ScheduleOutcome> Created,
-        IReadOnlyList<string> AlreadyExisting,
+        IReadOnlyList<ScheduleUpdate> Updated,
+        IReadOnlyList<string> UpToDate,
         IReadOnlyList<string> SkippedEmpty,
         IReadOnlyList<string> MissingFields);
 
-    /// <summary>The Connectivity Calculator's result for each tree and planting area: band 1–4, its name, and the score.</summary>
+    /// <summary>The Connectivity Calculator's result for each tree and planting area: band 1–4, its name, the score and dPC.</summary>
     private static readonly IReadOnlyList<FieldSpec> ConnectivityFields =
     [
         new("!_S_PLT_ConnectivityResult_Band_Number", Totals: false),
         new("!_S_PLT_ConnectivityResult_Class_Text", Totals: false),
-        new("!_S_PLT_ConnectivityResult_Score_Number", Totals: false)
+        new("!_S_PLT_ConnectivityResult_Score_Number", Totals: false),
+        new("!_S_PLT_ConnectivityResult_dPC_Number", Totals: false)
     ];
 
+    // Grouped as the Dashboard groups them: identity, carbon, air, water, value, maintenance,
+    // forecast outlooks, connectivity. Re-running adds any of these an older KPI schedule lacks.
     private static readonly IReadOnlyList<FieldSpec> PlantingFields =
     [
         new(PlantingGroupingParameter, Totals: false),
@@ -50,9 +58,14 @@ internal static class KpiScheduleBuilderService
         new("!_S_PLT_iTreeSpecies_NativeStatus_Text", Totals: false),
         new("!_S_PLT_iTreeSpecies_BloomMonths_Text", Totals: false),
         new("!_S_PLT_iTreeSpecies_EcologicalFunctions_Text", Totals: false),
+        new("!_S_PLT_iTreeSpecies_Allergenic_Text", Totals: false),
         new("!_S_PLT_iTreeResult_Status_Text", Totals: false),
         new("!_S_PLT_iTreeResult_CarbonSequesteredAnnual_Mass", Totals: true),
         new("!_S_PLT_iTreeResult_CarbonSequesteredLifetimeTotal_Mass", Totals: true),
+        new("!_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass", Totals: true),
+        new("!_S_PLT_iTreeResult_CO2EquivalentLifetimeTotal_Mass", Totals: true),
+        new("!_S_PLT_Result_OxygenProducedAnnual_Mass", Totals: true),
+        new("!_S_PLT_Result_OxygenProducedLifetimeTotal_Mass", Totals: true),
         new("!_S_PLT_iTreeResult_CORemovedAnnual_Mass", Totals: true),
         new("!_S_PLT_iTreeResult_CORemovedLifetimeTotal_Mass", Totals: true),
         new("!_S_PLT_iTreeResult_NO2RemovedAnnual_Mass", Totals: true),
@@ -63,6 +76,10 @@ internal static class KpiScheduleBuilderService
         new("!_S_PLT_iTreeResult_PM25RemovedLifetimeTotal_Mass", Totals: true),
         new("!_S_PLT_iTreeResult_SO2RemovedAnnual_Mass", Totals: true),
         new("!_S_PLT_iTreeResult_SO2RemovedLifetimeTotal_Mass", Totals: true),
+        new("!_S_PLT_iTreeResult_RainfallInterceptedAnnual_Volume", Totals: true),
+        new("!_S_PLT_iTreeResult_RainfallInterceptedLifetimeTotal_Volume", Totals: true),
+        new("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume", Totals: true),
+        new("!_S_PLT_iTreeResult_RunoffAvoidedLifetimeTotal_Volume", Totals: true),
         new("!_S_PLT_iTreeResult_CostSavedAnnual_Currency", Totals: true),
         new("!_S_PLT_iTreeResult_CostSavedLifetimeTotal_Currency", Totals: true),
         new("!_S_PLT_iTreeResult_CarbonCostSavedAnnual_Currency", Totals: true),
@@ -71,12 +88,6 @@ internal static class KpiScheduleBuilderService
         new("!_S_PLT_iTreeResult_StormWaterCostSavedLifetimeTotal_Currency", Totals: true),
         new("!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Currency", Totals: true),
         new("!_S_PLT_iTreeResult_AirPollutionCostSavedLifetimeTotal_Currency", Totals: true),
-        new("!_S_PLT_iTreeResult_RainfallInterceptedAnnual_Volume", Totals: true),
-        new("!_S_PLT_iTreeResult_RainfallInterceptedLifetimeTotal_Volume", Totals: true),
-        new("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume", Totals: true),
-        new("!_S_PLT_iTreeResult_RunoffAvoidedLifetimeTotal_Volume", Totals: true),
-        new("!_S_PLT_Result_OxygenProducedAnnual_Mass", Totals: true),
-        new("!_S_PLT_Result_OxygenProducedLifetimeTotal_Mass", Totals: true),
         new("!_S_PLT_Result_MaintenanceCostAnnual_Currency", Totals: true),
         // i-Tree forecast totals over the standard outlooks (see TreeTimelineStore).
         .. new[] { 5, 10, 20, 25 }.SelectMany(years => new FieldSpec[]
@@ -95,14 +106,27 @@ internal static class KpiScheduleBuilderService
         new("!_S_PLT_LDS_SurfaceClass_Text", Totals: false),
         new("Area", Totals: true),
         new("!_S_PLT_iTreeResult_CarbonSequesteredAnnual_Mass", Totals: true),
-        new("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume", Totals: true),
-        new("!_S_PLT_Result_PollutantsRemovedAnnual_Mass", Totals: true),
-        new("!_S_PLT_iTreeResult_CostSavedAnnual_Currency", Totals: true),
+        new("!_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass", Totals: true),
         new("!_S_PLT_Result_OxygenProducedAnnual_Mass", Totals: true),
         new("!_S_PLT_Result_EmbodiedGWP_Mass", Totals: true),
+        new("!_S_PLT_Result_PollutantsRemovedAnnual_Mass", Totals: true),
+        new("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume", Totals: true),
+        new("!_S_PLT_iTreeResult_CostSavedAnnual_Currency", Totals: true),
         new("!_S_PLT_Result_MaintenanceCostAnnual_Currency", Totals: true),
         new("!_S_PLT_LDS_SurfaceTempReduction_Number", Totals: false),
         new("!_S_PLT_LDS_AirTempReduction_Number", Totals: false),
+        // Biodiversity net gain, as the Floor Calculator's BNG tab writes it: the floor's role, its
+        // baseline (A-1) and its proposed or enhanced habitat, with both unit columns totalled.
+        new("!_S_PLT_BNGResult_Role_Text", Totals: false),
+        new("!_S_PLT_BNGInput_BaselineHabitat_Text", Totals: false),
+        new("!_S_PLT_BNGInput_BaselineCondition_Text", Totals: false),
+        new("!_S_PLT_BNGResult_BaselineUnits_Number", Totals: true),
+        new("!_S_PLT_BNGInput_ProposedHabitat_Text", Totals: false),
+        new("!_S_PLT_BNGResult_Distinctiveness_Text", Totals: false),
+        new("!_S_PLT_iTreeInput_Condition_Text", Totals: false),
+        new("!_S_PLT_BNGInput_StrategicSignificance_Text", Totals: false),
+        new("!_S_PLT_BNGResult_HabitatUnits_Number", Totals: true),
+        new("!_S_PLT_BNGResult_Status_Text", Totals: false),
         .. ConnectivityFields
     ];
 
@@ -125,7 +149,7 @@ internal static class KpiScheduleBuilderService
         var labelBound = probeElement is not null && probeElement.LookupParameter(DesignOptionLabelParameter) is not null;
         if (!labelBound)
         {
-            return new KpiScheduleResult(false, [], [], [], []);
+            return new KpiScheduleResult(false, [], [], [], [], []);
         }
 
         var missingFields = new HashSet<string>();
@@ -137,7 +161,8 @@ internal static class KpiScheduleBuilderService
         var floorByLabel = StampAndGroup(document, floorInstances);
 
         var created = new List<ScheduleOutcome>();
-        var alreadyExisting = new List<string>();
+        var updated = new List<ScheduleUpdate>();
+        var upToDate = new List<string>();
         var skippedEmpty = new List<string>();
 
         foreach (var label in plantingByLabel.Keys.Concat(floorByLabel.Keys).Distinct().OrderBy(label => label))
@@ -156,7 +181,7 @@ internal static class KpiScheduleBuilderService
                 groupByWorkset: false);
         }
 
-        return new KpiScheduleResult(true, created, alreadyExisting, skippedEmpty, missingFields.OrderBy(field => field).ToList());
+        return new KpiScheduleResult(true, created, updated, upToDate, skippedEmpty, missingFields.OrderBy(field => field).ToList());
 
         void ProcessOne(string scheduleName, BuiltInCategory category, string label, int count, IReadOnlyList<FieldSpec> fields, string groupingParameter, bool groupByWorkset)
         {
@@ -166,9 +191,19 @@ internal static class KpiScheduleBuilderService
                 return;
             }
 
-            if (new FilteredElementCollector(document).OfClass(typeof(ViewSchedule)).Cast<ViewSchedule>().Any(schedule => schedule.Name == scheduleName))
+            if (new FilteredElementCollector(document).OfClass(typeof(ViewSchedule)).Cast<ViewSchedule>()
+                    .FirstOrDefault(schedule => schedule.Name == scheduleName) is { } existing)
             {
-                alreadyExisting.Add(scheduleName);
+                var added = AddMissingFields(document, existing, fields, missingFields);
+                if (added > 0)
+                {
+                    updated.Add(new ScheduleUpdate(scheduleName, added));
+                }
+                else
+                {
+                    upToDate.Add(scheduleName);
+                }
+
                 return;
             }
 
@@ -203,22 +238,7 @@ internal static class KpiScheduleBuilderService
         var schedule = ViewSchedule.CreateSchedule(document, new ElementId(category));
         schedule.Name = scheduleName;
         var definition = schedule.Definition;
-
-        var schedulableByName = new Dictionary<string, SchedulableField>();
-        foreach (var field in definition.GetSchedulableFields())
-        {
-            string? name;
-            try
-            {
-                name = field.GetName(document);
-            }
-            catch (Exception)
-            {
-                continue;
-            }
-
-            schedulableByName.TryAdd(name, field);
-        }
+        var schedulableByName = SchedulableFieldsByName(document, definition);
 
         ScheduleFieldId? groupingFieldId = null;
         foreach (var spec in fields)
@@ -266,6 +286,77 @@ internal static class KpiScheduleBuilderService
             definition.IsItemized = false;
             definition.AddSortGroupField(new ScheduleSortGroupField(groupingFieldId));
         }
+    }
+
+    /// <summary>
+    /// Brings a KPI schedule made by an earlier version up to the current field list: each missing
+    /// column is inserted after the field that precedes it in the list, with its total turned on.
+    /// Columns already there (even hidden or renamed ones), the option filter, grouping, formatting
+    /// and sheet placement are left as they are. Returns how many columns were added.
+    /// </summary>
+    private static int AddMissingFields(Document document, ViewSchedule schedule, IReadOnlyList<FieldSpec> fields, HashSet<string> missingFields)
+    {
+        var definition = schedule.Definition;
+        var schedulableByName = SchedulableFieldsByName(document, definition);
+        var added = 0;
+        var insertAt = 0;
+        foreach (var spec in fields)
+        {
+            if (!schedulableByName.TryGetValue(spec.ParameterName, out var schedulableField))
+            {
+                missingFields.Add(spec.ParameterName);
+                continue;
+            }
+
+            var order = definition.GetFieldOrder();
+            var index = -1;
+            for (var position = 0; position < order.Count; position++)
+            {
+                var field = definition.GetField(order[position]);
+                if (field.FieldType == schedulableField.FieldType && field.ParameterId == schedulableField.ParameterId)
+                {
+                    index = position;
+                    break;
+                }
+            }
+
+            if (index >= 0)
+            {
+                insertAt = index + 1;
+                continue;
+            }
+
+            var inserted = definition.InsertField(schedulableField, insertAt++);
+            if (spec.Totals)
+            {
+                inserted.DisplayType = ScheduleFieldDisplayType.Totals;
+            }
+
+            added++;
+        }
+
+        return added;
+    }
+
+    private static Dictionary<string, SchedulableField> SchedulableFieldsByName(Document document, ScheduleDefinition definition)
+    {
+        var schedulableByName = new Dictionary<string, SchedulableField>();
+        foreach (var field in definition.GetSchedulableFields())
+        {
+            string? name;
+            try
+            {
+                name = field.GetName(document);
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+
+            schedulableByName.TryAdd(name, field);
+        }
+
+        return schedulableByName;
     }
 
     /// <summary>Revit view names disallow <c>\ : { } [ ] | ; &lt; &gt; ? `</c> — replace each with "-".</summary>
