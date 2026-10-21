@@ -29,10 +29,6 @@
                     <SolidColorBrush x:Key="KpiChartTrackBrush" Color="#FFE1E8DE" />
                     <SolidColorBrush x:Key="KpiWaterTextBrush" Color="#FF2F6FB0" />
                     <SolidColorBrush x:Key="KpiAmberTextBrush" Color="#FFA36A00" />
-                    <SolidColorBrush x:Key="KpiCarbonLaneBrush" Color="#16176B2B" />
-                    <SolidColorBrush x:Key="KpiWaterLaneBrush" Color="#162F6FB0" />
-                    <SolidColorBrush x:Key="KpiAirLaneBrush" Color="#1AA36A00" />
-                    <SolidColorBrush x:Key="KpiUpkeepLaneBrush" Color="#12586359" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="KpiForestBrush" Color="#FF176B2B" />
@@ -55,10 +51,6 @@
                     <SolidColorBrush x:Key="KpiChartTrackBrush" Color="#FF344139" />
                     <SolidColorBrush x:Key="KpiWaterTextBrush" Color="#FF78B5ED" />
                     <SolidColorBrush x:Key="KpiAmberTextBrush" Color="#FFF4BE70" />
-                    <SolidColorBrush x:Key="KpiCarbonLaneBrush" Color="#33309A45" />
-                    <SolidColorBrush x:Key="KpiWaterLaneBrush" Color="#333E86CC" />
-                    <SolidColorBrush x:Key="KpiAirLaneBrush" Color="#33C98A00" />
-                    <SolidColorBrush x:Key="KpiUpkeepLaneBrush" Color="#1FB4C2B7" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="KpiForestBrush" Color="{ThemeResource SystemColorWindowColor}" />
@@ -81,10 +73,6 @@
                     <SolidColorBrush x:Key="KpiChartTrackBrush" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="KpiWaterTextBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="KpiAmberTextBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
-                    <SolidColorBrush x:Key="KpiCarbonLaneBrush" Color="Transparent" />
-                    <SolidColorBrush x:Key="KpiWaterLaneBrush" Color="Transparent" />
-                    <SolidColorBrush x:Key="KpiAirLaneBrush" Color="Transparent" />
-                    <SolidColorBrush x:Key="KpiUpkeepLaneBrush" Color="Transparent" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
             <Style x:Key="KpiSurfaceStyle" TargetType="Border">
@@ -539,41 +527,57 @@
                                         <TextBlock Text="Tree palette" Style="{StaticResource KpiCardTitleStyle}" />
                                         <TextBlock x:Name="PaletteCaptionText" HorizontalAlignment="Right" Foreground="{ThemeResource KpiMutedBrush}" FontSize="12" VerticalAlignment="Center" />
                                     </Grid>
-                                    <Grid ColumnSpacing="8" Padding="6,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="130" /><ColumnDefinition Width="130" /><ColumnDefinition Width="130" /><ColumnDefinition Width="130" /><ColumnDefinition Width="130" /><ColumnDefinition Width="130" />
-                                        </Grid.ColumnDefinitions>
-                                        <HyperlinkButton Tag="Name" Click="PaletteSort_Click" Padding="2" HorizontalAlignment="Left"><TextBlock x:Name="PaletteNameHeader" Text="Species" FontSize="12" FontWeight="SemiBold" /></HyperlinkButton>
-                                        <HyperlinkButton Grid.Column="1" Tag="Count" Click="PaletteSort_Click" Padding="2" HorizontalAlignment="Right"><TextBlock x:Name="PaletteCountHeader" Text="Trees" FontSize="12" FontWeight="SemiBold" /></HyperlinkButton>
-                                        <HyperlinkButton Grid.Column="2" Tag="Value" Click="PaletteSort_Click" Padding="2" HorizontalAlignment="Right"><TextBlock x:Name="PaletteValueHeader" Text="Money saved" FontSize="12" FontWeight="SemiBold" /></HyperlinkButton>
-                                        <HyperlinkButton Grid.Column="3" Tag="Co2" Click="PaletteSort_Click" Padding="2" HorizontalAlignment="Right"><TextBlock x:Name="PaletteCo2Header" Text="CO₂e" FontSize="12" FontWeight="SemiBold" /></HyperlinkButton>
-                                        <HyperlinkButton Grid.Column="4" Tag="Runoff" Click="PaletteSort_Click" Padding="2" HorizontalAlignment="Right"><TextBlock x:Name="PaletteRunoffHeader" Text="Runoff" FontSize="12" FontWeight="SemiBold" /></HyperlinkButton>
-                                        <HyperlinkButton Grid.Column="5" Tag="Pollution" Click="PaletteSort_Click" Padding="2" HorizontalAlignment="Right"><TextBlock x:Name="PalettePollutionHeader" Text="Pollution" FontSize="12" FontWeight="SemiBold" /></HyperlinkButton>
-                                        <HyperlinkButton Grid.Column="6" Tag="Oxygen" Click="PaletteSort_Click" Padding="2" HorizontalAlignment="Right"><TextBlock x:Name="PaletteOxygenHeader" Text="O₂" FontSize="12" FontWeight="SemiBold" /></HyperlinkButton>
-                                        <HyperlinkButton Grid.Column="7" Tag="Upkeep" Click="PaletteSort_Click" Padding="2" HorizontalAlignment="Right"><TextBlock x:Name="PaletteUpkeepHeader" Text="Maintenance" FontSize="12" FontWeight="SemiBold" /></HyperlinkButton>
+                                    <!-- Same table language as the Data explorer: benefit groups in swim lanes, two-line
+                                         headers (metric, then unit) that sort when selected, plain numbers in the cells. -->
+                                    <Grid>
+                                        <Grid ColumnSpacing="14" Padding="6,0">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="200" /><ColumnDefinition Width="70" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /></Grid.ColumnDefinitions>
+                                            <Border Grid.Column="3" Grid.ColumnSpan="2" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreenBrush}" />
+                                            <Border Grid.Column="5" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneBlueBrush}" />
+                                            <Border Grid.Column="6" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneAmberBrush}" />
+                                            <Border Grid.Column="7" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreyBrush}" />
+                                        </Grid>
+                                        <StackPanel>
+                                            <Grid ColumnSpacing="14" Padding="6,10,6,0">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="200" /><ColumnDefinition Width="70" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /></Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="3" Grid.ColumnSpan="2" Text="CARBON" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAccentTextBrush}" HorizontalAlignment="Center" />
+                                                <TextBlock Grid.Column="5" Text="WATER" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiWaterTextBrush}" HorizontalAlignment="Center" />
+                                                <TextBlock Grid.Column="6" Text="AIR QUALITY" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAmberTextBrush}" HorizontalAlignment="Center" />
+                                                <TextBlock Grid.Column="7" Text="MAINTENANCE" Style="{StaticResource KpiEyebrowStyle}" HorizontalAlignment="Center" />
+                                            </Grid>
+                                            <Grid ColumnSpacing="14" Padding="6,6,6,8">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="200" /><ColumnDefinition Width="70" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /></Grid.ColumnDefinitions>
+                                                <HyperlinkButton Tag="Name" Click="PaletteSort_Click" Padding="0" HorizontalAlignment="Left" VerticalAlignment="Bottom"><TextBlock x:Name="PaletteNameHeader" Text="Species" Style="{StaticResource KpiEyebrowStyle}" LineHeight="15" /></HyperlinkButton>
+                                                <HyperlinkButton Grid.Column="1" Tag="Count" Click="PaletteSort_Click" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Bottom"><TextBlock x:Name="PaletteCountHeader" Text="Trees" Style="{StaticResource KpiEyebrowStyle}" TextAlignment="Right" LineHeight="15" /></HyperlinkButton>
+                                                <HyperlinkButton Grid.Column="2" Tag="Value" Click="PaletteSort_Click" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Bottom"><TextBlock x:Name="PaletteValueHeader" Text="Money saved" Style="{StaticResource KpiEyebrowStyle}" TextAlignment="Right" LineHeight="15" /></HyperlinkButton>
+                                                <HyperlinkButton Grid.Column="3" Tag="Co2" Click="PaletteSort_Click" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Bottom"><TextBlock x:Name="PaletteCo2Header" Text="CO₂e" Style="{StaticResource KpiEyebrowStyle}" TextAlignment="Right" LineHeight="15" /></HyperlinkButton>
+                                                <HyperlinkButton Grid.Column="4" Tag="Oxygen" Click="PaletteSort_Click" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Bottom"><TextBlock x:Name="PaletteOxygenHeader" Text="Oxygen" Style="{StaticResource KpiEyebrowStyle}" TextAlignment="Right" LineHeight="15" /></HyperlinkButton>
+                                                <HyperlinkButton Grid.Column="5" Tag="Runoff" Click="PaletteSort_Click" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Bottom"><TextBlock x:Name="PaletteRunoffHeader" Text="Runoff" Style="{StaticResource KpiEyebrowStyle}" TextAlignment="Right" LineHeight="15" /></HyperlinkButton>
+                                                <HyperlinkButton Grid.Column="6" Tag="Pollution" Click="PaletteSort_Click" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Bottom"><TextBlock x:Name="PalettePollutionHeader" Text="Pollution" Style="{StaticResource KpiEyebrowStyle}" TextAlignment="Right" LineHeight="15" /></HyperlinkButton>
+                                                <HyperlinkButton Grid.Column="7" Tag="Upkeep" Click="PaletteSort_Click" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Bottom"><TextBlock x:Name="PaletteUpkeepHeader" Text="Cost" Style="{StaticResource KpiEyebrowStyle}" TextAlignment="Right" LineHeight="15" /></HyperlinkButton>
+                                            </Grid>
+                                            <ItemsControl ItemsSource="{x:Bind PaletteRows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="local:SpeciesPaletteRow">
+                                                        <Grid ColumnSpacing="14" Padding="6,7" BorderBrush="{ThemeResource KpiBorderBrush}" BorderThickness="0,1,0,0">
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="200" /><ColumnDefinition Width="70" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /><ColumnDefinition Width="120" /></Grid.ColumnDefinitions>
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <TextBlock Text="{x:Bind SpeciesCode}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{x:Bind CommonName}" Foreground="{ThemeResource KpiMutedBrush}" TextTrimming="CharacterEllipsis" />
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Column="1" Text="{x:Bind CountText}" TextAlignment="Right" />
+                                                            <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" TextAlignment="Right" FontWeight="SemiBold" />
+                                                            <TextBlock Grid.Column="3" Text="{x:Bind Co2Text}" TextAlignment="Right" />
+                                                            <TextBlock Grid.Column="4" Text="{x:Bind OxygenText}" TextAlignment="Right" />
+                                                            <TextBlock Grid.Column="5" Text="{x:Bind RunoffText}" TextAlignment="Right" />
+                                                            <TextBlock Grid.Column="6" Text="{x:Bind PollutionText}" TextAlignment="Right" />
+                                                            <TextBlock Grid.Column="7" Text="{x:Bind UpkeepText}" TextAlignment="Right" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
                                     </Grid>
-                                    <ItemsControl ItemsSource="{x:Bind PaletteRows}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="local:SpeciesPaletteRow">
-                                                <Grid ColumnSpacing="8" Padding="6,5" BorderBrush="{ThemeResource KpiBorderBrush}" BorderThickness="0,1,0,0">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="130" /><ColumnDefinition Width="130" /><ColumnDefinition Width="130" /><ColumnDefinition Width="130" /><ColumnDefinition Width="130" /><ColumnDefinition Width="130" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                                        <TextBlock Text="{x:Bind SpeciesCode}" FontWeight="SemiBold" />
-                                                        <TextBlock Text="{x:Bind CommonName}" Foreground="{ThemeResource KpiMutedBrush}" TextTrimming="CharacterEllipsis" />
-                                                    </StackPanel>
-                                                    <TextBlock Grid.Column="1" Text="{x:Bind CountText}" TextAlignment="Right" />
-                                                    <TextBlock Grid.Column="2" Text="{x:Bind ValueText}" TextAlignment="Right" FontWeight="SemiBold" />
-                                                    <TextBlock Grid.Column="3" Text="{x:Bind Co2Text}" TextAlignment="Right" />
-                                                    <TextBlock Grid.Column="4" Text="{x:Bind RunoffText}" TextAlignment="Right" />
-                                                    <TextBlock Grid.Column="5" Text="{x:Bind PollutionText}" TextAlignment="Right" />
-                                                    <TextBlock Grid.Column="6" Text="{x:Bind OxygenText}" TextAlignment="Right" />
-                                                    <TextBlock Grid.Column="7" Text="{x:Bind UpkeepText}" TextAlignment="Right" />
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
                                 </StackPanel>
                             </Border>
                         </Grid>
@@ -831,22 +835,22 @@
                             <StackPanel Spacing="8">
                                 <TextBlock Text="By species (trees)" Style="{StaticResource KpiCardTitleStyle}" />
                                 <Grid>
-                                    <Grid ColumnSpacing="10" Padding="6,0">
+                                    <Grid ColumnSpacing="14" Padding="6,0">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="80" /><ColumnDefinition Width="*" MinWidth="160" /><ColumnDefinition Width="70" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
-                                        <Border Grid.Column="3" Grid.ColumnSpan="3" Background="{ThemeResource KpiCarbonLaneBrush}" CornerRadius="10" Margin="-5,0" />
-                                        <Border Grid.Column="6" Grid.ColumnSpan="2" Background="{ThemeResource KpiWaterLaneBrush}" CornerRadius="10" Margin="-5,0" />
-                                        <Border Grid.Column="8" Grid.ColumnSpan="2" Background="{ThemeResource KpiAirLaneBrush}" CornerRadius="10" Margin="-5,0" />
-                                        <Border Grid.Column="10" Background="{ThemeResource KpiUpkeepLaneBrush}" CornerRadius="10" Margin="-5,0" />
+                                        <Border Grid.Column="3" Grid.ColumnSpan="3" Background="{ThemeResource LimLaneGreenBrush}" Style="{StaticResource LimTableLaneStyle}" />
+                                        <Border Grid.Column="6" Grid.ColumnSpan="2" Background="{ThemeResource LimLaneBlueBrush}" Style="{StaticResource LimTableLaneStyle}" />
+                                        <Border Grid.Column="8" Grid.ColumnSpan="2" Background="{ThemeResource LimLaneAmberBrush}" Style="{StaticResource LimTableLaneStyle}" />
+                                        <Border Grid.Column="10" Background="{ThemeResource LimLaneGreyBrush}" Style="{StaticResource LimTableLaneStyle}" />
                                     </Grid>
                                     <StackPanel>
-                                        <Grid ColumnSpacing="10" Padding="6,10,6,0">
+                                        <Grid ColumnSpacing="14" Padding="6,10,6,0">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="80" /><ColumnDefinition Width="*" MinWidth="160" /><ColumnDefinition Width="70" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="3" Grid.ColumnSpan="3" Text="CARBON" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAccentTextBrush}" HorizontalAlignment="Center" />
                                             <TextBlock Grid.Column="6" Grid.ColumnSpan="2" Text="WATER" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiWaterTextBrush}" HorizontalAlignment="Center" />
                                             <TextBlock Grid.Column="8" Grid.ColumnSpan="2" Text="AIR QUALITY" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAmberTextBrush}" HorizontalAlignment="Center" />
                                             <TextBlock Grid.Column="10" Text="MAINTENANCE" Style="{StaticResource KpiEyebrowStyle}" HorizontalAlignment="Center" />
                                         </Grid>
-                                        <Grid ColumnSpacing="10" Padding="6,6,6,8">
+                                        <Grid ColumnSpacing="14" Padding="6,6,6,8">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="80" /><ColumnDefinition Width="*" MinWidth="160" /><ColumnDefinition Width="70" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
                                             <TextBlock Text="Code" Style="{StaticResource KpiEyebrowStyle}" VerticalAlignment="Bottom" />
                                             <TextBlock Grid.Column="1" Text="Common name" Style="{StaticResource KpiEyebrowStyle}" VerticalAlignment="Bottom" />
@@ -863,7 +867,7 @@
                                         <ItemsControl ItemsSource="{x:Bind SpeciesSubtotals}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="local:SpeciesSubtotalRow">
-                                                    <Grid Padding="6,7" ColumnSpacing="10" BorderBrush="{ThemeResource KpiBorderBrush}" BorderThickness="0,1,0,0">
+                                                    <Grid Padding="6,7" ColumnSpacing="14" BorderBrush="{ThemeResource KpiBorderBrush}" BorderThickness="0,1,0,0">
                                                         <Grid.ColumnDefinitions><ColumnDefinition Width="80" /><ColumnDefinition Width="*" MinWidth="160" /><ColumnDefinition Width="70" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
                                                         <TextBlock Text="{x:Bind SpeciesCode}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                                         <TextBlock Grid.Column="1" Text="{x:Bind CommonName}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind CommonName}" />
@@ -889,22 +893,22 @@
                             <StackPanel Spacing="8">
                                 <TextBlock Text="Planting areas by landscape-data type" Style="{StaticResource KpiCardTitleStyle}" />
                                 <Grid>
-                                    <Grid ColumnSpacing="10" Padding="6,0">
+                                    <Grid ColumnSpacing="14" Padding="6,0">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="200" /><ColumnDefinition Width="60" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="120" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
-                                        <Border Grid.Column="3" Grid.ColumnSpan="3" Background="{ThemeResource KpiCarbonLaneBrush}" CornerRadius="10" Margin="-5,0" />
-                                        <Border Grid.Column="6" Background="{ThemeResource KpiWaterLaneBrush}" CornerRadius="10" Margin="-5,0" />
-                                        <Border Grid.Column="7" Background="{ThemeResource KpiAirLaneBrush}" CornerRadius="10" Margin="-5,0" />
-                                        <Border Grid.Column="8" Background="{ThemeResource KpiUpkeepLaneBrush}" CornerRadius="10" Margin="-5,0" />
+                                        <Border Grid.Column="3" Grid.ColumnSpan="3" Background="{ThemeResource LimLaneGreenBrush}" Style="{StaticResource LimTableLaneStyle}" />
+                                        <Border Grid.Column="6" Background="{ThemeResource LimLaneBlueBrush}" Style="{StaticResource LimTableLaneStyle}" />
+                                        <Border Grid.Column="7" Background="{ThemeResource LimLaneAmberBrush}" Style="{StaticResource LimTableLaneStyle}" />
+                                        <Border Grid.Column="8" Background="{ThemeResource LimLaneGreyBrush}" Style="{StaticResource LimTableLaneStyle}" />
                                     </Grid>
                                     <StackPanel>
-                                        <Grid ColumnSpacing="10" Padding="6,10,6,0">
+                                        <Grid ColumnSpacing="14" Padding="6,10,6,0">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="200" /><ColumnDefinition Width="60" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="120" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="3" Grid.ColumnSpan="3" Text="CARBON" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAccentTextBrush}" HorizontalAlignment="Center" />
                                             <TextBlock Grid.Column="6" Text="WATER" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiWaterTextBrush}" HorizontalAlignment="Center" />
                                             <TextBlock Grid.Column="7" Text="AIR QUALITY" Style="{StaticResource KpiEyebrowStyle}" Foreground="{ThemeResource KpiAmberTextBrush}" HorizontalAlignment="Center" />
                                             <TextBlock Grid.Column="8" Text="MAINTENANCE" Style="{StaticResource KpiEyebrowStyle}" HorizontalAlignment="Center" />
                                         </Grid>
-                                        <Grid ColumnSpacing="10" Padding="6,6,6,8">
+                                        <Grid ColumnSpacing="14" Padding="6,6,6,8">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="200" /><ColumnDefinition Width="60" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="120" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
                                             <TextBlock Text="Type" Style="{StaticResource KpiEyebrowStyle}" VerticalAlignment="Bottom" />
                                             <TextBlock Grid.Column="1" Text="Count" Style="{StaticResource KpiEyebrowStyle}" TextAlignment="Right" VerticalAlignment="Bottom" />
@@ -919,7 +923,7 @@
                                         <ItemsControl ItemsSource="{x:Bind FloorSubtotals}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="local:FloorSubtotalRow">
-                                                    <Grid Padding="6,7" ColumnSpacing="10" BorderBrush="{ThemeResource KpiBorderBrush}" BorderThickness="0,1,0,0">
+                                                    <Grid Padding="6,7" ColumnSpacing="14" BorderBrush="{ThemeResource KpiBorderBrush}" BorderThickness="0,1,0,0">
                                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="200" /><ColumnDefinition Width="60" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="120" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
                                                         <TextBlock Text="{x:Bind LdsType}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind LdsType}" />
                                                         <TextBlock Grid.Column="1" Text="{x:Bind FloorCount}" TextAlignment="Right" />

@@ -376,7 +376,20 @@ public sealed partial class MainPage
 
     // ---- Scenario overview ----
 
-    private sealed record ScenarioMetric(string Label, Func<ScenarioPerformance, double?> Value, Func<double, string> Format, bool HigherIsBetter, bool IsPercent = false, bool Chart = true);
+    /// <summary>One row of the scenario overview. Values are plain numbers; the unit is under the label.</summary>
+    private sealed record ScenarioMetric(string Group, string Label, string Unit, Func<ScenarioPerformance, double?> Value, Func<double, string> Format, bool HigherIsBetter, bool IsPercent = false, bool Chart = true);
+
+    /// <summary>A metric group's swim lane: its wash and label colours, or none for the inventory counts.</summary>
+    private static (string? Lane, string Text) ScenarioLane(string group) => group switch
+    {
+        "Canopy & greenspace" => ("LimLaneTealBrush", "LimLaneTealTextBrush"),
+        "Carbon" => ("LimLaneGreenBrush", "KpiAccentTextBrush"),
+        "Water" => ("LimLaneBlueBrush", "KpiWaterTextBrush"),
+        "Air quality" => ("LimLaneAmberBrush", "KpiAmberTextBrush"),
+        "Biodiversity" => ("LimLaneVioletBrush", "LimLaneVioletTextBrush"),
+        "Value" => ("LimLaneGreyBrush", "KpiMutedBrush"),
+        _ => (null, "KpiMutedBrush")
+    };
 
     private IReadOnlyList<ScenarioMetric> ScenarioMetrics(string unitSystem, int years)
     {
@@ -385,24 +398,25 @@ public sealed partial class MainPage
         var pollutantUnit = DashboardUnitLabels.PollutantUnit(unitSystem);
         var waterUnit = metric ? "m³" : "gal";
         var currency = _preferredCurrency;
-        string Number(double value, string unit) => $"{Compact(value)} {unit}";
+        var over = $"over {years} years";
+        string Number(double value) => Compact(value);
         return
         [
-            new("Trees", p => p.TreeCount, value => value.ToString("N0"), true, Chart: false),
-            new("Species", p => p.SpeciesCount, value => value.ToString("N0"), true, Chart: false),
-            new("Canopy cover", p => p.CanopyCoverPercent, value => $"{value:N1}%", true, IsPercent: true),
-            new("Canopy area", p => metric ? p.CanopyAreaSquareMeters : p.CanopyAreaSquareMeters * 10.7639104167d, value => Number(value, metric ? "m²" : "ft²"), true, Chart: false),
-            new("Greenspace ratio", p => p.GreenspaceRatioPercent, value => $"{value:N1}%", true, IsPercent: true),
-            new($"CO₂e uptake ({years} yr)", p => p.Co2EquivalentOutlook, value => Number(value, carbonUnit), true),
-            new($"Runoff avoided ({years} yr)", p => p.RunoffAvoidedOutlook, value => Number(value, waterUnit), true),
-            new($"Pollution removed ({years} yr)", p => p.PollutionRemovedOutlook, value => Number(value, pollutantUnit), true),
-            new($"Oxygen produced ({years} yr)", p => p.OxygenProducedOutlook, value => Number(value, carbonUnit), true, Chart: false),
-            new("BNG post-intervention", p => p.BngPostInterventionUnits, value => $"{value:N2} HU", true, Chart: false),
-            new("BNG net change", p => p.BngNetChangePercent, value => $"{value:+0.0;-0.0;0.0}%", true, IsPercent: true),
-            new("Embodied carbon", p => p.EmbodiedCarbon, value => Number(value, $"{carbonUnit} CO₂e"), false),
-            new($"Ecosystem value ({years} yr)", p => p.EcosystemValueOutlook, value => Number(value, currency), true),
-            new($"Maintenance cost ({years} yr)", p => p.MaintenanceCostOutlook, value => Number(value, currency), false),
-            new($"Net value ({years} yr)", p => p.NetValueOutlook, value => Number(value, currency), true),
+            new("Inventory", "Trees", "count", p => p.TreeCount, value => value.ToString("N0"), true, Chart: false),
+            new("Inventory", "Species", "count", p => p.SpeciesCount, value => value.ToString("N0"), true, Chart: false),
+            new("Canopy & greenspace", "Canopy cover", "% of site", p => p.CanopyCoverPercent, value => $"{value:N1}", true, IsPercent: true),
+            new("Canopy & greenspace", "Canopy area", metric ? "m²" : "ft²", p => metric ? p.CanopyAreaSquareMeters : p.CanopyAreaSquareMeters * 10.7639104167d, Number, true, Chart: false),
+            new("Canopy & greenspace", "Greenspace ratio", "% of surfaces", p => p.GreenspaceRatioPercent, value => $"{value:N1}", true, IsPercent: true),
+            new("Carbon", "CO₂e uptake", $"{carbonUnit} {over}", p => p.Co2EquivalentOutlook, Number, true),
+            new("Carbon", "Oxygen produced", $"{carbonUnit} {over}", p => p.OxygenProducedOutlook, Number, true, Chart: false),
+            new("Carbon", "Embodied carbon", $"{carbonUnit} CO₂e", p => p.EmbodiedCarbon, Number, false),
+            new("Water", "Runoff avoided", $"{waterUnit} {over}", p => p.RunoffAvoidedOutlook, Number, true),
+            new("Air quality", "Pollution removed", $"{pollutantUnit} {over}", p => p.PollutionRemovedOutlook, Number, true),
+            new("Biodiversity", "BNG post-intervention", "habitat units", p => p.BngPostInterventionUnits, value => $"{value:N2}", true, Chart: false),
+            new("Biodiversity", "BNG net change", "% of baseline", p => p.BngNetChangePercent, value => $"{value:+0.0;-0.0;0.0}", true, IsPercent: true),
+            new("Value", "Ecosystem value", $"{currency} {over}", p => p.EcosystemValueOutlook, Number, true),
+            new("Value", "Maintenance cost", $"{currency} {over}", p => p.MaintenanceCostOutlook, Number, false),
+            new("Value", "Net value", $"{currency} {over}", p => p.NetValueOutlook, Number, true),
         ];
     }
 
@@ -470,55 +484,93 @@ public sealed partial class MainPage
         var muted = (Brush)Resources["KpiMutedBrush"];
         var border = (Brush)Resources["KpiBorderBrush"];
         var badge = (Brush)Resources["KpiBadgeBrush"];
+        var eyebrow = (Style)Resources["KpiEyebrowStyle"];
+        Brush Brush(string key) => (Brush)(key.StartsWith("Kpi", StringComparison.Ordinal) ? Resources[key] : Application.Current.Resources[key]);
 
+        // Header: the metric column's name, then each scenario's name, description and badge,
+        // right-aligned over its numbers.
         host.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        Place(new TextBlock { Text = "Metric", Style = eyebrow, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(12, 0, 10, 10) }, 0, 0);
         for (var column = 0; column < performances.Count; column++)
         {
             var performance = performances[column];
             var isReference = ReferenceEquals(performance, reference);
-            var header = new StackPanel { Spacing = 2, Padding = new Thickness(10, 6, 10, 10) };
-            header.Children.Add(new TextBlock { Text = performance.Scenario.Name, FontWeight = FontWeights.SemiBold, FontSize = 15, TextTrimming = TextTrimming.CharacterEllipsis });
-            header.Children.Add(new TextBlock { Text = performance.Description, Foreground = muted, FontSize = 11, TextWrapping = TextWrapping.Wrap, MaxLines = 3 });
+            var header = new StackPanel { Spacing = 2, Padding = new Thickness(10, 6, 12, 10), VerticalAlignment = VerticalAlignment.Bottom };
             if (isReference)
             {
+                // Above the name, so every scenario's name and description line up at the bottom.
                 header.Children.Add(new Border
                 {
                     Background = badge,
                     CornerRadius = new CornerRadius(8),
                     Padding = new Thickness(8, 2, 8, 2),
-                    Margin = new Thickness(0, 4, 0, 0),
-                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Margin = new Thickness(0, 0, 0, 4),
+                    HorizontalAlignment = HorizontalAlignment.Right,
                     Child = new TextBlock { Text = "REFERENCE", FontSize = 10, FontWeight = FontWeights.SemiBold, Foreground = (Brush)Resources["KpiAccentTextBrush"] }
                 });
             }
+
+            header.Children.Add(new TextBlock { Text = performance.Scenario.Name, FontWeight = FontWeights.SemiBold, FontSize = 15, TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Right });
+            header.Children.Add(new TextBlock { Text = performance.Description, Foreground = muted, FontSize = 11, TextWrapping = TextWrapping.Wrap, MaxLines = 3, TextAlignment = TextAlignment.Right });
 
             ToolTipService.SetToolTip(header, DesignScenarios.Label(performance.Scenario, _sets));
             Place(header, 0, column + 1);
         }
 
-        for (var row = 0; row < metrics.Count; row++)
+        // Metrics are rows here, so each group's swim lane runs across: a pale band behind the
+        // group's name and its rows, with a little white space between neighbouring bands.
+        var gridRow = 1;
+        foreach (var group in metrics.GroupBy(metric => metric.Group))
         {
-            var metric = metrics[row];
+            var (lane, text) = ScenarioLane(group.Key);
+            var firstRow = gridRow;
             host.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            var gridRow = row + 1;
-            var separator = new Border { BorderBrush = border, BorderThickness = new Thickness(0, 1, 0, 0) };
-            Grid.SetColumnSpan(separator, performances.Count + 1);
-            Place(separator, gridRow, 0);
-            Place(new TextBlock { Text = metric.Label, Margin = new Thickness(0, 9, 10, 9), VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap }, gridRow, 0);
+            Place(new TextBlock { Text = group.Key.ToUpperInvariant(), Style = eyebrow, Foreground = Brush(text), Margin = new Thickness(12, 10, 10, 2) }, gridRow++, 0);
 
-            var referenceValue = reference is null ? null : metric.Value(reference);
-            for (var column = 0; column < performances.Count; column++)
+            var first = true;
+            foreach (var metric in group)
             {
-                var performance = performances[column];
-                var value = metric.Value(performance);
-                var cell = new StackPanel { Padding = new Thickness(10, 7, 10, 7), VerticalAlignment = VerticalAlignment.Center };
-                cell.Children.Add(new TextBlock { Text = value is { } number ? metric.Format(number) : "—", FontWeight = FontWeights.SemiBold });
-                if (!ReferenceEquals(performance, reference) && value is not null && referenceValue is not null)
+                host.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                if (!first)
                 {
-                    cell.Children.Add(DifferenceText(metric, value, referenceValue));
+                    var separator = new Border { BorderBrush = border, BorderThickness = new Thickness(0, 1, 0, 0), Margin = new Thickness(12, 0, 12, 0) };
+                    Grid.SetColumnSpan(separator, performances.Count + 1);
+                    Place(separator, gridRow, 0);
                 }
 
-                Place(cell, gridRow, column + 1);
+                first = false;
+                var label = new StackPanel { Margin = new Thickness(12, 7, 10, 7), VerticalAlignment = VerticalAlignment.Center };
+                label.Children.Add(new TextBlock { Text = metric.Label, TextWrapping = TextWrapping.Wrap });
+                label.Children.Add(new TextBlock { Text = metric.Unit, Foreground = muted, FontSize = 11, TextWrapping = TextWrapping.Wrap });
+                Place(label, gridRow, 0);
+
+                var referenceValue = reference is null ? null : metric.Value(reference);
+                for (var column = 0; column < performances.Count; column++)
+                {
+                    var performance = performances[column];
+                    var value = metric.Value(performance);
+                    var cell = new StackPanel { Padding = new Thickness(10, 7, 12, 7), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
+                    cell.Children.Add(new TextBlock { Text = value is { } number ? metric.Format(number) : "—", FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Right });
+                    if (!ReferenceEquals(performance, reference) && value is not null && referenceValue is not null)
+                    {
+                        var difference = DifferenceText(metric, value, referenceValue);
+                        difference.HorizontalAlignment = HorizontalAlignment.Right;
+                        cell.Children.Add(difference);
+                    }
+
+                    Place(cell, gridRow, column + 1);
+                }
+
+                gridRow++;
+            }
+
+            if (lane is not null)
+            {
+                var band = new Border { Background = Brush(lane), CornerRadius = new CornerRadius(10), Margin = new Thickness(0, 3, 0, 3) };
+                Grid.SetRow(band, firstRow);
+                Grid.SetRowSpan(band, gridRow - firstRow);
+                Grid.SetColumnSpan(band, performances.Count + 1);
+                host.Children.Insert(0, band);
             }
         }
 
@@ -574,7 +626,7 @@ public sealed partial class MainPage
             card.Children.Add(new TextBlock { Text = metric.Label, FontWeight = FontWeights.SemiBold, FontSize = 14 });
             card.Children.Add(new TextBlock
             {
-                Text = metric.HigherIsBetter ? "Higher is better" : "Lower is better",
+                Text = $"{metric.Unit} · {(metric.HigherIsBetter ? "higher is better" : "lower is better")}",
                 FontSize = 11,
                 Foreground = (Brush)Resources["KpiMutedBrush"]
             });

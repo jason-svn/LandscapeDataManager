@@ -748,14 +748,15 @@ public sealed partial class MainPage : Page
         }
 
         string Arrow(string column) => column == _paletteSortKey ? (_paletteDescending ? " ▼" : " ▲") : string.Empty;
+        // Two-line headers like the Data explorer: the metric (and sort arrow), then its unit.
         PaletteNameHeader.Text = "Species" + Arrow("Name");
         PaletteCountHeader.Text = "Trees" + Arrow("Count");
-        PaletteValueHeader.Text = $"Money saved ({_preferredCurrency})" + Arrow("Value");
-        PaletteCo2Header.Text = $"CO₂e ({units.Carbon})" + Arrow("Co2");
-        PaletteRunoffHeader.Text = $"Runoff ({units.Water})" + Arrow("Runoff");
-        PalettePollutionHeader.Text = $"Pollution ({units.Pollutant})" + Arrow("Pollution");
-        PaletteOxygenHeader.Text = $"O₂ ({units.Carbon})" + Arrow("Oxygen");
-        PaletteUpkeepHeader.Text = $"Maintenance ({_preferredCurrency})" + Arrow("Upkeep");
+        PaletteValueHeader.Text = $"Money saved{Arrow("Value")}\n{_preferredCurrency}";
+        PaletteCo2Header.Text = $"CO₂e{Arrow("Co2")}\n{units.Carbon}";
+        PaletteOxygenHeader.Text = $"Oxygen{Arrow("Oxygen")}\n{units.Carbon}";
+        PaletteRunoffHeader.Text = $"Runoff{Arrow("Runoff")}\n{units.Water}";
+        PalettePollutionHeader.Text = $"Pollution{Arrow("Pollution")}\n{units.Pollutant}";
+        PaletteUpkeepHeader.Text = $"Cost{Arrow("Upkeep")}\n{_preferredCurrency}";
         PaletteCaptionText.Text = rows.Count == 0
             ? "No calculated trees in this scenario yet."
             : $"{rows.Count:N0} species · totals over {years} years · select a column to sort";

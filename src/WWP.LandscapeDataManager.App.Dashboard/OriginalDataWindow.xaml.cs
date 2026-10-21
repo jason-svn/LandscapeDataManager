@@ -1,6 +1,7 @@
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
@@ -45,15 +46,22 @@ public sealed partial class OriginalDataWindow : Window
     private void Rebuild()
     {
         double width;
+        IReadOnlyList<OriginalDataCell> displayHeaders;
+        IReadOnlyList<OriginalDataLane> lanes;
+        static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
         if (ShowingTrees)
         {
             _headers = OriginalDataTable.Headers(OriginalDataTable.TreeColumns);
+            displayHeaders = OriginalDataTable.DisplayHeaders(OriginalDataTable.TreeColumns);
+            lanes = OriginalDataTable.Lanes(OriginalDataTable.TreeColumns, Brush);
             _allRows = OriginalDataTable.Rows(_report.Trees, OriginalDataTable.TreeColumns, tree => tree.UniqueId);
             width = OriginalDataTable.TotalWidth(OriginalDataTable.TreeColumns);
         }
         else
         {
             _headers = OriginalDataTable.Headers(OriginalDataTable.FloorColumns);
+            displayHeaders = OriginalDataTable.DisplayHeaders(OriginalDataTable.FloorColumns);
+            lanes = OriginalDataTable.Lanes(OriginalDataTable.FloorColumns, Brush);
             _allRows = OriginalDataTable.Rows(_report.Floors, OriginalDataTable.FloorColumns, floor => floor.UniqueId);
             width = OriginalDataTable.TotalWidth(OriginalDataTable.FloorColumns);
         }
@@ -62,7 +70,9 @@ public sealed partial class OriginalDataWindow : Window
                             "no unit or currency conversion, no projection, every design option and level. " +
                             (ShowingTrees ? "Each tree's Stored units and Stored currency columns say what basis its numbers are in." : string.Empty);
         TableRoot.Width = width + TableChrome;
-        HeaderRow.ItemsSource = _headers;
+        HeaderRow.ItemsSource = displayHeaders;
+        GroupRow.ItemsSource = lanes;
+        LaneRow.ItemsSource = lanes;
         ApplySearch();
     }
 

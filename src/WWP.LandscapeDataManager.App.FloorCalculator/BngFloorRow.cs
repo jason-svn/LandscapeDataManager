@@ -100,7 +100,7 @@ public sealed class BngFloorRow : INotifyPropertyChanged
     public string? PhaseDemolished { get; }
 
     public string DisplayName => $"{FamilyName} : {TypeName}";
-    public string AreaDisplay => $"{AreaSquareMeters:N1} m²";
+    public string AreaDisplay => $"{AreaSquareMeters:N1}";
     public double AreaHectares => AreaSquareMeters / BngFloorStatusEvaluator.SquareMetresPerHectare;
 
     // ---- Role (from phases) ----

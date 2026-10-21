@@ -2,6 +2,7 @@
     x:Class="WWP.LandscapeDataManager.App.SyncAudit.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="using:WWP.LandscapeDataManager.SharedUI"
     xmlns:local="using:WWP.LandscapeDataManager.App.SyncAudit">
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="{StaticResource LimPageMargin}">
@@ -122,34 +123,50 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <ListView x:Name="ReportList" Grid.Row="0" ItemsSource="{x:Bind FilteredRows}" SelectionMode="Multiple">
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="local:AuditRow">
-                        <Grid Padding="6" ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="90" />
-                                <ColumnDefinition Width="70" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="160" />
-                                <ColumnDefinition Width="100" />
-                                <ColumnDefinition Width="100" />
-                                <ColumnDefinition Width="100" />
-                                <ColumnDefinition Width="220" />
-                                <ColumnDefinition Width="220" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="{x:Bind Category}" FontWeight="SemiBold" Foreground="{x:Bind CategoryBrush}" />
-                            <TextBlock Grid.Column="1" Text="{x:Bind Scope}" />
-                            <TextBlock Grid.Column="2" Text="{x:Bind Target}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="3" Text="{x:Bind Parameter}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="4" Text="{x:Bind PreviousValue}" TextTrimming="CharacterEllipsis" Opacity="0.7" />
-                            <TextBlock Grid.Column="5" Text="{x:Bind CurrentValue}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="6" Text="{x:Bind LatestValue}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="7" Text="{x:Bind ProposedAction}" TextTrimming="CharacterEllipsis" FontStyle="Italic" Opacity="0.85" />
-                            <TextBlock Grid.Column="8" Text="{x:Bind Message}" Opacity="0.75" TextWrapping="Wrap" />
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+            <!-- Audit table: the three values being compared, and what to do about them, each in a swim lane. -->
+            <Grid Grid.Row="0">
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                <Grid Grid.RowSpan="3" Style="{StaticResource LimTableLanesStyle}" ui:TableLanes.FollowRows="True" Margin="{StaticResource LimTableCheckOffset}">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="90" /><ColumnDefinition Width="70" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="150" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <Border Grid.Column="4" Grid.ColumnSpan="3" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneVioletBrush}" />
+                    <Border Grid.Column="7" Grid.ColumnSpan="2" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreenBrush}" />
+                </Grid>
+                <Grid Style="{StaticResource LimTableGroupRowStyle}" Margin="{StaticResource LimTableCheckOffset}">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="90" /><ColumnDefinition Width="70" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="150" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="4" Grid.ColumnSpan="3" Text="VALUE" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneVioletTextBrush}" />
+                    <TextBlock Grid.Column="7" Grid.ColumnSpan="2" Text="RESOLUTION" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneGreenTextBrush}" />
+                </Grid>
+                <Grid Grid.Row="1" Style="{StaticResource LimTableHeaderRowStyle}" Margin="{StaticResource LimTableCheckOffset}">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="90" /><ColumnDefinition Width="70" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="150" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <TextBlock Text="Change" Style="{StaticResource LimTableHeaderStyle}" />
+                    <TextBlock Grid.Column="1" Text="Scope" Style="{StaticResource LimTableHeaderStyle}" />
+                    <TextBlock Grid.Column="2" Text="Target" Style="{StaticResource LimTableHeaderStyle}" />
+                    <TextBlock Grid.Column="3" Text="Parameter" Style="{StaticResource LimTableHeaderStyle}" />
+                    <TextBlock Grid.Column="4" Text="Previous&#x0a;at last sync" Style="{StaticResource LimTableHeaderStyle}" />
+                    <TextBlock Grid.Column="5" Text="Current&#x0a;in Revit" Style="{StaticResource LimTableHeaderStyle}" />
+                    <TextBlock Grid.Column="6" Text="Latest&#x0a;from source" Style="{StaticResource LimTableHeaderStyle}" />
+                    <TextBlock Grid.Column="7" Text="Proposed action" Style="{StaticResource LimTableHeaderStyle}" />
+                    <TextBlock Grid.Column="8" Text="Message" Style="{StaticResource LimTableHeaderStyle}" />
+                </Grid>
+                <ListView Grid.Row="2" x:Name="ReportList" ItemsSource="{x:Bind FilteredRows}" SelectionMode="Multiple" ItemContainerStyle="{StaticResource LimTableCheckItemStyle}">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="local:AuditRow">
+                            <Grid Style="{StaticResource LimTableRowStyle}">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="90" /><ColumnDefinition Width="70" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="150" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="{x:Bind Category}" FontWeight="SemiBold" Foreground="{x:Bind CategoryBrush}" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind Scope}" />
+                                <TextBlock Grid.Column="2" Text="{x:Bind Target}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Target}" />
+                                <TextBlock Grid.Column="3" Text="{x:Bind Parameter}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Parameter}" />
+                                <TextBlock Grid.Column="4" Text="{x:Bind PreviousValue}" TextTrimming="CharacterEllipsis" Opacity="0.7" />
+                                <TextBlock Grid.Column="5" Text="{x:Bind CurrentValue}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="6" Text="{x:Bind LatestValue}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="7" Text="{x:Bind ProposedAction}" TextTrimming="CharacterEllipsis" FontStyle="Italic" Opacity="0.85" />
+                                <TextBlock Grid.Column="8" Text="{x:Bind Message}" Opacity="0.75" TextWrapping="Wrap" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
 
             <Grid Grid.Row="1" ColumnSpacing="10">
                 <Grid.ColumnDefinitions>

@@ -22,6 +22,19 @@
             <SolidColorBrush x:Key="LimErrorBrush" Color="#FFC4262E" />
             <SolidColorBrush x:Key="LimNeutralBrush" Color="#FF616161" />
             <SolidColorBrush x:Key="LimInfoBrush" Color="#FF007F7F" />
+            <SolidColorBrush x:Key="LimLaneGreenBrush" Color="#16176B2B" />
+            <SolidColorBrush x:Key="LimLaneBlueBrush" Color="#162F6FB0" />
+            <SolidColorBrush x:Key="LimLaneAmberBrush" Color="#1AA36A00" />
+            <SolidColorBrush x:Key="LimLaneGreyBrush" Color="#12586359" />
+            <SolidColorBrush x:Key="LimLaneVioletBrush" Color="#166B4FA0" />
+            <SolidColorBrush x:Key="LimLaneTealBrush" Color="#16007A70" />
+            <SolidColorBrush x:Key="LimLaneGreenTextBrush" Color="#FF176B2B" />
+            <SolidColorBrush x:Key="LimLaneBlueTextBrush" Color="#FF2F6FB0" />
+            <SolidColorBrush x:Key="LimLaneAmberTextBrush" Color="#FFA36A00" />
+            <SolidColorBrush x:Key="LimLaneGreyTextBrush" Color="#FF586359" />
+            <SolidColorBrush x:Key="LimLaneVioletTextBrush" Color="#FF6B4FA0" />
+            <SolidColorBrush x:Key="LimLaneTealTextBrush" Color="#FF00756B" />
+            <SolidColorBrush x:Key="LimTableDividerBrush" Color="#FFDDE4DA" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <SolidColorBrush x:Key="LimAccentBrush" Color="#FF57D4D4" />
@@ -30,6 +43,19 @@
             <SolidColorBrush x:Key="LimErrorBrush" Color="#FFFF99A0" />
             <SolidColorBrush x:Key="LimNeutralBrush" Color="#FFC5C5C5" />
             <SolidColorBrush x:Key="LimInfoBrush" Color="#FF57D4D4" />
+            <SolidColorBrush x:Key="LimLaneGreenBrush" Color="#33309A45" />
+            <SolidColorBrush x:Key="LimLaneBlueBrush" Color="#333E86CC" />
+            <SolidColorBrush x:Key="LimLaneAmberBrush" Color="#33C98A00" />
+            <SolidColorBrush x:Key="LimLaneGreyBrush" Color="#1FB4C2B7" />
+            <SolidColorBrush x:Key="LimLaneVioletBrush" Color="#338C6FD0" />
+            <SolidColorBrush x:Key="LimLaneTealBrush" Color="#3330B5A8" />
+            <SolidColorBrush x:Key="LimLaneGreenTextBrush" Color="#FF8EDB9B" />
+            <SolidColorBrush x:Key="LimLaneBlueTextBrush" Color="#FF78B5ED" />
+            <SolidColorBrush x:Key="LimLaneAmberTextBrush" Color="#FFF4BE70" />
+            <SolidColorBrush x:Key="LimLaneGreyTextBrush" Color="#FFB4C2B7" />
+            <SolidColorBrush x:Key="LimLaneVioletTextBrush" Color="#FFC3B1F0" />
+            <SolidColorBrush x:Key="LimLaneTealTextBrush" Color="#FF7FD8CC" />
+            <SolidColorBrush x:Key="LimTableDividerBrush" Color="#FF455249" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <SolidColorBrush x:Key="LimAccentBrush" Color="{ThemeResource SystemColorHighlightColor}" />
@@ -38,6 +64,19 @@
             <SolidColorBrush x:Key="LimErrorBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
             <SolidColorBrush x:Key="LimNeutralBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
             <SolidColorBrush x:Key="LimInfoBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="LimLaneGreenBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="LimLaneBlueBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="LimLaneAmberBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="LimLaneGreyBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="LimLaneVioletBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="LimLaneTealBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="LimLaneGreenTextBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="LimLaneBlueTextBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="LimLaneAmberTextBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="LimLaneGreyTextBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="LimLaneVioletTextBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="LimLaneTealTextBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="LimTableDividerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
@@ -247,6 +286,68 @@
         <Setter Property="FontSize" Value="12" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Opacity" Value="0.55" />
+    </Style>
+
+    <!-- Data tables: one language in every tool. Columns that belong together sit in a vertical
+         swim lane, a pale wash running behind the header and every row, with the lane's name in
+         capitals above it. Each column header is its name on top and its unit or qualifier
+         underneath (Text="Area&#x0a;m²"), bottom-aligned, so cells hold plain values. The lane
+         grid, the two header grids and every row repeat one set of ColumnDefinitions and share
+         LimTable*Style padding and spacing, so they line up exactly; the 26px right padding keeps
+         an 18px gutter for the list's vertical scrollbar, which would otherwise sit on the last column. In a ListView use
+         LimTableItemStyle: the default item padding (16,0,12,0) would push rows off the header. -->
+    <Style x:Key="LimTableLanesStyle" TargetType="Grid">
+        <Setter Property="ColumnSpacing" Value="14" />
+        <Setter Property="Padding" Value="8,0,26,0" />
+    </Style>
+    <Style x:Key="LimTableLaneStyle" TargetType="Border">
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Margin" Value="-4,0" />
+    </Style>
+    <Style x:Key="LimTableGroupRowStyle" TargetType="Grid">
+        <Setter Property="ColumnSpacing" Value="14" />
+        <Setter Property="Padding" Value="8,10,26,0" />
+    </Style>
+    <Style x:Key="LimTableHeaderRowStyle" TargetType="Grid">
+        <Setter Property="ColumnSpacing" Value="14" />
+        <Setter Property="Padding" Value="8,6,26,8" />
+    </Style>
+    <Style x:Key="LimTableRowStyle" TargetType="Grid">
+        <Setter Property="ColumnSpacing" Value="14" />
+        <Setter Property="Padding" Value="8,7,26,7" />
+        <Setter Property="BorderBrush" Value="{ThemeResource LimTableDividerBrush}" />
+        <Setter Property="BorderThickness" Value="0,1,0,0" />
+    </Style>
+    <Style x:Key="LimTableGroupStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="CharacterSpacing" Value="100" />
+        <Setter Property="Foreground" Value="{ThemeResource LimLaneGreyTextBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style x:Key="LimTableHeaderStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="CharacterSpacing" Value="100" />
+        <Setter Property="Foreground" Value="{ThemeResource LimLaneGreyTextBrush}" />
+        <Setter Property="VerticalAlignment" Value="Bottom" />
+        <Setter Property="LineHeight" Value="15" />
+        <Setter Property="TextWrapping" Value="WrapWholeWords" />
+    </Style>
+    <Style x:Key="LimTableNumberHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource LimTableHeaderStyle}">
+        <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+    <Style x:Key="LimTableItemStyle" TargetType="ListViewItem" BasedOn="{StaticResource DefaultListViewItemStyle}">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <!-- SelectionMode="Multiple" draws a 28px check box before each row: use LimTableCheckItemStyle
+         for its items and give the lane and header grids LimTableCheckOffset (28 + 8 clearance). -->
+    <Thickness x:Key="LimTableCheckOffset">36,0,0,0</Thickness>
+    <Style x:Key="LimTableCheckItemStyle" TargetType="ListViewItem" BasedOn="{StaticResource LimTableItemStyle}">
+        <Setter Property="Padding" Value="8,0,0,0" />
     </Style>
 
     <!-- Card: the one structural container every tool uses for a grouped section. -->

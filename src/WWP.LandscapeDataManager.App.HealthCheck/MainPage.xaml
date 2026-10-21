@@ -2,6 +2,7 @@
     x:Class="WWP.LandscapeDataManager.App.HealthCheck.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="using:WWP.LandscapeDataManager.SharedUI"
     xmlns:local="using:WWP.LandscapeDataManager.App.HealthCheck">
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="{StaticResource LimPageMargin}">
@@ -84,37 +85,40 @@
             <Button Grid.Column="6" Content="Reset view colours" Click="ResetColours_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
         </Grid>
 
-        <Grid Grid.Row="4" Padding="8,0" ColumnSpacing="10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="90" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="130" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <TextBlock Text="Category" Style="{StaticResource LimColumnHeaderStyle}" />
-            <TextBlock Grid.Column="1" Text="Family Name : Type Name" Style="{StaticResource LimColumnHeaderStyle}" />
-            <TextBlock Grid.Column="2" Text="Status" Style="{StaticResource LimColumnHeaderStyle}" />
-            <TextBlock Grid.Column="3" Text="Reason" Style="{StaticResource LimColumnHeaderStyle}" />
+        <!-- The report table. The result columns sit in a swim lane that runs behind the header
+             and every row; the lane, header and row grids share one set of columns. Multiple
+             selection puts a check box at the start of each row, hence LimTableCheckOffset. -->
+        <Grid Grid.Row="4" Grid.RowSpan="2">
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+            <Grid Grid.RowSpan="3" Style="{StaticResource LimTableLanesStyle}" ui:TableLanes.FollowRows="True" Margin="{StaticResource LimTableCheckOffset}">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="90" /><ColumnDefinition Width="*" /><ColumnDefinition Width="130" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <Border Grid.Column="2" Grid.ColumnSpan="2" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreenBrush}" />
+            </Grid>
+            <Grid Style="{StaticResource LimTableGroupRowStyle}" Margin="{StaticResource LimTableCheckOffset}">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="90" /><ColumnDefinition Width="*" /><ColumnDefinition Width="130" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="2" Grid.ColumnSpan="2" Text="RESULT" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneGreenTextBrush}" />
+            </Grid>
+            <Grid Grid.Row="1" Style="{StaticResource LimTableHeaderRowStyle}" Margin="{StaticResource LimTableCheckOffset}">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="90" /><ColumnDefinition Width="*" /><ColumnDefinition Width="130" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <TextBlock Text="Category" Style="{StaticResource LimTableHeaderStyle}" />
+                <TextBlock Grid.Column="1" Text="Family : Type" Style="{StaticResource LimTableHeaderStyle}" />
+                <TextBlock Grid.Column="2" Text="Status" Style="{StaticResource LimTableHeaderStyle}" />
+                <TextBlock Grid.Column="3" Text="Reason" Style="{StaticResource LimTableHeaderStyle}" />
+            </Grid>
+            <ListView Grid.Row="2" x:Name="ReportList" ItemsSource="{x:Bind ReportRows}" SelectionMode="Multiple" ItemContainerStyle="{StaticResource LimTableCheckItemStyle}">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="local:HealthCheckRow">
+                        <Grid Style="{StaticResource LimTableRowStyle}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90" /><ColumnDefinition Width="*" /><ColumnDefinition Width="130" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="{x:Bind Category}" Opacity="0.75" />
+                            <TextBlock Grid.Column="1" Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind DisplayName}" />
+                            <TextBlock Grid.Column="2" Text="{x:Bind Status}" FontWeight="SemiBold" Foreground="{x:Bind StatusBrush}" />
+                            <TextBlock Grid.Column="3" Text="{x:Bind Reason}" TextWrapping="Wrap" Opacity="0.85" />
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
         </Grid>
-
-        <ListView Grid.Row="5" x:Name="ReportList" ItemsSource="{x:Bind ReportRows}" SelectionMode="Multiple">
-            <ListView.ItemTemplate>
-                <DataTemplate x:DataType="local:HealthCheckRow">
-                    <Grid Padding="8,7" ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="90" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="130" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="{x:Bind Category}" Opacity="0.75" />
-                        <TextBlock Grid.Column="1" Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind DisplayName}" />
-                        <TextBlock Grid.Column="2" Text="{x:Bind Status}" FontWeight="SemiBold" Foreground="{x:Bind StatusBrush}" />
-                        <TextBlock Grid.Column="3" Text="{x:Bind Reason}" TextWrapping="Wrap" Opacity="0.85" />
-                    </Grid>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
 
         <ProgressRing x:Name="BusyIndicator"
                       Grid.RowSpan="6"

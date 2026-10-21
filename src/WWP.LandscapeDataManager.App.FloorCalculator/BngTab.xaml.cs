@@ -27,7 +27,6 @@ public sealed partial class BngTab : UserControl
     private readonly BngMetricCatalog _catalog = BngMetricCatalog.Default;
     private Func<RevitPipeClient>? _getClient;
     private string _pipeName = string.Empty;
-    private bool _syncingColumnScroll;
     private string? _activeFilter;
     private BngHabitat? _bulkHabitat;
     private bool _syncingLinkedRows;
@@ -177,7 +176,6 @@ public sealed partial class BngTab : UserControl
 
         ParametersInfoBar.IsOpen = AllRows.Any(row => !row.ParametersBound);
         StatusText.Text = string.Join(" ", notes);
-        DispatcherQueue.TryEnqueue(UpdateColumnScrollRange);
     }
 
     private void OpenParameters_Click(object sender, RoutedEventArgs e)
@@ -769,31 +767,14 @@ public sealed partial class BngTab : UserControl
 
     // ---- Sideways scrolling of the wide A-2 table ----
 
-    private void ScrollLeft_Click(object sender, RoutedEventArgs e) =>
-        TableScroller.ChangeView(Math.Max(0, TableScroller.HorizontalOffset - TableScroller.ViewportWidth * 0.8), null, null);
-
-    private void ScrollRight_Click(object sender, RoutedEventArgs e) =>
-        TableScroller.ChangeView(Math.Min(TableScroller.ScrollableWidth, TableScroller.HorizontalOffset + TableScroller.ViewportWidth * 0.8), null, null);
-
-    private void ColumnScrollSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
-    {
-        if (!_syncingColumnScroll)
-        {
-            TableScroller.ChangeView(e.NewValue, null, null, disableAnimation: true);
-        }
-    }
-
-    private void TableScroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
-    {
-        UpdateColumnScrollRange();
-        UpdateFrozenColumn();
-    }
+    private void TableScroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e) => UpdateFrozenColumn();
 
     /// <summary>Keeps the Family : Type column pinned on the left while the rest of the table scrolls.</summary>
     private void UpdateFrozenColumn()
     {
         var offset = TableScroller.HorizontalOffset;
         FrozenHeaderTransform.X = offset;
+        FrozenLaneTransform.X = offset;
         foreach (var row in AllRows)
         {
             row.FrozenOffset = offset;
@@ -829,8 +810,6 @@ public sealed partial class BngTab : UserControl
         }
     }
 
-    private void TableScroller_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateColumnScrollRange();
-
     /// <summary>Shift + mouse wheel scrolls the table sideways, as in Excel.</summary>
     private void TableScroller_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
     {
@@ -842,25 +821,6 @@ public sealed partial class BngTab : UserControl
         var delta = e.GetCurrentPoint(TableScroller).Properties.MouseWheelDelta;
         TableScroller.ChangeView(Math.Clamp(TableScroller.HorizontalOffset - delta, 0, TableScroller.ScrollableWidth), null, null, disableAnimation: true);
         e.Handled = true;
-    }
-
-    private void UpdateColumnScrollRange()
-    {
-        _syncingColumnScroll = true;
-        try
-        {
-            var scrollable = TableScroller.ScrollableWidth;
-            ColumnScrollSlider.Maximum = Math.Max(1, scrollable);
-            ColumnScrollSlider.Value = TableScroller.HorizontalOffset;
-            ColumnScrollSlider.IsEnabled = scrollable > 0;
-            ColumnScrollText.Text = scrollable <= 0
-                ? "All columns fit"
-                : $"{Math.Round(100 * TableScroller.HorizontalOffset / scrollable):0}% across · Shift + wheel scrolls";
-        }
-        finally
-        {
-            _syncingColumnScroll = false;
-        }
     }
 
     // ---- Filtering & counts ----

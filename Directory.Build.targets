@@ -5,5 +5,7 @@
              Link="SharedUI\WindowSizing.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)src\WWP.LandscapeDataManager.SharedUI\ThemeResources.cs"
              Link="SharedUI\ThemeResources.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)src\WWP.LandscapeDataManager.SharedUI\TableLanes.cs"
+             Link="SharedUI\TableLanes.cs" />
   </ItemGroup>
 </Project>

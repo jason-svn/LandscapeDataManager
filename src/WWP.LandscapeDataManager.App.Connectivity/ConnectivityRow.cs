@@ -24,7 +24,7 @@ public sealed class ConnectivityRow
     public string Category => Item.Category == "Floor" ? "Planting area" : "Tree";
     public string DisplayName => $"{Item.FamilyName} : {Item.TypeName}";
     public string AreaText => $"{Item.AreaSquareMeters:N1}";
-    public string DpcText => Result is null ? "—" : $"{Result.MeanDpcPercent:N2}%";
+    public string DpcText => Result is null ? "—" : $"{Result.MeanDpcPercent:N2}";
     public string ScoreText => Result is null ? "—" : $"{Result.Score:N2}";
 
     public string BandText => Result is null

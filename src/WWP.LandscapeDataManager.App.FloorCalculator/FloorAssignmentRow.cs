@@ -19,7 +19,7 @@ public sealed class FloorAssignmentRow(SelectedFloorItem item) : INotifyProperty
     public string TypeName { get; } = item.TypeName;
     public double AreaSquareMeters { get; } = item.AreaSquareMeters;
     public string DisplayName => $"{FamilyName} : {TypeName}";
-    public string AreaDisplay => $"{AreaSquareMeters:N1} m²";
+    public string AreaDisplay => $"{AreaSquareMeters:N1}";
     public string? CurrentLdsType { get; } = item.CurrentLdsType;
 
     /// <summary>The landscape data sheet row this floor was last calculated with (stored in Revit), if any.</summary>
