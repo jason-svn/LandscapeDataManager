@@ -116,9 +116,34 @@ Every growth year is still modelled as copies on its `LIM_Growth_<N>yr` workset 
 
 ## Phase 5: Live Revit testing
 
-- [ ] Run every tool against a real workshared project: Import Shared Parameter, Excel Importer, Floor Calculator + BNG, Connectivity, Growth Projections (incl. i-Tree), Dashboard and KPI Schedules.
-- [ ] Growth Projections: check copies in a design option that **isn't** active, and that existing copies refresh correctly.
-- [ ] Check the mature-size measurement against the real planting families.
+Model: "LAN_LIM Arboris_EWR Sandbox" (workshared, ACC). Writes are fine for testing, but **never Sync with Central**.
+
+Checked by script on 2026-10-21, with Revit still running the v1.4 connector:
+
+- [x] Design option sets read from Revit, including options with nothing in them yet (Variante 1: Baseline / Option 1 / Option 2; Test: Option 1 / Option 2).
+- [x] A view collector with `ElementDesignOptionFilter` returns only the options the active view shows, which is how "Use current view" works out the scenario.
+- [x] The new Dashboard runs against the live model through the old connector (older reports still load): scenario picker, Edit… dialog, scenario overview, redesigned overview and Data explorer.
+- [x] Revit parses the updated `Shared_Parameters_WWP.txt` (160 definitions; the new ones are Mass/Volume/Currency/Text as intended).
+- [x] `HOST_AREA_COMPUTED` matches a floor's Area, so maintenance per m² × area uses the right area.
+- [x] Live i-Tree forecast for one planting input: 25 years in 2.8 s, parsed year by year.
+
+Needs the new build in Revit. Close Revit, run `dotnet build WWP.LandscapeDataManager.sln -c Debug` (it deploys to `%APPDATA%\Autodesk\Revit\Addins5`), reopen the sandbox, then:
+
+- [ ] **Import Shared Parameter:** the 19 new `!_S_PLT_Result_*` parameters bind (maintenance, lifetime oxygen, timeline key, 5/10/20/25-year totals).
+- [ ] **Tree Calculator:** the status line ends with "i-Tree forecast: … unique planting input(s)". Planted trees get `Result_iTreeTimelineKey_Text`, the `…{N}yr` totals and oxygen; growth copies don't get a key. Run it again: "already stored", no new requests.
+- [ ] **Floor Calculator:** `Result_MaintenanceCostAnnual_Currency` = rate × area once maintenance rates are imported.
+- [ ] **Dashboard:**
+  - Every option is listed in Edit…, including empty ones.
+  - Switch a view to a non-primary option (Visibility/Graphics › Design Options), then Use current view.
+  - Save two scenarios, pick a reference, compare.
+  - The outlook line says "i-Tree's year-by-year forecast".
+  - Export JSON (schema 5).
+- [ ] **BNG tab:** the scenario filter lists the saved scenarios, and totals follow it.
+- [ ] **KPI Schedules:** delete and rebuild them; the connectivity, oxygen, maintenance and forecast columns appear.
+- [ ] **Connectivity Calculator:** after a run, the Dashboard shows band counts.
+- [ ] Run every tool against the workshared project: Import Shared Parameter, Excel Importer, Floor Calculator + BNG, Connectivity, Growth Projections (incl. i-Tree), Dashboard and KPI Schedules.
+- [ ] **Growth Projections:** check copies in a design option that **isn't** active, and that existing copies refresh correctly.
+- [ ] Check the mature-size measurement against the real planting families (see the Prunus avium `Mature Age` = 1 note in Phase 4).
 
 ## Follow-ups
 
