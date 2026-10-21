@@ -64,15 +64,15 @@ The planting family computes the tree's age; LIM supplies the inputs.
 
 ## Phase 2: Design-option scenarios
 
-Every dashboard number depends on picking the right scenario, so this comes before the redesign.
+Every dashboard number depends on picking the right scenario, so this comes before the redesign. Built on branch `roadmap-phases-2-5`, not released yet.
 
-- [ ] **Scenario picker:** one option per design-option set, defaulting to each set's primary. Today, picking an option in one set drops every other set, even its primary.
-- [ ] **"Use current view":** works out the scenario from the options visible in the active view.
-- [ ] **Canopy cover per scenario:** the union of canopy footprints (overlaps counted once) ÷ the chosen site area.
-- [ ] **Greenspace ratio:** pervious ÷ (pervious + impervious) floor area. Unclassified floors are listed separately, and building slabs are left out.
-- [ ] **A "design option" means a scenario:** one chosen option from each design-option set. Saved scenarios are named, e.g. "Scheme A = Variante 1: Baseline + Test: Option 1". The Dashboard, BNG tab and JSON export all work on the scenario. Elements in options that aren't chosen are left out.
-- [ ] **Scenario overview:** one table with every saved scenario next to the others, plus the difference from a chosen reference scenario (absolute and %).
-- [ ] **Performance comparison:** for each scenario, show trees, canopy cover, greenspace ratio, CO₂e, runoff avoided, pollution removed, BNG units/net gain, embodied carbon, maintenance cost and net value, side by side and as charts.
+- [x] **Scenario picker:** one option per design-option set, defaulting to each set's primary. A scenario is the main model + the chosen option in every set; elements in options that aren't chosen are left out. The connector lists every set and option, including empty ones (`DesignOptionSetItem`).
+- [x] **"Use current view":** works out the scenario from the options visible in the active view (a view collector per option; a set with nothing visible falls back to its primary). Also in Edit… as "Fill from Revit's active view".
+- [x] **Canopy cover per scenario:** the union of canopy footprints, overlaps counted once (exact, `CanopyUnion`), ÷ the chosen site area. Trees now carry their plan position; a cached snapshot without positions falls back to summed areas.
+- [x] **Greenspace ratio:** pervious ÷ (pervious + impervious) floor area, on Site & Biodiversity and in the scenario overview. Unclassified floors and building slabs (structural floors, "slab"/"suspended"/… types without an LDS type, or tagged `Building`) are listed separately and left out.
+- [x] **A "design option" means a scenario:** saved scenarios are named and stored on the project (`ProjectSettingsSnapshot.DesignScenarios`), shown as e.g. "Scheme A = Variante 1: Baseline + Test: Option 1". The Dashboard, BNG tab (as a filter) and JSON export (schema v5, `designOption` + `choices`) all work on the scenario.
+- [x] **Scenario overview:** one table with every saved scenario next to the others, plus the difference from a chosen reference scenario (absolute and %; percentage metrics in points). The reference is saved on the project.
+- [x] **Performance comparison:** for each scenario, trees, species, canopy cover, greenspace ratio, CO₂e, runoff avoided, pollution removed, oxygen, BNG units/net gain, embodied carbon, ecosystem value, maintenance cost and net value, side by side and as bar charts (lower is better for embodied carbon and maintenance).
 
 ## Phase 3: Dashboard redesign
 

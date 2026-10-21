@@ -141,11 +141,12 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <ComboBox x:Name="DesignOptionFilterBox"
-                      MinWidth="240"
+                      MinWidth="300"
+                      MaxWidth="460"
                       IsEnabled="False"
-                      PlaceholderText="Design option"
+                      PlaceholderText="Design scenario"
                       SelectionChanged="DesignOptionFilterBox_SelectionChanged"
-                      ToolTipService.ToolTip="Show one design option: the main model plus that option's floors. The counts and the baseline → post-intervention total follow this choice; Write to Revit still writes every loaded floor." />
+                      ToolTipService.ToolTip="Show one design scenario: the main model plus the option it chooses in every set (saved in the Dashboard). The counts and the baseline → post-intervention total follow this choice; Write to Revit still writes every loaded floor." />
             <TextBlock Grid.Column="1" x:Name="FilterStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" VerticalAlignment="Center"
                        Text="Load floors to start — click a card above to filter the list to just that status." />
             <TextBlock Grid.Column="2" x:Name="TotalUnitsText" FontWeight="SemiBold" VerticalAlignment="Center" />

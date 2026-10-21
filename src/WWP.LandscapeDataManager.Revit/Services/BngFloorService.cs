@@ -85,7 +85,7 @@ internal static class BngFloorService
             throw new InvalidOperationException("None of the selected elements are Floor instances.");
         }
 
-        return new BngFloorsResult(document.Title, items);
+        return new BngFloorsResult(document.Title, items, DesignOptionScenarioService.GetSets(document));
     }
 
     public static WriteBngFloorsResult Write(UIApplication application, WriteBngFloorsRequest request)

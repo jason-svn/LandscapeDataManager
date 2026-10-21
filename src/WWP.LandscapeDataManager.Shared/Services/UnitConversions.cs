@@ -9,4 +9,7 @@ public static class UnitConversions
 
     /// <summary>Mass ratio between CO2 (molecular weight 44.01) and elemental carbon (atomic weight 12.011) — the standard factor for converting a raw sequestered-carbon mass into its CO2-equivalent mass.</summary>
     public const double CarbonToCo2MassRatio = 3.67d;
+
+    /// <summary>O₂ released per kg of CO₂ fixed by photosynthesis: 32/44 by molecular weight (≈ 0.727).</summary>
+    public const double OxygenToCo2MassRatio = 32d / 44d;
 }

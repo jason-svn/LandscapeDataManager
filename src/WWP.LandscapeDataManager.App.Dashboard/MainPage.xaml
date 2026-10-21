@@ -146,10 +146,11 @@
             <StackPanel Spacing="8">
                 <TextBlock Text="FILTERS &amp; SCOPE" Style="{StaticResource KpiEyebrowStyle}" />
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
-                    <Grid ColumnSpacing="10" MinWidth="1360" Margin="0,0,0,20">
+                    <Grid ColumnSpacing="10" MinWidth="1500" Margin="0,0,0,20">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="135" />
-                            <ColumnDefinition Width="250" />
+                            <ColumnDefinition Width="320" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="145" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="150" />
@@ -160,28 +161,36 @@
                             <ComboBoxItem Content="Whole model" />
                             <ComboBoxItem Content="Current selection" />
                         </ComboBox>
-                        <ComboBox Grid.Column="1" x:Name="DesignOptionBox" Header="Design option" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="DesignOptionBox_SelectionChanged">
-                            <ComboBoxItem Content="All design options" />
-                        </ComboBox>
-                        <ComboBox Grid.Column="2" x:Name="LevelBox" Header="Level" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="LevelBox_SelectionChanged">
+                        <!-- A scenario is one option per design option set (default: each set's primary).
+                        Elements in options that aren't chosen are left out of every number. -->
+                        <ComboBox Grid.Column="1" x:Name="ScenarioBox" Header="Design scenario" HorizontalAlignment="Stretch"
+                            DisplayMemberPath="Label" SelectionChanged="ScenarioBox_SelectionChanged"
+                            ToolTipService.ToolTip="One option per design option set. Main-model elements are in every scenario; elements in options that aren't chosen are left out." />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                            <Button Content="Edit…" Click="EditScenario_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                                ToolTipService.ToolTip="Pick one option per design option set, then show it or save it as a named scenario." />
+                            <Button Content="Use current view" Click="UseCurrentView_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                                ToolTipService.ToolTip="Show the scenario Revit's active view displays, worked out from which options have elements visible in it." />
+                        </StackPanel>
+                        <ComboBox Grid.Column="3" x:Name="LevelBox" Header="Level" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="LevelBox_SelectionChanged">
                             <ComboBoxItem Content="All levels" />
                         </ComboBox>
-                        <TextBox Grid.Column="3" x:Name="SpeciesSearchBox" Header="Species filter" PlaceholderText="Code or common name" TextChanged="SpeciesSearchBox_TextChanged" />
-                        <ComboBox Grid.Column="4" x:Name="UnitSystemBox" Header="Display units" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="UnitSystemBox_SelectionChanged">
+                        <TextBox Grid.Column="4" x:Name="SpeciesSearchBox" Header="Species filter" PlaceholderText="Code or common name" TextChanged="SpeciesSearchBox_TextChanged" />
+                        <ComboBox Grid.Column="5" x:Name="UnitSystemBox" Header="Display units" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="UnitSystemBox_SelectionChanged">
                             <ComboBoxItem Content="Project default" />
                             <ComboBoxItem Content="Metric" />
                             <ComboBoxItem Content="Imperial" />
                         </ComboBox>
                         <!-- One stop per growth year, like the web dashboard's slicer. Stops come from the
                         model's growth-year worksets (see GrowthYears), else the standard 5-25 outlook. -->
-                        <StackPanel Grid.Column="5" Spacing="0" ToolTipService.ToolTip="Growth year: trees on that year's workset (plus trees on no growth-year workset), with outlook totals over that many years.">
+                        <StackPanel Grid.Column="6" Spacing="0" ToolTipService.ToolTip="Growth year: trees on that year's workset (plus trees on no growth-year workset), with outlook totals over that many years.">
                             <TextBlock x:Name="GrowthYearHeaderText" Text="Growth year" Margin="0,0,0,4" />
                             <Slider x:Name="GrowthYearSlider" Minimum="0" Maximum="4" StepFrequency="1" TickFrequency="1" TickPlacement="None"
                                 SnapsTo="StepValues" IsThumbToolTipEnabled="False" Margin="8,0,8,0"
                                 AutomationProperties.Name="Growth year" ValueChanged="GrowthYearSlider_ValueChanged" />
                             <Grid x:Name="GrowthYearTicks" Margin="0,-6,0,0" />
                         </StackPanel>
-                        <Button Grid.Column="6" Click="Refresh_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom">
+                        <Button Grid.Column="7" Click="Refresh_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <TextBlock Text="&#8635;" FontSize="14" />
                                 <TextBlock Text="Refresh model" />
@@ -460,40 +469,31 @@
             </PivotItem>
 
             <PivotItem Header="Design scenarios">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                     <Grid Background="{ThemeResource KpiCanvasBrush}" Padding="22" CornerRadius="20" RowSpacing="16">
-                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="Design-option comparison" FontSize="24" FontWeight="Bold" />
-                            <TextBlock Text="Compares every Revit design option in the loaded snapshot. A year found in an option name is used as that option's outlook; otherwise the selected outlook is used." Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
-                        </StackPanel>
-                        <Border Grid.Row="1" Style="{StaticResource KpiSurfaceStyle}" Margin="0,2,0,0">
-                            <StackPanel Spacing="12">
-                                <Grid ColumnSpacing="12">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="150" /><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /></Grid.ColumnDefinitions>
-                                    <TextBlock Text="DESIGN OPTION" Style="{StaticResource KpiEyebrowStyle}" />
-                                    <TextBlock Grid.Column="1" Text="INVENTORY" Style="{StaticResource KpiEyebrowStyle}" />
-                                    <TextBlock Grid.Column="2" Text="BIODIVERSITY ADDED" Style="{StaticResource KpiEyebrowStyle}" />
-                                    <TextBlock Grid.Column="3" Text="RELATIVE CARBON BENEFIT" Style="{StaticResource KpiEyebrowStyle}" />
-                                    <TextBlock Grid.Column="4" Text="PROJECTED" Style="{StaticResource KpiEyebrowStyle}" HorizontalAlignment="Right" />
-                                </Grid>
-                                <ItemsControl ItemsSource="{x:Bind ScenarioRows}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="local:ScenarioComparisonRow">
-                                            <Grid ColumnSpacing="12" Margin="0,7">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="150" /><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /><ColumnDefinition Width="160" /></Grid.ColumnDefinitions>
-                                                <TextBlock Text="{x:Bind DesignOption}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Grid.Column="1" Text="{x:Bind Inventory}" Foreground="{ThemeResource KpiMutedBrush}" />
-                                                <TextBlock Grid.Column="2" Text="{x:Bind SpeciesCount}" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
-                                                <ProgressBar Grid.Column="3" Value="{x:Bind Percent}" Maximum="100" Height="15" Foreground="{ThemeResource KpiAccentTextBrush}" Background="{ThemeResource KpiChartTrackBrush}" />
-                                                <TextBlock Grid.Column="4" Text="{x:Bind ProjectedCarbon}" HorizontalAlignment="Right" FontWeight="SemiBold" />
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Scenario overview" FontSize="24" FontWeight="Bold" />
+                                <TextBlock x:Name="ScenarioIntroText" Text="Every saved scenario side by side. A scenario is one option per design option set; save scenarios with Edit… above." Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                             </StackPanel>
+                            <ComboBox Grid.Column="1" x:Name="ReferenceScenarioBox" Header="Compare against" MinWidth="260" DisplayMemberPath="Label"
+                                SelectionChanged="ReferenceScenarioBox_SelectionChanged"
+                                ToolTipService.ToolTip="The reference scenario: every other scenario shows its difference from this one, in units and %. Saved on the project." />
+                        </Grid>
+                        <!-- Metric rows × scenario columns, built in code (the number of scenarios varies). -->
+                        <Border Grid.Row="1" Style="{StaticResource KpiSurfaceStyle}" Padding="18">
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
+                                <Grid x:Name="ScenarioTableHost" ColumnSpacing="0" RowSpacing="0" Margin="0,0,0,14" />
+                            </ScrollViewer>
                         </Border>
-                        <Grid Grid.Row="2" ColumnSpacing="16">
+                        <StackPanel Grid.Row="2" Spacing="8">
+                            <TextBlock Text="Performance comparison" Style="{StaticResource KpiCardTitleStyle}" />
+                            <TextBlock x:Name="ScenarioChartCaptionText" Text="Each bar is one scenario; the reference is outlined." Foreground="{ThemeResource KpiMutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                            <Grid x:Name="ScenarioChartsHost" ColumnSpacing="16" RowSpacing="16" />
+                        </StackPanel>
+                        <Grid Grid.Row="3" ColumnSpacing="16">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <Border Style="{StaticResource KpiSurfaceStyle}">
                                 <StackPanel Spacing="10">
@@ -514,12 +514,13 @@
                             </Border>
                             <Border Grid.Column="1" Style="{StaticResource KpiSurfaceStyle}">
                                 <StackPanel Spacing="8">
-                                    <TextBlock Text="Projection method" Style="{StaticResource KpiCardTitleStyle}" />
-                                    <TextBlock Text="The graphic outlook multiplies the currently stored annual benefit rate by the selected year span. It is a transparent scenario view, not a growth simulation." TextWrapping="Wrap" Foreground="{ThemeResource KpiMutedBrush}" />
-                                    <TextBlock Text="• Tree currency is normalized to the project currency." TextWrapping="Wrap" />
-                                    <TextBlock Text="• Carbon, pollution, and runoff combine compatible tree and planting-area results." TextWrapping="Wrap" />
-                                    <TextBlock Text="• Planting-area GWP stays a one-time baseline." TextWrapping="Wrap" />
-                                    <TextBlock Text="• Detailed annual and lifetime values remain available on the Data explorer page." TextWrapping="Wrap" />
+                                    <TextBlock Text="How scenarios are compared" Style="{StaticResource KpiCardTitleStyle}" />
+                                    <TextBlock x:Name="ProjectionMethodText" TextWrapping="Wrap" Foreground="{ThemeResource KpiMutedBrush}"
+                                        Text="Each scenario counts the main model plus its chosen option in every set. Outlook figures add up year 1 to year N." />
+                                    <TextBlock Text="• Canopy cover counts overlapping crowns once, over the site boundary chosen on Site &amp; Biodiversity." TextWrapping="Wrap" />
+                                    <TextBlock Text="• Greenspace ratio = pervious ÷ (pervious + impervious) floor area; unclassified floors and building slabs are left out." TextWrapping="Wrap" />
+                                    <TextBlock Text="• Net value = ecosystem value − maintenance cost, over the same outlook." TextWrapping="Wrap" />
+                                    <TextBlock Text="• Embodied carbon is one-off; lower is better, like maintenance cost." TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                         </Grid>
@@ -777,7 +778,7 @@
                         </StackPanel>
 
                         <Grid Grid.Row="1" ColumnSpacing="10">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <Border Style="{StaticResource KpiMetricCardStyle}">
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="CANOPY COVER" Style="{StaticResource KpiEyebrowStyle}" />
@@ -794,12 +795,20 @@
                             </Border>
                             <Border Grid.Column="2" Style="{StaticResource KpiMetricCardStyle}">
                                 <StackPanel Spacing="2">
+                                    <TextBlock Text="GREENSPACE RATIO" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap"
+                                        ToolTipService.ToolTip="Pervious ÷ (pervious + impervious) floor area. Unclassified floors and building slabs are left out and listed below the figure." />
+                                    <TextBlock x:Name="GreenspaceRatioText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="GreenspaceRatioDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}">
+                                <StackPanel Spacing="2">
                                     <TextBlock Text="BIODIVERSITY ADDED" Style="{StaticResource KpiEyebrowStyle}" />
                                     <TextBlock x:Name="BiodiversityAddedText" Text="—" FontSize="20" FontWeight="SemiBold" />
                                     <TextBlock x:Name="BiodiversityAddedDetailText" FontSize="10" Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
-                            <Border Grid.Column="3" Style="{StaticResource KpiMetricCardStyle}">
+                            <Border Grid.Column="4" Style="{StaticResource KpiMetricCardStyle}">
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="NATIVE SPECIES RATIO" Style="{StaticResource KpiEyebrowStyle}" TextWrapping="Wrap" />
                                     <TextBlock x:Name="NativeSpeciesRatioText" Text="—" FontSize="20" FontWeight="SemiBold" />

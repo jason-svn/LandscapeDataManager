@@ -106,6 +106,7 @@ internal static class FloorLdsCalculationService
                 }
 
                 var notWritten = WriteValues(floor, assignment.Values);
+                MaintenanceCost.WriteResult(floor);
                 rows.Add(new FloorCalculationRow(floor.UniqueId, assignment.Values.ResultSource, notWritten));
             }
 

@@ -75,9 +75,25 @@ internal static class DashboardReportService
         var siteTotalArea = GetSiteTotalAreaSquareMeters(document);
         var habitatConnectivityScore = GetHabitatConnectivityScore(document);
 
+        ViewDesignScenarioResult? viewScenario = null;
+        if (document.ActiveView is { } activeView)
+        {
+            try
+            {
+                viewScenario = DesignOptionScenarioService.GetViewScenario(document, activeView);
+            }
+            catch (Autodesk.Revit.Exceptions.ArgumentException)
+            {
+                // A schedule or sheet can't be collected from; the Dashboard then offers no view scenario.
+            }
+        }
+
         return new DashboardReportResult(
             document.Title, unitPreference, currencyPreference, siteTotalArea, habitatConnectivityScore, trees, floors, lighting,
-            GetPropertyLines(document));
+            GetPropertyLines(document),
+            DesignOptionScenarioService.GetSets(document),
+            viewScenario,
+            TreeTimelineStore.Load(document));
     }
 
     /// <summary>Every property line in the model, whatever the scope/selection — a site boundary isn't something you select.</summary>
@@ -141,6 +157,29 @@ internal static class DashboardReportService
             canopyAreaSquareMeters = UnitUtils.ConvertFromInternalUnits(Math.PI * radiusInternal * radiusInternal, UnitTypeId.SquareMeters);
         }
 
+        // Where the canopy sits, for canopy cover with overlaps counted once: the crown width, else the
+        // family's plan size (the same fallback as the Connectivity Calculator).
+        double? centerX = null, centerY = null, radiusMeters = null;
+        if (element.Location is LocationPoint location)
+        {
+            var radiusFeet = canopyWidthParameter is { HasValue: true } ? canopyWidthParameter.AsDouble() / 2d : 0d;
+            if (radiusFeet <= 0 && element.get_BoundingBox(null) is { } box)
+            {
+                radiusFeet = ((box.Max.X - box.Min.X) + (box.Max.Y - box.Min.Y)) / 4d;
+            }
+
+            if (radiusFeet > 0)
+            {
+                centerX = UnitUtils.ConvertFromInternalUnits(location.Point.X, UnitTypeId.Meters);
+                centerY = UnitUtils.ConvertFromInternalUnits(location.Point.Y, UnitTypeId.Meters);
+                radiusMeters = UnitUtils.ConvertFromInternalUnits(radiusFeet, UnitTypeId.Meters);
+                if (canopyAreaSquareMeters <= 0)
+                {
+                    canopyAreaSquareMeters = Math.PI * radiusMeters.Value * radiusMeters.Value;
+                }
+            }
+        }
+
         return new DashboardTreeItem(
             element.UniqueId,
             element.Id.Value,
@@ -186,7 +225,15 @@ internal static class DashboardReportService
             GetVolumeCubicMeters("!_S_PLT_iTreeResult_RunoffAvoidedLifetimeTotal_Volume"),
             GetMassKilograms("!_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass"),
             GetMassKilograms("!_S_PLT_iTreeResult_CO2EquivalentLifetimeTotal_Mass"),
-            GetWorksetName(document, element));
+            GetWorksetName(document, element),
+            centerX,
+            centerY,
+            radiusMeters,
+            GetMassKilograms("!_S_PLT_Result_OxygenProducedAnnual_Mass"),
+            GetMassKilograms("!_S_PLT_Result_OxygenProducedLifetimeTotal_Mass"),
+            MaintenanceCost.AnnualFor(element),
+            ConnectivityService.GetStoredBand(element),
+            GetNullableText(element, TreeTimelineStore.KeyParameter));
     }
 
     private static DashboardFloorItem CreateFloorItem(Document document, Element element)
@@ -234,7 +281,10 @@ internal static class DashboardReportService
             GetMassKilograms("!_S_PLT_Result_EmbodiedGWP_Mass"),
             GetDoubleParameterOnInstanceOrType(element, "!_S_PLT_LDS_SurfaceTempReduction_Number"),
             GetDoubleParameterOnInstanceOrType(element, "!_S_PLT_LDS_AirTempReduction_Number"),
-            CreateFloorBng(document, element));
+            CreateFloorBng(document, element),
+            MaintenanceCost.AnnualFor(element),
+            element.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL) is { HasValue: true } structural && structural.AsInteger() == 1,
+            ConnectivityService.GetStoredBand(element));
     }
 
     /// <summary>Reads back what <see cref="BngFloorService"/> wrote; null when the BNG parameters aren't bound in this project.</summary>

@@ -34,6 +34,9 @@ public sealed partial class BngTab : UserControl
     private int _highlightVersion;
     private string _optionFilter = AllOptions;
     private bool _populatingOptionFilter;
+    private IReadOnlyList<DesignOptionSetItem> _sets = [];
+    private IReadOnlyList<DesignScenario> _savedScenarios = [];
+    private readonly Dictionary<string, DesignScenario> _scenarioByLabel = new(StringComparer.Ordinal);
 
     private const string AllOptions = "All design options";
     private const string MainModelOnly = "Main model only";
@@ -140,6 +143,8 @@ public sealed partial class BngTab : UserControl
         }
 
         _activeFilter = null;
+        _sets = DesignScenarios.ResolveSets(result.DesignOptionSets, AllRows.Select(row => row.DesignOption));
+        _savedScenarios = await TryPullSavedScenariosAsync();
         PopulateDesignOptionFilter();
         ApplyFilter();
 
@@ -902,25 +907,42 @@ public sealed partial class BngTab : UserControl
     // ---- Design option filter ----
 
     /// <summary>
-    /// Rows in the chosen design option: a specific option shows the main model plus that option
-    /// (the same rule as the Dashboard), so counts and the baseline → post-intervention total add
-    /// up to one scenario instead of every alternative at once.
+    /// Rows in the chosen design scenario: the main model plus the option the scenario chooses in
+    /// every set (the same rule as the Dashboard), so counts and the baseline → post-intervention
+    /// total add up to one scenario instead of every alternative at once.
     /// </summary>
     private IEnumerable<BngFloorRow> OptionRows => AllRows.Where(row => _optionFilter switch
     {
         AllOptions => true,
         MainModelOnly => row.DesignOption.SetName is null,
-        _ => row.DesignOption.SetName is null || row.DesignOptionLabel == _optionFilter
+        _ => !_scenarioByLabel.TryGetValue(_optionFilter, out var scenario) || DesignScenarios.Includes(scenario, row.DesignOption, _sets)
     });
+
+    /// <summary>The scenarios saved on the project (Dashboard › Edit…); none when Revit can't be asked.</summary>
+    private async Task<IReadOnlyList<DesignScenario>> TryPullSavedScenariosAsync()
+    {
+        try
+        {
+            return (await ProjectSettingsSync.PullAsync(GetClient()))?.DesignScenarios ?? [];
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException)
+        {
+            return [];
+        }
+    }
 
     private void PopulateDesignOptionFilter()
     {
-        var options = AllRows
-            .Where(row => row.DesignOption.SetName is not null)
-            .Select(row => row.DesignOptionLabel)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.CurrentCultureIgnoreCase)
-            .ToList();
+        _scenarioByLabel.Clear();
+        if (_sets.Count > 0)
+        {
+            foreach (var scenario in DesignScenarios.WithPrimary(_savedScenarios, _sets))
+            {
+                _scenarioByLabel[DesignScenarios.Label(scenario, _sets)] = scenario;
+            }
+        }
+
+        var options = _scenarioByLabel.Keys.ToList();
 
         _populatingOptionFilter = true;
         try

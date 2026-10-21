@@ -14,8 +14,7 @@ internal static class DashboardUnitLabels
     public const string MainModelLabel = "Primary model";
 
     /// <summary>In no design option: Revit shows main-model elements in every design option.</summary>
-    public static bool IsMainModel(DesignOptionInfo option) =>
-        string.IsNullOrWhiteSpace(option.SetName) && string.IsNullOrWhiteSpace(option.OptionName);
+    public static bool IsMainModel(DesignOptionInfo option) => DesignScenarios.IsMainModel(option);
 
     public static string FormatDesignOption(DesignOptionInfo option)
     {
@@ -36,70 +35,6 @@ internal static class DashboardUnitLabels
     }
 
     /// <summary>
-    /// One scenario per design option, each with its own elements plus every main-model element —
-    /// what Revit shows with that option active. A model with no design options is one "Primary
-    /// model" scenario. Ordered by growth year in the name, then by label.
-    /// </summary>
-    /// <summary>
-    /// Timeline order for scenarios: options without a growth year (the baseline / existing design)
-    /// come first — primary before the rest — then growth years ascending. The web dashboard draws
-    /// its growth slider and curves in file order, so "Baseline" must not land after "25 years".
-    /// </summary>
-    public static int ScenarioOrder(string label, bool isPrimary) =>
-        IsBaseline(label) ? -3 : ExtractProjectionYears(label) ?? (isPrimary ? -2 : -1);
-
-    /// <summary>
-    /// The team's convention: the design option named "Baseline" is the reference scenario — the
-    /// default selection and the comparison point — whichever option Revit has marked primary.
-    /// </summary>
-    public static bool IsBaseline(string label) => label.Contains("baseline", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>The default design option: one named "Baseline", else the primary one, else the earliest growth year.</summary>
-    public static string? DefaultDesignOption(IEnumerable<string> labels)
-    {
-        var list = labels.ToList();
-        return list.FirstOrDefault(IsBaseline)
-               ?? list.FirstOrDefault(label => label.Contains("(Primary)", StringComparison.Ordinal))
-               ?? list.OrderBy(label => ExtractProjectionYears(label) ?? int.MaxValue).ThenBy(label => label, StringComparer.Ordinal).FirstOrDefault();
-    }
-
-    /// <summary>Lighting visible in a scenario: main-model fixtures plus that option's own.</summary>
-    public static IReadOnlyList<DashboardLightingItem> LightingFor(IEnumerable<DashboardLightingItem> lighting, string? designOptionLabel) =>
-        designOptionLabel is null
-            ? lighting.ToList()
-            : lighting.Where(fixture => IsMainModel(fixture.DesignOption) || FormatDesignOption(fixture.DesignOption) == designOptionLabel).ToList();
-
-    public static List<DesignOptionScenario<TTree, TFloor>> SplitByDesignOption<TTree, TFloor>(
-        IReadOnlyList<TTree> trees,
-        Func<TTree, DesignOptionInfo> treeOption,
-        IReadOnlyList<TFloor> floors,
-        Func<TFloor, DesignOptionInfo> floorOption)
-    {
-        var options = trees.Select(treeOption)
-            .Concat(floors.Select(floorOption))
-            .Where(option => !IsMainModel(option))
-            .Select(option => (Label: FormatDesignOption(option), option.IsPrimary))
-            .Distinct()
-            .OrderBy(option => ScenarioOrder(option.Label, option.IsPrimary))
-            .ThenBy(option => option.Label, StringComparer.Ordinal)
-            .ToList();
-
-        if (options.Count == 0)
-        {
-            return [new DesignOptionScenario<TTree, TFloor>(MainModelLabel, true, trees.ToList(), floors.ToList())];
-        }
-
-        bool In(DesignOptionInfo option, string label) => IsMainModel(option) || FormatDesignOption(option) == label;
-        return options
-            .Select(option => new DesignOptionScenario<TTree, TFloor>(
-                option.Label,
-                option.IsPrimary,
-                trees.Where(tree => In(treeOption(tree), option.Label)).ToList(),
-                floors.Where(floor => In(floorOption(floor), option.Label)).ToList()))
-            .ToList();
-    }
-
-    /// <summary>
     /// Parses a growth-year figure (5/10/15/20/25) out of a design option's formatted label, e.g.
     /// "Growth Timeline : 15 Years" -> 15. Shared by the Outlook projection dropdown and the
     /// per-design-option scenario breakdown (<see cref="DashboardJsonExportService"/>) so both agree
@@ -109,8 +44,6 @@ internal static class DashboardUnitLabels
 
     private static bool IsMetric(string unitSystem) => string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
 }
-
-public sealed record DesignOptionScenario<TTree, TFloor>(string Label, bool IsPrimary, List<TTree> Trees, List<TFloor> Floors);
 
 public sealed class SpeciesSubtotalRow
 {
@@ -261,24 +194,4 @@ public sealed class KpiBarRow
     public string ValueText { get; }
     public double Percent { get; }
     public string Detail { get; }
-}
-
-public sealed class ScenarioComparisonRow
-{
-    public ScenarioComparisonRow(string designOption, string inventory, string speciesCount, string projectedCarbon, double percent)
-    {
-        DesignOption = designOption;
-        Inventory = inventory;
-        SpeciesCount = speciesCount;
-        ProjectedCarbon = projectedCarbon;
-        Percent = Math.Clamp(percent, 0d, 100d);
-    }
-
-    public string DesignOption { get; }
-    public string Inventory { get; }
-
-    /// <summary>Biodiversity Added's species-richness metric, per design option — see <see cref="DashboardAggregationService.BuildSiteKpiSummary"/>.</summary>
-    public string SpeciesCount { get; }
-    public string ProjectedCarbon { get; }
-    public double Percent { get; }
 }

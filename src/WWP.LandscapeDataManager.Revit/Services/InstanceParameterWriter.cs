@@ -54,6 +54,13 @@ internal static class InstanceParameterWriter
                 ParameterValueConverter.SetValue(change.Target!.Parameter, change.Value);
             }
 
+            // Every tool that writes tree results also refreshes the tree's maintenance cost, so
+            // schedules totalling it stay in step with the imported rate.
+            foreach (var element in changes.Select(change => change.Target!.Element).DistinctBy(element => element.Id))
+            {
+                MaintenanceCost.WriteResult(element);
+            }
+
             transaction.Commit();
         }
         catch

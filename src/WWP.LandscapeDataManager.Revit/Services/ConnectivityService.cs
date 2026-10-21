@@ -268,7 +268,7 @@ internal static class ConnectivityService
     private static bool IsLocked(Element element) =>
         element.LookupParameter(LockedParameter) is { HasValue: true, StorageType: StorageType.Integer } flag && flag.AsInteger() == 1;
 
-    private static int? GetStoredBand(Element element) =>
+    internal static int? GetStoredBand(Element element) =>
         element.LookupParameter(BandParameter) is { HasValue: true, StorageType: StorageType.Double } band
             ? (int)Math.Round(band.AsDouble())
             : null;

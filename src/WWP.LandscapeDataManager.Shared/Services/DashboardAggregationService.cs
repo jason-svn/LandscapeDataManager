@@ -31,7 +31,10 @@ public sealed record NormalizedTreeMetrics(
     double RunoffAvoidedAnnual,
     double RunoffAvoidedLifetimeTotal,
     double CO2EquivalentAnnual,
-    double CO2EquivalentLifetimeTotal);
+    double CO2EquivalentLifetimeTotal,
+    double OxygenProducedAnnual = 0,
+    double OxygenProducedLifetimeTotal = 0,
+    double MaintenanceCostAnnual = 0);
 
 public sealed record SpeciesSubtotal(
     string SpeciesCode,
@@ -62,7 +65,15 @@ public sealed record SpeciesSubtotal(
     double RunoffAvoidedAnnual,
     double RunoffAvoidedLifetimeTotal,
     double CO2EquivalentAnnual,
-    double CO2EquivalentLifetimeTotal);
+    double CO2EquivalentLifetimeTotal,
+    double OxygenProducedAnnual = 0,
+    double OxygenProducedLifetimeTotal = 0,
+    double MaintenanceCostAnnual = 0)
+{
+    public double PollutionRemovedAnnual => PM25RemovedAnnual + NO2RemovedAnnual + O3RemovedAnnual + SO2RemovedAnnual + CORemovedAnnual;
+
+    public double PollutionRemovedLifetimeTotal => PM25RemovedLifetimeTotal + NO2RemovedLifetimeTotal + O3RemovedLifetimeTotal + SO2RemovedLifetimeTotal + CORemovedLifetimeTotal;
+}
 
 /// <summary><see cref="CostSavedAnnual"/> is reported as-calculated, not currency-normalized — Floor Calculator never records which currency (or exchange rate) it used, so there's nothing reliable to convert from.</summary>
 public sealed record FloorTypeSubtotal(
@@ -74,7 +85,8 @@ public sealed record FloorTypeSubtotal(
     double PollutionMassRemovedAnnual,
     double CostSavedAnnual,
     double OxygenProducedAnnual,
-    double TotalGwp);
+    double TotalGwp,
+    double MaintenanceCostAnnual = 0);
 
 /// <summary>
 /// The dashboard's headline numbers. Tree and floor benefits are kept in separate fields throughout,
@@ -118,7 +130,16 @@ public sealed record DashboardGrandTotal(
     double FloorRunoffAvoidedAnnual,
     double FloorPollutionMassRemovedAnnual,
     double FloorTotalGwp,
-    double FloorCostSavedAnnual);
+    double FloorCostSavedAnnual,
+    double OxygenProducedAnnual = 0,
+    double OxygenProducedLifetimeTotal = 0,
+    double TreeMaintenanceCostAnnual = 0,
+    double FloorOxygenProducedAnnual = 0,
+    double FloorMaintenanceCostAnnual = 0)
+{
+    /// <summary>Trees' and planting areas' yearly upkeep, in the project currency.</summary>
+    public double MaintenanceCostAnnual => TreeMaintenanceCostAnnual + FloorMaintenanceCostAnnual;
+}
 
 /// <summary>
 /// The Site &amp; Biodiversity KPI tab's headline numbers. Unlike <see cref="DashboardGrandTotal"/>,
@@ -128,12 +149,25 @@ public sealed record DashboardGrandTotal(
 /// A percent field is null (rather than 0) whenever its denominator isn't available — e.g. Canopy Cover
 /// and Softscape Surface Ratio need <c>!_S_PLT_Site_TotalArea_Area</c> entered on Project Information
 /// first — so the UI can show "not entered yet" instead of a misleading 0%.
+/// <see cref="CanopyAreaSquareMeters"/> is the union of the canopies (overlaps counted once, see
+/// <see cref="CanopyUnion"/>); <see cref="CanopySummedAreaSquareMeters"/> adds them up as if none
+/// overlapped. <see cref="GreenspaceRatioPercent"/> = pervious ÷ (pervious + impervious) floor area:
+/// unclassified floors and building slabs are counted separately and left out of both.
+/// <see cref="ConnectivityBandCounts"/> holds the trees and floors in bands 1–4, then those not assessed.
 /// </summary>
 public sealed record SiteKpiSummary(
     double? CanopyCoverPercent,
     double CanopyAreaSquareMeters,
     double? SoftscapeSurfaceRatioPercent,
     double PerviousAreaSquareMeters,
+    double CanopySummedAreaSquareMeters,
+    double? GreenspaceRatioPercent,
+    double ImperviousAreaSquareMeters,
+    int UnclassifiedFloorCount,
+    double UnclassifiedAreaSquareMeters,
+    int BuildingSlabCount,
+    double BuildingSlabAreaSquareMeters,
+    IReadOnlyList<int> ConnectivityBandCounts,
     int DistinctSpeciesCount,
     int NativeTreeCount,
     int AdaptiveTreeCount,
@@ -245,8 +279,19 @@ public static class DashboardAggregationService
             // conversion needed here, unlike the mass and currency fields above.
             item.RainfallInterceptedAnnual, item.RainfallInterceptedLifetimeTotal,
             item.RunoffAvoidedAnnual, item.RunoffAvoidedLifetimeTotal,
-            PoundBasis(item.CO2EquivalentAnnual), PoundBasis(item.CO2EquivalentLifetimeTotal));
+            PoundBasis(item.CO2EquivalentAnnual), PoundBasis(item.CO2EquivalentLifetimeTotal),
+            PoundBasis(OxygenOrDerived(item.OxygenProducedAnnual, item.CO2EquivalentAnnual)),
+            PoundBasis(OxygenOrDerived(item.OxygenProducedLifetimeTotal, item.CO2EquivalentLifetimeTotal)),
+            // Maintenance comes from the WWP sheet rate, already in the project currency.
+            item.MaintenanceCostAnnual);
     }
+
+    /// <summary>
+    /// Oxygen a tree releases: O₂ = CO₂e × 32/44 (each tonne of CO₂ fixed releases its 32/44 share as
+    /// O₂). The stored value wins; a tree calculated before oxygen was stored gets it from its CO₂e.
+    /// </summary>
+    public static double OxygenOrDerived(double storedOxygen, double co2Equivalent) =>
+        storedOxygen > 0 ? storedOxygen : co2Equivalent * UnitConversions.OxygenToCo2MassRatio;
 
     public static IReadOnlyList<SpeciesSubtotal> AggregateTreesBySpecies(IEnumerable<NormalizedTreeMetrics> trees) =>
         trees
@@ -270,7 +315,9 @@ public static class DashboardAggregationService
                 group.Sum(tree => tree.AirPollutionCostSavedAnnual), group.Sum(tree => tree.AirPollutionCostSavedLifetimeTotal),
                 group.Sum(tree => tree.RainfallInterceptedAnnual), group.Sum(tree => tree.RainfallInterceptedLifetimeTotal),
                 group.Sum(tree => tree.RunoffAvoidedAnnual), group.Sum(tree => tree.RunoffAvoidedLifetimeTotal),
-                group.Sum(tree => tree.CO2EquivalentAnnual), group.Sum(tree => tree.CO2EquivalentLifetimeTotal)))
+                group.Sum(tree => tree.CO2EquivalentAnnual), group.Sum(tree => tree.CO2EquivalentLifetimeTotal),
+                group.Sum(tree => tree.OxygenProducedAnnual), group.Sum(tree => tree.OxygenProducedLifetimeTotal),
+                group.Sum(tree => tree.MaintenanceCostAnnual)))
             .OrderByDescending(subtotal => subtotal.TreeCount)
             .ToList();
 
@@ -286,7 +333,8 @@ public static class DashboardAggregationService
                 group.Sum(floor => floor.PollutionMassRemovedAnnual),
                 group.Sum(floor => floor.CostSavedAnnual),
                 group.Sum(floor => floor.OxygenProducedAnnual),
-                group.Sum(floor => Math.Max(0, floor.TotalGwp))))
+                group.Sum(floor => Math.Max(0, floor.TotalGwp)),
+                group.Sum(floor => floor.MaintenanceCostAnnual)))
             .OrderByDescending(subtotal => subtotal.FloorCount)
             .ToList();
 
@@ -323,7 +371,12 @@ public static class DashboardAggregationService
             floors.Sum(floor => floor.PollutionMassRemovedAnnual),
             // Embodied carbon only: a negative stored total is sequestration from older calculations.
             floors.Sum(floor => Math.Max(0, floor.TotalGwp)),
-            floors.Sum(floor => floor.CostSavedAnnual));
+            floors.Sum(floor => floor.CostSavedAnnual),
+            SumTrees(tree => tree.OxygenProducedAnnual), SumTrees(tree => tree.OxygenProducedLifetimeTotal),
+            // Upkeep doesn't depend on i-Tree having run: every placed tree costs it.
+            trees.Sum(tree => tree.MaintenanceCostAnnual),
+            floors.Sum(floor => floor.OxygenProducedAnnual),
+            floors.Sum(floor => floor.MaintenanceCostAnnual));
     }
 
     /// <summary>
@@ -338,17 +391,28 @@ public static class DashboardAggregationService
         double? siteTotalAreaSquareMeters,
         double? habitatConnectivityScore)
     {
-        var canopyAreaSquareMeters = trees.Sum(tree => tree.Source.CanopyAreaSquareMeters);
+        var canopyAreaSquareMeters = CanopyAreaSquareMeters(trees.Select(tree => tree.Source));
+        var canopySummedAreaSquareMeters = trees.Sum(tree => tree.Source.CanopyAreaSquareMeters);
         var canopyCoverPercent = siteTotalAreaSquareMeters is > 0
             ? canopyAreaSquareMeters / siteTotalAreaSquareMeters.Value * 100d
             : (double?)null;
 
-        var perviousAreaSquareMeters = floors
-            .Where(floor => string.Equals(ResolveSurfaceClass(floor), "Pervious", StringComparison.OrdinalIgnoreCase))
-            .Sum(floor => floor.AreaSquareMeters);
+        var surfaces = floors.Select(floor => (Floor: floor, Class: ClassifySurface(floor))).ToList();
+        double AreaOf(string? surfaceClass) => surfaces.Where(surface => surface.Class == surfaceClass).Sum(surface => surface.Floor.AreaSquareMeters);
+        var perviousAreaSquareMeters = AreaOf(SurfaceClassCatalog.Pervious);
+        var imperviousAreaSquareMeters = AreaOf(SurfaceClassCatalog.Impervious);
         var softscapeSurfaceRatioPercent = siteTotalAreaSquareMeters is > 0
             ? perviousAreaSquareMeters / siteTotalAreaSquareMeters.Value * 100d
             : (double?)null;
+        var greenspaceRatioPercent = perviousAreaSquareMeters + imperviousAreaSquareMeters > 0
+            ? perviousAreaSquareMeters / (perviousAreaSquareMeters + imperviousAreaSquareMeters) * 100d
+            : (double?)null;
+
+        var connectivityBands = new int[5];
+        foreach (var band in trees.Select(tree => tree.Source.ConnectivityBand).Concat(floors.Select(floor => floor.ConnectivityBand)))
+        {
+            connectivityBands[band is >= 1 and <= 4 ? band.Value - 1 : 4]++;
+        }
 
         var distinctSpeciesCount = trees
             .Select(tree => tree.Source.SpeciesCode ?? tree.Source.CommonName ?? "Unassigned")
@@ -394,6 +458,14 @@ public static class DashboardAggregationService
             canopyAreaSquareMeters,
             softscapeSurfaceRatioPercent,
             perviousAreaSquareMeters,
+            canopySummedAreaSquareMeters,
+            greenspaceRatioPercent,
+            imperviousAreaSquareMeters,
+            surfaces.Count(surface => surface.Class is null),
+            AreaOf(null),
+            surfaces.Count(surface => surface.Class == SurfaceClassCatalog.Building),
+            AreaOf(SurfaceClassCatalog.Building),
+            connectivityBands,
             distinctSpeciesCount,
             nativeTreeCount,
             adaptiveTreeCount,
@@ -504,10 +576,52 @@ public static class DashboardAggregationService
         bng.YearOffset,
         floor.AreaSquareMeters / BngFloorStatusEvaluator.SquareMetresPerHectare);
 
-    /// <summary>The explicit <c>!_S_PLT_LDS_SurfaceClass_Text</c> tag always wins; otherwise inferred from the floor's LDS Type (see <see cref="SurfaceClassCatalog"/>).</summary>
     /// <summary>The floor's explicit surface class tag, else one inferred from its LDS type; null when neither says.</summary>
     public static string? ResolveSurfaceClass(DashboardFloorItem floor) =>
         SurfaceClassCatalog.Resolve(floor.SurfaceClass, floor.LdsType, floor.TypeName, floor.FamilyName);
+
+    /// <summary>
+    /// <see cref="SurfaceClassCatalog.Pervious"/>, <see cref="SurfaceClassCatalog.Impervious"/>,
+    /// <see cref="SurfaceClassCatalog.Building"/> for a building slab (left out of the greenspace
+    /// ratio), or null when nothing says what the floor is.
+    /// </summary>
+    public static string? ClassifySurface(DashboardFloorItem floor)
+    {
+        if (SurfaceClassCatalog.IsBuildingSlab(floor.SurfaceClass, floor.LdsType, floor.IsStructural, floor.TypeName, floor.FamilyName))
+        {
+            return SurfaceClassCatalog.Building;
+        }
+
+        return ResolveSurfaceClass(floor) switch
+        {
+            { } value when value.Equals(SurfaceClassCatalog.Pervious, StringComparison.OrdinalIgnoreCase) => SurfaceClassCatalog.Pervious,
+            { } value when value.Equals(SurfaceClassCatalog.Impervious, StringComparison.OrdinalIgnoreCase) => SurfaceClassCatalog.Impervious,
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// The plan area the trees' canopies cover, overlaps counted once. A tree whose position the
+    /// connector didn't send (an older snapshot) adds its own canopy area as it is.
+    /// </summary>
+    public static double CanopyAreaSquareMeters(IEnumerable<DashboardTreeItem> trees)
+    {
+        var circles = new List<CanopyCircle>();
+        var unplaced = 0d;
+        foreach (var tree in trees)
+        {
+            if (tree is { CanopyCenterX: { } x, CanopyCenterY: { } y, CanopyRadiusMeters: > 0 })
+            {
+                circles.Add(new CanopyCircle(x, y, tree.CanopyRadiusMeters.Value));
+            }
+            else
+            {
+                unplaced += tree.CanopyAreaSquareMeters;
+            }
+        }
+
+        return CanopyUnion.AreaSquareMeters(circles) + unplaced;
+    }
 
     private static IReadOnlyList<int> ParseMonthList(string? raw) =>
         string.IsNullOrWhiteSpace(raw)

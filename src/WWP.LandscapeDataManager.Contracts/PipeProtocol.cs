@@ -43,6 +43,9 @@ public static class PipeCommands
     public const string WriteConnectivityResults = "write-connectivity-results";
     public const string GetGrowthProjectionStatus = "get-growth-projection-status";
     public const string RunGrowthProjection = "run-growth-projection";
+    public const string GetViewDesignScenario = "get-view-design-scenario";
+    public const string GetTreeTimelines = "get-tree-timelines";
+    public const string SaveTreeTimelines = "save-tree-timelines";
 }
 
 public sealed record PipeRequest(string RequestId, string Command, JsonElement? Payload);
@@ -469,7 +472,7 @@ public sealed record BngFloorItem(
     bool UniqueSupported = false,
     DesignOptionInfo? DesignOption = null);
 
-public sealed record BngFloorsResult(string DocumentTitle, IReadOnlyList<BngFloorItem> Items);
+public sealed record BngFloorsResult(string DocumentTitle, IReadOnlyList<BngFloorItem> Items, IReadOnlyList<DesignOptionSetItem>? DesignOptionSets = null);
 
 /// <summary>
 /// Everything to write onto one Floor for the BNG tab — the inputs as edited in the tool, and
@@ -573,7 +576,9 @@ public sealed record PlantingInstanceValidationItem(
     string StoredEngineVersion,
     string StoredInputSignature,
     int? GrowthYear = null,
-    bool InGroup = false);
+    bool InGroup = false,
+    int? AgeAtPlanting = null,
+    int? MatureAge = null);
 
 public sealed record ValidatePlantingInstancesRequest(bool SelectedOnly = false);
 
@@ -595,6 +600,29 @@ public sealed record OperationResult(bool Success, string? Message = null);
 /// set, matching how <c>RevitModelScanner.IsInPrimaryDesignOption</c> already treats "no set" as primary.
 /// </summary>
 public sealed record DesignOptionInfo(string? SetName, string? OptionName, bool IsPrimary);
+
+/// <summary>One design option as Revit lists it, with or without anything modelled in it. <see cref="Name"/> has Revit's " &lt;primary&gt;" suffix removed.</summary>
+public sealed record DesignOptionItem(string Name, bool IsPrimary);
+
+/// <summary>One design option set and every option in it.</summary>
+public sealed record DesignOptionSetItem(string SetName, IReadOnlyList<DesignOptionItem> Options);
+
+/// <summary>
+/// A scenario: one chosen option per design option set, e.g. "Variante 1" → "Baseline" and
+/// "Test" → "Option 1". A set missing from <see cref="Choices"/> uses its primary option. Main-model
+/// elements are in every scenario; an element in an option that isn't chosen is left out.
+/// </summary>
+public sealed record DesignScenario(string Name, IReadOnlyDictionary<string, string> Choices);
+
+/// <summary>
+/// The scenario the active view shows, worked out from which options have elements visible in it.
+/// <see cref="Notes"/> says which sets fell back to their primary (nothing of theirs visible).
+/// </summary>
+public sealed record ViewDesignScenarioResult(
+    string DocumentTitle,
+    string ViewName,
+    IReadOnlyDictionary<string, string> Choices,
+    IReadOnlyList<string> Notes);
 
 /// <summary>
 /// One Planting instance's identity, placement, and every stored i-Tree benefit result (Annual and
@@ -651,7 +679,15 @@ public sealed record DashboardTreeItem(
     double RunoffAvoidedLifetimeTotal,
     double CO2EquivalentAnnual,
     double CO2EquivalentLifetimeTotal,
-    string? Workset = null);
+    string? Workset = null,
+    double? CanopyCenterX = null,
+    double? CanopyCenterY = null,
+    double? CanopyRadiusMeters = null,
+    double OxygenProducedAnnual = 0,
+    double OxygenProducedLifetimeTotal = 0,
+    double MaintenanceCostAnnual = 0,
+    int? ConnectivityBand = null,
+    string? TimelineKey = null);
 
 /// <summary>
 /// One Floor (planted/paved landscape area) instance's identity, placement, and stored LDS/i-Tree
@@ -678,7 +714,10 @@ public sealed record DashboardFloorItem(
     double TotalGwp,
     double SurfaceTempReduction,
     double AirTempReduction,
-    DashboardFloorBng? Bng = null);
+    DashboardFloorBng? Bng = null,
+    double MaintenanceCostAnnual = 0,
+    bool IsStructural = false,
+    int? ConnectivityBand = null);
 
 /// <summary>
 /// A Floor's stored BNG inputs and headline A-2 results, as written by Floor Calculator's BNG tab —
@@ -735,7 +774,49 @@ public sealed record DashboardReportResult(
     IReadOnlyList<DashboardTreeItem> Trees,
     IReadOnlyList<DashboardFloorItem> Floors,
     IReadOnlyList<DashboardLightingItem> Lighting,
-    IReadOnlyList<DashboardPropertyLine>? PropertyLines = null);
+    IReadOnlyList<DashboardPropertyLine>? PropertyLines = null,
+    IReadOnlyList<DesignOptionSetItem>? DesignOptionSets = null,
+    ViewDesignScenarioResult? ViewScenario = null,
+    IReadOnlyList<TreeBenefitTimeline>? TreeTimelines = null);
+
+/// <summary>
+/// One year of an i-Tree forecast for one tree, as i-Tree returned it in <c>benefits.annual[]</c>
+/// (Year 1 is the first year after planting). Masses in kg, volumes in m³, money in USD.
+/// </summary>
+public sealed record TreeBenefitYear(
+    int Year,
+    double CarbonKg,
+    double RunoffM3,
+    double InterceptionM3,
+    double CoKg,
+    double No2Kg,
+    double O3Kg,
+    double So2Kg,
+    double Pm25Kg,
+    double CarbonUsd,
+    double StormWaterUsd,
+    double AirPollutionUsd);
+
+/// <summary>
+/// i-Tree's year-by-year forecast for one unique planting input (species, planting DBH, condition,
+/// crown exposure, location), up to <see cref="HorizonYears"/> — the tree's maturity, at most 35
+/// years. Identical trees share one timeline through <see cref="Key"/>; after the horizon the tree's
+/// benefit holds at its last (mature) year.
+/// </summary>
+public sealed record TreeBenefitTimeline(
+    string Key,
+    string SpeciesCode,
+    double PlantingDbhCm,
+    int HorizonYears,
+    string CalculatedUtc,
+    IReadOnlyList<TreeBenefitYear> Years);
+
+public sealed record TreeTimelinesResult(string DocumentTitle, IReadOnlyList<TreeBenefitTimeline> Timelines);
+
+/// <summary>Adds or replaces timelines by <see cref="TreeBenefitTimeline.Key"/>; the rest already stored are kept.</summary>
+public sealed record SaveTreeTimelinesRequest(IReadOnlyList<TreeBenefitTimeline> Timelines);
+
+public sealed record SaveTreeTimelinesResult(string DocumentTitle, int StoredCount);
 
 /// <summary>A plan point in metres (Revit internal coordinates converted, not shared coordinates — only distances matter).</summary>
 public sealed record ConnectivityPoint(double X, double Y);

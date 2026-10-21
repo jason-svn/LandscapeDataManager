@@ -30,7 +30,9 @@ public sealed record ProjectSettingsSnapshot(
     string? SiteBoundary = null,
     ExchangeRateOverride? ExchangeRateOverride = null,
     ConnectivitySettings? Connectivity = null,
-    IReadOnlyList<int>? GrowthProjectionYears = null);
+    IReadOnlyList<int>? GrowthProjectionYears = null,
+    IReadOnlyList<DesignScenario>? DesignScenarios = null,
+    string? ReferenceScenario = null);
 
 /// <summary>Pure (no I/O) serialize/deserialize for <see cref="ProjectSettingsSnapshot"/> — reading/writing the Project Information parameter itself is <see cref="ProjectSettingsSync"/>'s job, via the Revit-side <c>ProjectPreferencesService</c>.</summary>
 public static class ProjectSettingsJson

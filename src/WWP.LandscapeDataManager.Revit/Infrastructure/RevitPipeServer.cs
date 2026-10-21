@@ -146,6 +146,9 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.WriteConnectivityResults => await WriteConnectivityResultsAsync(request).ConfigureAwait(false),
                 PipeCommands.GetGrowthProjectionStatus => await GetGrowthProjectionStatusAsync(request).ConfigureAwait(false),
                 PipeCommands.RunGrowthProjection => await RunGrowthProjectionAsync(request).ConfigureAwait(false),
+                PipeCommands.GetViewDesignScenario => await GetViewDesignScenarioAsync(request).ConfigureAwait(false),
+                PipeCommands.GetTreeTimelines => await GetTreeTimelinesAsync(request).ConfigureAwait(false),
+                PipeCommands.SaveTreeTimelines => await SaveTreeTimelinesAsync(request).ConfigureAwait(false),
                 _ => new PipeResponse(request.RequestId, false, Error: $"Unknown command: {request.Command}")
             };
         }
@@ -392,6 +395,26 @@ internal sealed class RevitPipeServer : IDisposable
                       ?? new DashboardReportRequest();
         var result = await _dispatcher.RunAsync(application =>
             DashboardReportService.GetReport(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetViewDesignScenarioAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(DesignOptionScenarioService.GetViewScenario).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetTreeTimelinesAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(TreeTimelineStore.Get).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> SaveTreeTimelinesAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<SaveTreeTimelinesRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The timeline save request was empty.");
+        var result = await _dispatcher.RunAsync(application => TreeTimelineStore.Save(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

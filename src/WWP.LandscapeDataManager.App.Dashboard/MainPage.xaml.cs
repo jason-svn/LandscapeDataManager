@@ -17,7 +17,6 @@ namespace WWP.LandscapeDataManager.App.Dashboard;
 
 public sealed partial class MainPage : Page
 {
-    private const string AllDesignOptions = "All design options";
     private const string AllLevels = "All levels";
     private const string ProjectDefaultUnitSystem = "Project default";
 
@@ -41,18 +40,18 @@ public sealed partial class MainPage : Page
     private IReadOnlyList<int> _growthYearStops = GrowthYears.StandardYears;
     private bool _growthYearsFromWorksets;
     private string? _activeStatusFilter;
-    private string _selectedDesignOption = AllDesignOptions;
     private string _selectedLevel = AllLevels;
     private bool _suppressFilterEvents;
 
-    // Growth-year design options (e.g. "Growth Timeline : 5/10/15/20/25 Years") model the same
-    // planted layout at different tree ages, not independent alternatives — "All design options"
-    // silently blends every age together into a meaningless total. Never auto-select it: default to
-    // whichever option is flagged Primary, else the earliest growth-year stage, so the KPI view
-    // opens on one real scenario. This flag is set only by an actual user pick in
-    // DesignOptionBox_SelectionChanged, so a deliberate "All design options" choice still sticks
-    // across a Refresh — it's only the initial/no-selection state that gets the smart default.
-    private bool _designOptionExplicitlyChosen;
+    // Design scenarios: one option per design option set. Every number on the page is for _scenario;
+    // elements in options it doesn't choose are left out (see DesignScenarios).
+    private IReadOnlyList<DesignOptionSetItem> _sets = [];
+    private IReadOnlyList<DesignScenario> _savedScenarios = [];
+    private DesignScenario _scenario = new(DesignScenarios.PrimaryScenarioName, new Dictionary<string, string>());
+
+    // A scenario shown but not saved (from Edit… or Use current view); listed until another is picked.
+    private DesignScenario? _unsavedScenario;
+    private string? _referenceScenarioName;
 
     private OriginalDataWindow? _originalDataWindow;
 
@@ -62,6 +61,7 @@ public sealed partial class MainPage : Page
     // Canopy Cover and Softscape Surface Ratio divide by this; see SiteBoundaryResolver.
     private SiteBoundaryOption? _siteBoundary;
     private string? _savedSiteBoundaryKey;
+    private bool _siteBoundaryPicked;
 
     public MainPage()
     {
@@ -81,7 +81,6 @@ public sealed partial class MainPage : Page
     public ObservableCollection<KpiBarRow> BngHabitatRows { get; } = [];
     public ObservableCollection<KpiBarRow> StatusBreakdownRows { get; } = [];
     public ObservableCollection<KpiBarRow> AirPollutantRows { get; } = [];
-    public ObservableCollection<ScenarioComparisonRow> ScenarioRows { get; } = [];
 
     public void Initialize(string pipeName, nint windowHandle)
     {
@@ -137,7 +136,13 @@ public sealed partial class MainPage : Page
             var report = await reportTask;
             _preferredUnitSystem = catalog.PreferredUnitSystem;
             _preferredCurrency = catalog.PreferredCurrency;
-            _savedSiteBoundaryKey = await TryPullSavedSiteBoundaryAsync() ?? _savedSiteBoundaryKey;
+            if (await TryPullProjectSettingsAsync() is { } settings)
+            {
+                _savedSiteBoundaryKey = settings.SiteBoundary ?? _savedSiteBoundaryKey;
+                _savedScenarios = settings.DesignScenarios ?? [];
+                _referenceScenarioName = settings.ReferenceScenario;
+            }
+
             _cachedSnapshotSavedAt = null;
             await ApplyReportAsync(report);
             await DashboardSnapshotCache.SaveAsync(report);
@@ -211,31 +216,12 @@ public sealed partial class MainPage : Page
         _suppressFilterEvents = true;
         try
         {
-            // The main model isn't an alternative — it's part of every option — so it's only listed
-            // when the model has no design options at all.
-            var allOptions = _lastReport.Trees.Select(tree => tree.DesignOption)
-                .Concat(_lastReport.Floors.Select(floor => floor.DesignOption))
-                .ToList();
-            var hasRealOptions = allOptions.Any(option => !DashboardUnitLabels.IsMainModel(option));
-            var designOptions = allOptions
-                .Where(option => !hasRealOptions || !DashboardUnitLabels.IsMainModel(option))
-                .Select(DashboardUnitLabels.FormatDesignOption)
-                .Distinct()
-                .OrderBy(value => value)
-                .ToList();
-            DesignOptionBox.Items.Clear();
-            DesignOptionBox.Items.Add(AllDesignOptions);
-            foreach (var option in designOptions)
-            {
-                DesignOptionBox.Items.Add(option);
-            }
-
-            var selection = _designOptionExplicitlyChosen && DesignOptionBox.Items.Contains(_selectedDesignOption)
-                ? _selectedDesignOption
-                : ResolveDefaultDesignOption(designOptions);
-            DesignOptionBox.SelectedItem = selection;
-            _selectedDesignOption = selection;
-            SyncProjectionYearsFromDesignOption(selection);
+            _sets = DesignScenarios.ResolveSets(
+                _lastReport.DesignOptionSets,
+                _lastReport.Trees.Select(tree => tree.DesignOption)
+                    .Concat(_lastReport.Floors.Select(floor => floor.DesignOption))
+                    .Concat(_lastReport.Lighting.Select(fixture => fixture.DesignOption)));
+            RebuildScenarioOptions();
 
             var levels = _lastReport.Trees.Select(tree => tree.LevelName)
                 .Concat(_lastReport.Floors.Select(floor => floor.LevelName))
@@ -276,10 +262,7 @@ public sealed partial class MainPage : Page
             (tree.Source.SpeciesCode ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
             (tree.Source.CommonName ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase);
         bool MatchesDimensionFilters(DesignOptionInfo designOption, string? levelName) =>
-            (_selectedDesignOption == AllDesignOptions ||
-             DashboardUnitLabels.IsMainModel(designOption) ||
-             DashboardUnitLabels.FormatDesignOption(designOption) == _selectedDesignOption) &&
-            MatchesLevel(levelName);
+            DesignScenarios.Includes(_scenario, designOption, _sets) && MatchesLevel(levelName);
 
         var treesInScope = normalizedTrees
             .Where(tree => MatchesDimensionFilters(tree.Source.DesignOption, tree.Source.LevelName))
@@ -296,11 +279,11 @@ public sealed partial class MainPage : Page
             .Where(floor => MatchesDimensionFilters(floor.DesignOption, floor.LevelName))
             .ToList();
         // Same filters without the growth-year one: the outlook needs every year's copies.
-        var treeOutlook = TreeOutlook(normalizedTrees
+        var treeOutlook = CreateTreeOutlook(normalizedTrees
             .Where(tree => MatchesDimensionFilters(tree.Source.DesignOption, tree.Source.LevelName))
             .Where(MatchesSearch)
             .Where(tree => _activeStatusFilter is null || tree.Source.Status == _activeStatusFilter)
-            .ToList());
+            .ToList(), unitSystem);
 
         var speciesSubtotals = DashboardAggregationService.AggregateTreesBySpecies(filteredTrees);
         SpeciesSubtotals.Clear();
@@ -413,9 +396,7 @@ public sealed partial class MainPage : Page
         FloorGwpText.Text = grandTotal.FloorTotalGwp.ToString("N1");
         FloorCostSavedText.Text = $"{grandTotal.FloorCostSavedAnnual:N2} (as calculated)";
 
-        PeriodLabelText.Text = _selectedDesignOption == AllDesignOptions
-            ? $"Showing {period} benefits across all design options."
-            : $"Showing {period} benefits for design option: {_selectedDesignOption}.";
+        PeriodLabelText.Text = $"Showing {period} benefits for {DesignScenarios.Label(_scenario, _sets)}.";
 
         RebuildGraphicDashboard(
             normalizedTrees,
@@ -431,24 +412,11 @@ public sealed partial class MainPage : Page
     }
 
     /// <summary>
-    /// Tree benefits accumulated over an outlook of N years. With growth-year worksets, each year's
-    /// copies give the benefit in that year, as i-Tree calculated it, and <see cref="GrowthOutlook"/>
-    /// adds up the years in between. Without them, it's the stored annual figure × N.
+    /// Tree benefits accumulated over an outlook of N years, from i-Tree's timelines when the trees
+    /// have them, else growth-year worksets, else the stored annual figure × N (see <see cref="TreeOutlook"/>).
     /// </summary>
-    private Func<Func<DashboardGrandTotal, double>, int, double> TreeOutlook(IReadOnlyList<NormalizedTreeMetrics> treesAllYears)
-    {
-        if (!_growthYearsFromWorksets)
-        {
-            var total = DashboardAggregationService.BuildGrandTotal(treesAllYears, []);
-            return (metric, years) => metric(total) * years;
-        }
-
-        var byYear = _growthYearStops
-            .Select(year => (Year: year, Total: DashboardAggregationService.BuildGrandTotal(
-                treesAllYears.Where(tree => GrowthYears.CountsIn(tree.Source, year)).ToList(), [])))
-            .ToList();
-        return (metric, years) => GrowthOutlook.Accumulate(byYear.Select(stop => (stop.Year, metric(stop.Total))), years);
-    }
+    private TreeOutlook CreateTreeOutlook(IReadOnlyList<NormalizedTreeMetrics> treesAllYears, string unitSystem) =>
+        new(treesAllYears, _growthYearsFromWorksets ? _growthYearStops : [], _lastReport?.TreeTimelines, unitSystem, _usdExchangeRate);
 
     private void RebuildGraphicDashboard(
         IReadOnlyList<NormalizedTreeMetrics> allNormalizedTrees,
@@ -457,7 +425,7 @@ public sealed partial class MainPage : Page
         IReadOnlyList<SpeciesSubtotal> speciesSubtotals,
         IReadOnlyList<FloorTypeSubtotal> floorSubtotals,
         DashboardGrandTotal grandTotal,
-        Func<Func<DashboardGrandTotal, double>, int, double> treeOutlook,
+        TreeOutlook treeOutlook,
         string unitSystem,
         Func<string?, bool> matchesLevel,
         Func<NormalizedTreeMetrics, bool> matchesSearch)
@@ -473,10 +441,10 @@ public sealed partial class MainPage : Page
         double Water(double cubicMetres) => metric ? cubicMetres : cubicMetres / UnitConversions.CubicMetresPerGallon;
         double Area(double squareMetres) => metric ? squareMetres : squareMetres * 10.7639104167d;
 
-        // Over the outlook: trees add up their growth-year copies (see TreeOutlook). Planting areas
-        // don't grow, so their Airtable rate holds every year and they're annual × years.
+        // Over the outlook: trees add up year by year (see TreeOutlook). Planting areas don't grow,
+        // so their Airtable rate holds every year and they're annual × years.
         var years = _projectionYears;
-        double Trees(Func<DashboardGrandTotal, double> annual) => treeOutlook(annual, years);
+        double Trees(Func<DashboardGrandTotal, double> annual) => treeOutlook.Accumulate(annual, years);
         var floorCarbonAnnual = FloorCarbon(grandTotal.FloorCarbonSequesteredAnnual);
         var floorPollutionAnnual = FloorPollution(grandTotal.FloorPollutionMassRemovedAnnual);
         var floorRunoffAnnual = Water(grandTotal.FloorRunoffAvoidedAnnual);
@@ -491,11 +459,9 @@ public sealed partial class MainPage : Page
         var projectedValue = Trees(total => total.TreeCostSavedAnnual) + grandTotal.FloorCostSavedAnnual * years;
 
         var readyPercent = filteredTrees.Count == 0 ? 0d : 100d * grandTotal.TreeCount / filteredTrees.Count;
-        var scenarioLabel = _selectedDesignOption == AllDesignOptions ? "All design options" : _selectedDesignOption;
-        ScenarioBadgeText.Text = scenarioLabel.ToUpperInvariant();
-        OutlookText.Text = _growthYearsFromWorksets
-            ? $"{years}-year outlook · trees: each growth-year workset as calculated, years in between interpolated · planting areas: annual × {years}"
-            : $"{years}-year outlook · annual results × {years} (no growth-year worksets, so trees don't grow)";
+        ScenarioBadgeText.Text = _scenario.Name.ToUpperInvariant();
+        ToolTipService.SetToolTip(ScenarioBadgeText, DesignScenarios.Describe(_scenario, _sets));
+        OutlookText.Text = OutlookMethodText(treeOutlook, years);
         KpiEcosystemValueText.Text = $"{Compact(projectedValue)} {_preferredCurrency}";
         KpiPollutionText.Text = $"{Compact(projectedPollution)} {pollutantUnit}";
         KpiTreeCountText.Text = grandTotal.TreeCount.ToString("N0");
@@ -540,7 +506,7 @@ public sealed partial class MainPage : Page
         ProjectionTrendRows.Clear();
         IReadOnlyList<int> trendYears = _growthYearsFromWorksets ? _growthYearStops.Where(year => year > 0).ToList() : [5, 10, 20, 25];
         var trend = trendYears
-            .Select(trendYear => (Year: trendYear, Value: treeOutlook(total => total.CarbonSequesteredAnnual, trendYear) + floorCarbonAnnual * trendYear))
+            .Select(trendYear => (Year: trendYear, Value: treeOutlook.Accumulate(total => total.CarbonSequesteredAnnual, trendYear) + floorCarbonAnnual * trendYear))
             .ToList();
         var trendMaximum = trend.Count == 0 ? 0d : trend.Max(point => point.Value);
         foreach (var (trendYear, value) in trend)
@@ -577,7 +543,7 @@ public sealed partial class MainPage : Page
                 totalArea <= 0d ? 0d : 100d * row.AreaSquareMeters / totalArea));
         }
 
-        RebuildScenarioRows(allNormalizedTrees, unitSystem, matchesLevel, matchesSearch);
+        RebuildScenarioOverview(unitSystem, matchesLevel, matchesSearch);
         UpdateSiteKpiCards(filteredTrees, filteredFloors);
 
         // Both values are already totals over the outlook.
@@ -590,72 +556,6 @@ public sealed partial class MainPage : Page
                 $"{treePercent:N0}% trees",
                 treePercent,
                 $"{Compact(total)} {valueUnit} over {years} years"));
-        }
-    }
-
-    private void RebuildScenarioRows(
-        IReadOnlyList<NormalizedTreeMetrics> allTrees,
-        string unitSystem,
-        Func<string?, bool> matchesLevel,
-        Func<NormalizedTreeMetrics, bool> matchesSearch)
-    {
-        if (_lastReport is null)
-        {
-            return;
-        }
-
-        var metric = string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
-        var carbonUnit = DashboardUnitLabels.CarbonUnit(unitSystem);
-        double FloorCarbon(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerPound;
-
-        var scenarios = DashboardUnitLabels.SplitByDesignOption(
-            allTrees.Where(tree => matchesLevel(tree.Source.LevelName) && matchesSearch(tree)).ToList(),
-            tree => tree.Source.DesignOption,
-            _lastReport.Floors.Where(floor => matchesLevel(floor.LevelName)).ToList(),
-            floor => floor.DesignOption);
-
-        var values = scenarios.Select(scenario =>
-        {
-            var option = scenario.Label;
-            var floors = scenario.Floors;
-            var years = DashboardUnitLabels.ExtractProjectionYears(option) ?? _projectionYears;
-            // Counts are for the growth year on screen; carbon adds up every year's copies.
-            var trees = _growthYearsFromWorksets
-                ? scenario.Trees.Where(tree => GrowthYears.CountsIn(tree.Source, _projectionYears)).ToList()
-                : scenario.Trees;
-            var total = DashboardAggregationService.BuildGrandTotal(trees, floors);
-            var carbon = TreeOutlook(scenario.Trees)(grand => grand.CarbonSequesteredAnnual, years) +
-                FloorCarbon(total.FloorCarbonSequesteredAnnual) * years;
-            var speciesCount = trees
-                .Select(tree => tree.Source.SpeciesCode ?? tree.Source.CommonName ?? "Unassigned")
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Count();
-            return (Option: option, Total: total, Years: years, Carbon: carbon, SpeciesCount: speciesCount);
-        }).ToList();
-        var maximum = values.Count == 0 ? 0d : values.Max(value => value.Carbon);
-
-        // Biodiversity Added's "% species added" needs a baseline to compare against — the option
-        // flagged (Primary) if one exists (the model's "existing" design), otherwise the first option
-        // in projection-year order.
-        var baselineSpeciesCount = values
-            .FirstOrDefault(value => value.Option == DashboardUnitLabels.DefaultDesignOption(values.Select(v => v.Option))).SpeciesCount;
-        if (baselineSpeciesCount == 0 && values.Count > 0)
-        {
-            baselineSpeciesCount = values[0].SpeciesCount;
-        }
-
-        ScenarioRows.Clear();
-        foreach (var value in values)
-        {
-            var speciesCountText = baselineSpeciesCount > 0 && value.SpeciesCount != baselineSpeciesCount
-                ? $"{value.SpeciesCount:N0} species ({100d * (value.SpeciesCount - baselineSpeciesCount) / baselineSpeciesCount:+0;-0}% vs. baseline)"
-                : $"{value.SpeciesCount:N0} species";
-            ScenarioRows.Add(new ScenarioComparisonRow(
-                value.Option,
-                $"{value.Total.TreeCount:N0} trees · {value.Total.FloorCount:N0} areas",
-                speciesCountText,
-                $"{Compact(value.Carbon)} {carbonUnit} / {value.Years} yr",
-                maximum <= 0d ? 0d : 100d * value.Carbon / maximum));
         }
     }
 
@@ -672,7 +572,10 @@ public sealed partial class MainPage : Page
 
         const string noSiteArea = "Pick a site boundary above: a property line, or the area entered on Project Information (!_S_PLT_Site_TotalArea_Area).";
         SetPercentCard(CanopyCoverText, CanopyCoverDetailText, summary.CanopyCoverPercent,
-            $"{summary.CanopyAreaSquareMeters:N0} m² canopy over {siteArea:N0} m² site",
+            $"{summary.CanopyAreaSquareMeters:N0} m² canopy over {siteArea:N0} m² site — overlapping crowns counted once" +
+            (summary.CanopySummedAreaSquareMeters > summary.CanopyAreaSquareMeters + 0.5
+                ? $" ({summary.CanopySummedAreaSquareMeters - summary.CanopyAreaSquareMeters:N0} m² of overlap)."
+                : "."),
             noSiteArea,
             high: 30d, medium: 15d);
 
@@ -685,8 +588,25 @@ public sealed partial class MainPage : Page
             noSiteArea,
             high: 50d, medium: 25d);
 
+        var leftOut = new List<string>();
+        if (summary.UnclassifiedFloorCount > 0)
+        {
+            leftOut.Add($"{summary.UnclassifiedFloorCount:N0} unclassified floor(s), {summary.UnclassifiedAreaSquareMeters:N0} m² (match them in Floor Calculator or tag !_S_PLT_LDS_SurfaceClass_Text)");
+        }
+
+        if (summary.BuildingSlabCount > 0)
+        {
+            leftOut.Add($"{summary.BuildingSlabCount:N0} building slab(s), {summary.BuildingSlabAreaSquareMeters:N0} m²");
+        }
+
+        SetPercentCard(GreenspaceRatioText, GreenspaceRatioDetailText, summary.GreenspaceRatioPercent,
+            $"{summary.PerviousAreaSquareMeters:N0} m² pervious : {summary.ImperviousAreaSquareMeters:N0} m² impervious" +
+            (leftOut.Count > 0 ? $" · left out: {string.Join("; ", leftOut)}." : "."),
+            leftOut.Count > 0 ? $"No pervious or impervious floors yet · left out: {string.Join("; ", leftOut)}." : "No classified floors in this scenario.",
+            high: 50d, medium: 25d);
+
         BiodiversityAddedText.Text = $"{summary.DistinctSpeciesCount:N0} species";
-        BiodiversityAddedDetailText.Text = "Species richness in the current filter. See Design scenarios for the % added vs. the baseline design option.";
+        BiodiversityAddedDetailText.Text = "Species richness in this scenario. Design scenarios compares it with the reference scenario.";
 
         SetPercentCard(NativeSpeciesRatioText, NativeSpeciesRatioDetailText, summary.NativeSpeciesRatioPercent,
             $"{summary.NativeTreeCount:N0} native : {summary.AdaptiveTreeCount:N0} adaptive of {summary.TreesWithNativeStatusCount:N0} tagged trees",
@@ -920,57 +840,6 @@ public sealed partial class MainPage : Page
         RebuildRows();
     }
 
-    private void DesignOptionBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressFilterEvents || DesignOptionBox.SelectedItem is not string value)
-        {
-            return;
-        }
-
-        _selectedDesignOption = value;
-        _designOptionExplicitlyChosen = true;
-
-        _suppressFilterEvents = true;
-        try
-        {
-            SyncProjectionYearsFromDesignOption(value);
-        }
-        finally
-        {
-            _suppressFilterEvents = false;
-        }
-
-        RebuildRows();
-    }
-
-    /// <summary>Picks which design option the KPI view opens on when the user hasn't chosen one: whichever
-    /// option Revit has flagged Primary, else the earliest growth-year stage (by <see cref="DashboardUnitLabels.ExtractProjectionYears"/>),
-    /// else the first alphabetically. Deliberately never "All design options" — see <see cref="_designOptionExplicitlyChosen"/>.</summary>
-    private static string ResolveDefaultDesignOption(IReadOnlyList<string> designOptions)
-    {
-        if (designOptions.Count == 0)
-        {
-            return AllDesignOptions;
-        }
-
-        return DashboardUnitLabels.DefaultDesignOption(designOptions)!;
-    }
-
-    /// <summary>Keeps the Outlook projection dropdown in step with a growth-year design option pick — assumes the
-    /// caller already holds <see cref="_suppressFilterEvents"/> if it doesn't want <see cref="ProjectionBox_SelectionChanged"/> to fire.</summary>
-    private void SyncProjectionYearsFromDesignOption(string designOptionLabel)
-    {
-        // Growth-year worksets own the year when the model has them; design option names are the
-        // older convention, still honoured for models that haven't moved to worksets.
-        if (_growthYearsFromWorksets || DashboardUnitLabels.ExtractProjectionYears(designOptionLabel) is not { } optionYears)
-        {
-            return;
-        }
-
-        _projectionYears = optionYears;
-        SetGrowthYearSliderValue();
-    }
-
     private void RebuildGrowthYearSlider()
     {
         var worksetYears = _lastReport is null ? [] : GrowthYears.InModel(_lastReport.Trees);
@@ -1089,8 +958,10 @@ public sealed partial class MainPage : Page
             return;
         }
 
+        // The project's saved boundary wins over a default picked while a cached snapshot was showing;
+        // only a boundary picked by hand this session overrides it.
         var options = SiteBoundaryResolver.BuildOptions(_lastReport.SiteTotalAreaSquareMeters, _lastReport.PropertyLines);
-        var chosen = SiteBoundaryResolver.Resolve(options, _siteBoundary?.Key ?? _savedSiteBoundaryKey);
+        var chosen = SiteBoundaryResolver.Resolve(options, _siteBoundaryPicked ? _siteBoundary?.Key : _savedSiteBoundaryKey ?? _siteBoundary?.Key);
         _siteBoundary = chosen;
 
         _suppressFilterEvents = true;
@@ -1107,12 +978,15 @@ public sealed partial class MainPage : Page
 
     private async void SiteBoundaryBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_suppressFilterEvents || SiteBoundaryBox.SelectedItem is not SiteBoundaryOption option)
+        // ComboBox can re-raise SelectionChanged for the item already shown (e.g. when its Pivot page
+        // reloads); that's not a choice, so it mustn't overwrite the project's setting.
+        if (_suppressFilterEvents || SiteBoundaryBox.SelectedItem is not SiteBoundaryOption option || option.Key == _siteBoundary?.Key)
         {
             return;
         }
 
         _siteBoundary = option;
+        _siteBoundaryPicked = true;
         _savedSiteBoundaryKey = option.Key;
         RebuildRows();
 
@@ -1127,11 +1001,11 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private async Task<string?> TryPullSavedSiteBoundaryAsync()
+    private async Task<ProjectSettingsSnapshot?> TryPullProjectSettingsAsync()
     {
         try
         {
-            return (await ProjectSettingsSync.PullAsync(GetClient()))?.SiteBoundary;
+            return await ProjectSettingsSync.PullAsync(GetClient());
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException)
         {
@@ -1147,7 +1021,7 @@ public sealed partial class MainPage : Page
 
     /// <summary>Lighting under the current design option and level filters, by the same main-model rule as trees and floors.</summary>
     private IReadOnlyList<DashboardLightingItem> FilteredLighting() =>
-        DashboardUnitLabels.LightingFor(_lastReport?.Lighting ?? [], _selectedDesignOption == AllDesignOptions ? null : _selectedDesignOption)
+        DesignScenarios.Filter(_lastReport?.Lighting ?? [], fixture => fixture.DesignOption, _scenario, _sets)
             .Where(fixture => _selectedLevel == AllLevels || (fixture.LevelName ?? "—") == _selectedLevel)
             .ToList();
 
@@ -1286,7 +1160,7 @@ public sealed partial class MainPage : Page
         {
             var snapshot = new DashboardSvgSnapshot(
                 _lastReport.DocumentTitle,
-                _selectedDesignOption == AllDesignOptions ? "All design options" : _selectedDesignOption,
+                DesignScenarios.Label(_scenario, _sets),
                 $"{_projectionYears}-year outlook",
                 KpiEcosystemValueText.Text,
                 HeroCarbonCostText.Text,
@@ -1346,7 +1220,7 @@ public sealed partial class MainPage : Page
         await RunBusyAsync(async () =>
         {
             var location = await ResolveLocationAsync();
-            var export = DashboardJsonExportService.Build(ReportForJsonExport(), _preferredCurrency, _usdExchangeRate, location);
+            var export = DashboardJsonExportService.Build(ReportForJsonExport(), _preferredCurrency, _usdExchangeRate, location, _sets, OfferedScenarios());
             await DashboardJsonExportService.ExportAsync(file.Path, export);
             StatusText.Text = $"Exported dashboard data to {file.Name}.";
         });

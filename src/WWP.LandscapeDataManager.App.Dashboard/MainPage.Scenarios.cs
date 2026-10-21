@@ -1,0 +1,632 @@
+using Microsoft.UI.Text;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using WWP.LandscapeDataManager.Contracts;
+using WWP.LandscapeDataManager.Shared.Services;
+
+namespace WWP.LandscapeDataManager.App.Dashboard;
+
+/// <summary>An entry in the scenario pickers: a saved scenario, the primary one, or one shown but not saved.</summary>
+public sealed class ScenarioChoice
+{
+    public ScenarioChoice(DesignScenario scenario, string label, bool isSaved)
+    {
+        Scenario = scenario;
+        Label = label;
+        IsSaved = isSaved;
+    }
+
+    public DesignScenario Scenario { get; }
+    public string Label { get; }
+    public bool IsSaved { get; }
+}
+
+/// <summary>Design scenarios: the picker, the Edit… dialog, "Use current view", and the scenario overview page.</summary>
+public sealed partial class MainPage
+{
+    private bool _scenarioExplicitlyChosen;
+
+    /// <summary>The primary scenario (unless a saved one already picks every primary), the saved ones, then any shown but not saved.</summary>
+    private IReadOnlyList<DesignScenario> OfferedScenarios()
+    {
+        var offered = DesignScenarios.WithPrimary(_savedScenarios, _sets).ToList();
+        if (_unsavedScenario is { } unsaved && offered.All(scenario => !DesignScenarios.SameChoices(scenario, unsaved, _sets)))
+        {
+            offered.Add(unsaved);
+        }
+
+        return offered;
+    }
+
+    private bool IsSaved(DesignScenario scenario) =>
+        _savedScenarios.Any(saved => string.Equals(saved.Name, scenario.Name, StringComparison.CurrentCultureIgnoreCase));
+
+    /// <summary>Fills both scenario pickers and keeps the current pick, else opens on the "Baseline" scenario or the primary one.</summary>
+    private void RebuildScenarioOptions()
+    {
+        var offered = OfferedScenarios();
+        var choices = offered.Select(scenario => new ScenarioChoice(scenario, ChoiceLabel(scenario), IsSaved(scenario))).ToList();
+        var current = (_scenarioExplicitlyChosen ? choices.FirstOrDefault(choice => choice.Scenario.Name == _scenario.Name) : null)
+                      ?? choices.FirstOrDefault(choice => choice.Scenario == DesignScenarios.Find(offered, null))
+                      ?? choices[0];
+        var reference = choices.FirstOrDefault(choice => choice.Scenario == DesignScenarios.Find(offered, _referenceScenarioName)) ?? choices[0];
+
+        var wasSuppressed = _suppressFilterEvents;
+        _suppressFilterEvents = true;
+        try
+        {
+            ScenarioBox.ItemsSource = choices;
+            ScenarioBox.SelectedItem = current;
+            ToolTipService.SetToolTip(ScenarioBox, DesignScenarios.Label(current.Scenario, _sets));
+            ReferenceScenarioBox.ItemsSource = choices;
+            ReferenceScenarioBox.SelectedItem = reference;
+        }
+        finally
+        {
+            _suppressFilterEvents = wasSuppressed;
+        }
+
+        _scenario = current.Scenario;
+        SyncProjectionYearsFromScenario();
+    }
+
+    private string ChoiceLabel(DesignScenario scenario)
+    {
+        var label = DesignScenarios.Label(scenario, _sets);
+        return _unsavedScenario == scenario && !IsSaved(scenario) ? $"{label} (not saved)" : label;
+    }
+
+    private void ScenarioBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressFilterEvents || ScenarioBox.SelectedItem is not ScenarioChoice choice || ReferenceEquals(choice.Scenario, _scenario))
+        {
+            return;
+        }
+
+        _scenario = choice.Scenario;
+        _scenarioExplicitlyChosen = true;
+        ToolTipService.SetToolTip(ScenarioBox, choice.Label);
+        var wasSuppressed = _suppressFilterEvents;
+        _suppressFilterEvents = true;
+        try
+        {
+            SyncProjectionYearsFromScenario();
+        }
+        finally
+        {
+            _suppressFilterEvents = wasSuppressed;
+        }
+
+        if (DesignScenarios.MissingChoices(_scenario, _sets) is { Count: > 0 } missing)
+        {
+            StatusText.Text = $"\"{_scenario.Name}\" names options that no longer exist ({string.Join(", ", missing)}); their sets show the primary option. Edit and save it to update.";
+        }
+
+        RebuildRows();
+    }
+
+    /// <summary>
+    /// Older models carried the growth year in a design option's name ("Growth Timeline : 15 Years");
+    /// when no growth-year worksets exist, a chosen option with a year sets the outlook.
+    /// </summary>
+    private void SyncProjectionYearsFromScenario()
+    {
+        if (_growthYearsFromWorksets)
+        {
+            return;
+        }
+
+        var optionYears = _sets
+            .Select(set => DashboardUnitLabels.ExtractProjectionYears(DesignScenarios.ChosenOption(_scenario, set)))
+            .FirstOrDefault(years => years is not null);
+        if (optionYears is { } years)
+        {
+            _projectionYears = years;
+            SetGrowthYearSliderValue();
+        }
+    }
+
+    private async void EditScenario_Click(object sender, RoutedEventArgs e)
+    {
+        if (_lastReport is null)
+        {
+            StatusText.Text = "Refresh the dashboard first.";
+            return;
+        }
+
+        var editingSaved = IsSaved(_scenario);
+        var nameBox = new TextBox
+        {
+            Header = "Scenario name",
+            Text = editingSaved || _unsavedScenario == _scenario ? _scenario.Name : NextScenarioName(),
+            PlaceholderText = "e.g. Scheme A"
+        };
+        var preview = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.75, FontSize = 12 };
+        var optionBoxes = new List<(DesignOptionSetItem Set, ComboBox Box)>();
+        var content = new StackPanel { Spacing = 12, MinWidth = 420 };
+        content.Children.Add(nameBox);
+
+        void UpdatePreview() => preview.Text = DesignScenarios.Describe(Picked(), _sets);
+        DesignScenario Picked() => new(
+            string.IsNullOrWhiteSpace(nameBox.Text) ? "Unnamed scenario" : nameBox.Text.Trim(),
+            optionBoxes.ToDictionary(pair => pair.Set.SetName, pair => pair.Box.SelectedItem as string ?? DesignScenarios.PrimaryOptionOf(pair.Set), StringComparer.Ordinal));
+
+        if (_sets.Count == 0)
+        {
+            content.Children.Add(new TextBlock
+            {
+                Text = "This model has no design options, so there is one scenario: the main model.",
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
+
+        foreach (var set in _sets)
+        {
+            var box = new ComboBox { Header = set.SetName, HorizontalAlignment = HorizontalAlignment.Stretch };
+            foreach (var option in set.Options)
+            {
+                box.Items.Add(option.Name);
+            }
+
+            box.SelectedItem = DesignScenarios.ChosenOption(_scenario, set);
+            box.SelectionChanged += (_, _) => UpdatePreview();
+            optionBoxes.Add((set, box));
+            content.Children.Add(box);
+        }
+
+        var viewButton = new Button { Content = "Fill from Revit's active view", IsEnabled = _sets.Count > 0 };
+        ToolTipService.SetToolTip(viewButton, "Choose, for every set, the option the active view shows.");
+        viewButton.Click += async (_, _) =>
+        {
+            if (await TryGetViewScenarioAsync() is not { } view)
+            {
+                preview.Text = "Couldn't read the active view from Revit.";
+                return;
+            }
+
+            foreach (var (set, box) in optionBoxes)
+            {
+                if (view.Choices.TryGetValue(set.SetName, out var option) && box.Items.Contains(option))
+                {
+                    box.SelectedItem = option;
+                }
+            }
+
+            UpdatePreview();
+            if (view.Notes.Count > 0)
+            {
+                preview.Text += Environment.NewLine + string.Join(Environment.NewLine, view.Notes);
+            }
+        };
+        content.Children.Add(viewButton);
+        content.Children.Add(preview);
+
+        var deleteRequested = false;
+        ContentDialog? dialog = null;
+        if (editingSaved)
+        {
+            var deleteButton = new HyperlinkButton { Content = $"Delete saved scenario \"{_scenario.Name}\"" };
+            deleteButton.Click += (_, _) =>
+            {
+                deleteRequested = true;
+                dialog?.Hide();
+            };
+            content.Children.Add(deleteButton);
+        }
+
+        UpdatePreview();
+        dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Design scenario",
+            Content = new ScrollViewer { Content = content, MaxHeight = 520 },
+            PrimaryButtonText = "Save and show",
+            SecondaryButtonText = "Show without saving",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary
+        };
+
+        var result = await dialog.ShowAsync();
+        if (deleteRequested)
+        {
+            await SaveScenariosAsync(DesignScenarios.Remove(_savedScenarios, _scenario.Name), $"Deleted scenario \"{_scenario.Name}\".");
+            _scenarioExplicitlyChosen = false;
+            RebuildScenarioOptions();
+            RebuildRows();
+            return;
+        }
+
+        if (result == ContentDialogResult.None)
+        {
+            return;
+        }
+
+        var picked = Picked();
+        if (result == ContentDialogResult.Primary)
+        {
+            if (string.Equals(picked.Name, DesignScenarios.PrimaryScenarioName, StringComparison.CurrentCultureIgnoreCase))
+            {
+                picked = picked with { Name = NextScenarioName() };
+            }
+
+            await SaveScenariosAsync(DesignScenarios.Upsert(_savedScenarios, picked), $"Saved scenario \"{picked.Name}\" on the project.");
+        }
+        else
+        {
+            _unsavedScenario = picked;
+        }
+
+        Show(picked);
+    }
+
+    private async void UseCurrentView_Click(object sender, RoutedEventArgs e)
+    {
+        if (_lastReport is null)
+        {
+            StatusText.Text = "Refresh the dashboard first.";
+            return;
+        }
+
+        if (await TryGetViewScenarioAsync() is not { } view)
+        {
+            StatusText.Text = "Couldn't read Revit's active view. Open the model in Revit and try again.";
+            return;
+        }
+
+        var fromView = new DesignScenario($"View: {view.ViewName}", view.Choices);
+        if (OfferedScenarios().FirstOrDefault(scenario => DesignScenarios.SameChoices(scenario, fromView, _sets)) is { } existing)
+        {
+            Show(existing);
+            StatusText.Text = $"The active view \"{view.ViewName}\" shows \"{existing.Name}\".";
+        }
+        else
+        {
+            _unsavedScenario = fromView;
+            Show(fromView);
+            StatusText.Text = $"Showing what \"{view.ViewName}\" shows: {DesignScenarios.Describe(fromView, _sets)}. Edit… to save it.";
+        }
+
+        if (view.Notes.Count > 0)
+        {
+            StatusText.Text += " " + string.Join(" ", view.Notes);
+        }
+    }
+
+    /// <summary>Asks Revit what the active view shows now; falls back to what it showed at the last refresh.</summary>
+    private async Task<ViewDesignScenarioResult?> TryGetViewScenarioAsync()
+    {
+        try
+        {
+            return await GetClient().SendAsync<ViewDesignScenarioResult>(PipeCommands.GetViewDesignScenario);
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException)
+        {
+            return _lastReport?.ViewScenario;
+        }
+    }
+
+    private void Show(DesignScenario scenario)
+    {
+        _scenario = scenario;
+        _scenarioExplicitlyChosen = true;
+        RebuildScenarioOptions();
+        RebuildRows();
+    }
+
+    private string NextScenarioName()
+    {
+        for (var index = 1; ; index++)
+        {
+            var name = $"Scheme {(char)('A' + (index - 1) % 26)}{(index > 26 ? (index / 26).ToString() : string.Empty)}";
+            if (!IsSaved(new DesignScenario(name, new Dictionary<string, string>())))
+            {
+                return name;
+            }
+        }
+    }
+
+    private async Task SaveScenariosAsync(IReadOnlyList<DesignScenario> scenarios, string message)
+    {
+        try
+        {
+            await ProjectSettingsSync.PushAsync(GetClient(), designScenarios: scenarios);
+            _savedScenarios = scenarios;
+            StatusText.Text = message;
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException)
+        {
+            StatusText.Text = $"Couldn't save to the project ({exception.Message}). The scenario is shown but not saved.";
+        }
+    }
+
+    private async void ReferenceScenarioBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // A re-raised event for the reference already shown isn't a choice: don't save it.
+        if (_suppressFilterEvents || ReferenceScenarioBox.SelectedItem is not ScenarioChoice choice ||
+            string.Equals(choice.Scenario.Name, DesignScenarios.Find(OfferedScenarios(), _referenceScenarioName)?.Name, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _referenceScenarioName = choice.Scenario.Name;
+        RebuildRows();
+        if (!choice.IsSaved && choice.Scenario.Name != DesignScenarios.PrimaryScenarioName)
+        {
+            return; // an unsaved scenario can't be the saved reference
+        }
+
+        try
+        {
+            await ProjectSettingsSync.PushAsync(GetClient(), referenceScenario: choice.Scenario.Name);
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException)
+        {
+        }
+    }
+
+    private string OutlookMethodText(TreeOutlook outlook, int years) => outlook.Method switch
+    {
+        TreeOutlookMethod.Timeline =>
+            $"{years}-year outlook · trees: i-Tree's year-by-year forecast ({outlook.TreesWithTimeline:N0} trees), held at maturity · planting areas: annual × {years}",
+        TreeOutlookMethod.GrowthWorksets =>
+            $"{years}-year outlook · trees: each growth-year workset as calculated, years in between interpolated · planting areas: annual × {years}",
+        _ => $"{years}-year outlook · annual results × {years} (no i-Tree timelines or growth-year worksets, so trees don't grow)"
+    };
+
+    // ---- Scenario overview ----
+
+    private sealed record ScenarioMetric(string Label, Func<ScenarioPerformance, double?> Value, Func<double, string> Format, bool HigherIsBetter, bool IsPercent = false, bool Chart = true);
+
+    private IReadOnlyList<ScenarioMetric> ScenarioMetrics(string unitSystem, int years)
+    {
+        var metric = string.Equals(unitSystem, "Metric", StringComparison.OrdinalIgnoreCase);
+        var carbonUnit = DashboardUnitLabels.CarbonUnit(unitSystem);
+        var pollutantUnit = DashboardUnitLabels.PollutantUnit(unitSystem);
+        var waterUnit = metric ? "m³" : "gal";
+        var currency = _preferredCurrency;
+        string Number(double value, string unit) => $"{Compact(value)} {unit}";
+        return
+        [
+            new("Trees", p => p.TreeCount, value => value.ToString("N0"), true, Chart: false),
+            new("Species", p => p.SpeciesCount, value => value.ToString("N0"), true, Chart: false),
+            new("Canopy cover", p => p.CanopyCoverPercent, value => $"{value:N1}%", true, IsPercent: true),
+            new("Canopy area", p => metric ? p.CanopyAreaSquareMeters : p.CanopyAreaSquareMeters * 10.7639104167d, value => Number(value, metric ? "m²" : "ft²"), true, Chart: false),
+            new("Greenspace ratio", p => p.GreenspaceRatioPercent, value => $"{value:N1}%", true, IsPercent: true),
+            new($"CO₂e uptake ({years} yr)", p => p.Co2EquivalentOutlook, value => Number(value, carbonUnit), true),
+            new($"Runoff avoided ({years} yr)", p => p.RunoffAvoidedOutlook, value => Number(value, waterUnit), true),
+            new($"Pollution removed ({years} yr)", p => p.PollutionRemovedOutlook, value => Number(value, pollutantUnit), true),
+            new($"Oxygen produced ({years} yr)", p => p.OxygenProducedOutlook, value => Number(value, carbonUnit), true, Chart: false),
+            new("BNG post-intervention", p => p.BngPostInterventionUnits, value => $"{value:N2} HU", true, Chart: false),
+            new("BNG net change", p => p.BngNetChangePercent, value => $"{value:+0.0;-0.0;0.0}%", true, IsPercent: true),
+            new("Embodied carbon", p => p.EmbodiedCarbon, value => Number(value, $"{carbonUnit} CO₂e"), false),
+            new($"Ecosystem value ({years} yr)", p => p.EcosystemValueOutlook, value => Number(value, currency), true),
+            new($"Maintenance cost ({years} yr)", p => p.MaintenanceCostOutlook, value => Number(value, currency), false),
+            new($"Net value ({years} yr)", p => p.NetValueOutlook, value => Number(value, currency), true),
+        ];
+    }
+
+    private void RebuildScenarioOverview(string unitSystem, Func<string?, bool> matchesLevel, Func<NormalizedTreeMetrics, bool> matchesSearch)
+    {
+        if (_lastReport is null)
+        {
+            return;
+        }
+
+        var searchText = SpeciesSearchBox.Text?.Trim() ?? string.Empty;
+        bool TreeMatches(DashboardTreeItem tree) => matchesLevel(tree.LevelName) &&
+            (string.IsNullOrEmpty(searchText) ||
+             (tree.SpeciesCode ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+             (tree.CommonName ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+        var inputs = new ScenarioPerformanceInputs(
+            _lastReport.Trees.Where(TreeMatches).ToList(),
+            _lastReport.Floors.Where(floor => matchesLevel(floor.LevelName)).ToList(),
+            _sets,
+            _lastReport.TreeTimelines,
+            unitSystem,
+            _preferredCurrency,
+            _usdExchangeRate,
+            _siteBoundary?.AreaSquareMeters,
+            _projectionYears,
+            _growthYearsFromWorksets ? _projectionYears : null,
+            _growthYearsFromWorksets ? _growthYearStops : []);
+
+        var offered = OfferedScenarios();
+        var performances = offered.Select(scenario => ScenarioPerformanceCalculator.Build(scenario, inputs)).ToList();
+        var reference = DesignScenarios.Find(offered, _referenceScenarioName);
+        var referencePerformance = performances.FirstOrDefault(performance => ReferenceEquals(performance.Scenario, reference)) ?? performances.FirstOrDefault();
+        var metrics = ScenarioMetrics(unitSystem, _projectionYears);
+
+        ScenarioIntroText.Text = _sets.Count == 0
+            ? "This model has no design options, so there's one scenario: the main model."
+            : $"{performances.Count:N0} scenario(s) side by side, each one option per set ({string.Join(", ", _sets.Select(set => set.SetName))}). " +
+              $"Differences are against \"{referencePerformance?.Scenario.Name}\". Save scenarios with Edit… above.";
+        ProjectionMethodText.Text =
+            "Each scenario counts the main model plus its chosen option in every set; elements in other options are left out. " +
+            $"Outlook totals add up year 1 to year {_projectionYears}" + (performances.FirstOrDefault()?.Method switch
+            {
+                TreeOutlookMethod.Timeline => ": trees from i-Tree's year-by-year forecast, planting areas at their yearly rate.",
+                TreeOutlookMethod.GrowthWorksets => ": trees interpolated between growth-year worksets, planting areas at their yearly rate.",
+                _ => ": annual × years, since no tree growth is modelled."
+            });
+
+        BuildScenarioTable(performances, referencePerformance, metrics);
+        BuildScenarioCharts(performances, referencePerformance, metrics);
+    }
+
+    private void BuildScenarioTable(IReadOnlyList<ScenarioPerformance> performances, ScenarioPerformance? reference, IReadOnlyList<ScenarioMetric> metrics)
+    {
+        var host = ScenarioTableHost;
+        host.Children.Clear();
+        host.ColumnDefinitions.Clear();
+        host.RowDefinitions.Clear();
+        host.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
+        foreach (var _ in performances)
+        {
+            host.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(230) });
+        }
+
+        var muted = (Brush)Resources["KpiMutedBrush"];
+        var border = (Brush)Resources["KpiBorderBrush"];
+        var badge = (Brush)Resources["KpiBadgeBrush"];
+
+        host.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        for (var column = 0; column < performances.Count; column++)
+        {
+            var performance = performances[column];
+            var isReference = ReferenceEquals(performance, reference);
+            var header = new StackPanel { Spacing = 2, Padding = new Thickness(10, 6, 10, 10) };
+            header.Children.Add(new TextBlock { Text = performance.Scenario.Name, FontWeight = FontWeights.SemiBold, FontSize = 15, TextTrimming = TextTrimming.CharacterEllipsis });
+            header.Children.Add(new TextBlock { Text = performance.Description, Foreground = muted, FontSize = 11, TextWrapping = TextWrapping.Wrap, MaxLines = 3 });
+            if (isReference)
+            {
+                header.Children.Add(new Border
+                {
+                    Background = badge,
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(8, 2, 8, 2),
+                    Margin = new Thickness(0, 4, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Child = new TextBlock { Text = "REFERENCE", FontSize = 10, FontWeight = FontWeights.SemiBold, Foreground = (Brush)Resources["KpiAccentTextBrush"] }
+                });
+            }
+
+            ToolTipService.SetToolTip(header, DesignScenarios.Label(performance.Scenario, _sets));
+            Place(header, 0, column + 1);
+        }
+
+        for (var row = 0; row < metrics.Count; row++)
+        {
+            var metric = metrics[row];
+            host.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var gridRow = row + 1;
+            var separator = new Border { BorderBrush = border, BorderThickness = new Thickness(0, 1, 0, 0) };
+            Grid.SetColumnSpan(separator, performances.Count + 1);
+            Place(separator, gridRow, 0);
+            Place(new TextBlock { Text = metric.Label, Margin = new Thickness(0, 9, 10, 9), VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap }, gridRow, 0);
+
+            var referenceValue = reference is null ? null : metric.Value(reference);
+            for (var column = 0; column < performances.Count; column++)
+            {
+                var performance = performances[column];
+                var value = metric.Value(performance);
+                var cell = new StackPanel { Padding = new Thickness(10, 7, 10, 7), VerticalAlignment = VerticalAlignment.Center };
+                cell.Children.Add(new TextBlock { Text = value is { } number ? metric.Format(number) : "—", FontWeight = FontWeights.SemiBold });
+                if (!ReferenceEquals(performance, reference) && value is not null && referenceValue is not null)
+                {
+                    cell.Children.Add(DifferenceText(metric, value, referenceValue));
+                }
+
+                Place(cell, gridRow, column + 1);
+            }
+        }
+
+        void Place(FrameworkElement element, int row, int column)
+        {
+            Grid.SetRow(element, row);
+            Grid.SetColumn(element, column);
+            host.Children.Add(element);
+        }
+    }
+
+    private static TextBlock DifferenceText(ScenarioMetric metric, double? value, double? reference)
+    {
+        var (absolute, percent) = ScenarioPerformanceCalculator.Difference(value, reference);
+        var delta = absolute ?? 0d;
+        var text = metric.IsPercent
+            ? $"{delta:+0.0;-0.0;0.0} pts"
+            : $"{(delta >= 0 ? "+" : "−")}{metric.Format(Math.Abs(delta))}{(percent is { } relative ? $" ({relative:+0;-0;0}%)" : string.Empty)}";
+        var better = metric.HigherIsBetter ? delta > 1e-9 : delta < -1e-9;
+        var worse = metric.HigherIsBetter ? delta < -1e-9 : delta > 1e-9;
+        return new TextBlock
+        {
+            Text = text,
+            FontSize = 11,
+            Foreground = (Brush)Application.Current.Resources[better ? "LimSuccessBrush" : worse ? "LimErrorBrush" : "LimNeutralBrush"]
+        };
+    }
+
+    private void BuildScenarioCharts(IReadOnlyList<ScenarioPerformance> performances, ScenarioPerformance? reference, IReadOnlyList<ScenarioMetric> metrics)
+    {
+        var host = ScenarioChartsHost;
+        host.Children.Clear();
+        host.ColumnDefinitions.Clear();
+        host.RowDefinitions.Clear();
+        const int columns = 3;
+        for (var column = 0; column < columns; column++)
+        {
+            host.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        }
+
+        var charted = metrics.Where(metric => metric.Chart).ToList();
+        for (var index = 0; index < charted.Count; index++)
+        {
+            if (index % columns == 0)
+            {
+                host.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            }
+
+            var metric = charted[index];
+            var values = performances.Select(performance => (Performance: performance, Value: metric.Value(performance))).ToList();
+            var maximum = values.Max(pair => Math.Abs(pair.Value ?? 0d));
+            var card = new StackPanel { Spacing = 6 };
+            card.Children.Add(new TextBlock { Text = metric.Label, FontWeight = FontWeights.SemiBold, FontSize = 14 });
+            card.Children.Add(new TextBlock
+            {
+                Text = metric.HigherIsBetter ? "Higher is better" : "Lower is better",
+                FontSize = 11,
+                Foreground = (Brush)Resources["KpiMutedBrush"]
+            });
+
+            foreach (var (performance, value) in values)
+            {
+                var isReference = ReferenceEquals(performance, reference);
+                var row = new Grid { ColumnSpacing = 8 };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(92) });
+                var label = new TextBlock
+                {
+                    Text = performance.Scenario.Name,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    FontWeight = isReference ? FontWeights.SemiBold : FontWeights.Normal,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                ToolTipService.SetToolTip(label, DesignScenarios.Label(performance.Scenario, _sets));
+                var bar = new ProgressBar
+                {
+                    Maximum = 100,
+                    Value = maximum <= 0 || value is null ? 0 : 100d * Math.Abs(value.Value) / maximum,
+                    Height = 12,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = (Brush)Resources[value is < 0 ? "KpiChartAmberBrush" : isReference ? "KpiForestBrush" : "KpiLeafBrush"],
+                    Background = (Brush)Resources["KpiChartTrackBrush"]
+                };
+                var number = new TextBlock
+                {
+                    Text = value is { } v ? metric.Format(v) : "—",
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    FontSize = 12,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                Grid.SetColumn(bar, 1);
+                Grid.SetColumn(number, 2);
+                row.Children.Add(label);
+                row.Children.Add(bar);
+                row.Children.Add(number);
+                card.Children.Add(row);
+            }
+
+            var surface = new Border { Style = (Style)Resources["KpiSurfaceStyle"], Padding = new Thickness(18, 14, 18, 14), Child = card };
+            Grid.SetRow(surface, index / columns);
+            Grid.SetColumn(surface, index % columns);
+            host.Children.Add(surface);
+        }
+
+        ScenarioChartCaptionText.Text = performances.Count < 2
+            ? "Save a second scenario (Edit… above) to compare them here."
+            : $"Each bar is one scenario, scaled to the largest; the reference (\"{reference?.Scenario.Name}\") is darker. Amber bars are negative values.";
+    }
+}

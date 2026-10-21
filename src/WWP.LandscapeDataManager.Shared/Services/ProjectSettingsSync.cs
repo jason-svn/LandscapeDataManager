@@ -42,7 +42,9 @@ public static class ProjectSettingsSync
         string? siteBoundary = null,
         ExchangeRateOverride? exchangeRateOverride = null,
         ConnectivitySettings? connectivity = null,
-        IReadOnlyList<int>? growthProjectionYears = null)
+        IReadOnlyList<int>? growthProjectionYears = null,
+        IReadOnlyList<DesignScenario>? designScenarios = null,
+        string? referenceScenario = null)
     {
         var existingResult = await client.SendAsync<GetProjectSettingsJsonResult>(PipeCommands.GetProjectSettingsJson);
         var existing = ProjectSettingsJson.Deserialize(existingResult.SettingsJson) ?? new ProjectSettingsSnapshot();
@@ -76,7 +78,9 @@ public static class ProjectSettingsSync
             siteBoundary ?? existing.SiteBoundary,
             exchangeRateOverride ?? existing.ExchangeRateOverride,
             connectivity ?? existing.Connectivity,
-            growthProjectionYears ?? existing.GrowthProjectionYears);
+            growthProjectionYears ?? existing.GrowthProjectionYears,
+            designScenarios ?? existing.DesignScenarios,
+            referenceScenario ?? existing.ReferenceScenario);
 
         await client.SendAsync<PublishProjectSettingsJsonResult>(
             PipeCommands.PublishProjectSettingsJson,

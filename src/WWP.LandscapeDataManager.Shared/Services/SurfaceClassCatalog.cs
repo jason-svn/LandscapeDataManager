@@ -16,6 +16,55 @@ namespace WWP.LandscapeDataManager.Shared.Services;
 /// </remarks>
 public static class SurfaceClassCatalog
 {
+    public const string Pervious = "Pervious";
+    public const string Impervious = "Impervious";
+
+    /// <summary>A building's own floor slab: not landscape, so it's left out of the greenspace ratio.</summary>
+    public const string Building = "Building";
+
+    private static readonly string[] BuildingKeywords =
+    [
+        "structural", "building", "suspended", "screed", "podium", "ground bearing", "ground-bearing", "transfer slab"
+    ];
+
+    /// <summary>Words that make a "slab" a paving slab rather than a building slab.</summary>
+    private static readonly string[] LandscapeSlabKeywords =
+    [
+        "paving", "paver", "flag", "stone", "granite", "porcelain", "tile", "step", "kerb", "permeable"
+    ];
+
+    /// <summary>
+    /// True for a building floor slab, which isn't landscape at all. A floor tagged "Building" (or
+    /// "Excluded") always is. A floor with an LDS type or another surface class tag never is — it was
+    /// matched as landscape. Otherwise it is when Revit marks it structural, or its type or family name
+    /// says so ("Structural slab", "Suspended slab", a "slab" that isn't a paving slab, …).
+    /// </summary>
+    public static bool IsBuildingSlab(string? surfaceClassTag, string? ldsType, bool isStructural, params string?[] names)
+    {
+        if (!string.IsNullOrWhiteSpace(surfaceClassTag))
+        {
+            var tag = surfaceClassTag.Trim();
+            return tag.Equals(Building, StringComparison.OrdinalIgnoreCase) || tag.Equals("Excluded", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (!string.IsNullOrWhiteSpace(ldsType))
+        {
+            return false;
+        }
+
+        return isStructural || names.Any(name =>
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return false;
+            }
+
+            var normalized = name.ToLowerInvariant();
+            return BuildingKeywords.Any(normalized.Contains) ||
+                   (normalized.Contains("slab") && !LandscapeSlabKeywords.Any(normalized.Contains));
+        });
+    }
+
     private static readonly string[] PermeableOverrides =
     [
         "permeable", "porous", "pervious", "grasscrete", "grass reinforced", "reinforced grass",

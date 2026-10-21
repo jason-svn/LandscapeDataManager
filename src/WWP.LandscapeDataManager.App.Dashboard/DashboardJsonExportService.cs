@@ -137,6 +137,9 @@ internal sealed record DashboardJsonBng(
 /// model also has design options (real alternatives), each scenario is one option at one growth
 /// year, and the web dashboard offers the option as a dropdown and the year as its slider. Null
 /// when scenarios form a single timeline (v3 files never have it).
+/// Schema v5: a scenario is a design scenario — one chosen option per design option set, named
+/// in <see cref="DesignOption"/>, with the choices themselves in <see cref="Choices"/> (set → option).
+/// Before v5, each design option was its own scenario and the other sets were dropped.
 /// </remarks>
 internal sealed record DashboardJsonScenario(
     string Label,
@@ -147,7 +150,8 @@ internal sealed record DashboardJsonScenario(
     DashboardJsonBng Bng,
     IReadOnlyList<DashboardJsonSpecies> Species,
     IReadOnlyList<DashboardJsonFloorType> FloorTypes,
-    string? DesignOption = null);
+    string? DesignOption = null,
+    IReadOnlyDictionary<string, string>? Choices = null);
 
 /// <summary>The full payload written by "Export JSON" — a standalone snapshot meant to be loaded into another (e.g. browser-based) dashboard, independent of this app's own unit/currency toggles.</summary>
 internal sealed record DashboardJsonExport(
@@ -157,69 +161,55 @@ internal sealed record DashboardJsonExport(
 
 internal static class DashboardJsonExportService
 {
-    private const int SchemaVersion = 4;
+    private const int SchemaVersion = 5;
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     /// <summary>
-    /// Builds the export DTO with one scenario per design option (see <see cref="DashboardJsonScenario"/>),
-    /// each scoped to only that option's own trees/floors and always normalized onto Metric so the JSON
-    /// is self-describing regardless of what unit system the dashboard is currently displaying in.
-    /// A project with no design options in play collapses to a single "Primary model" scenario, so this
-    /// still works for the common case that isn't using growth-year design options at all.
+    /// Builds the export DTO with one entry per design scenario (one option per design option set,
+    /// see <see cref="DesignScenarios"/>): the main model plus that scenario's chosen options, never
+    /// the options it doesn't choose. With growth years modelled as worksets, each scenario becomes
+    /// one entry per growth year — that year's trees plus trees on no growth-year workset — grouped
+    /// scenario by scenario so each forms its own timeline in the web dashboard. Always normalized onto
+    /// Metric so the JSON is self-describing whatever the dashboard is displaying. A model without
+    /// design options has the single "Primary options" scenario.
     /// </summary>
     public static DashboardJsonExport Build(
         DashboardReportResult report,
         string currency,
         double usdToTargetRate,
-        DashboardJsonLocation location)
+        DashboardJsonLocation location,
+        IReadOnlyList<DesignOptionSetItem> sets,
+        IReadOnlyList<DesignScenario> scenarios)
     {
         var project = new DashboardJsonProject(report.DocumentTitle, currency, location, DateTimeOffset.Now);
+        var hasAlternatives = scenarios.Count > 1;
+        var defaultScenario = DesignScenarios.Find(scenarios, null);
 
-        // Growth years modelled as worksets, alternatives as design options: one scenario per
-        // (design option, growth year) — that option's trees for the year plus trees on no growth-year
-        // workset, its floors and lighting, and the main model throughout. Grouped option by option so
-        // each option's years form its own timeline in the web dashboard.
         var worksetYears = GrowthYears.InModel(report.Trees);
-        if (worksetYears.Count > 0)
+        var entries = scenarios.SelectMany(scenario =>
         {
-            var options = DashboardUnitLabels.SplitByDesignOption(report.Trees, tree => tree.DesignOption, report.Floors, floor => floor.DesignOption);
-            var hasAlternatives = options.Count > 1 || options[0].Label != DashboardUnitLabels.MainModelLabel;
-            var defaultOption = DashboardUnitLabels.DefaultDesignOption(options.Select(option => option.Label));
-            var yearScenarios = options
-                .SelectMany(option => worksetYears.Select((year, index) => BuildScenario(
-                    hasAlternatives ? $"{option.Label} · {year} years" : $"{year} years",
-                    option.Label == defaultOption && index == 0,
-                    option.Trees.Where(tree => GrowthYears.CountsIn(tree, year)).ToList(),
-                    option.Floors,
-                    DashboardUnitLabels.LightingFor(report.Lighting, hasAlternatives ? option.Label : null),
+            var trees = DesignScenarios.Filter(report.Trees, tree => tree.DesignOption, scenario, sets);
+            var floors = DesignScenarios.Filter(report.Floors, floor => floor.DesignOption, scenario, sets);
+            var lighting = DesignScenarios.Filter(report.Lighting, fixture => fixture.DesignOption, scenario, sets);
+            var label = hasAlternatives ? DesignScenarios.Label(scenario, sets) : scenario.Name;
+            return worksetYears.Count == 0
+                ? new[] { BuildScenario(label, scenario == defaultScenario, trees, floors, lighting, report, currency, usdToTargetRate,
+                    designOption: hasAlternatives ? scenario.Name : null, choices: scenario.Choices) }
+                : worksetYears.Select((year, index) => BuildScenario(
+                    hasAlternatives ? $"{scenario.Name} · {year} years" : $"{year} years",
+                    scenario == defaultScenario && index == 0,
+                    trees.Where(tree => GrowthYears.CountsIn(tree, year)).ToList(),
+                    floors,
+                    lighting,
                     report,
                     currency,
                     usdToTargetRate,
                     years: year,
-                    designOption: hasAlternatives ? option.Label : null)))
-                .ToList();
-            return new DashboardJsonExport(SchemaVersion, project, yearScenarios);
-        }
+                    designOption: hasAlternatives ? scenario.Name : null,
+                    choices: scenario.Choices));
+        }).ToList();
 
-        // Main-model elements (in no design option) belong to every option's scenario, as in Revit.
-        // isPrimary marks the scenario the web dashboard opens on: the "Baseline" option when there is one.
-        var optionScenarios = DashboardUnitLabels
-            .SplitByDesignOption(report.Trees, tree => tree.DesignOption, report.Floors, floor => floor.DesignOption);
-        var defaultLabel = DashboardUnitLabels.DefaultDesignOption(optionScenarios.Select(scenario => scenario.Label));
-        var scenarios = optionScenarios
-            .Select(scenario => BuildScenario(
-                scenario.Label,
-                scenario.Label == defaultLabel,
-                scenario.Trees,
-                scenario.Floors,
-                // A model without design options has one "Primary model" scenario holding everything.
-                DashboardUnitLabels.LightingFor(report.Lighting, scenario.Label == DashboardUnitLabels.MainModelLabel ? null : scenario.Label),
-                report,
-                currency,
-                usdToTargetRate))
-            .ToList();
-
-        return new DashboardJsonExport(SchemaVersion, project, scenarios);
+        return new DashboardJsonExport(SchemaVersion, project, entries);
     }
 
     private static DashboardJsonScenario BuildScenario(
@@ -232,7 +222,8 @@ internal static class DashboardJsonExportService
         string currency,
         double usdToTargetRate,
         int? years = null,
-        string? designOption = null)
+        string? designOption = null,
+        IReadOnlyDictionary<string, string>? choices = null)
     {
         var normalizedTrees = treeItems
             .Select(tree => DashboardAggregationService.NormalizeTree(tree, "Metric", currency, usdToTargetRate))
@@ -311,7 +302,8 @@ internal static class DashboardJsonExportService
             Groups(bng.ByBroadHabitat), Groups(bng.ByDistinctiveness));
 
         return new DashboardJsonScenario(
-            label, years ?? DashboardUnitLabels.ExtractProjectionYears(label), isPrimary, totals, siteKpiJson, bngJson, species, floorTypes, designOption);
+            label, years ?? DashboardUnitLabels.ExtractProjectionYears(label), isPrimary, totals, siteKpiJson, bngJson, species, floorTypes, designOption,
+            choices is { Count: > 0 } ? choices : null);
     }
 
     public static async Task ExportAsync(string path, DashboardJsonExport export)
