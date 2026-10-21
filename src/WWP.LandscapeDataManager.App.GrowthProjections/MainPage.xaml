@@ -174,7 +174,7 @@
                                 ToolTipService.ToolTip="Re-read every growth-year tree: brings its age up to date (age at planting + year, capped at mature size) and counts what still needs calculating." />
                     </Grid>
                     <TextBlock Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
-                               Text="Each growth year's trees are calculated at their own size: the age sets the family's trunk diameter (DBH), which is what i-Tree is sent. A tree stops growing at its type's mature size (LDS max height/width) — or 25 years after planting when the type has no max size — so later years keep that final size. Same engine and results as Tree Calculator." />
+                               Text="Runs i-Tree for each growth year's trees. The planting family turns each tree's projected year into its age, size and trunk diameter (DBH), and DBH is what i-Tree is sent; for a family without that formula yet, LIM sets the age itself and stops it at mature size. Check also warns when a type's DBH doesn't change between years (usually a missing trunk growth rate), since every year would then get the same results. Same engine and results as Tree Calculator." />
                     <Grid Padding="0,4,0,0" ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="120" />

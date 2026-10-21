@@ -300,11 +300,15 @@ public sealed partial class MainPage : Page
         }
 
         var capped = validation.AgeSync?.CappedAtMaturity ?? 0;
+        var flatDbh = GrowthProjectionChecks.TypesWithUnchangingDbh(_growthTrees.Select(tree => tree.Item));
         CalculationStatusText.Text = _growthTrees.Count == 0
             ? "No trees are on growth-year worksets yet — create the growth years above first."
             : $"{_growthTrees.Count:N0} tree(s) across {CalculationRows.Count:N0} growth year(s)." +
-              (validation.AgeSync is { Updated: > 0 } sync ? $" Updated {sync.Updated:N0} tree age(s)." : string.Empty) +
-              (capped > 0 ? $" {capped:N0} tree(s) have stopped growing (mature size, or 25 years after planting without one), so their age is capped." : string.Empty);
+              (validation.AgeSync is { Updated: > 0 } sync ? $" Updated {sync.Updated:N0} tree(s) to their projected year." : string.Empty) +
+              (capped > 0 ? $" {capped:N0} tree(s) without a family age formula have reached mature size, so LIM capped their age." : string.Empty) +
+              (flatDbh.Count > 0
+                  ? $" ⚠ DBH is the same in every growth year for {flatDbh.Count:N0} type(s) ({string.Join(", ", flatDbh.Take(5))}{(flatDbh.Count > 5 ? ", …" : string.Empty)}), so i-Tree will give every year the same results — fill in their trunk growth rate (!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number)."
+                  : string.Empty);
     }
 
     /// <summary>Has every input and just needs (re)calculating.</summary>
