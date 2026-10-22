@@ -66,3 +66,16 @@ public sealed class WorksetRow(GrowthYearWorkset workset)
     public string TreeCountText { get; } = workset.TreeCount.ToString("N0");
     public string LinkedText { get; } = workset.Year == 0 ? "originals" : $"{workset.LinkedCopyCount:N0} linked";
 }
+
+/// <summary>One planting type's trunk growth rate from i-Tree, for the trunk growth table.</summary>
+public sealed class TrunkGrowthRow(Shared.Services.TypeTrunkGrowth type)
+{
+    public Shared.Services.TypeTrunkGrowth Type { get; } = type;
+    public string TypeName { get; } = type.TypeName;
+    public string FamilyName { get; } = type.FamilyName;
+    public string SpeciesCode { get; } = type.SpeciesCode;
+    public string TreesText { get; } = type.TreeCount.ToString("N0");
+    public string InputsText { get; } = type.InputsText;
+    public string RateText { get; } = type.RateCmPerYear is { } rate ? rate.ToString("0.00") : "—";
+    public string Note { get; } = type.Error ?? (type.TreeCount == 0 ? "No trees placed: default inputs" : string.Empty);
+}

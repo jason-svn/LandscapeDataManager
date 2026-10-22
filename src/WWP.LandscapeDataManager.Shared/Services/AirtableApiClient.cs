@@ -125,6 +125,56 @@ public sealed class AirtableApiClient
         }
     }
 
+    /// <summary>
+    /// Makes sure the source table has a number column called <paramref name="fieldName"/>, adding
+    /// it when it's missing. True if it was added. Adding needs the token's 'schema.bases:write'
+    /// scope and creator access to the base.
+    /// </summary>
+    public async Task<bool> EnsureNumberFieldAsync(
+        AirtableApiSettings settings,
+        string apiToken,
+        string fieldName,
+        int precision,
+        string description,
+        CancellationToken cancellationToken = default)
+    {
+        var page = await SendMetadataRequestAsync<AirtableTablesPage>(
+            $"meta/bases/{Uri.EscapeDataString(settings.BaseId)}/tables", apiToken, cancellationToken).ConfigureAwait(false);
+        var table = page.Tables.FirstOrDefault(table =>
+                        string.Equals(table.Id, settings.TableIdOrName, StringComparison.Ordinal) ||
+                        string.Equals(table.Name.Trim(), settings.TableIdOrName.Trim(), StringComparison.OrdinalIgnoreCase))
+                    ?? throw new InvalidOperationException($"Airtable has no table \"{settings.TableIdOrName}\" in this base.");
+        if ((table.Fields ?? []).Any(field => string.Equals(field.Name.Trim(), fieldName.Trim(), StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            new Uri($"meta/bases/{Uri.EscapeDataString(settings.BaseId)}/tables/{Uri.EscapeDataString(table.Id)}/fields", UriKind.Relative))
+        {
+            Content = JsonContent.Create(
+                new { name = fieldName, type = "number", description, options = new { precision } }, options: JsonOptions)
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiToken.Trim());
+
+        using var response = await HttpClientInstance.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
+        {
+            throw new AirtableInsufficientScopeException(
+                $"Airtable didn't let this token add the \"{fieldName}\" column (it needs the 'schema.bases:write' scope and creator access). " +
+                "Add it by hand as a Number column with 2 decimals, then push again.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            throw new HttpRequestException($"Airtable returned {(int)response.StatusCode} {response.ReasonPhrase}: {Truncate(body)}");
+        }
+
+        return true;
+    }
+
     /// <summary>Lists every base the token can access — the first step of the base/table/view browser in Settings.</summary>
     public async Task<IReadOnlyList<AirtableBaseSummary>> GetBasesAsync(
         string apiToken,
@@ -240,7 +290,9 @@ public sealed class AirtableApiClient
 
     private sealed record AirtableTablesPage(IReadOnlyList<AirtableApiTable> Tables);
 
-    private sealed record AirtableApiTable(string Id, string Name, IReadOnlyList<AirtableApiView> Views);
+    private sealed record AirtableApiTable(string Id, string Name, IReadOnlyList<AirtableApiView> Views, IReadOnlyList<AirtableApiField>? Fields = null);
+
+    private sealed record AirtableApiField(string Id, string Name, string Type);
 
     private sealed record AirtableApiView(string Id, string Name);
 }

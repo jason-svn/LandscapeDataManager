@@ -333,7 +333,9 @@ public sealed class ITreeApiClient
                 ReadNumber(year, "pollution-removed", "pm25"),
                 ReadNumber(year, "carbon", "sequestration-worth"),
                 ReadNumber(year, "hydrology", "runoff-avoided-worth"),
-                SumPollutionRemovedWorth(year)))
+                SumPollutionRemovedWorth(year),
+                ReadNumber(year, "diameter"),
+                ReadNumber(year, "height")))
             .ToList();
     }
 

@@ -14,6 +14,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Grid>
@@ -140,8 +141,70 @@
                 </StackPanel>
             </Border>
 
-            <!-- Run -->
+            <!-- Trunk growth from i-Tree -->
             <Border Grid.Row="5" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="10">
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="TRUNK GROWTH FROM I-TREE" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="Get rates" Click="GetTrunkGrowth_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                                ToolTipService.ToolTip="Asks i-Tree how fast each planting type's species grows its trunk. Nothing is changed yet." />
+                        <Button Grid.Column="2" x:Name="WriteTrunkGrowthButton" Content="Write to types" Click="WriteTrunkGrowth_Click" IsEnabled="False"
+                                Style="{StaticResource LimPrimaryButtonStyle}"
+                                ToolTipService.ToolTip="Sets each type's !_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number to its rate (one Revit undo step)." />
+                        <Button Grid.Column="3" x:Name="PushTrunkGrowthButton" Content="Push to sheet" Click="PushTrunkGrowth_Click" IsEnabled="False"
+                                Style="{StaticResource LimSecondaryButtonStyle}"
+                                ToolTipService.ToolTip="Saves each type's rate in the project's Airtable sheet, adding the column if it's missing." />
+                    </Grid>
+                    <TextBlock Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
+                               Text="The planting family grows each tree's DBH at its type's trunk growth rate (cm/yr); at 0 the trunk never grows. Get rates asks i-Tree how fast each type's species grows from the 5.4 cm planting size, at the condition and crown exposure most of the type's trees have (Good, exposure 3 when it has none). i-Tree grows a trunk by the same amount every year, so that is the family's rate exactly. Write to types sets it on the Revit types; Push to sheet saves it in the sheet's &quot;Trunk diameter annual growth rate (cm/yr)&quot; column, which the Importer maps onto the types." />
+                    <Grid Margin="0,4,0,0">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid Grid.RowSpan="3" Style="{StaticResource LimTableLanesStyle}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="160" /><ColumnDefinition Width="80" /><ColumnDefinition Width="70" /><ColumnDefinition Width="170" /><ColumnDefinition Width="100" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                            <Border Grid.Column="3" Grid.ColumnSpan="2" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreenBrush}" />
+                        </Grid>
+                        <Grid Style="{StaticResource LimTableGroupRowStyle}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="160" /><ColumnDefinition Width="80" /><ColumnDefinition Width="70" /><ColumnDefinition Width="170" /><ColumnDefinition Width="100" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="3" Grid.ColumnSpan="2" Text="I-TREE" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneGreenTextBrush}" />
+                        </Grid>
+                        <Grid Grid.Row="1" Style="{StaticResource LimTableHeaderRowStyle}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="160" /><ColumnDefinition Width="80" /><ColumnDefinition Width="70" /><ColumnDefinition Width="170" /><ColumnDefinition Width="100" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="Type" Style="{StaticResource LimTableHeaderStyle}" />
+                            <TextBlock Grid.Column="1" Text="Species" Style="{StaticResource LimTableHeaderStyle}" />
+                            <TextBlock Grid.Column="2" Text="Trees" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                            <TextBlock Grid.Column="3" Text="Condition, exposure" Style="{StaticResource LimTableHeaderStyle}" />
+                            <TextBlock Grid.Column="4" Text="Rate (cm/yr)" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                            <TextBlock Grid.Column="5" Text="Note" Style="{StaticResource LimTableHeaderStyle}" />
+                        </Grid>
+                        <ItemsControl Grid.Row="2" ItemsSource="{x:Bind TrunkGrowthRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:TrunkGrowthRow">
+                                    <Grid Style="{StaticResource LimTableRowStyle}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="160" /><ColumnDefinition Width="80" /><ColumnDefinition Width="70" /><ColumnDefinition Width="170" /><ColumnDefinition Width="100" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind TypeName}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind FamilyName}" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind SpeciesCode}" />
+                                        <TextBlock Grid.Column="2" Text="{x:Bind TreesText}" TextAlignment="Right" />
+                                        <TextBlock Grid.Column="3" Text="{x:Bind InputsText}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="4" Text="{x:Bind RateText}" TextAlignment="Right" FontWeight="SemiBold" />
+                                        <TextBlock Grid.Column="5" Text="{x:Bind Note}" TextWrapping="Wrap" Foreground="{ThemeResource LimWarningBrush}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                    <TextBlock x:Name="TrunkGrowthStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
+                               Text="Select Get rates to see each type's trunk growth rate from i-Tree." />
+                </StackPanel>
+            </Border>
+
+            <!-- Run -->
+            <Border Grid.Row="6" Style="{StaticResource LimCardStyle}">
                 <Grid ColumnSpacing="10" RowSpacing="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -163,7 +226,7 @@
             </Border>
 
             <!-- i-Tree by growth year -->
-            <Border Grid.Row="6" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Row="7" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">
                     <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
@@ -214,7 +277,7 @@
                 </StackPanel>
             </Border>
 
-            <ProgressRing x:Name="BusyIndicator" Grid.RowSpan="7" Width="40" Height="40" IsActive="False" Visibility="Collapsed"
+            <ProgressRing x:Name="BusyIndicator" Grid.RowSpan="8" Width="40" Height="40" IsActive="False" Visibility="Collapsed"
                           HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Grid>
     </ScrollViewer>
