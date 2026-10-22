@@ -87,7 +87,7 @@ public sealed class GrowthRateRow(Shared.Services.TypeGrowthRates type, Shared.S
     public string TrunkText { get; } = Rate(type.TrunkCmPerYear);
     public string HeightText { get; } = Rate(type.HeightMPerYear);
     public string WidthText { get; } = Rate(type.WidthMPerYear);
-    public string Note { get; } = type.Error ?? (type.TreeCount == 0 ? "No trees placed: default inputs" : string.Empty);
+    public string Note { get; } = type.Error ?? type.Note ?? (type.TreeCount == 0 ? "No trees placed: default inputs" : string.Empty);
 
     private static string Rate(double? value) => value is { } rate ? rate.ToString("0.00") : "—";
 }

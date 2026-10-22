@@ -209,6 +209,34 @@ public sealed class GrowthRatesFromITreeTests
         Assert.False(Result([]).HasCopiesWaiting);
     }
 
+    [Fact]
+    public void Saved_rates_load_without_asking_i_tree_while_the_type_s_inputs_are_the_same()
+    {
+        var plan = GrowthRatesFromITree.Plan([Type(1, "Quercus_Robur", "QURO"), Type(2, "Acer_Campestre"), Type(3, "Sorbus_Aria", "SOAR")], []);
+        var rated = plan.Take(2).Select(type => type with { TrunkCmPerYear = 0.735, HeightMPerYear = 0.58, WidthMPerYear = 0.3 }).ToList();
+        var saved = GrowthRatesFromITree.Save(null, rated, 25, 51.50001, -0.1, DateTimeOffset.UnixEpoch);
+
+        var loaded = GrowthRatesFromITree.FromSaved(plan, saved, 25, 51.5, -0.1);
+        Assert.Equal([0.58, 0.58, null], loaded.Select(type => type.HeightMPerYear));
+        Assert.Equal("Not asked i-Tree yet: Get rates", loaded[2].Note);
+
+        // Another design year (or condition, exposure, species, location) needs i-Tree again.
+        Assert.All(GrowthRatesFromITree.FromSaved(plan, saved, 30, 51.5, -0.1).Take(2),
+            type => Assert.Equal((null, "Inputs changed since i-Tree was asked: Get rates"), (type.HeightMPerYear, type.Note)));
+    }
+
+    [Fact]
+    public void Saving_replaces_a_type_s_old_rates_and_keeps_other_types()
+    {
+        var oak = GrowthRatesFromITree.Plan([Type(1, "Quercus_Robur", "QURO")], [])[0] with { HeightMPerYear = 0.45 };
+        var maple = GrowthRatesFromITree.Plan([Type(2, "Acer_Campestre")], [])[0] with { HeightMPerYear = 0.5 };
+        var first = GrowthRatesFromITree.Save(null, [oak, maple], 25, 51.5, -0.1, DateTimeOffset.UnixEpoch);
+
+        var second = GrowthRatesFromITree.Save(first, [oak with { HeightMPerYear = 0.58 }], 25, 51.5, -0.1, DateTimeOffset.UnixEpoch);
+
+        Assert.Equal([("Acer_Campestre", 0.5), ("Quercus_Robur", 0.58)], second.Select(entry => (entry.TypeName, entry.HeightMPerYear!.Value)));
+    }
+
     [Theory]
     [InlineData(GrowthRatesFromITree.TrunkSheetColumn, GrowthRatesFromITree.TrunkParameter)]
     [InlineData(GrowthRatesFromITree.HeightSheetColumn, GrowthRatesFromITree.HeightParameter)]

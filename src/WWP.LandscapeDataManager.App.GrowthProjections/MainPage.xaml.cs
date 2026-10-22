@@ -541,9 +541,71 @@ public sealed partial class MainPage : Page
     private async void GetGrowthRates_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(GetGrowthRatesAsync);
 
     /// <summary>
-    /// Every planting type with a species code, rated by i-Tree at the condition and crown exposure
-    /// most of its planted trees have, to the design year. Reads the model only (the tree scan also
-    /// brings growth-year ages up to date, as Check does).
+    /// Every planting type with a species code, with the condition and crown exposure most of its
+    /// planted trees have, and the project's i-Tree location; null (after saying why) when there's
+    /// nothing to rate. Reads the model only (the tree scan also brings growth-year ages up to date,
+    /// as Check does).
+    /// </summary>
+    private async Task<(IReadOnlyList<TypeGrowthRates> Plan, double Latitude, double Longitude)?> PlanGrowthRatesAsync()
+    {
+        var scanTask = GetClient().SendAsync<ModelScanResult>(PipeCommands.ScanModel, new ModelScanOptions(PrimaryDesignOptionsOnly: false));
+        var validationTask = GetClient().SendAsync<ValidatePlantingInstancesResult>(
+            PipeCommands.ValidatePlantingInstances, new ValidatePlantingInstancesRequest());
+        await Task.WhenAll(scanTask, validationTask);
+        var trees = (await validationTask).Items;
+        var plan = GrowthRatesFromITree.Plan((await scanTask).Items, trees);
+        if (plan.Count == 0)
+        {
+            ShowGrowthRates([], "No planting types have a species code yet: assign them in Tree Searcher first.");
+            return null;
+        }
+
+        var location = trees.FirstOrDefault(tree => tree.Latitude is not null && tree.Longitude is not null);
+        if (location is null)
+        {
+            ShowGrowthRates([], "The project has no i-Tree location: set it with Location Finder first.");
+            return null;
+        }
+
+        return (plan, location.Latitude!.Value, location.Longitude!.Value);
+    }
+
+    /// <summary>
+    /// Opening the step: the rates i-Tree gave last time, saved on the project, and where each type
+    /// stands. No i-Tree request; a type never rated, or whose inputs changed since, says to Get rates.
+    /// </summary>
+    private async Task LoadSavedGrowthRatesAsync()
+    {
+        if (await PlanGrowthRatesAsync() is not var (plan, latitude, longitude))
+        {
+            return;
+        }
+
+        var saved = (await ProjectSettingsSync.PullAsync(GetClient()))?.GrowthRates;
+        var rated = GrowthRatesFromITree.FromSaved(plan, saved, DesignYear(), latitude, longitude);
+        ShowGrowthRates(rated);
+        var loaded = rated.Count(type => type.HasRates);
+        if (loaded == 0)
+        {
+            GrowthRatesStatusText.Text = "No i-Tree rates saved on this project for these types yet: select Get rates to ask i-Tree.";
+            SetStep(2, StepState.Attention);
+            return;
+        }
+
+        var toAsk = rated.Count - loaded;
+        GrowthRatesStatusText.Text =
+            $"Loaded the i-Tree rates saved on the project for {loaded:N0} type(s)" +
+            (toAsk > 0 ? $"; {toAsk:N0} need Get rates (see Note)" : string.Empty) + ". " +
+            await CheckSavedRatesAsync();
+        if (toAsk > 0)
+        {
+            SetStep(2, StepState.Attention);
+        }
+    }
+
+    /// <summary>
+    /// Asks i-Tree for every type's rates, to the design year, and saves them on the project so the
+    /// step opens on them next time without asking again.
     /// </summary>
     private async Task GetGrowthRatesAsync()
     {
@@ -554,22 +616,8 @@ public sealed partial class MainPage : Page
             return;
         }
 
-        var scanTask = GetClient().SendAsync<ModelScanResult>(PipeCommands.ScanModel, new ModelScanOptions(PrimaryDesignOptionsOnly: false));
-        var validationTask = GetClient().SendAsync<ValidatePlantingInstancesResult>(
-            PipeCommands.ValidatePlantingInstances, new ValidatePlantingInstancesRequest());
-        await Task.WhenAll(scanTask, validationTask);
-        var trees = (await validationTask).Items;
-        var plan = GrowthRatesFromITree.Plan((await scanTask).Items, trees);
-        if (plan.Count == 0)
+        if (await PlanGrowthRatesAsync() is not var (plan, latitude, longitude))
         {
-            ShowGrowthRates([], "No planting types have a species code yet: assign them in Tree Searcher first.");
-            return;
-        }
-
-        var location = trees.FirstOrDefault(tree => tree.Latitude is not null && tree.Longitude is not null);
-        if (location is null)
-        {
-            ShowGrowthRates([], "The project has no i-Tree location: set it with Location Finder first.");
             return;
         }
 
@@ -584,16 +632,31 @@ public sealed partial class MainPage : Page
         });
         var rated = await GrowthRatesFromITree.RunAsync(
             plan,
-            location.Latitude!.Value,
-            location.Longitude!.Value,
+            latitude,
+            longitude,
             designYear,
             (input, years, token) => _iTreeApiClient.ForecastAsync(input, years, apiKey, token),
             progress);
         var ratedCount = rated.Count(type => type.HasRates);
         var failed = rated.Count - ratedCount;
+        var saveNote = string.Empty;
+        if (ratedCount > 0)
+        {
+            try
+            {
+                var saved = (await ProjectSettingsSync.PullAsync(GetClient()))?.GrowthRates;
+                await ProjectSettingsSync.PushAsync(GetClient(),
+                    growthRates: GrowthRatesFromITree.Save(saved, rated, designYear, latitude, longitude, DateTimeOffset.Now));
+            }
+            catch (Exception exception)
+            {
+                saveNote = $" (Not saved on the project: {exception.Message})";
+            }
+        }
+
         ShowGrowthRates(rated);
         GrowthRatesStatusText.Text =
-            $"{ratedCount:N0} of {rated.Count:N0} type(s) rated by i-Tree (height and width at year {designYear})." +
+            $"{ratedCount:N0} of {rated.Count:N0} type(s) rated by i-Tree (height and width at year {designYear}) and saved on the project{saveNote}." +
             (failed > 0 ? $" {failed:N0} failed (see Note)." : string.Empty) +
             (ratedCount > 0 ? " " + await CheckSavedRatesAsync() : string.Empty);
     }
@@ -871,6 +934,9 @@ public sealed partial class MainPage : Page
         {
             case 1:
                 await RunBusyAsync(CheckTreesAsync);
+                break;
+            case 2:
+                await RunBusyAsync(LoadSavedGrowthRatesAsync);
                 break;
             case 3:
                 await RunBusyAsync(PreviewRunAsync);

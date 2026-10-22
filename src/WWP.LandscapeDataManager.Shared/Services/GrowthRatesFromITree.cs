@@ -22,12 +22,32 @@ public sealed record TypeGrowthRates(
     double? TrunkCmPerYear = null,
     double? HeightMPerYear = null,
     double? WidthMPerYear = null,
-    string? Error = null)
+    string? Error = null,
+    string? Note = null)
 {
     public string InputsText => $"{Condition}, exposure {CrownExposure}{(UsesDefaultInputs ? " (default)" : string.Empty)}";
 
     public bool HasRates => TrunkCmPerYear is not null || HeightMPerYear is not null || WidthMPerYear is not null;
 }
+
+/// <summary>
+/// One type's rates as i-Tree gave them, saved on the project (<see cref="ProjectSettingsSnapshot.GrowthRates"/>)
+/// so Growth Projections shows them without asking i-Tree again. They hold while the type's inputs
+/// (species, condition, crown exposure, design year and the project's location) stay the same.
+/// </summary>
+public sealed record SavedGrowthRates(
+    string FamilyName,
+    string TypeName,
+    string SpeciesCode,
+    string Condition,
+    int CrownExposure,
+    int DesignYear,
+    double Latitude,
+    double Longitude,
+    double? TrunkCmPerYear,
+    double? HeightMPerYear,
+    double? WidthMPerYear,
+    string SavedUtc);
 
 /// <summary>One rate where it's kept (a Revit type parameter or a sheet column): what's there, and whether i-Tree's differs.</summary>
 public sealed record StoredRate(string Rate, string Current, double Proposed, bool Differs)
@@ -228,6 +248,69 @@ public static class GrowthRatesFromITree
                     Error = result.Error
                 }
                 : type)
+            .ToList();
+    }
+
+    /// <summary>
+    /// The project's saved rates with these freshly rated types in: each rated type's entry replaces
+    /// its old one, other types' entries stay. Types i-Tree gave no rate are left as they were.
+    /// </summary>
+    public static IReadOnlyList<SavedGrowthRates> Save(
+        IReadOnlyList<SavedGrowthRates>? saved,
+        IEnumerable<TypeGrowthRates> rated,
+        int designYear,
+        double latitude,
+        double longitude,
+        DateTimeOffset now)
+    {
+        var fresh = rated
+            .Where(type => type.HasRates)
+            .Select(type => new SavedGrowthRates(
+                type.FamilyName, type.TypeName, type.SpeciesCode, type.Condition, type.CrownExposure, designYear,
+                Math.Round(latitude, 4), Math.Round(longitude, 4),
+                type.TrunkCmPerYear, type.HeightMPerYear, type.WidthMPerYear,
+                now.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)))
+            .ToList();
+        var replaced = fresh.Select(entry => (entry.FamilyName, entry.TypeName)).ToHashSet();
+        return (saved ?? [])
+            .Where(entry => !replaced.Contains((entry.FamilyName, entry.TypeName)))
+            .Concat(fresh)
+            .OrderBy(entry => entry.FamilyName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(entry => entry.TypeName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>
+    /// The planned types with the rates saved on the project, without asking i-Tree. A type whose
+    /// inputs changed since (species, condition, exposure, design year, location), or that was never
+    /// rated, gets no rates and a note saying so.
+    /// </summary>
+    public static IReadOnlyList<TypeGrowthRates> FromSaved(
+        IReadOnlyList<TypeGrowthRates> plan,
+        IReadOnlyList<SavedGrowthRates>? saved,
+        int designYear,
+        double latitude,
+        double longitude)
+    {
+        var byType = (saved ?? []).ToDictionary(entry => (entry.FamilyName, entry.TypeName));
+        return plan
+            .Select(type =>
+            {
+                if (!byType.TryGetValue((type.FamilyName, type.TypeName), out var entry))
+                {
+                    return type with { Note = "Not asked i-Tree yet: Get rates" };
+                }
+
+                var same = string.Equals(entry.SpeciesCode, type.SpeciesCode, StringComparison.OrdinalIgnoreCase) &&
+                           string.Equals(entry.Condition, type.Condition, StringComparison.OrdinalIgnoreCase) &&
+                           entry.CrownExposure == type.CrownExposure &&
+                           entry.DesignYear == designYear &&
+                           Math.Abs(entry.Latitude - Math.Round(latitude, 4)) < 1e-6 &&
+                           Math.Abs(entry.Longitude - Math.Round(longitude, 4)) < 1e-6;
+                return same
+                    ? type with { TrunkCmPerYear = entry.TrunkCmPerYear, HeightMPerYear = entry.HeightMPerYear, WidthMPerYear = entry.WidthMPerYear }
+                    : type with { Note = "Inputs changed since i-Tree was asked: Get rates" };
+            })
             .ToList();
     }
 
