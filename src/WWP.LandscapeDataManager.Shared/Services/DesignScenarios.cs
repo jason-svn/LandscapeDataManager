@@ -95,18 +95,28 @@ public static class DesignScenarios
             : option.IsPrimary;
     }
 
+    /// <summary>
+    /// The site before development: the primary options' elements that stood in the first phase
+    /// (see <see cref="SitePhases"/>). Existing conditions belong in the main model, or identically
+    /// in every option of a set, so the primary options give the same site as any other.
+    /// </summary>
+    public static DesignScenario ExistingSite(IReadOnlyList<DesignOptionSetItem> sets) =>
+        Primary(sets) with { Name = SitePhases.ExistingSiteName, IsExistingSite = true };
+
     public static List<T> Filter<T>(IEnumerable<T> items, Func<T, DesignOptionInfo> optionOf, DesignScenario scenario, IReadOnlyList<DesignOptionSetItem> sets) =>
         items.Where(item => Includes(scenario, optionOf(item), sets)).ToList();
 
     /// <summary>"Variante 1: Baseline + Test: Option 1"; "Main model" when the model has no design options.</summary>
     public static string Describe(DesignScenario scenario, IReadOnlyList<DesignOptionSetItem> sets) =>
-        sets.Count == 0
-            ? "Main model"
-            : string.Join(" + ", sets.Select(set => $"{set.SetName}: {ChosenOption(scenario, set)}"));
+        scenario.IsExistingSite
+            ? "the site before development (first phase)"
+            : sets.Count == 0
+                ? "Main model"
+                : string.Join(" + ", sets.Select(set => $"{set.SetName}: {ChosenOption(scenario, set)}"));
 
     /// <summary>"Scheme A = Variante 1: Baseline + Test: Option 1".</summary>
     public static string Label(DesignScenario scenario, IReadOnlyList<DesignOptionSetItem> sets) =>
-        sets.Count == 0 ? scenario.Name : $"{scenario.Name} = {Describe(scenario, sets)}";
+        sets.Count == 0 || scenario.IsExistingSite ? scenario.Name : $"{scenario.Name} = {Describe(scenario, sets)}";
 
     public static bool SameChoices(DesignScenario first, DesignScenario second, IReadOnlyList<DesignOptionSetItem> sets) =>
         sets.All(set => ChosenOption(first, set) == ChosenOption(second, set));
@@ -134,7 +144,8 @@ public static class DesignScenarios
     /// </summary>
     public static DesignScenario? Find(IReadOnlyList<DesignScenario> scenarios, string? name) =>
         scenarios.FirstOrDefault(scenario => string.Equals(scenario.Name, name, StringComparison.CurrentCultureIgnoreCase))
-        ?? scenarios.FirstOrDefault(scenario => scenario.Name.Contains("baseline", StringComparison.OrdinalIgnoreCase))
+        ?? scenarios.FirstOrDefault(scenario => !scenario.IsExistingSite && scenario.Name.Contains("baseline", StringComparison.OrdinalIgnoreCase))
+        ?? scenarios.FirstOrDefault(scenario => !scenario.IsExistingSite)
         ?? scenarios.FirstOrDefault();
 
     /// <summary>Adds <paramref name="scenario"/>, or replaces the saved one with the same name.</summary>

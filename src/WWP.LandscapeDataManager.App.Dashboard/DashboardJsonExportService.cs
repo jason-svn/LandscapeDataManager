@@ -153,6 +153,9 @@ internal sealed record DashboardJsonBng(
 /// Schema v5: a scenario is a design scenario — one chosen option per design option set, named
 /// in <see cref="DesignOption"/>, with the choices themselves in <see cref="Choices"/> (set → option).
 /// Before v5, each design option was its own scenario and the other sets were dropped.
+/// Schema v7: a scheme's benefits count only what stands after development (demolished trees
+/// and planting areas are left out), and the "Existing site" entry (<see cref="IsExistingSite"/>)
+/// is the site before it, for comparison; its BNG is the baseline (no change).
 /// Schema v6 adds, without changing anything earlier: <see cref="BenefitsFromForecast"/>, stale
 /// and WWP-sheet-estimate tree counts, pollen, allergen and irrigation site figures, and how many
 /// trees have a native status (the native share's denominator).
@@ -168,7 +171,8 @@ internal sealed record DashboardJsonScenario(
     IReadOnlyList<DashboardJsonFloorType> FloorTypes,
     string? DesignOption = null,
     IReadOnlyDictionary<string, string>? Choices = null,
-    bool BenefitsFromForecast = false);
+    bool BenefitsFromForecast = false,
+    bool IsExistingSite = false);
 
 /// <summary>The full payload written by "Export JSON" — a standalone snapshot meant to be loaded into another (e.g. browser-based) dashboard, independent of this app's own unit/currency toggles.</summary>
 internal sealed record DashboardJsonExport(
@@ -178,7 +182,7 @@ internal sealed record DashboardJsonExport(
 
 internal static class DashboardJsonExportService
 {
-    private const int SchemaVersion = 6;
+    private const int SchemaVersion = 7;
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     /// <summary>
@@ -205,16 +209,20 @@ internal static class DashboardJsonExportService
         var worksetYears = GrowthYears.InModel(report.Trees);
         var entries = scenarios.SelectMany(scenario =>
         {
+            // Benefits count what stands after development (the existing site: what stood before);
+            // BNG takes every floor of the scheme, lost ones included, for its baseline.
             var trees = DesignScenarios.Filter(report.Trees, tree => tree.DesignOption, scenario, sets)
+                .Where(tree => SitePhases.Counts(tree.PhaseRole, scenario))
                 .Select(tree => DashboardAggregationService.NormalizeTree(tree, "Metric", currency, usdToTargetRate))
                 .ToList();
-            var floors = DesignScenarios.Filter(report.Floors, floor => floor.DesignOption, scenario, sets);
+            var bngFloors = DesignScenarios.Filter(report.Floors, floor => floor.DesignOption, scenario, sets);
+            var floors = bngFloors.Where(floor => SitePhases.Counts(SitePhases.RoleOf(floor), scenario)).ToList();
             var lighting = DesignScenarios.Filter(report.Lighting, fixture => fixture.DesignOption, scenario, sets);
             var label = hasAlternatives ? DesignScenarios.Label(scenario, sets) : scenario.Name;
             if (worksetYears.Count == 0)
             {
-                return new[] { BuildScenario(label, scenario == defaultScenario, trees, trees, floors, lighting, report,
-                    designOption: hasAlternatives ? scenario.Name : null, choices: scenario.Choices) };
+                return new[] { BuildScenario(label, scenario == defaultScenario, trees, trees, floors, bngFloors, lighting, report,
+                    designOption: hasAlternatives ? scenario.Name : null, choices: scenario.Choices, isExistingSite: scenario.IsExistingSite) };
             }
 
             // As in the Dashboard: with i-Tree forecasts in the model, a growth year's benefits are each
@@ -231,12 +239,14 @@ internal static class DashboardJsonExportService
                     fromForecast ? outlook.InYear(year) : geometryTrees,
                     geometryTrees,
                     floors,
+                    bngFloors,
                     lighting,
                     report,
                     years: year,
                     designOption: hasAlternatives ? scenario.Name : null,
                     choices: scenario.Choices,
-                    benefitsFromForecast: fromForecast);
+                    benefitsFromForecast: fromForecast,
+                    isExistingSite: scenario.IsExistingSite);
             });
         }).ToList();
 
@@ -251,12 +261,14 @@ internal static class DashboardJsonExportService
         IReadOnlyList<NormalizedTreeMetrics> normalizedTrees,
         IReadOnlyList<NormalizedTreeMetrics> geometryTrees,
         IReadOnlyList<DashboardFloorItem> floors,
+        IReadOnlyList<DashboardFloorItem> bngFloors,
         IReadOnlyList<DashboardLightingItem> lighting,
         DashboardReportResult report,
         int? years = null,
         string? designOption = null,
         IReadOnlyDictionary<string, string>? choices = null,
-        bool benefitsFromForecast = false)
+        bool benefitsFromForecast = false,
+        bool isExistingSite = false)
     {
         var grandTotal = DashboardAggregationService.BuildGrandTotal(normalizedTrees, floors);
         var speciesSubtotals = DashboardAggregationService.AggregateTreesBySpecies(normalizedTrees);
@@ -324,13 +336,17 @@ internal static class DashboardJsonExportService
             siteKpi.TreesWithIrrigationFactorCount, siteKpi.MeanIrrigationDemandFactor, siteKpi.LowWaterTreeCount,
             siteKpi.TreesWithNativeStatusCount);
 
-        var bng = DashboardAggregationService.BuildBngSummary(floors, BngMetricCatalog.Default);
+        var bng = DashboardAggregationService.BuildBngSummary(bngFloors, BngMetricCatalog.Default);
         static IReadOnlyList<DashboardJsonBngGroup> Groups(IReadOnlyList<BngGroupSubtotal> groups) =>
             groups.Select(g => new DashboardJsonBngGroup(g.Name, g.FloorCount, g.AreaHectares, g.HabitatUnits)).ToList();
         var bngJson = new DashboardJsonBng(
             bng.MetricVersion,
-            bng.BaselineUnits, bng.PostInterventionUnits, bng.NetChangeUnits, bng.NetChangePercent,
-            BngSummary.StatutoryNetGainPercent, bng.MeetsStatutoryNetGain, bng.IsComplete,
+            // The existing site is the baseline itself: no change.
+            bng.BaselineUnits,
+            isExistingSite ? bng.BaselineUnits : bng.PostInterventionUnits,
+            isExistingSite ? 0 : bng.NetChangeUnits,
+            isExistingSite ? (bng.BaselineUnits > 0 ? 0 : null) : bng.NetChangePercent,
+            BngSummary.StatutoryNetGainPercent, isExistingSite ? null : bng.MeetsStatutoryNetGain, bng.IsComplete,
             bng.RetainedUnits, bng.EnhancedUnits, bng.CreatedUnits, bng.LostUnits,
             bng.FloorCount, bng.CurrentFloorCount,
             bng.RetainedFloorCount, bng.EnhancedFloorCount, bng.LostFloorCount, bng.CreatedFloorCount,
@@ -340,7 +356,7 @@ internal static class DashboardJsonExportService
 
         return new DashboardJsonScenario(
             label, years ?? DashboardUnitLabels.ExtractProjectionYears(label), isPrimary, totals, siteKpiJson, bngJson, species, floorTypes, designOption,
-            choices is { Count: > 0 } ? choices : null, benefitsFromForecast);
+            choices is { Count: > 0 } ? choices : null, benefitsFromForecast, isExistingSite);
     }
 
     public static async Task ExportAsync(string path, DashboardJsonExport export)

@@ -58,10 +58,14 @@ public static class ScenarioPerformanceCalculator
         double Ounces(double kilograms) => metric ? kilograms : kilograms / UnitConversions.KilogramsPerOunce;
         double Water(double cubicMetres) => metric ? cubicMetres : cubicMetres / UnitConversions.CubicMetresPerGallon;
 
+        // Benefits count what stands after development (the existing site: what stood before);
+        // BNG takes every floor of the scheme, lost ones included, for its baseline.
         var treesAllYears = DesignScenarios.Filter(inputs.Trees, tree => tree.DesignOption, scenario, inputs.Sets)
+            .Where(tree => SitePhases.Counts(tree.PhaseRole, scenario))
             .Select(tree => DashboardAggregationService.NormalizeTree(tree, inputs.UnitSystem, inputs.Currency, inputs.UsdToTargetRate))
             .ToList();
-        var floors = DesignScenarios.Filter(inputs.Floors, floor => floor.DesignOption, scenario, inputs.Sets);
+        var schemeFloors = DesignScenarios.Filter(inputs.Floors, floor => floor.DesignOption, scenario, inputs.Sets);
+        var floors = schemeFloors.Where(floor => SitePhases.Counts(SitePhases.RoleOf(floor), scenario)).ToList();
         var treesThisYear = inputs.GrowthYear is { } growthYear
             ? treesAllYears.Where(tree => GrowthYears.CountsIn(tree.Source, growthYear)).ToList()
             : treesAllYears;
@@ -72,7 +76,7 @@ public static class ScenarioPerformanceCalculator
 
         var total = DashboardAggregationService.BuildGrandTotal(treesThisYear, floors);
         var site = DashboardAggregationService.BuildSiteKpiSummary(treesThisYear, floors, [], inputs.SiteAreaSquareMeters, null);
-        var bng = DashboardAggregationService.BuildBngSummary(floors, BngMetricCatalog.Default);
+        var bng = DashboardAggregationService.BuildBngSummary(schemeFloors, BngMetricCatalog.Default);
 
         var co2Equivalent = Trees(grand => grand.CO2EquivalentAnnual) +
                             Pounds(total.FloorCarbonSequesteredAnnual * UnitConversions.CarbonToCo2MassRatio) * years;
@@ -101,9 +105,10 @@ public static class ScenarioPerformanceCalculator
             value,
             maintenance,
             Pounds(total.FloorTotalGwp),
-            bng.CurrentFloorCount > 0 ? bng.PostInterventionUnits : null,
-            bng.BaselineUnits > 0 ? bng.NetChangeUnits : null,
-            bng.NetChangePercent);
+            // The existing site is the baseline itself: no change.
+            scenario.IsExistingSite ? (bng.BaselineUnits > 0 ? bng.BaselineUnits : null) : bng.CurrentFloorCount > 0 ? bng.PostInterventionUnits : null,
+            scenario.IsExistingSite ? (bng.BaselineUnits > 0 ? 0 : null) : bng.BaselineUnits > 0 ? bng.NetChangeUnits : null,
+            scenario.IsExistingSite ? (bng.BaselineUnits > 0 ? 0 : null) : bng.NetChangePercent);
     }
 
     /// <summary>The difference from a reference value: absolute, and as a % of the reference (null when that's 0 or unknown).</summary>

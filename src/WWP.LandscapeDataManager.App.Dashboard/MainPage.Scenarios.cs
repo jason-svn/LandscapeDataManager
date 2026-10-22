@@ -27,7 +27,10 @@ public sealed partial class MainPage
 {
     private bool _scenarioExplicitlyChosen;
 
-    /// <summary>The primary scenario (unless a saved one already picks every primary), the saved ones, then any shown but not saved.</summary>
+    /// <summary>
+    /// The primary scenario (unless a saved one already picks every primary), the saved ones, any
+    /// shown but not saved, then the existing site when the model has a first phase to show.
+    /// </summary>
     private IReadOnlyList<DesignScenario> OfferedScenarios()
     {
         var offered = DesignScenarios.WithPrimary(_savedScenarios, _sets).ToList();
@@ -36,8 +39,17 @@ public sealed partial class MainPage
             offered.Add(unsaved);
         }
 
+        if (_lastReport is not null && SitePhases.HasExistingSite(_lastReport))
+        {
+            offered.Add(DesignScenarios.ExistingSite(_sets));
+        }
+
         return offered;
     }
+
+    /// <summary>The scenario differences are measured against: the one chosen, else the existing site, else the default.</summary>
+    private static DesignScenario? ReferenceScenario(IReadOnlyList<DesignScenario> offered, string? name) =>
+        (name is null ? offered.FirstOrDefault(scenario => scenario.IsExistingSite) : null) ?? DesignScenarios.Find(offered, name);
 
     private bool IsSaved(DesignScenario scenario) =>
         _savedScenarios.Any(saved => string.Equals(saved.Name, scenario.Name, StringComparison.CurrentCultureIgnoreCase));
@@ -50,7 +62,7 @@ public sealed partial class MainPage
         var current = (_scenarioExplicitlyChosen ? choices.FirstOrDefault(choice => choice.Scenario.Name == _scenario.Name) : null)
                       ?? choices.FirstOrDefault(choice => choice.Scenario == DesignScenarios.Find(offered, null))
                       ?? choices[0];
-        var reference = choices.FirstOrDefault(choice => choice.Scenario == DesignScenarios.Find(offered, _referenceScenarioName)) ?? choices[0];
+        var reference = choices.FirstOrDefault(choice => choice.Scenario == ReferenceScenario(offered, _referenceScenarioName)) ?? choices[0];
 
         var wasSuppressed = _suppressFilterEvents;
         _suppressFilterEvents = true;
@@ -344,7 +356,7 @@ public sealed partial class MainPage
     {
         // A re-raised event for the reference already shown isn't a choice: don't save it.
         if (_suppressFilterEvents || ReferenceScenarioBox.SelectedItem is not ScenarioChoice choice ||
-            string.Equals(choice.Scenario.Name, DesignScenarios.Find(OfferedScenarios(), _referenceScenarioName)?.Name, StringComparison.Ordinal))
+            string.Equals(choice.Scenario.Name, ReferenceScenario(OfferedScenarios(), _referenceScenarioName)?.Name, StringComparison.Ordinal))
         {
             return;
         }
@@ -448,7 +460,7 @@ public sealed partial class MainPage
 
         var offered = OfferedScenarios();
         var performances = offered.Select(scenario => ScenarioPerformanceCalculator.Build(scenario, inputs)).ToList();
-        var reference = DesignScenarios.Find(offered, _referenceScenarioName);
+        var reference = ReferenceScenario(offered, _referenceScenarioName);
         var referencePerformance = performances.FirstOrDefault(performance => ReferenceEquals(performance.Scenario, reference)) ?? performances.FirstOrDefault();
         var metrics = ScenarioMetrics(unitSystem, _projectionYears);
 
@@ -458,6 +470,7 @@ public sealed partial class MainPage
               $"Differences are against \"{referencePerformance?.Scenario.Name}\". Save scenarios with Edit… above.";
         ProjectionMethodText.Text =
             "Each scenario counts the main model plus its chosen option in every set; elements in other options are left out. " +
+            "A scheme counts what stands after development (demolished trees and planting areas are left out); the existing site counts what stood in the first phase. " +
             $"Outlook totals add up year 1 to year {_projectionYears}" + (performances.FirstOrDefault()?.Method switch
             {
                 TreeOutlookMethod.Timeline => ": trees from i-Tree's year-by-year forecast, planting areas at their yearly rate.",

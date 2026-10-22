@@ -242,7 +242,9 @@ internal static class DashboardReportService
             GetNullableDoubleOnInstanceOrType(element, "!_S_PLT_LDS_IrrigationDemandFactor_Number"),
             GetNullableTextOnInstanceOrType(element, "!_S_PLT_iTreeSpecies_Allergenic_Text"),
             // Its i-Tree inputs, so the Dashboard can flag a result whose inputs changed since (Stale).
-            PlantingInstanceValidationScanner.ReadItem(document, element, siteLocation.Latitude, siteLocation.Longitude));
+            PlantingInstanceValidationScanner.ReadItem(document, element, siteLocation.Latitude, siteLocation.Longitude),
+            // Retained, lost (demolished), created or excluded, from its phases (see BngPhaseRoles).
+            BngFloorService.GetPhaseRole(document, element).Role);
     }
 
     private static DashboardFloorItem CreateFloorItem(Document document, Element element)
@@ -294,7 +296,8 @@ internal static class DashboardReportService
             MaintenanceCost.AnnualFor(element),
             element.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL) is { HasValue: true } structural && structural.AsInteger() == 1,
             ConnectivityService.GetStoredBand(element),
-            GetMassKilograms("!_S_PLT_Result_PollenAnnual_Mass"));
+            GetMassKilograms("!_S_PLT_Result_PollenAnnual_Mass"),
+            BngFloorService.GetPhaseRole(document, element).Role);
     }
 
     /// <summary>Reads back what <see cref="BngFloorService"/> wrote; null when the BNG parameters aren't bound in this project.</summary>

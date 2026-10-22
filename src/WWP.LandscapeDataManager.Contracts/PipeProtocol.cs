@@ -619,8 +619,10 @@ public sealed record DesignOptionSetItem(string SetName, IReadOnlyList<DesignOpt
 /// A scenario: one chosen option per design option set, e.g. "Variante 1" → "Baseline" and
 /// "Test" → "Option 1". A set missing from <see cref="Choices"/> uses its primary option. Main-model
 /// elements are in every scenario; an element in an option that isn't chosen is left out.
+/// <see cref="IsExistingSite"/>: the site before development — what stood in the first phase (the
+/// Dashboard's reference for every scheme) — rather than after it.
 /// </summary>
-public sealed record DesignScenario(string Name, IReadOnlyDictionary<string, string> Choices);
+public sealed record DesignScenario(string Name, IReadOnlyDictionary<string, string> Choices, bool IsExistingSite = false);
 
 /// <summary>
 /// The scenario the active view shows, worked out from which options have elements visible in it.
@@ -700,7 +702,8 @@ public sealed record DashboardTreeItem(
     double PollenAnnual = 0,
     double? IrrigationDemandFactor = null,
     string? Allergenic = null,
-    PlantingInstanceValidationItem? Inputs = null);
+    PlantingInstanceValidationItem? Inputs = null,
+    string? PhaseRole = null);
 
 /// <summary>
 /// One Floor (planted/paved landscape area) instance's identity, placement, and stored LDS/i-Tree
@@ -731,7 +734,8 @@ public sealed record DashboardFloorItem(
     double MaintenanceCostAnnual = 0,
     bool IsStructural = false,
     int? ConnectivityBand = null,
-    double PollenAnnual = 0);
+    double PollenAnnual = 0,
+    string? PhaseRole = null);
 
 /// <summary>
 /// A Floor's stored BNG inputs and headline A-2 results, as written by Floor Calculator's BNG tab —

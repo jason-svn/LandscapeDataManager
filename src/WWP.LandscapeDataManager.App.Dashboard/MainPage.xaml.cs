@@ -46,6 +46,9 @@ public sealed partial class MainPage : Page
     // Design scenarios: one option per design option set. Every number on the page is for _scenario;
     // elements in options it doesn't choose are left out (see DesignScenarios).
     private IReadOnlyList<DesignOptionSetItem> _sets = [];
+
+    // The scheme's floors before the phase filter: BNG needs its lost (demolished) floors for the baseline.
+    private IReadOnlyList<DashboardFloorItem> _bngFloors = [];
     private IReadOnlyList<DesignScenario> _savedScenarios = [];
     private DesignScenario _scenario = new(DesignScenarios.PrimaryScenarioName, new Dictionary<string, string>());
 
@@ -271,10 +274,13 @@ public sealed partial class MainPage : Page
             (tree.Source.CommonName ?? string.Empty).Contains(searchText, StringComparison.OrdinalIgnoreCase);
         bool MatchesDimensionFilters(DesignOptionInfo designOption, string? levelName) =>
             DesignScenarios.Includes(_scenario, designOption, _sets) && MatchesLevel(levelName);
+        // Benefits count what stands after development (the existing site: what stood before it).
+        bool CountsInPhase(string? phaseRole) => SitePhases.Counts(phaseRole, _scenario);
 
         bool MatchesStatus(NormalizedTreeMetrics tree) => _activeStatusFilter is null || tree.Source.Status == _activeStatusFilter;
         var allYearTrees = normalizedTrees
             .Where(tree => MatchesDimensionFilters(tree.Source.DesignOption, tree.Source.LevelName))
+            .Where(tree => CountsInPhase(tree.Source.PhaseRole))
             .Where(MatchesSearch)
             .ToList();
         // The growth year's trees as modelled: that year's copies plus trees on no growth workset.
@@ -298,9 +304,10 @@ public sealed partial class MainPage : Page
 
         var filteredTrees = treesInScope.Where(MatchesStatus).ToList();
         var filteredGeometryTrees = geometryTrees.Where(MatchesStatus).ToList();
-        var filteredFloors = _lastReport.Floors
+        _bngFloors = _lastReport.Floors
             .Where(floor => MatchesDimensionFilters(floor.DesignOption, floor.LevelName))
             .ToList();
+        var filteredFloors = _bngFloors.Where(floor => CountsInPhase(SitePhases.RoleOf(floor))).ToList();
 
         var units = DisplayUnits.For(unitSystem);
         var speciesSubtotals = DashboardAggregationService.AggregateTreesBySpecies(filteredTrees);
@@ -617,7 +624,7 @@ public sealed partial class MainPage : Page
         };
 
         // Habitat & connectivity.
-        var bng = DashboardAggregationService.BuildBngSummary(filteredFloors, BngMetricCatalog.Default);
+        var bng = DashboardAggregationService.BuildBngSummary(_bngFloors, BngMetricCatalog.Default);
         if (bng.NetChangePercent is { } bngPercent)
         {
             OverviewBngText.Text = $"{bngPercent:+0.0;-0.0;0.0}%";
@@ -899,7 +906,7 @@ public sealed partial class MainPage : Page
             ? $"Average of {summary.TreesWithIrrigationFactorCount:N0} trees, 0–1 (lower needs less water); {100d * summary.LowWaterTreeCount / summary.TreesWithIrrigationFactorCount:N0}% are low-water (≤ {DashboardAggregationService.LowWaterIrrigationFactor:0.0})."
             : "Import the sheet's Irrigation_Demand_Plant Factor onto the tree types (Excel Importer) to see it.";
 
-        UpdateBngCards(filteredFloors);
+        UpdateBngCards(_bngFloors);
     }
 
     private void UpdateBngCards(IReadOnlyList<DashboardFloorItem> filteredFloors)
