@@ -301,19 +301,21 @@
                                             ToolTipService.ToolTip="Saves each type's rates in the project's Airtable sheet, replacing what's there and adding a column if it's missing." />
                                 </Grid>
                                 <TextBlock Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
-                                           Text="The planting family grows each tree from its type's rates: DBH by the trunk rate (cm/yr; at 0 the trunk never grows), and height and crown width by their rates (m/yr) until i-Tree is calculated, which then draws the tree at i-Tree's own size. Get rates asks i-Tree how each type's species grows from the 5.4 cm planting size, at the condition and crown exposure most of the type's trees have (Good, exposure 3 when it has none). The trunk grows by the same amount every year, so its rate is exact; height and crown slow down as the tree ages, so their rates are i-Tree's size at the design year divided by the design year. The height rate also sets each type's Mature Age (max height ÷ rate). Write to types sets the rates on the Revit types; Push to sheet replaces them in the Airtable sheet's growth rate columns, which the Importer maps onto the types." />
+                                           Text="The planting family grows each tree from its type's rates: DBH by the trunk rate (cm/yr; at 0 the trunk never grows), and height and crown width by their rates (m/yr) until i-Tree is calculated, which then draws the tree at i-Tree's own size. Get rates asks i-Tree how each type's species grows from the 5.4 cm planting size, at the condition and crown exposure most of the type's trees have (Good, exposure 3 when it has none). The trunk grows by the same amount every year, so its rate is exact; height and crown slow down as the tree ages, so their rates are i-Tree's size at the design year divided by the design year. The height rate also sets each type's Mature Age (max height ÷ rate). Write to types sets the rates on the Revit types; Push to sheet replaces them in the Airtable sheet's growth rate columns, which the Importer maps onto the types. &quot;Already there?&quot; says where each type stands: Up to date (skipped), Stale (a different rate is there), Missing (a rate is empty) or No row (the sheet has no row for it); hover it to see what would change." />
                                 <Grid Margin="0,4,0,0">
                                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                                     <Grid Grid.RowSpan="3" Style="{StaticResource LimTableLanesStyle}">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="160" /><ColumnDefinition Width="80" /><ColumnDefinition Width="70" /><ColumnDefinition Width="170" /><ColumnDefinition Width="80" /><ColumnDefinition Width="80" /><ColumnDefinition Width="80" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="60" /><ColumnDefinition Width="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
                                         <Border Grid.Column="3" Grid.ColumnSpan="4" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreenBrush}" />
+                                        <Border Grid.Column="7" Grid.ColumnSpan="2" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreyBrush}" />
                                     </Grid>
                                     <Grid Style="{StaticResource LimTableGroupRowStyle}">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="160" /><ColumnDefinition Width="80" /><ColumnDefinition Width="70" /><ColumnDefinition Width="170" /><ColumnDefinition Width="80" /><ColumnDefinition Width="80" /><ColumnDefinition Width="80" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="60" /><ColumnDefinition Width="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="3" Grid.ColumnSpan="4" Text="I-TREE" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneGreenTextBrush}" />
+                                        <TextBlock Grid.Column="7" Grid.ColumnSpan="2" Text="ALREADY THERE?" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneGreyTextBrush}" />
                                     </Grid>
                                     <Grid Grid.Row="1" Style="{StaticResource LimTableHeaderRowStyle}">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="160" /><ColumnDefinition Width="80" /><ColumnDefinition Width="70" /><ColumnDefinition Width="170" /><ColumnDefinition Width="80" /><ColumnDefinition Width="80" /><ColumnDefinition Width="80" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="60" /><ColumnDefinition Width="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
                                         <TextBlock Text="Type" Style="{StaticResource LimTableHeaderStyle}" />
                                         <TextBlock Grid.Column="1" Text="Species" Style="{StaticResource LimTableHeaderStyle}" />
                                         <TextBlock Grid.Column="2" Text="Trees" Style="{StaticResource LimTableNumberHeaderStyle}" />
@@ -321,13 +323,15 @@
                                         <TextBlock Grid.Column="4" Text="Trunk&#10;cm/yr" Style="{StaticResource LimTableNumberHeaderStyle}" />
                                         <TextBlock Grid.Column="5" Text="Height&#10;m/yr" Style="{StaticResource LimTableNumberHeaderStyle}" />
                                         <TextBlock Grid.Column="6" Text="Width&#10;m/yr" Style="{StaticResource LimTableNumberHeaderStyle}" />
-                                        <TextBlock Grid.Column="7" Text="Note" Style="{StaticResource LimTableHeaderStyle}" />
+                                        <TextBlock Grid.Column="7" Text="Revit&#10;type" Style="{StaticResource LimTableHeaderStyle}" />
+                                        <TextBlock Grid.Column="8" Text="Airtable&#10;sheet" Style="{StaticResource LimTableHeaderStyle}" />
+                                        <TextBlock Grid.Column="9" Text="Note" Style="{StaticResource LimTableHeaderStyle}" />
                                     </Grid>
                                     <ItemsControl Grid.Row="2" ItemsSource="{x:Bind GrowthRateRows}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="local:GrowthRateRow">
                                                 <Grid Style="{StaticResource LimTableRowStyle}">
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="160" /><ColumnDefinition Width="80" /><ColumnDefinition Width="70" /><ColumnDefinition Width="170" /><ColumnDefinition Width="80" /><ColumnDefinition Width="80" /><ColumnDefinition Width="80" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="60" /><ColumnDefinition Width="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
                                                     <TextBlock Text="{x:Bind TypeName}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind FamilyName}" />
                                                     <TextBlock Grid.Column="1" Text="{x:Bind SpeciesCode}" />
                                                     <TextBlock Grid.Column="2" Text="{x:Bind TreesText}" TextAlignment="Right" />
@@ -335,7 +339,9 @@
                                                     <TextBlock Grid.Column="4" Text="{x:Bind TrunkText}" TextAlignment="Right" FontWeight="SemiBold" />
                                                     <TextBlock Grid.Column="5" Text="{x:Bind HeightText}" TextAlignment="Right" FontWeight="SemiBold" />
                                                     <TextBlock Grid.Column="6" Text="{x:Bind WidthText}" TextAlignment="Right" FontWeight="SemiBold" />
-                                                    <TextBlock Grid.Column="7" Text="{x:Bind Note}" TextWrapping="Wrap" Foreground="{ThemeResource LimWarningBrush}" />
+                                                    <TextBlock Grid.Column="7" Text="{x:Bind TypeStatusText}" ToolTipService.ToolTip="{x:Bind TypeChanges}" />
+                                                    <TextBlock Grid.Column="8" Text="{x:Bind SheetStatusText}" ToolTipService.ToolTip="{x:Bind SheetChanges}" />
+                                                    <TextBlock Grid.Column="9" Text="{x:Bind Note}" TextWrapping="Wrap" Foreground="{ThemeResource LimWarningBrush}" />
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>

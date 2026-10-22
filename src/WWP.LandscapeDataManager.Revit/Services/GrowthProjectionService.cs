@@ -109,11 +109,32 @@ internal static class GrowthProjectionService
             .ToList();
         var worksetYears = years.Concat(ownYears.Values).Prepend(0).Distinct().Order().ToList();
 
+        // Revit adds new elements to the active design option only, so a tree's copies can be made
+        // only while its option (or the main model, for a main-model tree) is the active one.
+        var activeOption = ActiveOptionId(document);
+        var treesById = model.Trees.ToDictionary(tree => tree.UniqueId, StringComparer.Ordinal);
+        var toCreateNow = plan.ToCreate.Where(item => treesById[item.SourceUniqueId].DesignOption?.Id.Value == activeOption).ToList();
+        var waiting = plan.ToCreate
+            .Where(item => treesById[item.SourceUniqueId].DesignOption?.Id.Value != activeOption)
+            .GroupBy(item => treesById[item.SourceUniqueId].DesignOption is { } option ? OptionLabel(document, option) : "Main model")
+            .Select(group => new GrowthOptionWaiting(group.Key, group.Count()))
+            .OrderBy(option => option.OptionLabel, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var activeLabel = activeOption is { } activeId && document.GetElement(new ElementId(activeId)) is DesignOption active
+            ? OptionLabel(document, active)
+            : "Main model";
+        if (waiting.Count > 0)
+        {
+            notes.Add($"{waiting.Sum(option => option.Copies):N0} copies wait for their design option: Revit adds new elements only to the active design option ({activeLabel} now). " +
+                      $"Make each of these active in turn (status bar > Design Options) and run again: {string.Join(", ", waiting.Select(option => $"{option.OptionLabel} ({option.Copies:N0})"))}.");
+        }
+
         if (request.PreviewOnly)
         {
             var missingWorksets = worksetYears.Where(year => !model.YearWorksets.ContainsKey(year)).Select(GrowthYearNames.WorksetName).ToList();
             return new GrowthProjectionResult(
-                document.Title, true, inScope.Count, toMove.Count, plan.ToCreate.Count, plan.ToUpdate.Count, plan.ToDelete.Count, missingWorksets, notes);
+                document.Title, true, inScope.Count, toMove.Count, toCreateNow.Count, plan.ToUpdate.Count, plan.ToDelete.Count, missingWorksets, notes,
+                waiting, activeLabel);
         }
 
         // Measured before the transaction: it probes sample trees in a rolled-back transaction of its own.
@@ -189,7 +210,7 @@ internal static class GrowthProjectionService
             }
 
             var wrongOption = new Dictionary<string, int>(StringComparer.Ordinal);
-            foreach (var item in plan.ToCreate)
+            foreach (var item in toCreateNow)
             {
                 var source = byUniqueId[item.SourceUniqueId];
                 var copyId = ElementTransformUtils.CopyElement(document, source.Id, XYZ.Zero).FirstOrDefault();
@@ -255,7 +276,7 @@ internal static class GrowthProjectionService
             throw;
         }
 
-        return new GrowthProjectionResult(document.Title, false, inScope.Count, moved, created, updated, deleted, worksetsCreated, notes);
+        return new GrowthProjectionResult(document.Title, false, inScope.Count, moved, created, updated, deleted, worksetsCreated, notes, waiting, activeLabel);
     }
 
     private sealed record LinkedCopy(Element Element, GrowthCopyLink Link);

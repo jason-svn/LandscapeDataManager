@@ -140,6 +140,75 @@ public sealed class GrowthRatesFromITreeTests
         Assert.Equal(0.41, fields[GrowthRatesFromITree.WidthSheetColumn]);
     }
 
+    private static AirtableRecord Row(string id, double? trunk, double? height, double? width)
+    {
+        var fields = new Dictionary<string, JsonElement>();
+        void Add(string column, double? value)
+        {
+            if (value is { } number)
+            {
+                fields[column] = JsonSerializer.SerializeToElement(number);
+            }
+        }
+
+        Add(GrowthRatesFromITree.TrunkSheetColumn, trunk);
+        Add(GrowthRatesFromITree.HeightSheetColumn, height);
+        Add(GrowthRatesFromITree.WidthSheetColumn, width);
+        return new AirtableRecord(id, fields);
+    }
+
+    private static readonly TypeGrowthRates Oak = new(1, "F", "Quercus_Robur", "QURO", "Good", 3, 175, false, 0.735, 0.58, 0.3);
+
+    [Fact]
+    public void A_sheet_row_that_already_has_the_rates_is_up_to_date_and_not_pushed()
+    {
+        var row = Row("rec1", 0.74, 0.58, 0.3);
+        var match = new TypeMatch(Type(1, "Quercus_Robur"), row, "Matched", null);
+
+        Assert.True(GrowthRatesFromITree.SheetStatus(Oak, match).IsUpToDate);
+        Assert.Empty(GrowthRatesFromITree.SheetUpdates([Oak], [match]));
+    }
+
+    [Fact]
+    public void A_sheet_row_with_other_rates_is_stale_and_one_with_an_empty_rate_is_missing()
+    {
+        var stale = GrowthRatesFromITree.SheetStatus(Oak, new TypeMatch(Type(1, "Quercus_Robur"), Row("rec1", 0.74, 0.45, 0.4), "Matched", null));
+        var missing = GrowthRatesFromITree.SheetStatus(Oak, new TypeMatch(Type(1, "Quercus_Robur"), Row("rec1", null, 0.45, 0.4), "Matched", null));
+
+        Assert.Equal((RateStatus.Stale, "height 0.45 → 0.58, width 0.4 → 0.3"), (stale.Status, stale.Changes));
+        Assert.Equal(RateStatus.Missing, missing.Status);
+        Assert.Equal(RateStatus.NoRow, GrowthRatesFromITree.SheetStatus(Oak, null).Status);
+    }
+
+    [Fact]
+    public void A_type_whose_preview_finds_every_rate_unchanged_is_up_to_date()
+    {
+        var other = Oak with { TypeId = 2, TypeName = "Acer_Campestre" };
+        var writes = GrowthRatesFromITree.BuildTypeWrites([Oak, other]);
+        ParameterWritePreviewRow Preview(int index, string current, string status) =>
+            new(index, writes[index].TypeName, writes[index].RevitParameter, "Type", current, writes[index].SourceValue, 1, status, null, status == "Ready");
+
+        var statuses = GrowthRatesFromITree.TypeStatuses(writes,
+        [
+            Preview(0, "0.735", "No change"), Preview(1, "0.58", "No change"), Preview(2, "0.3", "No change"),
+            Preview(3, "0.735", "No change"), Preview(4, "0.5", "Ready"), Preview(5, "", "Ready")
+        ]);
+
+        Assert.True(statuses[1].IsUpToDate);
+        Assert.Equal((RateStatus.Missing, "height 0.5 → 0.58, width empty → 0.3"), (statuses[2].Status, statuses[2].Changes));
+    }
+
+    [Fact]
+    public void Copies_wait_for_their_design_option_from_the_result_or_from_an_older_connector_s_note()
+    {
+        GrowthProjectionResult Result(IReadOnlyList<string> notes, IReadOnlyList<GrowthOptionWaiting>? waiting = null) =>
+            new("Sandbox", false, 1010, 0, 0, 0, 0, [], notes, waiting);
+
+        Assert.True(Result([], [new GrowthOptionWaiting("Test : Option 1 (primary)", 602)]).HasCopiesWaiting);
+        Assert.True(Result(["2,020 copies for trees in 'Test : Option 2' were skipped: Revit puts new elements into the active design option."]).HasCopiesWaiting);
+        Assert.False(Result([]).HasCopiesWaiting);
+    }
+
     [Theory]
     [InlineData(GrowthRatesFromITree.TrunkSheetColumn, GrowthRatesFromITree.TrunkParameter)]
     [InlineData(GrowthRatesFromITree.HeightSheetColumn, GrowthRatesFromITree.HeightParameter)]

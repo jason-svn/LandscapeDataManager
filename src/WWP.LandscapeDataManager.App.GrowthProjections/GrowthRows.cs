@@ -67,9 +67,17 @@ public sealed class WorksetRow(GrowthYearWorkset workset)
     public string LinkedText { get; } = workset.Year == 0 ? "originals" : $"{workset.LinkedCopyCount:N0} linked";
 }
 
-/// <summary>One planting type's growth rates from i-Tree, for the growth rates table.</summary>
-public sealed class GrowthRateRow(Shared.Services.TypeGrowthRates type)
+/// <summary>
+/// One planting type's growth rates from i-Tree, for the growth rates table, with whether its Revit
+/// type and its sheet row already have them (— until checked).
+/// </summary>
+public sealed class GrowthRateRow(Shared.Services.TypeGrowthRates type, Shared.Services.RateStatus? typeStatus, Shared.Services.RateStatus? sheetStatus)
 {
+    public string TypeStatusText { get; } = typeStatus?.Status ?? "—";
+    public string? TypeChanges { get; } = typeStatus?.Changes;
+    public string SheetStatusText { get; } = sheetStatus?.Status ?? "—";
+    public string? SheetChanges { get; } = sheetStatus?.Changes;
+
     public Shared.Services.TypeGrowthRates Type { get; } = type;
     public string TypeName { get; } = type.TypeName;
     public string FamilyName { get; } = type.FamilyName;

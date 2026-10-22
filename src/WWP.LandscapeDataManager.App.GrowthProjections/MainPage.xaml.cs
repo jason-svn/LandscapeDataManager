@@ -23,6 +23,8 @@ public sealed partial class MainPage : Page
     private string _preferredUnitSystem = "Metric";
     private string _preferredCurrency = "USD";
     private IReadOnlyList<TypeGrowthRates> _growthRates = [];
+    private IReadOnlyDictionary<long, RateStatus> _typeRateStatus = new Dictionary<long, RateStatus>();
+    private IReadOnlyDictionary<long, RateStatus> _sheetRateStatus = new Dictionary<long, RateStatus>();
     private OrganizerTreesResult? _organizerTrees;
     private TreeSortPlan? _sortPlan;
     private IReadOnlyList<TreeOverlapGroup> _overlaps = [];
@@ -198,12 +200,15 @@ public sealed partial class MainPage : Page
 
     private async void Preview_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(PreviewRunAsync);
 
-    /// <summary>What Create & refresh would do. Done when every original is on its year and has its copies (refreshing them is routine).</summary>
+    /// <summary>
+    /// What Create & refresh would do. Done when every original is on its year and has its copies
+    /// (refreshing them is routine), none of them waiting for another design option to be active.
+    /// </summary>
     private async Task PreviewRunAsync()
     {
         var result = await GetClient().SendAsync<GrowthProjectionResult>(PipeCommands.RunGrowthProjection, BuildRequest(previewOnly: true));
         StatusText.Text = Describe(result, DesignYear());
-        SetStep(3, result.Created + result.Deleted + result.MovedToBaseline == 0 ? StepState.Done : StepState.Attention);
+        SetStep(3, result.Created + result.Deleted + result.MovedToBaseline == 0 && !result.HasCopiesWaiting ? StepState.Done : StepState.Attention);
     }
 
     /// <summary>
@@ -221,8 +226,10 @@ public sealed partial class MainPage : Page
         var waitingNow = _growthTrees.Count(tree => IsWaiting(tree.Status) || recalculateAll && tree.Status == "Calculated");
         if (!changesModel && waitingNow == 0)
         {
-            StatusText.Text = "Nothing to do — the growth years are up to date and every growth-year tree is calculated (or still needs inputs).";
-            SetStep(3, StepState.Done);
+            StatusText.Text = preview.HasCopiesWaiting
+                ? "Nothing to do in the active design option. " + string.Join(" ", preview.Notes)
+                : "Nothing to do — the growth years are up to date and every growth-year tree is calculated (or still needs inputs).";
+            SetStep(3, preview.HasCopiesWaiting ? StepState.Attention : StepState.Done);
             return;
         }
 
@@ -250,10 +257,12 @@ public sealed partial class MainPage : Page
         }
 
         var status = new List<string>();
+        var copiesWaiting = preview.HasCopiesWaiting;
         if (changesModel)
         {
             var result = await GetClient().SendAsync<GrowthProjectionResult>(PipeCommands.RunGrowthProjection, request);
             status.Add(Describe(result, request.DesignYear));
+            copiesWaiting = result.HasCopiesWaiting;
             try
             {
                 await ProjectSettingsSync.PushAsync(GetClient(), growthProjectionYears: request.Years, growthDesignYear: request.DesignYear);
@@ -285,7 +294,7 @@ public sealed partial class MainPage : Page
         }
 
         StatusText.Text = string.Join(" ", status);
-        SetStep(3, StepState.Done);
+        SetStep(3, copiesWaiting ? StepState.Attention : StepState.Done);
         await RefreshStatusAsync();
     });
 
@@ -582,25 +591,78 @@ public sealed partial class MainPage : Page
             progress);
         var ratedCount = rated.Count(type => type.HasRates);
         var failed = rated.Count - ratedCount;
-        ShowGrowthRates(rated,
+        ShowGrowthRates(rated);
+        GrowthRatesStatusText.Text =
             $"{ratedCount:N0} of {rated.Count:N0} type(s) rated by i-Tree (height and width at year {designYear})." +
             (failed > 0 ? $" {failed:N0} failed (see Note)." : string.Empty) +
-            (ratedCount > 0 ? " Write to types to use them in this model; Push to sheet to replace them in Airtable." : string.Empty));
+            (ratedCount > 0 ? " " + await CheckSavedRatesAsync() : string.Empty);
+    }
+
+    private void ShowGrowthRates(IReadOnlyList<TypeGrowthRates> rated)
+    {
+        _growthRates = rated;
+        _typeRateStatus = new Dictionary<long, RateStatus>();
+        _sheetRateStatus = new Dictionary<long, RateStatus>();
+        RenderGrowthRates();
     }
 
     private void ShowGrowthRates(IReadOnlyList<TypeGrowthRates> rated, string status)
     {
-        _growthRates = rated;
+        ShowGrowthRates(rated);
+        GrowthRatesStatusText.Text = status;
+    }
+
+    /// <summary>The rows with where each type's rates already are; Write and Push only when something would change.</summary>
+    private void RenderGrowthRates()
+    {
         GrowthRateRows.Clear();
-        foreach (var type in rated)
+        foreach (var type in _growthRates)
         {
-            GrowthRateRows.Add(new GrowthRateRow(type));
+            GrowthRateRows.Add(new GrowthRateRow(type, _typeRateStatus.GetValueOrDefault(type.TypeId), _sheetRateStatus.GetValueOrDefault(type.TypeId)));
         }
 
-        var any = rated.Any(type => type.HasRates);
-        WriteGrowthRatesButton.IsEnabled = any;
-        PushGrowthRatesButton.IsEnabled = any;
-        GrowthRatesStatusText.Text = status;
+        var rated = _growthRates.Where(type => type.HasRates).ToList();
+        WriteGrowthRatesButton.IsEnabled = rated.Any(type => _typeRateStatus.GetValueOrDefault(type.TypeId) is not { IsUpToDate: true });
+        PushGrowthRatesButton.IsEnabled = rated.Any(type => _sheetRateStatus.GetValueOrDefault(type.TypeId) is null or { NeedsWriting: true });
+    }
+
+    /// <summary>
+    /// Reads where each type's i-Tree rates already are, on its Revit type and on its row of the
+    /// Airtable sheet, and says what Write and Push would do. Changes nothing.
+    /// </summary>
+    private async Task<string> CheckSavedRatesAsync()
+    {
+        var rated = _growthRates.Where(type => type.HasRates).ToList();
+        var writes = GrowthRatesFromITree.BuildTypeWrites(rated);
+        var preview = await GetClient().SendAsync<ParameterWriteResult>(
+            PipeCommands.PreviewParameterWrites, new ParameterWriteBatch(new ModelScanOptions(PrimaryDesignOptionsOnly: false), writes));
+        _typeRateStatus = GrowthRatesFromITree.TypeStatuses(writes, preview.Rows);
+
+        var sheet = await LoadSheetMatchesAsync();
+        _sheetRateStatus = sheet is null
+            ? new Dictionary<long, RateStatus>()
+            : rated.ToDictionary(
+                type => type.TypeId,
+                type => GrowthRatesFromITree.SheetStatus(type, sheet.Value.Matches.FirstOrDefault(match => match.RevitType.TypeId == type.TypeId)));
+        RenderGrowthRates();
+
+        static string Count(IEnumerable<RateStatus> statuses, string status, string label) =>
+            statuses.Count(item => item.Status == status) is var count and > 0 ? $"{count:N0} {label}" : string.Empty;
+        string Summary(IReadOnlyCollection<RateStatus> statuses) => string.Join(", ", new[]
+        {
+            Count(statuses, RateStatus.UpToDate, "up to date"),
+            Count(statuses, RateStatus.Stale, "stale"),
+            Count(statuses, RateStatus.Missing, "missing"),
+            Count(statuses, RateStatus.NoRow, "with no row")
+        }.Where(part => part.Length > 0));
+
+        var typesDone = _typeRateStatus.Values.All(status => status.IsUpToDate);
+        var sheetDone = sheet is not null && _sheetRateStatus.Values.All(status => !status.NeedsWriting);
+        SetStep(2, typesDone && sheetDone ? StepState.Done : StepState.Attention);
+        return $"Revit types: {Summary(_typeRateStatus.Values.ToList())}." +
+               (sheet is null
+                   ? " Airtable sheet not checked: no Airtable token or planting data source in Settings."
+                   : $" Airtable sheet: {Summary(_sheetRateStatus.Values.ToList())}.");
     }
 
     private async void WriteGrowthRates_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
@@ -616,12 +678,14 @@ public sealed partial class MainPage : Page
         var preview = await GetClient().SendAsync<ParameterWriteResult>(PipeCommands.PreviewParameterWrites, batch);
         var ready = preview.Rows.Where(row => row.Status == "Ready").ToList();
         var problems = preview.Rows.Where(row => row.Status is not ("Ready" or "No change")).ToList();
+        var statuses = GrowthRatesFromITree.TypeStatuses(writes, preview.Rows);
+        var upToDate = statuses.Values.Count(status => status.IsUpToDate);
         if (ready.Count == 0)
         {
-            GrowthRatesStatusText.Text = problems.Count == 0
-                ? "Every type already has its i-Tree rates."
-                : $"Nothing written. {string.Join("; ", problems.Take(5).Select(row => $"{row.TypeName}: {row.Message}"))}";
-            SetStep(2, problems.Count == 0 ? StepState.Done : StepState.Attention);
+            GrowthRatesStatusText.Text = (problems.Count == 0
+                ? $"Every type already has its i-Tree rates: {upToDate:N0} type(s) up to date, nothing written. "
+                : $"Nothing written. {string.Join("; ", problems.Take(5).Select(row => $"{row.TypeName}: {row.Message}"))} ") +
+                await CheckSavedRatesAsync();
             return;
         }
 
@@ -630,7 +694,8 @@ public sealed partial class MainPage : Page
             XamlRoot = XamlRoot,
             Title = "Write growth rates?",
             Content = $"Sets {ready.Count:N0} growth rate(s) on {ready.Select(row => row.TypeName).Distinct().Count():N0} type(s), e.g. " +
-                      string.Join(", ", ready.Take(3).Select(row => $"{row.TypeName} {RateName(row.RevitParameter)} {Blank(row.CurrentValue)} → {row.ProposedValue}")) +
+                      string.Join(", ", ready.Take(3).Select(row => $"{row.TypeName} {GrowthRatesFromITree.RateName(row.RevitParameter)} {Blank(row.CurrentValue)} → {row.ProposedValue}")) +
+                      (upToDate > 0 ? $". {upToDate:N0} type(s) already up to date are skipped" : string.Empty) +
                       ". The family then grows each tree from them, and the height rate sets each type's Mature Age. One Revit undo step." +
                       (problems.Count > 0 ? $" {problems.Count:N0} can't be written: {string.Join("; ", problems.Take(3).Select(row => $"{row.TypeName}: {row.Message}"))}." : string.Empty),
             PrimaryButtonText = "Write",
@@ -643,18 +708,11 @@ public sealed partial class MainPage : Page
         }
 
         var result = await GetClient().SendAsync<ParameterWriteResult>(PipeCommands.ApplyParameterWrites, batch);
-        GrowthRatesStatusText.Text = $"Wrote {result.ChangedParameterCount:N0} growth rate(s). " +
-                                     "Run Create, refresh & calculate so the growth-year copies get their new size and i-Tree results.";
-        SetStep(2, StepState.Done);
+        GrowthRatesStatusText.Text = $"Wrote {result.ChangedParameterCount:N0} growth rate(s) on {ready.Select(row => row.TypeName).Distinct().Count():N0} type(s)" +
+                                     (upToDate > 0 ? $"; {upToDate:N0} type(s) were already up to date and skipped" : string.Empty) +
+                                     ". Run Create, refresh & calculate so the growth-year copies get their new size and i-Tree results. " +
+                                     await CheckSavedRatesAsync();
     });
-
-    private static string RateName(string parameter) => parameter switch
-    {
-        GrowthRatesFromITree.TrunkParameter => "trunk",
-        GrowthRatesFromITree.HeightParameter => "height",
-        GrowthRatesFromITree.WidthParameter => "width",
-        _ => parameter
-    };
 
     private static string Blank(string value) => string.IsNullOrWhiteSpace(value) ? "(empty)" : value;
 
@@ -667,30 +725,46 @@ public sealed partial class MainPage : Page
         (GrowthRatesFromITree.WidthSheetColumn, "Crown width growth per year in m: i-Tree's crown width at the design year divided by the design year. Pushed by LIM Growth Projections.")
     ];
 
-    /// <summary>
-    /// Replaces each rated type's rates on its row of the project's Airtable sheet (the planting data
-    /// source in Settings), adding a number column first if the sheet doesn't have it.
-    /// </summary>
-    private async void PushGrowthRates_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
+    /// <summary>The project's Airtable sheet with each rated type matched to its row; null without a token or source.</summary>
+    private async Task<(AirtableApiSettings Settings, string Token, IReadOnlyList<TypeMatch> Matches)?> LoadSheetMatchesAsync()
     {
         var token = _airtableCredentialStore.Load().Trim();
         var settings = (await ProjectSettingsSync.PullAsync(GetClient()))?.AirtableApi;
         if (token.Length == 0 || settings is null || string.IsNullOrWhiteSpace(settings.BaseId))
         {
-            GrowthRatesStatusText.Text = "No Airtable token or planting data source saved: open Settings first.";
-            return;
+            return null;
         }
 
         var scan = await GetClient().SendAsync<ModelScanResult>(PipeCommands.ScanModel, new ModelScanOptions(PrimaryDesignOptionsOnly: false));
         var ratedIds = _growthRates.Where(type => type.HasRates).Select(type => type.TypeId).ToHashSet();
         var types = scan.Items.Where(item => ratedIds.Contains(item.TypeId)).DistinctBy(item => item.TypeId).ToList();
         var records = await _airtableApiClient.GetRecordsAsync(settings, token);
-        var matches = StableTypeMatcher.Build(types, records, SheetTypeKeyFields, []);
+        return (settings, token, StableTypeMatcher.Build(types, records, SheetTypeKeyFields, []));
+    }
+
+    /// <summary>
+    /// Replaces each rated type's rates on its row of the project's Airtable sheet (the planting data
+    /// source in Settings), adding a number column first if the sheet doesn't have it. Rows that
+    /// already have the rates are skipped.
+    /// </summary>
+    private async void PushGrowthRates_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
+    {
+        if (await LoadSheetMatchesAsync() is not var (settings, token, matches))
+        {
+            GrowthRatesStatusText.Text = "No Airtable token or planting data source saved: open Settings first.";
+            return;
+        }
+
         var updates = GrowthRatesFromITree.SheetUpdates(_growthRates, matches);
+        var matchedRows = matches.Where(match => match.Status == "Matched" && match.Record is not null).Select(match => match.Record!.Id).Distinct().Count();
+        var upToDate = matchedRows - updates.Count;
         var unmatched = matches.Where(match => match.Status != "Matched").Select(match => match.RevitType.TypeName).ToList();
         if (updates.Count == 0)
         {
-            GrowthRatesStatusText.Text = $"No sheet rows match these types{(unmatched.Count > 0 ? $" ({string.Join(", ", unmatched.Take(5))})" : string.Empty)}.";
+            GrowthRatesStatusText.Text = (matchedRows > 0
+                ? $"Nothing pushed: the sheet already has these rates ({upToDate:N0} row(s) up to date). "
+                : $"No sheet rows match these types{(unmatched.Count > 0 ? $" ({string.Join(", ", unmatched.Take(5))})" : string.Empty)}. ") +
+                await CheckSavedRatesAsync();
             return;
         }
 
@@ -701,6 +775,7 @@ public sealed partial class MainPage : Page
             Content = $"Writes the i-Tree rates to {updates.Count:N0} row(s) of the Airtable sheet's growth rate columns " +
                       $"({string.Join(", ", RateColumns.Select(column => $"\"{column.Column}\""))}), adding any that are missing. " +
                       "The values already there are replaced." +
+                      (upToDate > 0 ? $" {upToDate:N0} row(s) already up to date are skipped." : string.Empty) +
                       (unmatched.Count > 0 ? $" {unmatched.Count:N0} type(s) have no matching row and are skipped." : string.Empty),
             PrimaryButtonText = "Push",
             CloseButtonText = "Cancel",
@@ -726,7 +801,7 @@ public sealed partial class MainPage : Page
         {
             try
             {
-                await _airtableApiClient.UpdateRecordFieldsAsync(settings, token, recordId, fields.ToDictionary());
+                await _airtableApiClient.UpdateRecordFieldsAsync(settings, token, recordId, fields);
                 pushed++;
             }
             catch (Exception exception)
@@ -739,9 +814,11 @@ public sealed partial class MainPage : Page
         }
 
         GrowthRatesStatusText.Text = (added.Count > 0 ? $"Added the {string.Join(", ", added.Select(column => $"\"{column}\""))} column(s). " : string.Empty) +
-                                     $"Pushed the rates of {pushed:N0} row(s) to the sheet." +
+                                     $"Pushed the rates of {pushed:N0} row(s) to the sheet" +
+                                     (upToDate > 0 ? $"; {upToDate:N0} row(s) were already up to date and skipped" : string.Empty) + "." +
                                      (unmatched.Count > 0 ? $" No row for: {string.Join(", ", unmatched.Take(5))}{(unmatched.Count > 5 ? ", …" : string.Empty)}." : string.Empty) +
-                                     (problems.Count > 0 ? $" Failed: {string.Join("; ", problems.Take(3))}." : string.Empty);
+                                     (problems.Count > 0 ? $" Failed: {string.Join("; ", problems.Take(3))}." : string.Empty) + " " +
+                                     await CheckSavedRatesAsync();
     });
 
     // ---- Steps ----
@@ -755,7 +832,7 @@ public sealed partial class MainPage : Page
         "Set the year new trees are drawn at, the growth years to model and the trees in scope. Next saves them on the project, so the next run starts from them.",
         "Puts every tree on its year's workset and finds trees that overlap (shown red in the active view). Fix what it finds, then go on.",
         "Gives each tree type its trunk, height and crown growth rates from i-Tree, so trees grow between the years. Do it before creating the copies.",
-        "Makes or refreshes the growth-year copies and calculates i-Tree for them, in one confirmation.",
+        "Makes or refreshes the growth-year copies and calculates i-Tree for them, in one confirmation. Revit adds copies only to the active design option: with trees in several options, make each one active in turn (status bar > Design Options) and run again.",
         "Each growth year's i-Tree status: done when every growth-year tree is calculated."
     ];
 

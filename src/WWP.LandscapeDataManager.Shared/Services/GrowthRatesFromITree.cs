@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Text.Json;
 using WWP.LandscapeDataManager.Contracts;
+using WWP.LandscapeDataManager.Shared.Models;
 
 namespace WWP.LandscapeDataManager.Shared.Services;
 
@@ -25,6 +27,43 @@ public sealed record TypeGrowthRates(
     public string InputsText => $"{Condition}, exposure {CrownExposure}{(UsesDefaultInputs ? " (default)" : string.Empty)}";
 
     public bool HasRates => TrunkCmPerYear is not null || HeightMPerYear is not null || WidthMPerYear is not null;
+}
+
+/// <summary>One rate where it's kept (a Revit type parameter or a sheet column): what's there, and whether i-Tree's differs.</summary>
+public sealed record StoredRate(string Rate, string Current, double Proposed, bool Differs)
+{
+    public bool IsEmpty => string.IsNullOrWhiteSpace(Current) ||
+                           double.TryParse(Current, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value == 0;
+}
+
+/// <summary>
+/// Whether a type's i-Tree rates are already where they're kept: <see cref="UpToDate"/> (writing it is
+/// skipped), <see cref="Stale"/> (a different rate is there), <see cref="Missing"/> (a rate is empty),
+/// or <see cref="NoRow"/> (the sheet has no row for the type). <see cref="Changes"/> lists what would change.
+/// </summary>
+public sealed record RateStatus(string Status, string? Changes)
+{
+    public const string UpToDate = "Up to date";
+    public const string Stale = "Stale";
+    public const string Missing = "Missing";
+    public const string NoRow = "No row";
+
+    public bool IsUpToDate => Status == UpToDate;
+
+    public bool NeedsWriting => Status is Stale or Missing;
+
+    public static RateStatus Of(IReadOnlyCollection<StoredRate> rates)
+    {
+        var differing = rates.Where(rate => rate.Differs).ToList();
+        if (differing.Count == 0)
+        {
+            return new RateStatus(UpToDate, null);
+        }
+
+        var changes = string.Join(", ", differing.Select(rate =>
+            $"{rate.Rate} {(rate.IsEmpty ? "empty" : rate.Current)} → {GrowthRatesFromITree.Format(rate.Proposed)}"));
+        return new RateStatus(differing.Any(rate => rate.IsEmpty) ? Missing : Stale, changes);
+    }
 }
 
 /// <summary>
@@ -208,7 +247,7 @@ public static class GrowthRatesFromITree
     /// <summary>
     /// The sheet rows to update, with their rates by column: each matched row gets the rates of its
     /// type with the most trees (two types matching one row can differ when their trees' condition or
-    /// exposure differ).
+    /// exposure differ). A row that already has them is left out.
     /// </summary>
     public static IReadOnlyList<(string RecordId, IReadOnlyDictionary<string, object?> Fields, string TypeName)> SheetUpdates(
         IReadOnlyList<TypeGrowthRates> rated,
@@ -218,19 +257,72 @@ public static class GrowthRatesFromITree
         return matches
             .Where(match => match.Status == "Matched" && match.Record is not null && byTypeId.ContainsKey(match.RevitType.TypeId))
             .GroupBy(match => match.Record!.Id)
-            .Select(group =>
-            {
-                var type = group
+            .Select(group => (
+                Record: group.First().Record!,
+                Type: group
                     .Select(match => byTypeId[match.RevitType.TypeId])
                     .OrderByDescending(type => type.TreeCount)
                     .ThenBy(type => type.TypeName, StringComparer.OrdinalIgnoreCase)
-                    .First();
-                IReadOnlyDictionary<string, object?> fields = Rates(type)
-                    .ToDictionary(rate => rate.SheetColumn, rate => (object?)Math.Round(rate.Value, 2));
-                return (group.Key, fields, type.TypeName);
-            })
+                    .First()))
+            .Where(row => !RateStatus.Of(SheetRates(row.Type, row.Record)).IsUpToDate)
+            .Select(row => (
+                row.Record.Id,
+                (IReadOnlyDictionary<string, object?>)Rates(row.Type).ToDictionary(rate => rate.SheetColumn, rate => (object?)Math.Round(rate.Value, 2)),
+                row.Type.TypeName))
             .ToList();
     }
+
+    /// <summary>The type's rates against its sheet row's columns, compared as pushed (to 2 decimals).</summary>
+    public static IReadOnlyList<StoredRate> SheetRates(TypeGrowthRates type, AirtableRecord record) =>
+        Rates(type)
+            .Select(rate =>
+            {
+                var current = record.Fields.TryGetValue(rate.SheetColumn, out var value) && value.ValueKind == JsonValueKind.Number
+                    ? value.GetDouble()
+                    : (double?)null;
+                var proposed = Math.Round(rate.Value, 2);
+                return new StoredRate(
+                    RateName(rate.Parameter),
+                    current is { } number ? Format(number) : string.Empty,
+                    proposed,
+                    current is not { } stored || Math.Abs(stored - proposed) > 0.0001);
+            })
+            .ToList();
+
+    /// <summary>Where the type's rates stand on its sheet row; <see cref="RateStatus.NoRow"/> without a matched row.</summary>
+    public static RateStatus SheetStatus(TypeGrowthRates type, TypeMatch? match) =>
+        match is { Status: "Matched", Record: { } record }
+            ? RateStatus.Of(SheetRates(type, record))
+            : new RateStatus(RateStatus.NoRow, null);
+
+    /// <summary>
+    /// Where each type's rates stand on its Revit type, from a preview of <see cref="BuildTypeWrites"/>:
+    /// a write the preview finds unchanged is already there.
+    /// </summary>
+    public static IReadOnlyDictionary<long, RateStatus> TypeStatuses(
+        IReadOnlyList<ParameterWriteItem> writes,
+        IReadOnlyList<ParameterWritePreviewRow> preview) =>
+        preview
+            .Where(row => row.ItemIndex >= 0 && row.ItemIndex < writes.Count)
+            .GroupBy(row => writes[row.ItemIndex].TypeId)
+            .ToDictionary(
+                group => group.Key,
+                group => RateStatus.Of(group
+                    .Select(row => new StoredRate(
+                        RateName(writes[row.ItemIndex].RevitParameter),
+                        row.CurrentValue,
+                        double.Parse(writes[row.ItemIndex].SourceValue, CultureInfo.InvariantCulture),
+                        row.Status != "No change"))
+                    .ToList()));
+
+    /// <summary>"trunk", "height" or "width" for a growth rate parameter.</summary>
+    public static string RateName(string parameter) => parameter switch
+    {
+        TrunkParameter => "trunk",
+        HeightParameter => "height",
+        WidthParameter => "width",
+        _ => parameter
+    };
 
     public static string Format(double rate) => rate.ToString("0.###", CultureInfo.InvariantCulture);
 

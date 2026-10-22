@@ -50,6 +50,11 @@ public sealed record GrowthProjectionRequest(
     bool PreviewOnly,
     int DesignYear = GrowthYearNames.DefaultDesignYear);
 
+/// <summary>
+/// <see cref="Created"/> counts only copies Revit can make now: it adds new elements to the active
+/// design option alone, so copies of trees in another option wait (<see cref="WaitingForOption"/>,
+/// null from a connector that predates it) until that option is made active.
+/// </summary>
 public sealed record GrowthProjectionResult(
     string DocumentTitle,
     bool PreviewOnly,
@@ -59,7 +64,21 @@ public sealed record GrowthProjectionResult(
     int Updated,
     int Deleted,
     IReadOnlyList<string> WorksetsCreated,
-    IReadOnlyList<string> Notes);
+    IReadOnlyList<string> Notes,
+    IReadOnlyList<GrowthOptionWaiting>? WaitingForOption = null,
+    string? ActiveOption = null)
+{
+    /// <summary>
+    /// Copies are waiting for another design option to be active. An older connector only says so in
+    /// a note, after a run skipped them.
+    /// </summary>
+    public bool HasCopiesWaiting =>
+        WaitingForOption is { Count: > 0 } ||
+        Notes.Any(note => note.Contains("active design option", StringComparison.OrdinalIgnoreCase));
+}
+
+/// <summary>Copies of trees in one design option that wait for it to be the active option.</summary>
+public sealed record GrowthOptionWaiting(string OptionLabel, int Copies);
 
 /// <summary>A tool-made copy: the original it projects and the growth year it stands for.</summary>
 public sealed record GrowthCopyLink(string CopyUniqueId, string SourceUniqueId, int Year);
