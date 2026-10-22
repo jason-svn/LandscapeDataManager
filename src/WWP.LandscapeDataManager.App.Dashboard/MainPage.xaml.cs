@@ -33,7 +33,11 @@ public sealed partial class MainPage : Page
 
     private string _unitSystemOverride = ProjectDefaultUnitSystem;
     private bool _showAnnual = true;
-    private int _projectionYears = 10;
+    private int _projectionYears = GrowthYearNames.DefaultDesignYear;
+
+    // The year new trees are drawn at (Growth Projections): the growth year shown until someone picks one.
+    private int _designYear = GrowthYearNames.DefaultDesignYear;
+    private bool _projectionYearPicked;
 
     // The growth-year slider's stops. From tree worksets when the model has growth-year worksets
     // (then the slider also filters which trees count), else the standard outlook years.
@@ -150,6 +154,7 @@ public sealed partial class MainPage : Page
                 _savedSiteBoundaryKey = settings.SiteBoundary ?? _savedSiteBoundaryKey;
                 _savedScenarios = settings.DesignScenarios ?? [];
                 _referenceScenarioName = settings.ReferenceScenario;
+                _designYear = settings.GrowthDesignYear ?? _designYear;
             }
 
             _cachedSnapshotSavedAt = null;
@@ -1204,9 +1209,13 @@ public sealed partial class MainPage : Page
         var worksetYears = _lastReport is null ? [] : GrowthYears.InModel(_lastReport.Trees);
         _growthYearsFromWorksets = worksetYears.Count > 0;
         _growthYearStops = _growthYearsFromWorksets ? worksetYears : GrowthYears.StandardYears;
-        if (!_growthYearStops.Contains(_projectionYears))
+        // Until someone picks a year, show the design year (the scheme as drawn), or the stop nearest it.
+        if (!_projectionYearPicked || !_growthYearStops.Contains(_projectionYears))
         {
-            _projectionYears = _growthYearStops.Contains(10) ? 10 : _growthYearStops[0];
+            _projectionYears = _growthYearStops
+                .OrderBy(stop => Math.Abs(stop - _designYear))
+                .ThenByDescending(stop => stop)
+                .First();
         }
 
         GrowthYearHeaderText.Text = _growthYearsFromWorksets ? "Growth year (worksets)" : "Outlook";
@@ -1300,6 +1309,7 @@ public sealed partial class MainPage : Page
         }
 
         _projectionYears = _growthYearStops[index];
+        _projectionYearPicked = true;
         SetGrowthYearSliderValue();
         RebuildRows();
     }
@@ -1579,7 +1589,7 @@ public sealed partial class MainPage : Page
         await RunBusyAsync(async () =>
         {
             var location = await ResolveLocationAsync();
-            var export = DashboardJsonExportService.Build(ReportForJsonExport(), _preferredCurrency, _usdExchangeRate, location, _sets, OfferedScenarios());
+            var export = DashboardJsonExportService.Build(ReportForJsonExport(), _preferredCurrency, _usdExchangeRate, location, _sets, OfferedScenarios(), _designYear);
             await DashboardJsonExportService.ExportAsync(file.Path, export);
             StatusText.Text = $"Exported dashboard data to {file.Name}.";
         });

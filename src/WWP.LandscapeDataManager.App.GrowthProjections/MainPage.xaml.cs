@@ -41,6 +41,7 @@ public sealed partial class MainPage : Page
     public ObservableCollection<WorksetRow> WorksetRows { get; } = [];
     public ObservableCollection<YearCalculationRow> CalculationRows { get; } = [];
     public ObservableCollection<GrowthRateRow> GrowthRateRows { get; } = [];
+    public ObservableCollection<OptionProgressRow> OptionProgressRows { get; } = [];
     public ObservableCollection<SortMoveRow> SortMoveRows { get; } = [];
     public ObservableCollection<OverlapRow> OverlapRows { get; } = [];
 
@@ -104,7 +105,7 @@ public sealed partial class MainPage : Page
         WorksetRows.Clear();
         foreach (var workset in _status.Worksets)
         {
-            WorksetRows.Add(new WorksetRow(workset));
+            WorksetRows.Add(new WorksetRow(workset, DesignYear()));
         }
 
         ModelSummaryText.Text =
@@ -208,7 +209,38 @@ public sealed partial class MainPage : Page
     {
         var result = await GetClient().SendAsync<GrowthProjectionResult>(PipeCommands.RunGrowthProjection, BuildRequest(previewOnly: true));
         StatusText.Text = Describe(result, DesignYear());
-        SetStep(3, result.Created + result.Deleted + result.MovedToBaseline == 0 && !result.HasCopiesWaiting ? StepState.Done : StepState.Attention);
+        var options = await ShowOptionProgressAsync();
+        var copiesDone = options.Count > 0 ? options.All(option => option.MissingYears.Count == 0) : result.Created == 0 && !result.HasCopiesWaiting;
+        SetStep(3, copiesDone && result.Deleted + result.MovedToBaseline == 0 ? StepState.Done : StepState.Attention);
+    }
+
+    /// <summary>
+    /// Each design option's originals, the copies made of them, and the trees still waiting for i-Tree,
+    /// with what to do next: run, or make the option active first. Reads only.
+    /// </summary>
+    private async Task<IReadOnlyList<GrowthOptionProgressRow>> ShowOptionProgressAsync()
+    {
+        // The active option may have changed in Revit since the step opened.
+        await RefreshStatusAsync();
+        var organizer = await GetClient().SendAsync<OrganizerTreesResult>(PipeCommands.GetOrganizerTrees);
+        await ScanGrowthTreesAsync();
+        var waiting = _growthTrees.Where(tree => IsWaiting(tree.Status)).Select(tree => tree.Item.UniqueId).ToHashSet(StringComparer.Ordinal);
+        var activeKey = _status?.Options.FirstOrDefault(option => option.IsActive)?.Key ?? GrowthOptionKeys.MainModel;
+        var rows = GrowthOptionProgress.Build(organizer.Trees, BuildRequest(previewOnly: true).Years, DesignYear(), activeKey, waiting);
+
+        OptionProgressRows.Clear();
+        foreach (var row in rows)
+        {
+            OptionProgressRows.Add(new OptionProgressRow(row));
+        }
+
+        var makeActive = rows.Where(row => row.ToDo == GrowthOptionProgressRow.MakeActive).Select(row => row.OptionLabel).ToList();
+        var run = rows.Where(row => row.ToDo == GrowthOptionProgressRow.Run).Select(row => row.OptionLabel).ToList();
+        OptionProgressText.Text = makeActive.Count + run.Count == 0
+            ? "Every design option has all its growth-year copies, and every tree is calculated."
+            : (run.Count > 0 ? $"Run Create, refresh & calculate for: {string.Join(", ", run)}. " : string.Empty) +
+              (makeActive.Count > 0 ? $"Then make each of these active in turn and run again: {string.Join(", ", makeActive)}." : string.Empty);
+        return rows;
     }
 
     /// <summary>
@@ -294,8 +326,8 @@ public sealed partial class MainPage : Page
         }
 
         StatusText.Text = string.Join(" ", status);
-        SetStep(3, copiesWaiting ? StepState.Attention : StepState.Done);
-        await RefreshStatusAsync();
+        var options = await ShowOptionProgressAsync();
+        SetStep(3, copiesWaiting || options.Any(option => option.MissingYears.Count > 0) ? StepState.Attention : StepState.Done);
     });
 
     // ---- i-Tree by growth year ----
@@ -327,6 +359,7 @@ public sealed partial class MainPage : Page
         {
             CalculationRows.Add(new YearCalculationRow(
                 year.Key,
+                DesignYear(),
                 year.Count(),
                 year.Count(tree => tree.Status == "Calculated"),
                 year.Count(tree => IsWaiting(tree.Status)),

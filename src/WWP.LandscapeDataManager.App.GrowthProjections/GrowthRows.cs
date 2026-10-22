@@ -48,23 +48,53 @@ public sealed class DesignOptionRow(GrowthDesignOptionChoice choice)
 }
 
 /// <summary>One growth year's i-Tree state: how many of its trees are calculated, waiting, or need inputs.</summary>
-public sealed class YearCalculationRow(int year, int trees, int calculated, int toCalculate, int needsAttention)
+public sealed class YearCalculationRow(int year, int designYear, int trees, int calculated, int toCalculate, int needsAttention)
 {
     public int Year { get; } = year;
-    public string YearText { get; } = year == 0 ? "0 (project start)" : year.ToString();
+    public string YearText { get; } = GrowthYearLabel.Of(year, designYear);
     public string TreesText { get; } = trees.ToString("N0");
     public string CalculatedText { get; } = calculated.ToString("N0");
     public string ToCalculateText { get; } = toCalculate.ToString("N0");
     public string NeedsAttentionText { get; } = needsAttention.ToString("N0");
 }
 
-/// <summary>An existing growth-year workset, for the status table.</summary>
-public sealed class WorksetRow(GrowthYearWorkset workset)
+/// <summary>
+/// An existing growth-year workset, for the status table. The originals are wherever they're drawn
+/// (existing trees at year 0, new ones at the design year): every tree on a workset that isn't a
+/// linked copy.
+/// </summary>
+public sealed class WorksetRow(GrowthYearWorkset workset, int designYear)
 {
-    public string YearText { get; } = workset.Year == 0 ? "0 (project start)" : workset.Year.ToString();
+    public string YearText { get; } = GrowthYearLabel.Of(workset.Year, designYear);
     public string WorksetName { get; } = workset.WorksetName;
     public string TreeCountText { get; } = workset.TreeCount.ToString("N0");
-    public string LinkedText { get; } = workset.Year == 0 ? "originals" : $"{workset.LinkedCopyCount:N0} linked";
+    public string LinkedText { get; } = Describe(workset.LinkedCopyCount, Math.Max(0, workset.TreeCount - workset.LinkedCopyCount));
+
+    private static string Describe(int linked, int originals) => (linked, originals) switch
+    {
+        ( > 0, > 0) => $"{linked:N0} linked, {originals:N0} originals",
+        ( > 0, _) => $"{linked:N0} linked",
+        (_, > 0) => $"{originals:N0} originals",
+        _ => "—"
+    };
+}
+
+/// <summary>One design option's growth projection, for the by-design-option table.</summary>
+public sealed class OptionProgressRow(GrowthOptionProgressRow row)
+{
+    public string OptionText { get; } = row.OptionLabel + (row.IsActive ? " (active)" : string.Empty);
+    public string OriginalsText { get; } = row.Originals.ToString("N0");
+    public string CopiesText { get; } = row.CopiesNeeded == 0 ? "—" : $"{row.CopiesMade:N0} of {row.CopiesNeeded:N0}";
+    public string MissingYearsText { get; } = row.MissingYears.Count == 0 ? "—" : string.Join(", ", row.MissingYears);
+    public string ToCalculateText { get; } = row.ToCalculate.ToString("N0");
+    public string ToDo { get; } = row.ToDo;
+}
+
+/// <summary>A growth year as the tables show it: year 0 is the project start, and the design year is where new trees are drawn.</summary>
+public static class GrowthYearLabel
+{
+    public static string Of(int year, int designYear) =>
+        year == 0 ? "0 (project start)" : year == designYear ? $"{year} (design year)" : year.ToString();
 }
 
 /// <summary>

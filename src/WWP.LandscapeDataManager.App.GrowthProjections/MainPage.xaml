@@ -375,6 +375,54 @@
                                           Content="Also recalculate growth-year trees that are already calculated" />
                             </Grid>
                         </Border>
+
+                        <!-- By design option: which options still need copies or i-Tree, and which to make active -->
+                        <Border Style="{StaticResource LimCardStyle}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="BY DESIGN OPTION" Style="{StaticResource LimSectionHeaderStyle}" />
+                                <TextBlock Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
+                                           Text="Revit adds new elements only to the active design option, so an option's growth-year copies are made while it's the active one. Make each option that still needs copies active in turn (status bar &gt; Design Options), then select Create, refresh &amp; calculate. Copies: each original needs one for every growth year except its own (existing trees year 0, new trees the design year)." />
+                                <Grid Margin="0,4,0,0">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                    <Grid Grid.RowSpan="3" Style="{StaticResource LimTableLanesStyle}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="200" /><ColumnDefinition Width="80" /><ColumnDefinition Width="100" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                        <Border Grid.Column="2" Grid.ColumnSpan="2" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreenBrush}" />
+                                        <Border Grid.Column="4" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneBlueBrush}" />
+                                    </Grid>
+                                    <Grid Style="{StaticResource LimTableGroupRowStyle}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="200" /><ColumnDefinition Width="80" /><ColumnDefinition Width="100" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="2" Grid.ColumnSpan="2" Text="GROWTH-YEAR COPIES" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneGreenTextBrush}" />
+                                        <TextBlock Grid.Column="4" Text="I-TREE" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneBlueTextBrush}" />
+                                    </Grid>
+                                    <Grid Grid.Row="1" Style="{StaticResource LimTableHeaderRowStyle}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="200" /><ColumnDefinition Width="80" /><ColumnDefinition Width="100" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="Design option" Style="{StaticResource LimTableHeaderStyle}" />
+                                        <TextBlock Grid.Column="1" Text="Originals&#10;trees" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                                        <TextBlock Grid.Column="2" Text="Made&#10;of needed" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                                        <TextBlock Grid.Column="3" Text="Missing&#10;years" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                                        <TextBlock Grid.Column="4" Text="To&#10;calculate" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                                        <TextBlock Grid.Column="5" Text="To do" Style="{StaticResource LimTableHeaderStyle}" Margin="12,0,0,0" />
+                                    </Grid>
+                                    <ItemsControl Grid.Row="2" ItemsSource="{x:Bind OptionProgressRows}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="local:OptionProgressRow">
+                                                <Grid Style="{StaticResource LimTableRowStyle}">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="200" /><ColumnDefinition Width="80" /><ColumnDefinition Width="100" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{x:Bind OptionText}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind OriginalsText}" TextAlignment="Right" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind CopiesText}" TextAlignment="Right" />
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind MissingYearsText}" TextAlignment="Right" />
+                                                    <TextBlock Grid.Column="4" Text="{x:Bind ToCalculateText}" TextAlignment="Right" />
+                                                    <TextBlock Grid.Column="5" Text="{x:Bind ToDo}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="12,0,0,0" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                                <TextBlock x:Name="OptionProgressText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
+                                           Text="Opens on each design option's copies and i-Tree state." />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
 
                     <StackPanel x:Name="Step5Panel" Spacing="16" Visibility="Collapsed">

@@ -200,13 +200,16 @@ internal static class DashboardJsonExportService
         double usdToTargetRate,
         DashboardJsonLocation location,
         IReadOnlyList<DesignOptionSetItem> sets,
-        IReadOnlyList<DesignScenario> scenarios)
+        IReadOnlyList<DesignScenario> scenarios,
+        int designYear = GrowthYearNames.DefaultDesignYear)
     {
         var project = new DashboardJsonProject(report.DocumentTitle, currency, location, DateTimeOffset.Now);
         var hasAlternatives = scenarios.Count > 1;
         var defaultScenario = DesignScenarios.Find(scenarios, null);
 
         var worksetYears = GrowthYears.InModel(report.Trees);
+        // The file opens on the default scenario at the design year (new trees are drawn at it), or the year nearest it.
+        var defaultYear = worksetYears.OrderBy(year => Math.Abs(year - designYear)).ThenByDescending(year => year).FirstOrDefault();
         var entries = scenarios.SelectMany(scenario =>
         {
             // Benefits count what stands after development (the existing site: what stood before);
@@ -230,12 +233,12 @@ internal static class DashboardJsonExportService
             // other geometry figures (a copy whose trunk doesn't grow reports the planting-size benefit).
             var outlook = new TreeOutlook(trees, worksetYears, report.TreeTimelines, "Metric", usdToTargetRate);
             var fromForecast = outlook.Method == TreeOutlookMethod.Timeline;
-            return worksetYears.Select((year, index) =>
+            return worksetYears.Select(year =>
             {
                 var geometryTrees = trees.Where(tree => GrowthYears.CountsIn(tree.Source, year)).ToList();
                 return BuildScenario(
                     hasAlternatives ? $"{scenario.Name} · {year} years" : $"{year} years",
-                    scenario == defaultScenario && index == 0,
+                    scenario == defaultScenario && year == defaultYear,
                     fromForecast ? outlook.InYear(year) : geometryTrees,
                     geometryTrees,
                     floors,
