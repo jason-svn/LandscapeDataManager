@@ -305,17 +305,17 @@
                                 <Grid Margin="0,4,0,0">
                                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                                     <Grid Grid.RowSpan="3" Style="{StaticResource LimTableLanesStyle}">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="60" /><ColumnDefinition Width="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="140" /><ColumnDefinition Width="60" /><ColumnDefinition Width="52" /><ColumnDefinition Width="128" /><ColumnDefinition Width="60" /><ColumnDefinition Width="60" /><ColumnDefinition Width="60" /><ColumnDefinition Width="88" /><ColumnDefinition Width="88" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                         <Border Grid.Column="3" Grid.ColumnSpan="4" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreenBrush}" />
                                         <Border Grid.Column="7" Grid.ColumnSpan="2" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreyBrush}" />
                                     </Grid>
                                     <Grid Style="{StaticResource LimTableGroupRowStyle}">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="60" /><ColumnDefinition Width="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="140" /><ColumnDefinition Width="60" /><ColumnDefinition Width="52" /><ColumnDefinition Width="128" /><ColumnDefinition Width="60" /><ColumnDefinition Width="60" /><ColumnDefinition Width="60" /><ColumnDefinition Width="88" /><ColumnDefinition Width="88" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="3" Grid.ColumnSpan="4" Text="I-TREE" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneGreenTextBrush}" />
                                         <TextBlock Grid.Column="7" Grid.ColumnSpan="2" Text="ALREADY THERE?" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneGreyTextBrush}" />
                                     </Grid>
                                     <Grid Grid.Row="1" Style="{StaticResource LimTableHeaderRowStyle}">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="60" /><ColumnDefinition Width="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="140" /><ColumnDefinition Width="60" /><ColumnDefinition Width="52" /><ColumnDefinition Width="128" /><ColumnDefinition Width="60" /><ColumnDefinition Width="60" /><ColumnDefinition Width="60" /><ColumnDefinition Width="88" /><ColumnDefinition Width="88" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                         <TextBlock Text="Type" Style="{StaticResource LimTableHeaderStyle}" />
                                         <TextBlock Grid.Column="1" Text="Species" Style="{StaticResource LimTableHeaderStyle}" />
                                         <TextBlock Grid.Column="2" Text="Trees" Style="{StaticResource LimTableNumberHeaderStyle}" />
@@ -331,7 +331,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="local:GrowthRateRow">
                                                 <Grid Style="{StaticResource LimTableRowStyle}">
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="60" /><ColumnDefinition Width="150" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="70" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="140" /><ColumnDefinition Width="60" /><ColumnDefinition Width="52" /><ColumnDefinition Width="128" /><ColumnDefinition Width="60" /><ColumnDefinition Width="60" /><ColumnDefinition Width="60" /><ColumnDefinition Width="88" /><ColumnDefinition Width="88" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                                     <TextBlock Text="{x:Bind TypeName}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind FamilyName}" />
                                                     <TextBlock Grid.Column="1" Text="{x:Bind SpeciesCode}" />
                                                     <TextBlock Grid.Column="2" Text="{x:Bind TreesText}" TextAlignment="Right" />
