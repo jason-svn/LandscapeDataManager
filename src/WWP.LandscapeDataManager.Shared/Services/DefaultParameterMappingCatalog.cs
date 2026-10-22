@@ -81,7 +81,7 @@ public static class DefaultParameterMappingCatalog
     /// Why a sheet column is deliberately left unmapped, shown in place of "Needs mapping" so it
     /// doesn't read as a gap; null for an ordinary column.
     /// </summary>
-    public static string? SkipReason(string header) => header.Trim() switch
+    public static string? SkipReason(string header) => CleanHeader(header) switch
     {
         "WWP_Total_GWP" => "Not imported — formula column (product + transport GWP)",
         _ => null
@@ -103,11 +103,18 @@ public static class DefaultParameterMappingCatalog
         !parameterName.StartsWith("!_S_PLT_ConnectivityResult_", StringComparison.Ordinal) &&
         !RetiredParameterNames.Contains(parameterName);
 
+    /// <summary>
+    /// A header as the sheet means it: trimmed, and without invisible characters — the live WWP
+    /// sheet's first column, Origin, arrives with a byte-order mark (U+FEFF) from its CSV import.
+    /// </summary>
+    public static string CleanHeader(string header) =>
+        new string([.. header.Where(character => character is not ('\uFEFF' or '\u200B' or '\u200C' or '\u200D' or '\u2060'))]).Trim();
+
     public static string Normalize(string value) =>
         new([.. value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant)]);
 
     /// <summary>Candidate parameter names to try for a source header, in priority order, always ending with the header itself as a last-ditch exact/normalized match.</summary>
-    public static IReadOnlyList<string> GetCandidates(string header) => header.Trim() switch
+    public static IReadOnlyList<string> GetCandidates(string header) => CleanHeader(header) switch
     {
         "Avoided runoff m3/yr (16/18 girth)" => ["!_S_PLT_LDS_RunoffAvoidedRate_Number", header],
         "Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth)" => ["!_S_PLT_LDS_CO2SequestrationRate_Number", header],

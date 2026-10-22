@@ -153,6 +153,16 @@ public sealed class DefaultParameterMappingCatalogTests
     }
 
     [Fact]
+    public void A_header_with_a_byte_order_mark_still_maps()
+    {
+        var options = new[] { Option("!_S_PLT_LDS_Origin_Text") };
+
+        var match = DefaultParameterMappingCatalog.FindMatch("\uFEFFOrigin", options, new HashSet<string>());
+
+        Assert.Equal("!_S_PLT_LDS_Origin_Text", match?.Descriptor.Name);
+    }
+
+    [Fact]
     public void Deliberately_skipped_columns_say_why_and_known_columns_name_their_parameter()
     {
         Assert.NotNull(DefaultParameterMappingCatalog.SkipReason("WWP_Total_GWP"));

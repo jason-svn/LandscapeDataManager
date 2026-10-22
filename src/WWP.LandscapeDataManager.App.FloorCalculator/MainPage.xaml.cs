@@ -161,7 +161,8 @@ public sealed partial class MainPage : Page
 
     private static WwpLdsCoefficientRecord ToCoefficientRecord(AirtableRecord record)
     {
-        var fields = record.Fields.ToDictionary(kv => kv.Key.Trim(), kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+        // CleanHeader: the sheet's first column, Origin, arrives with a byte-order mark from its CSV import.
+        var fields = record.Fields.ToDictionary(kv => DefaultParameterMappingCatalog.CleanHeader(kv.Key), kv => kv.Value, StringComparer.OrdinalIgnoreCase);
 
         var origin = GetString(fields, "Origin");
         var plantingTypeCode = GetString(fields, "Planting type");
