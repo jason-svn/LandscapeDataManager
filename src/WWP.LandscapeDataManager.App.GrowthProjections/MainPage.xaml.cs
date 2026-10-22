@@ -192,7 +192,7 @@ public sealed partial class MainPage : Page
     private async void Preview_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
     {
         var result = await GetClient().SendAsync<GrowthProjectionResult>(PipeCommands.RunGrowthProjection, BuildRequest(previewOnly: true));
-        StatusText.Text = Describe(result);
+        StatusText.Text = Describe(result, DesignYear());
     });
 
     /// <summary>
@@ -217,7 +217,7 @@ public sealed partial class MainPage : Page
         var steps = new List<string>();
         if (changesModel)
         {
-            steps.Add("1. " + Describe(preview) + " (one Revit undo step)");
+            steps.Add("1. " + Describe(preview, request.DesignYear) + " (one Revit undo step)");
         }
 
         steps.Add($"{(changesModel ? "2" : "1")}. Calculate i-Tree for growth-year trees that are new or changed" +
@@ -241,7 +241,7 @@ public sealed partial class MainPage : Page
         if (changesModel)
         {
             var result = await GetClient().SendAsync<GrowthProjectionResult>(PipeCommands.RunGrowthProjection, request);
-            status.Add(Describe(result));
+            status.Add(Describe(result, request.DesignYear));
             try
             {
                 await ProjectSettingsSync.PushAsync(GetClient(), growthProjectionYears: request.Years, growthDesignYear: request.DesignYear);
@@ -702,13 +702,13 @@ public sealed partial class MainPage : Page
     /// <summary>Has every input and just needs (re)calculating.</summary>
     private static bool IsWaiting(string status) => status is "Ready" or "Stale";
 
-    private static string Describe(GrowthProjectionResult result)
+    private static string Describe(GrowthProjectionResult result, int designYear)
     {
         var verb = result.PreviewOnly ? "Will" : "Done:";
         var parts = new List<string>
         {
             $"{result.OriginalsInScope:N0} original tree(s) in scope",
-            $"move {result.MovedToBaseline:N0} to the year-0 (project start) workset",
+            $"move {result.MovedToBaseline:N0} onto their own year's workset (existing trees year 0, new trees year {designYear})",
             $"create {result.Created:N0} copies",
             $"refresh {result.Updated:N0}",
             $"remove {result.Deleted:N0} orphaned/duplicate copies"
