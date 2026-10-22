@@ -80,7 +80,9 @@ LIM（Landscape Information Manager）的计划、已完成的工作，以及修
   - [x] **树干（2026-10-21 完成开发）：** i-Tree 的预测会给出每一年的 DBH，而且对同一树种、树况和冠层光照暴露度，每年树干增长的量相同（Acer campestre：Good、暴露度 3 时为 0.44 cm/年；暴露度 5 时为 0.78），所以斜率就是族要的生长率。每个有树种代码的种植类型都按该类型多数树的树况和暴露度取值（没有树时用 Good、3）：每种树种、树况和暴露度的组合只请求一次预测。
   - [x] **树高和冠宽（2026-10-22，你的决定：用 i-Tree 覆盖表格里的值）：** i-Tree 的预测也给出每一年的树高和树冠面积。它们从种植时的尺寸开始，而且越长越慢（Quercus robur，Good，3：种下时 6.34 m 高，第 1 年 +0.41 m，第 25 年 +0.30 m），所以从 0 开始的单一速率不可能每年都对上：速率取设计年时 i-Tree 的尺寸除以设计年（Quercus robur：25 年后 15.21 m 高、冠宽 8.04 m，即 0.61 和 0.32 m/年）。这样在设计年画出来的树，即使还没计算，大小也和 i-Tree 一致。树高速率也决定 `Mature Age`。
   - [x] Growth Projections 第 3 步改为 **Growth rates**（树干、树高、冠宽）。**Write to types** 把三个速率都写到每个 Revit 类型上（先预览，一步撤销）。**Push to sheet** 覆盖 Airtable 表格里的 "Trunk diameter annual growth rate (cm/yr)"、"Height year annual growth rate (m/yr)" 和 "Width annual growth rate (m/yr)" 三列，缺哪列就加哪列；Importer 会把三列都映射到类型参数上。
-  - [ ] 在沙盒里运行：Get rates、Write to types、Push to sheet，然后 Create, refresh & calculate。
+  - [x] **显示是否已经写过（2026-10-22，你的决定）：** 每个类型都显示它的 Revit 类型和 Airtable 行是否已经有 i-Tree 的速率：Up to date（跳过）、Stale、Missing 或 No row，鼠标悬停显示会改什么。Write 和 Push 只改不一样的，并说明跳过了几个。
+  - [x] 已在沙盒运行（2026-10-22）：Write to types 在 9 个类型上写了 18 个速率（9 个树干速率原来就一样）。
+- [x] **副本要等它的设计选项（2026-10-22）：** Revit 只把新元素放进当前激活的设计选项，而 API 无法切换激活的选项。沙盒里所有树都在设计选项里，而激活的是 main model，所以 Create & calculate 复制出每个副本后发现选项不对就删掉了，但这一步仍显示完成，结果只有 25 年。现在预览会按选项统计等待中的副本，运行时跳过它们，这一步保持未完成，并列出需要依次激活的选项（状态栏 > Design Options）。Revit 端插件有改动：需要装下一版。
 - [x] **按 i-Tree 的尺寸画树（2026-10-22，你的决定）：** i-Tree 根据 DBH 推算树高和树冠（LIM 不发送树高和树冠），所以画出来的树现在用 i-Tree 的数字。新增两个实例参数（Analysis Results）：`!_S_PLT_iTreeResult_TreeHeight_Length` 和 `!_S_PLT_iTreeResult_CrownWidth_Length`（与 i-Tree 树冠面积相等的圆的直径）。每次 i-Tree 计算（Tree Calculator、Growth Projections、Refresh and Audit）都按树的 DBH 写入；i-Tree 算不了时写 0。族用它们画：树干高 = 树高 / 3，树冠高 = 2 × 树高 / 3，树冠半径 = 冠宽 / 2；为 0 时按生长率画。DBH 仍然用族公式：它是 i-Tree 的输入，而且用了 i-Tree 的树干速率后，每年都等于 i-Tree 的 DBH。工具改动了一棵树的年龄（Growth Projections、自动年龄更新）时，会清掉它的 i-Tree 尺寸，直到重新计算，所以副本不会沿用原始树的尺寸。Import Shared Parameter 会把它们加到项目里，用于明细表。
 - [x] **族的几何（2026-10-22，已载入沙盒；族文件本身没有保存）：**
   - `TreeOverall_Height = TreeFoliage_Height + TreeTrunk_Height`（原来加的是树干直径）。
