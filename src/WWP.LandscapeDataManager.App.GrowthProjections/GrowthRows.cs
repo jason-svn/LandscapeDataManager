@@ -67,17 +67,21 @@ public sealed class WorksetRow(GrowthYearWorkset workset)
     public string LinkedText { get; } = workset.Year == 0 ? "originals" : $"{workset.LinkedCopyCount:N0} linked";
 }
 
-/// <summary>One planting type's trunk growth rate from i-Tree, for the trunk growth table.</summary>
-public sealed class TrunkGrowthRow(Shared.Services.TypeTrunkGrowth type)
+/// <summary>One planting type's growth rates from i-Tree, for the growth rates table.</summary>
+public sealed class GrowthRateRow(Shared.Services.TypeGrowthRates type)
 {
-    public Shared.Services.TypeTrunkGrowth Type { get; } = type;
+    public Shared.Services.TypeGrowthRates Type { get; } = type;
     public string TypeName { get; } = type.TypeName;
     public string FamilyName { get; } = type.FamilyName;
     public string SpeciesCode { get; } = type.SpeciesCode;
     public string TreesText { get; } = type.TreeCount.ToString("N0");
     public string InputsText { get; } = type.InputsText;
-    public string RateText { get; } = type.RateCmPerYear is { } rate ? rate.ToString("0.00") : "—";
+    public string TrunkText { get; } = Rate(type.TrunkCmPerYear);
+    public string HeightText { get; } = Rate(type.HeightMPerYear);
+    public string WidthText { get; } = Rate(type.WidthMPerYear);
     public string Note { get; } = type.Error ?? (type.TreeCount == 0 ? "No trees placed: default inputs" : string.Empty);
+
+    private static string Rate(double? value) => value is { } rate ? rate.ToString("0.00") : "—";
 }
 
 /// <summary>Trees on one workset that belong on another growth year's, for the sort table.</summary>

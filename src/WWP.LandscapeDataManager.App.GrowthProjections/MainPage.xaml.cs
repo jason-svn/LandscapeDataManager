@@ -22,7 +22,7 @@ public sealed partial class MainPage : Page
     private List<(PlantingInstanceValidationItem Item, string Status)> _growthTrees = [];
     private string _preferredUnitSystem = "Metric";
     private string _preferredCurrency = "USD";
-    private IReadOnlyList<TypeTrunkGrowth> _trunkGrowth = [];
+    private IReadOnlyList<TypeGrowthRates> _growthRates = [];
     private OrganizerTreesResult? _organizerTrees;
     private TreeSortPlan? _sortPlan;
     private IReadOnlyList<TreeOverlapGroup> _overlaps = [];
@@ -38,7 +38,7 @@ public sealed partial class MainPage : Page
     public ObservableCollection<DesignOptionRow> OptionRows { get; } = [];
     public ObservableCollection<WorksetRow> WorksetRows { get; } = [];
     public ObservableCollection<YearCalculationRow> CalculationRows { get; } = [];
-    public ObservableCollection<TrunkGrowthRow> TrunkGrowthRows { get; } = [];
+    public ObservableCollection<GrowthRateRow> GrowthRateRows { get; } = [];
     public ObservableCollection<SortMoveRow> SortMoveRows { get; } = [];
     public ObservableCollection<OverlapRow> OverlapRows { get; } = [];
 
@@ -340,7 +340,7 @@ public sealed partial class MainPage : Page
                   ? $" {misplaced.NotOnTheirWorkset:N0} tree(s) have a projected year that isn't their workset's: step 2 (Check trees) moves them."
                   : string.Empty) +
               (flatDbh.Count > 0
-                  ? $" ⚠ DBH is the same in every growth year for {flatDbh.Count:N0} type(s) ({string.Join(", ", flatDbh.Take(5))}{(flatDbh.Count > 5 ? ", …" : string.Empty)}), so i-Tree will give every year the same results — fill in their trunk growth rate (!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number) in step 3 (Trunk growth)."
+                  ? $" ⚠ DBH is the same in every growth year for {flatDbh.Count:N0} type(s) ({string.Join(", ", flatDbh.Take(5))}{(flatDbh.Count > 5 ? ", …" : string.Empty)}), so i-Tree will give every year the same results — fill in their trunk growth rate (!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number) in step 3 (Growth rates)."
                   : string.Empty);
     }
 
@@ -527,21 +527,21 @@ public sealed partial class MainPage : Page
         OverlapSummaryText.Text = "Colours reset. Select Check to paint the overlapping trees again.";
     });
 
-    // ---- Trunk growth from i-Tree ----
+    // ---- Growth rates from i-Tree ----
 
-    private async void GetTrunkGrowth_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(GetTrunkGrowthAsync);
+    private async void GetGrowthRates_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(GetGrowthRatesAsync);
 
     /// <summary>
     /// Every planting type with a species code, rated by i-Tree at the condition and crown exposure
-    /// most of its planted trees have. Reads the model only (the tree scan also brings growth-year ages
-    /// up to date, as Check does).
+    /// most of its planted trees have, to the design year. Reads the model only (the tree scan also
+    /// brings growth-year ages up to date, as Check does).
     /// </summary>
-    private async Task GetTrunkGrowthAsync()
+    private async Task GetGrowthRatesAsync()
     {
         var apiKey = _iTreeCredentialStore.Load().Trim();
         if (apiKey.Length == 0)
         {
-            TrunkGrowthStatusText.Text = "No i-Tree API key saved: add one in Settings first.";
+            GrowthRatesStatusText.Text = "No i-Tree API key saved: add one in Settings first.";
             return;
         }
 
@@ -550,68 +550,70 @@ public sealed partial class MainPage : Page
             PipeCommands.ValidatePlantingInstances, new ValidatePlantingInstancesRequest());
         await Task.WhenAll(scanTask, validationTask);
         var trees = (await validationTask).Items;
-        var plan = TrunkGrowthFromITree.Plan((await scanTask).Items, trees);
+        var plan = GrowthRatesFromITree.Plan((await scanTask).Items, trees);
         if (plan.Count == 0)
         {
-            ShowTrunkGrowth([], "No planting types have a species code yet: assign them in Tree Searcher first.");
+            ShowGrowthRates([], "No planting types have a species code yet: assign them in Tree Searcher first.");
             return;
         }
 
         var location = trees.FirstOrDefault(tree => tree.Latitude is not null && tree.Longitude is not null);
         if (location is null)
         {
-            ShowTrunkGrowth([], "The project has no i-Tree location: set it with Location Finder first.");
+            ShowGrowthRates([], "The project has no i-Tree location: set it with Location Finder first.");
             return;
         }
 
+        var designYear = DesignYear();
         var progress = new Progress<(int Done, int Total)>(step =>
-            TrunkGrowthStatusText.Text = $"Asking i-Tree… {step.Done:N0} of {step.Total:N0}");
-        var rated = await TrunkGrowthFromITree.RunAsync(
+            GrowthRatesStatusText.Text = $"Asking i-Tree… {step.Done:N0} of {step.Total:N0}");
+        var rated = await GrowthRatesFromITree.RunAsync(
             plan,
             location.Latitude!.Value,
             location.Longitude!.Value,
+            designYear,
             (input, years, token) => _iTreeApiClient.ForecastAsync(input, years, apiKey, token),
             progress);
-        var ratedCount = rated.Count(type => type.RateCmPerYear is not null);
+        var ratedCount = rated.Count(type => type.HasRates);
         var failed = rated.Count - ratedCount;
-        ShowTrunkGrowth(rated,
-            $"{ratedCount:N0} of {rated.Count:N0} type(s) rated by i-Tree." +
+        ShowGrowthRates(rated,
+            $"{ratedCount:N0} of {rated.Count:N0} type(s) rated by i-Tree (height and width at year {designYear})." +
             (failed > 0 ? $" {failed:N0} failed (see Note)." : string.Empty) +
-            (ratedCount > 0 ? " Write to types to use them in this model; Push to sheet to keep them in Airtable." : string.Empty));
+            (ratedCount > 0 ? " Write to types to use them in this model; Push to sheet to replace them in Airtable." : string.Empty));
     }
 
-    private void ShowTrunkGrowth(IReadOnlyList<TypeTrunkGrowth> rated, string status)
+    private void ShowGrowthRates(IReadOnlyList<TypeGrowthRates> rated, string status)
     {
-        _trunkGrowth = rated;
-        TrunkGrowthRows.Clear();
+        _growthRates = rated;
+        GrowthRateRows.Clear();
         foreach (var type in rated)
         {
-            TrunkGrowthRows.Add(new TrunkGrowthRow(type));
+            GrowthRateRows.Add(new GrowthRateRow(type));
         }
 
-        var any = rated.Any(type => type.RateCmPerYear is not null);
-        WriteTrunkGrowthButton.IsEnabled = any;
-        PushTrunkGrowthButton.IsEnabled = any;
-        TrunkGrowthStatusText.Text = status;
+        var any = rated.Any(type => type.HasRates);
+        WriteGrowthRatesButton.IsEnabled = any;
+        PushGrowthRatesButton.IsEnabled = any;
+        GrowthRatesStatusText.Text = status;
     }
 
-    private async void WriteTrunkGrowth_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
+    private async void WriteGrowthRates_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
     {
-        var writes = TrunkGrowthFromITree.BuildTypeWrites(_trunkGrowth);
+        var writes = GrowthRatesFromITree.BuildTypeWrites(_growthRates);
         if (writes.Count == 0)
         {
-            TrunkGrowthStatusText.Text = "Nothing to write: select Get rates first.";
+            GrowthRatesStatusText.Text = "Nothing to write: select Get rates first.";
             return;
         }
 
         var batch = new ParameterWriteBatch(new ModelScanOptions(PrimaryDesignOptionsOnly: false), writes);
         var preview = await GetClient().SendAsync<ParameterWriteResult>(PipeCommands.PreviewParameterWrites, batch);
-        var changing = preview.Rows.Count(row => row.Status == "Ready");
+        var ready = preview.Rows.Where(row => row.Status == "Ready").ToList();
         var problems = preview.Rows.Where(row => row.Status is not ("Ready" or "No change")).ToList();
-        if (changing == 0)
+        if (ready.Count == 0)
         {
-            TrunkGrowthStatusText.Text = problems.Count == 0
-                ? "Every type already has its i-Tree rate."
+            GrowthRatesStatusText.Text = problems.Count == 0
+                ? "Every type already has its i-Tree rates."
                 : $"Nothing written. {string.Join("; ", problems.Take(5).Select(row => $"{row.TypeName}: {row.Message}"))}";
             SetStep(2, problems.Count == 0 ? StepState.Done : StepState.Attention);
             return;
@@ -620,11 +622,10 @@ public sealed partial class MainPage : Page
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = "Write trunk growth rates?",
-            Content = $"Sets the trunk growth rate on {changing:N0} type(s), e.g. " +
-                      string.Join(", ", preview.Rows.Where(row => row.Status == "Ready").Take(3)
-                          .Select(row => $"{row.TypeName} {Blank(row.CurrentValue)} → {row.ProposedValue} cm/yr")) +
-                      ". The family then grows each tree's DBH from it. One Revit undo step." +
+            Title = "Write growth rates?",
+            Content = $"Sets {ready.Count:N0} growth rate(s) on {ready.Select(row => row.TypeName).Distinct().Count():N0} type(s), e.g. " +
+                      string.Join(", ", ready.Take(3).Select(row => $"{row.TypeName} {RateName(row.RevitParameter)} {Blank(row.CurrentValue)} → {row.ProposedValue}")) +
+                      ". The family then grows each tree from them, and the height rate sets each type's Mature Age. One Revit undo step." +
                       (problems.Count > 0 ? $" {problems.Count:N0} can't be written: {string.Join("; ", problems.Take(3).Select(row => $"{row.TypeName}: {row.Message}"))}." : string.Empty),
             PrimaryButtonText = "Write",
             CloseButtonText = "Cancel",
@@ -636,48 +637,64 @@ public sealed partial class MainPage : Page
         }
 
         var result = await GetClient().SendAsync<ParameterWriteResult>(PipeCommands.ApplyParameterWrites, batch);
-        TrunkGrowthStatusText.Text = $"Wrote the trunk growth rate on {result.ChangedParameterCount:N0} type(s). " +
-                                     "Run Create, refresh & calculate so the growth-year copies get their new DBH and i-Tree results.";
+        GrowthRatesStatusText.Text = $"Wrote {result.ChangedParameterCount:N0} growth rate(s). " +
+                                     "Run Create, refresh & calculate so the growth-year copies get their new size and i-Tree results.";
         SetStep(2, StepState.Done);
     });
+
+    private static string RateName(string parameter) => parameter switch
+    {
+        GrowthRatesFromITree.TrunkParameter => "trunk",
+        GrowthRatesFromITree.HeightParameter => "height",
+        GrowthRatesFromITree.WidthParameter => "width",
+        _ => parameter
+    };
 
     private static string Blank(string value) => string.IsNullOrWhiteSpace(value) ? "(empty)" : value;
 
     private static readonly string[] SheetTypeKeyFields = ["Types", "Planting type", "Species names", "species", "type"];
 
+    private static readonly (string Column, string Description)[] RateColumns =
+    [
+        (GrowthRatesFromITree.TrunkSheetColumn, "Trunk diameter (DBH) growth per year in cm, from i-Tree's forecast. Pushed by LIM Growth Projections."),
+        (GrowthRatesFromITree.HeightSheetColumn, "Tree height growth per year in m: i-Tree's height at the design year divided by the design year. Pushed by LIM Growth Projections."),
+        (GrowthRatesFromITree.WidthSheetColumn, "Crown width growth per year in m: i-Tree's crown width at the design year divided by the design year. Pushed by LIM Growth Projections.")
+    ];
+
     /// <summary>
-    /// Saves each rated type's rate on its row of the project's Airtable sheet (the planting data
-    /// source in Settings), adding the number column first if the sheet doesn't have it.
+    /// Replaces each rated type's rates on its row of the project's Airtable sheet (the planting data
+    /// source in Settings), adding a number column first if the sheet doesn't have it.
     /// </summary>
-    private async void PushTrunkGrowth_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
+    private async void PushGrowthRates_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
     {
         var token = _airtableCredentialStore.Load().Trim();
         var settings = (await ProjectSettingsSync.PullAsync(GetClient()))?.AirtableApi;
         if (token.Length == 0 || settings is null || string.IsNullOrWhiteSpace(settings.BaseId))
         {
-            TrunkGrowthStatusText.Text = "No Airtable token or planting data source saved: open Settings first.";
+            GrowthRatesStatusText.Text = "No Airtable token or planting data source saved: open Settings first.";
             return;
         }
 
         var scan = await GetClient().SendAsync<ModelScanResult>(PipeCommands.ScanModel, new ModelScanOptions(PrimaryDesignOptionsOnly: false));
-        var ratedIds = _trunkGrowth.Where(type => type.RateCmPerYear is not null).Select(type => type.TypeId).ToHashSet();
+        var ratedIds = _growthRates.Where(type => type.HasRates).Select(type => type.TypeId).ToHashSet();
         var types = scan.Items.Where(item => ratedIds.Contains(item.TypeId)).DistinctBy(item => item.TypeId).ToList();
         var records = await _airtableApiClient.GetRecordsAsync(settings, token);
         var matches = StableTypeMatcher.Build(types, records, SheetTypeKeyFields, []);
-        var updates = TrunkGrowthFromITree.SheetUpdates(_trunkGrowth, matches);
+        var updates = GrowthRatesFromITree.SheetUpdates(_growthRates, matches);
         var unmatched = matches.Where(match => match.Status != "Matched").Select(match => match.RevitType.TypeName).ToList();
         if (updates.Count == 0)
         {
-            TrunkGrowthStatusText.Text = $"No sheet rows match these types{(unmatched.Count > 0 ? $" ({string.Join(", ", unmatched.Take(5))})" : string.Empty)}.";
+            GrowthRatesStatusText.Text = $"No sheet rows match these types{(unmatched.Count > 0 ? $" ({string.Join(", ", unmatched.Take(5))})" : string.Empty)}.";
             return;
         }
 
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = "Push trunk growth to the sheet?",
-            Content = $"Writes the i-Tree rate to {updates.Count:N0} row(s) of the Airtable sheet's \"{TrunkGrowthFromITree.SheetColumn}\" column, " +
-                      "adding the column if it's missing. Values already there are replaced." +
+            Title = "Push growth rates to the sheet?",
+            Content = $"Writes the i-Tree rates to {updates.Count:N0} row(s) of the Airtable sheet's growth rate columns " +
+                      $"({string.Join(", ", RateColumns.Select(column => $"\"{column.Column}\""))}), adding any that are missing. " +
+                      "The values already there are replaced." +
                       (unmatched.Count > 0 ? $" {unmatched.Count:N0} type(s) have no matching row and are skipped." : string.Empty),
             PrimaryButtonText = "Push",
             CloseButtonText = "Cancel",
@@ -688,17 +705,22 @@ public sealed partial class MainPage : Page
             return;
         }
 
-        var added = await _airtableApiClient.EnsureNumberFieldAsync(
-            settings, token, TrunkGrowthFromITree.SheetColumn, 2,
-            "Trunk diameter (DBH) growth per year in cm, from i-Tree's forecast. Pushed by LIM Growth Projections.");
+        var added = new List<string>();
+        foreach (var (column, description) in RateColumns)
+        {
+            if (await _airtableApiClient.EnsureNumberFieldAsync(settings, token, column, 2, description))
+            {
+                added.Add(column);
+            }
+        }
+
         var pushed = 0;
         var problems = new List<string>();
-        foreach (var (recordId, rate, typeName) in updates)
+        foreach (var (recordId, fields, typeName) in updates)
         {
             try
             {
-                await _airtableApiClient.UpdateRecordFieldsAsync(
-                    settings, token, recordId, new Dictionary<string, object?> { [TrunkGrowthFromITree.SheetColumn] = rate });
+                await _airtableApiClient.UpdateRecordFieldsAsync(settings, token, recordId, fields.ToDictionary());
                 pushed++;
             }
             catch (Exception exception)
@@ -710,8 +732,8 @@ public sealed partial class MainPage : Page
             await Task.Delay(210);
         }
 
-        TrunkGrowthStatusText.Text = (added ? $"Added the \"{TrunkGrowthFromITree.SheetColumn}\" column. " : string.Empty) +
-                                     $"Pushed {pushed:N0} rate(s) to the sheet." +
+        GrowthRatesStatusText.Text = (added.Count > 0 ? $"Added the {string.Join(", ", added.Select(column => $"\"{column}\""))} column(s). " : string.Empty) +
+                                     $"Pushed the rates of {pushed:N0} row(s) to the sheet." +
                                      (unmatched.Count > 0 ? $" No row for: {string.Join(", ", unmatched.Take(5))}{(unmatched.Count > 5 ? ", …" : string.Empty)}." : string.Empty) +
                                      (problems.Count > 0 ? $" Failed: {string.Join("; ", problems.Take(3))}." : string.Empty);
     });
@@ -720,13 +742,13 @@ public sealed partial class MainPage : Page
 
     private enum StepState { None, Attention, Done }
 
-    private static readonly string[] StepNames = ["Years", "Check trees", "Trunk growth", "Create & calculate", "Results"];
+    private static readonly string[] StepNames = ["Years", "Check trees", "Growth rates", "Create & calculate", "Results"];
 
     private static readonly string[] StepHints =
     [
         "Set the year new trees are drawn at, the growth years to model and the trees in scope. Next saves them on the project, so the next run starts from them.",
         "Puts every tree on its year's workset and finds trees that overlap (shown red in the active view). Fix what it finds, then go on.",
-        "Gives each tree type its trunk growth rate from i-Tree, so DBH grows between the years. Do it before creating the copies.",
+        "Gives each tree type its trunk, height and crown growth rates from i-Tree, so trees grow between the years. Do it before creating the copies.",
         "Makes or refreshes the growth-year copies and calculates i-Tree for them, in one confirmation.",
         "Each growth year's i-Tree status: done when every growth-year tree is calculated."
     ];

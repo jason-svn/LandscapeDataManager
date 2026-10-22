@@ -156,10 +156,11 @@ public static class DefaultParameterMappingCatalog
         "Irrigation_Demand_Plant Factor" => ["!_S_PLT_LDS_IrrigationDemandFactor_Number", header],
         "Max_Height" => ["!_S_PLT_LDS_MaxHeight_Length", header],
         "Max_Width" => ["!_S_PLT_LDS_MaxWidth_Length", header],
-        "Height year annual growth rate (m/yr)" => ["!_S_PLT_GrowthRatio_HeightbyYear_Number", header],
-        "Width annual growth rate (m/yr)" => ["!_S_PLT_GrowthRatio_WidthbyYear_Number", header],
-        // Filled from i-Tree's forecast by Growth Projections (Trunk growth from i-Tree), or by hand.
-        TrunkGrowthFromITree.SheetColumn => [TrunkGrowthFromITree.ParameterName, header],
+        // The growth rates: filled from i-Tree's forecast by Growth Projections (Growth rates from
+        // i-Tree), or by hand.
+        GrowthRatesFromITree.HeightSheetColumn => [GrowthRatesFromITree.HeightParameter, header],
+        GrowthRatesFromITree.WidthSheetColumn => [GrowthRatesFromITree.WidthParameter, header],
+        GrowthRatesFromITree.TrunkSheetColumn => [GrowthRatesFromITree.TrunkParameter, header],
         // Species identity columns — the most common headers on a fresh Airtable base, not present
         // in the original companion-app table because that tool matched them through a separate key
         // schedule step instead.

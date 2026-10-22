@@ -46,7 +46,7 @@ public static class TreeTimelines
         // The forecast starts at planting. A new tree drawn grown (at the design year, say) has the
         // family's planting DBH then, not the DBH it's drawn with; an existing tree starts as it is.
         var drawnGrown = item.IsNewConstruction && item.Years is { } age && age > (item.AgeAtPlanting ?? 0);
-        var plantingDbhInches = drawnGrown ? TrunkGrowthFromITree.PlantingDbhCm / 2.54 : item.DbhInches.Value;
+        var plantingDbhInches = drawnGrown ? GrowthRatesFromITree.PlantingDbhCm / 2.54 : item.DbhInches.Value;
         return new ITreeRevitInput(
             item.SpeciesCode.Trim(), string.Empty, string.Empty, item.FamilyName, item.TypeName, 0,
             item.Condition.Trim(), plantingDbhInches, item.Latitude.Value, item.Longitude.Value,

@@ -4,11 +4,11 @@ using WWP.LandscapeDataManager.Contracts;
 namespace WWP.LandscapeDataManager.Shared.Services;
 
 /// <summary>
-/// One planting type's trunk growth rate from i-Tree: the forecast DBH growth for its species at the
-/// condition and crown exposure most of its planted trees have (<see cref="TrunkGrowthFromITree.DefaultCondition"/>
-/// and <see cref="TrunkGrowthFromITree.DefaultCrownExposure"/> when it has none with both set).
+/// One planting type's growth rates from i-Tree: its species' forecast at the condition and crown
+/// exposure most of its planted trees have (<see cref="GrowthRatesFromITree.DefaultCondition"/> and
+/// <see cref="GrowthRatesFromITree.DefaultCrownExposure"/> when it has none with both set).
 /// </summary>
-public sealed record TypeTrunkGrowth(
+public sealed record TypeGrowthRates(
     long TypeId,
     string FamilyName,
     string TypeName,
@@ -17,25 +17,37 @@ public sealed record TypeTrunkGrowth(
     int CrownExposure,
     int TreeCount,
     bool UsesDefaultInputs,
-    double? RateCmPerYear = null,
+    double? TrunkCmPerYear = null,
+    double? HeightMPerYear = null,
+    double? WidthMPerYear = null,
     string? Error = null)
 {
     public string InputsText => $"{Condition}, exposure {CrownExposure}{(UsesDefaultInputs ? " (default)" : string.Empty)}";
+
+    public bool HasRates => TrunkCmPerYear is not null || HeightMPerYear is not null || WidthMPerYear is not null;
 }
 
 /// <summary>
-/// The planting family grows DBH as <c>5.4 cm + (Years − AgeAtPlanting) × TrunkDiameterbyYear</c>, so
-/// it needs a type's trunk growth rate in cm/yr. i-Tree grows the trunk by the same amount every year
-/// for one species, condition and crown exposure (checked against its forecasts: Acer campestre,
-/// Good, exposure 3 grows 0.44 cm in year 1 and in year 25), so the slope of its DBH forecast is the
-/// family's rate exactly. One forecast request per species, condition and exposure.
+/// The planting family grows a tree from its type's rates: DBH as <c>5.4 cm + (Years − AgeAtPlanting)
+/// × trunk rate</c> (cm/yr), and height and crown width as <c>Years × rate</c> (m/yr) until i-Tree has
+/// given the tree its own size. i-Tree grows a trunk by the same amount every year for one species,
+/// condition and crown exposure (Acer campestre, Good, exposure 3 grows 0.44 cm in year 1 and in
+/// year 25), so the slope of its DBH forecast is the trunk rate exactly. Height and crown start from
+/// a planting size and slow down, so no rate from zero fits every year: the height and width rates
+/// are i-Tree's size at the design year divided by the design year, which draws a tree at the design
+/// year at i-Tree's size even before it's calculated. The height rate also sets the family's Mature
+/// Age (max height ÷ rate). One forecast request per species, condition and exposure.
 /// </summary>
-public static class TrunkGrowthFromITree
+public static class GrowthRatesFromITree
 {
-    public const string ParameterName = "!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number";
+    public const string TrunkParameter = "!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number";
+    public const string HeightParameter = "!_S_PLT_GrowthRatio_HeightbyYear_Number";
+    public const string WidthParameter = "!_S_PLT_GrowthRatio_WidthbyYear_Number";
 
-    /// <summary>The WWP sheet column the rate is pushed to and imported from.</summary>
-    public const string SheetColumn = "Trunk diameter annual growth rate (cm/yr)";
+    /// <summary>The WWP sheet columns the rates are pushed to and imported from.</summary>
+    public const string TrunkSheetColumn = "Trunk diameter annual growth rate (cm/yr)";
+    public const string HeightSheetColumn = "Height year annual growth rate (m/yr)";
+    public const string WidthSheetColumn = "Width annual growth rate (m/yr)";
 
     /// <summary>The family's planting DBH (a 16/18 cm girth tree), the forecast's starting size.</summary>
     public const double PlantingDbhCm = 5.4;
@@ -43,11 +55,11 @@ public static class TrunkGrowthFromITree
     public const string DefaultCondition = "Good";
     public const int DefaultCrownExposure = 3;
 
-    /// <summary>Linear growth needs only a few years; kept short so each request is quick.</summary>
-    public const int ForecastYears = 10;
+    /// <summary>The trunk rate needs only a few years; the forecast runs to the design year when that's later.</summary>
+    public const int MinimumForecastYears = 10;
 
     /// <summary>The DBH growth per year over a forecast: first to last year with a DBH. Null if it has fewer than two.</summary>
-    public static double? RateCmPerYear(IReadOnlyList<TreeBenefitYear> years)
+    public static double? TrunkRate(IReadOnlyList<TreeBenefitYear> years)
     {
         var sized = years.Where(year => year.DiameterCm > 0).OrderBy(year => year.Year).ToList();
         if (sized.Count < 2 || sized[^1].Year == sized[0].Year)
@@ -60,10 +72,30 @@ public static class TrunkGrowthFromITree
     }
 
     /// <summary>
+    /// Height and crown-width rates (m/yr): i-Tree's size after <paramref name="designYear"/> years of
+    /// growth (after the forecast's last year if it's shorter), divided by those years. Year 1 is
+    /// planting, so the size after n years is Year n + 1. Null where the forecast has no size.
+    /// </summary>
+    public static (double? Height, double? Width) SizeRates(IReadOnlyList<TreeBenefitYear> years, int designYear)
+    {
+        var grown = years
+            .Where(year => year.Year > 1 && year.Year <= designYear + 1)
+            .OrderBy(year => year.Year)
+            .LastOrDefault();
+        if (grown is null)
+        {
+            return (null, null);
+        }
+
+        double? Rate(double sizeMetres) => sizeMetres > 0 ? Math.Round(sizeMetres / (grown.Year - 1), 2) : null;
+        return (Rate(grown.HeightM), Rate(grown.CrownWidthM));
+    }
+
+    /// <summary>
     /// The types to rate: every planting type with a species code, with the condition and crown
     /// exposure most of its planted trees (not growth-year copies) share.
     /// </summary>
-    public static IReadOnlyList<TypeTrunkGrowth> Plan(
+    public static IReadOnlyList<TypeGrowthRates> Plan(
         IEnumerable<ModelScanItem> modelTypes,
         IEnumerable<PlantingInstanceValidationItem> trees)
     {
@@ -87,7 +119,7 @@ public static class TrunkGrowthFromITree
                     .Select(group => group.Key)
                     .FirstOrDefault();
                 var usesDefault = usual == default;
-                return new TypeTrunkGrowth(
+                return new TypeGrowthRates(
                     type.TypeId,
                     type.FamilyName,
                     type.TypeName,
@@ -103,84 +135,122 @@ public static class TrunkGrowthFromITree
     }
 
     /// <summary>
-    /// Forecasts each distinct species, condition and exposure once at the project's location and
-    /// fills in every type's rate, or why it has none.
+    /// Forecasts each distinct species, condition and exposure once at the project's location, to the
+    /// design year, and fills in every type's rates, or why it has none.
     /// </summary>
-    public static async Task<IReadOnlyList<TypeTrunkGrowth>> RunAsync(
-        IReadOnlyList<TypeTrunkGrowth> plan,
+    public static async Task<IReadOnlyList<TypeGrowthRates>> RunAsync(
+        IReadOnlyList<TypeGrowthRates> plan,
         double latitude,
         double longitude,
+        int designYear,
         Func<ITreeRevitInput, int, CancellationToken, Task<IReadOnlyList<TreeBenefitYear>>> forecast,
         IProgress<(int Done, int Total)>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        var forecastYears = Math.Max(MinimumForecastYears, designYear + 1);
         var inputs = plan
             .Select(type => (type.SpeciesCode, type.Condition, type.CrownExposure))
             .Distinct()
             .ToList();
-        var rates = new Dictionary<(string, string, int), (double? Rate, string? Error)>();
+        var results = new Dictionary<(string, string, int), TypeGrowthRates>();
         foreach (var (species, condition, exposure) in inputs)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var input = new ITreeRevitInput(
                 species, string.Empty, string.Empty, string.Empty, string.Empty, 0,
-                condition, PlantingDbhCm / 2.54d, latitude, longitude, ForecastYears, exposure);
+                condition, PlantingDbhCm / 2.54d, latitude, longitude, forecastYears, exposure);
+            var rated = new TypeGrowthRates(0, string.Empty, string.Empty, species, condition, exposure, 0, false);
             try
             {
-                var rate = RateCmPerYear(await forecast(input, ForecastYears, cancellationToken));
-                rates[(species, condition, exposure)] = (rate, rate is null ? "i-Tree's forecast had no trunk sizes" : null);
+                var years = await forecast(input, forecastYears, cancellationToken);
+                var (height, width) = SizeRates(years, designYear);
+                rated = rated with { TrunkCmPerYear = TrunkRate(years), HeightMPerYear = height, WidthMPerYear = width };
+                if (!rated.HasRates)
+                {
+                    rated = rated with { Error = "i-Tree's forecast had no tree sizes" };
+                }
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                rates[(species, condition, exposure)] = (null, exception.Message);
+                rated = rated with { Error = exception.Message };
             }
 
-            progress?.Report((rates.Count, inputs.Count));
+            results[(species, condition, exposure)] = rated;
+            progress?.Report((results.Count, inputs.Count));
         }
 
         return plan
-            .Select(type => rates[(type.SpeciesCode, type.Condition, type.CrownExposure)] is var result
-                ? type with { RateCmPerYear = result.Rate, Error = result.Error }
+            .Select(type => results[(type.SpeciesCode, type.Condition, type.CrownExposure)] is var result
+                ? type with
+                {
+                    TrunkCmPerYear = result.TrunkCmPerYear,
+                    HeightMPerYear = result.HeightMPerYear,
+                    WidthMPerYear = result.WidthMPerYear,
+                    Error = result.Error
+                }
                 : type)
             .ToList();
     }
 
-    /// <summary>The type writes for every rated type, as the Importer would make them.</summary>
-    public static IReadOnlyList<ParameterWriteItem> BuildTypeWrites(IEnumerable<TypeTrunkGrowth> rated) =>
+    /// <summary>The type writes for every rate i-Tree gave, as the Importer would make them.</summary>
+    public static IReadOnlyList<ParameterWriteItem> BuildTypeWrites(IEnumerable<TypeGrowthRates> rated) =>
         rated
-            .Where(type => type.RateCmPerYear is not null)
-            .Select(type => new ParameterWriteItem(
+            .SelectMany(type => Rates(type).Select(rate => new ParameterWriteItem(
                 type.TypeId,
                 type.TypeName,
                 "i-Tree forecast",
-                ParameterName,
+                rate.Parameter,
                 "Type",
                 "Number (no conversion)",
-                Format(type.RateCmPerYear!.Value)))
+                Format(rate.Value))))
             .ToList();
 
     /// <summary>
-    /// The sheet rows to update: each matched row gets the rate of its type with the most trees (two
-    /// types matching one row can differ when their trees' condition or exposure differ).
+    /// The sheet rows to update, with their rates by column: each matched row gets the rates of its
+    /// type with the most trees (two types matching one row can differ when their trees' condition or
+    /// exposure differ).
     /// </summary>
-    public static IReadOnlyList<(string RecordId, double Rate, string TypeName)> SheetUpdates(
-        IReadOnlyList<TypeTrunkGrowth> rated,
+    public static IReadOnlyList<(string RecordId, IReadOnlyDictionary<string, object?> Fields, string TypeName)> SheetUpdates(
+        IReadOnlyList<TypeGrowthRates> rated,
         IReadOnlyList<TypeMatch> matches)
     {
-        var byTypeId = rated.Where(type => type.RateCmPerYear is not null).ToDictionary(type => type.TypeId);
+        var byTypeId = rated.Where(type => type.HasRates).ToDictionary(type => type.TypeId);
         return matches
             .Where(match => match.Status == "Matched" && match.Record is not null && byTypeId.ContainsKey(match.RevitType.TypeId))
             .GroupBy(match => match.Record!.Id)
-            .Select(group => group
-                .Select(match => byTypeId[match.RevitType.TypeId])
-                .OrderByDescending(type => type.TreeCount)
-                .ThenBy(type => type.TypeName, StringComparer.OrdinalIgnoreCase)
-                .Select(type => (group.Key, Math.Round(type.RateCmPerYear!.Value, 2), type.TypeName))
-                .First())
+            .Select(group =>
+            {
+                var type = group
+                    .Select(match => byTypeId[match.RevitType.TypeId])
+                    .OrderByDescending(type => type.TreeCount)
+                    .ThenBy(type => type.TypeName, StringComparer.OrdinalIgnoreCase)
+                    .First();
+                IReadOnlyDictionary<string, object?> fields = Rates(type)
+                    .ToDictionary(rate => rate.SheetColumn, rate => (object?)Math.Round(rate.Value, 2));
+                return (group.Key, fields, type.TypeName);
+            })
             .ToList();
     }
 
     public static string Format(double rate) => rate.ToString("0.###", CultureInfo.InvariantCulture);
+
+    private static IEnumerable<(string Parameter, string SheetColumn, double Value)> Rates(TypeGrowthRates type)
+    {
+        if (type.TrunkCmPerYear is { } trunk)
+        {
+            yield return (TrunkParameter, TrunkSheetColumn, trunk);
+        }
+
+        if (type.HeightMPerYear is { } height)
+        {
+            yield return (HeightParameter, HeightSheetColumn, height);
+        }
+
+        if (type.WidthMPerYear is { } width)
+        {
+            yield return (WidthParameter, WidthSheetColumn, width);
+        }
+    }
 
     private static string Capitalize(string condition)
     {

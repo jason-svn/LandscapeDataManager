@@ -15,7 +15,7 @@ public sealed class TreeTimelinesDesignYearTests
     public void A_new_tree_drawn_at_the_design_year_forecasts_from_the_planting_size()
     {
         var input = TreeTimelines.PlantingInput(Item(years: 30, ageAtPlanting: 5, dbhInches: 8, isNew: true))!;
-        Assert.Equal(TrunkGrowthFromITree.PlantingDbhCm, input.DiameterInches * 2.54, 6);
+        Assert.Equal(GrowthRatesFromITree.PlantingDbhCm, input.DiameterInches * 2.54, 6);
     }
 
     [Fact]
