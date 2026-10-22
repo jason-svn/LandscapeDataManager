@@ -2,6 +2,7 @@
 
 What's planned for LIM (Landscape Information Manager), what's done, and the rules changes follow.
 Tick items off here as they land, and add the release they shipped in.
+A Chinese translation is in [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md) (中文版); this English version is the reference.
 
 ## Done
 
