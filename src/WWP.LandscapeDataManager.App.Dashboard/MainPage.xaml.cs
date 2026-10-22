@@ -174,6 +174,8 @@ public sealed partial class MainPage : Page
 
     private async Task ApplyReportAsync(DashboardReportResult report)
     {
+        // Each tree's status as of now, not as last stored: a calculated tree whose inputs changed is Stale.
+        report = report with { Trees = report.Trees.Select(tree => tree with { Status = DashboardAggregationService.CurrentStatus(tree) }).ToList() };
         _lastReport = report;
         _preferredUnitSystem = report.PreferredUnitSystem;
         _preferredCurrency = report.PreferredCurrency;
@@ -505,6 +507,15 @@ public sealed partial class MainPage : Page
         BannerMaintenanceDetailText.Text = grandTotal.MaintenanceCostAnnual > 0
             ? $"{Money(grandTotal.MaintenanceCostAnnual)}/yr"
             : "no maintenance rates imported";
+
+        // The maintenance card: what keeping the planting costs, as plainly as the benefits.
+        HeroMaintenanceText.Text = maintenance > 0 ? Money(maintenance) : "No rates yet";
+        HeroTreeMaintenanceText.Text = $"{Money(grandTotal.TreeMaintenanceCostAnnual * years)}";
+        HeroFloorMaintenanceText.Text = $"{Money(grandTotal.FloorMaintenanceCostAnnual * years)}";
+        HeroNetValueText.Text = Money(projectedValue - maintenance);
+        HeroMaintenanceRateText.Text = grandTotal.MaintenanceCostAnnual > 0
+            ? $"{Money(grandTotal.MaintenanceCostAnnual)} a year today"
+            : "Import the WWP sheet's Maintenance Costs onto the types (Excel Importer) to see it.";
         KpiTreeCountText.Text = grandTotal.TreeCount.ToString("N0");
         KpiPlantingAreaText.Text = grandTotal.FloorCount.ToString("N0");
 
@@ -1094,6 +1105,7 @@ public sealed partial class MainPage : Page
 
     private void UpdateStatusCounts(IReadOnlyList<NormalizedTreeMetrics> treesInScope)
     {
+        UpdateTreeIssues(treesInScope);
         int Count(string status) => treesInScope.Count(tree => tree.Source.Status == status);
         CalculatedCountText.Text = Count("Calculated").ToString("N0");
         ReadyCountText.Text = Count("Ready").ToString("N0");
@@ -1136,6 +1148,41 @@ public sealed partial class MainPage : Page
                 card.ClearValue(Border.BorderThicknessProperty);
             }
         }
+    }
+
+    /// <summary>
+    /// Warns about trees left out of every total: stale ones (an error — i-Tree calculated them,
+    /// then their inputs changed) and ones with no result at all, with how to fix each.
+    /// </summary>
+    private void UpdateTreeIssues(IReadOnlyList<NormalizedTreeMetrics> treesInScope)
+    {
+        var stale = treesInScope.Count(tree => tree.Source.Status == "Stale");
+        var noResult = treesInScope.Count(tree => !tree.CountsTowardTotals);
+        if (stale == 0 && noResult == 0)
+        {
+            TreeIssuesInfoBar.IsOpen = false;
+            return;
+        }
+
+        const string noResultFix = "Fix their i-Tree inputs (species code, DBH, age, condition, crown exposure) and run Tree Calculator, " +
+                                   "or fill them from the WWP sheet (Tree Calculator → Fill gaps from WWP sheet).";
+        TreeIssuesInfoBar.Severity = stale > 0 ? InfoBarSeverity.Error : InfoBarSeverity.Warning;
+        TreeIssuesInfoBar.Title = stale > 0
+            ? $"{stale:N0} tree(s) are stale: their results are out of date"
+            : $"{noResult:N0} tree(s) have no result and are left out of the totals";
+        TreeIssuesInfoBar.Message = stale > 0
+            ? "Their inputs (species, age, DBH, condition, crown exposure or location) changed after i-Tree calculated them. They're still in the totals with their old results until you recalculate: Tree Calculator → Validate → Calculate valid." +
+              (noResult > 0 ? $" {noResult:N0} more have no result at all and are left out: {noResultFix}" : string.Empty)
+            : $"Missing or invalid i-Tree inputs, or an i-Tree error. {noResultFix}";
+        TreeIssuesInfoBar.IsOpen = true;
+    }
+
+    /// <summary>Opens Data explorer filtered to the stale trees (or, with none stale, every tree).</summary>
+    private void ShowTreeIssues_Click(object sender, RoutedEventArgs e)
+    {
+        DashboardPages.SelectedIndex = 2;
+        _activeStatusFilter = TreeIssuesInfoBar.Severity == InfoBarSeverity.Error ? "Stale" : null;
+        RebuildRows();
     }
 
     private void StatusCard_Tapped(object sender, TappedRoutedEventArgs e)

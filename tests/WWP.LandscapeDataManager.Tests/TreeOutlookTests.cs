@@ -44,7 +44,7 @@ public sealed class TreeOutlookTests
             Tree(0, "k", "LIM_Growth_0yr - Baseline"),
             Tree(50, "k2", "LIM_Growth_10yr"),   // a growth copy: the timeline already grows its original
             Tree(4),                              // planted, never forecast
-            Tree(7, "k", status: "Stale"),        // not Calculated: doesn't count
+            Tree(7, "k", status: "MissingInput"), // no result: doesn't count
         };
 
         var outlook = new TreeOutlook(trees, [0, 10], [Timeline("k", 1, 1, 1)], "Metric", 1);

@@ -54,11 +54,12 @@ internal static class DashboardReportService
         var trees = new List<DashboardTreeItem>();
         var floors = new List<DashboardFloorItem>();
         var lighting = new List<DashboardLightingItem>();
+        var siteLocation = PlantingInstanceValidationScanner.ReadLocation(document);
         foreach (var element in elements)
         {
             if (element.Category?.BuiltInCategory == BuiltInCategory.OST_Planting)
             {
-                trees.Add(CreateTreeItem(document, element));
+                trees.Add(CreateTreeItem(document, element, siteLocation));
             }
             else if (element.Category?.BuiltInCategory == BuiltInCategory.OST_Floors)
             {
@@ -127,7 +128,7 @@ internal static class DashboardReportService
         return parameter is { HasValue: true } ? parameter.AsDouble() : null;
     }
 
-    private static DashboardTreeItem CreateTreeItem(Document document, Element element)
+    private static DashboardTreeItem CreateTreeItem(Document document, Element element, (double? Latitude, double? Longitude) siteLocation)
     {
         var elementType = document.GetElement(element.GetTypeId()) as ElementType;
         var familyName = elementType is FamilySymbol symbol ? symbol.FamilyName : elementType?.FamilyName ?? string.Empty;
@@ -239,7 +240,9 @@ internal static class DashboardReportService
             GetMassKilograms("!_S_PLT_Result_PollutantsRemovedAnnual_Mass"),
             GetMassKilograms("!_S_PLT_Result_PollenAnnual_Mass"),
             GetNullableDoubleOnInstanceOrType(element, "!_S_PLT_LDS_IrrigationDemandFactor_Number"),
-            GetNullableTextOnInstanceOrType(element, "!_S_PLT_iTreeSpecies_Allergenic_Text"));
+            GetNullableTextOnInstanceOrType(element, "!_S_PLT_iTreeSpecies_Allergenic_Text"),
+            // Its i-Tree inputs, so the Dashboard can flag a result whose inputs changed since (Stale).
+            PlantingInstanceValidationScanner.ReadItem(document, element, siteLocation.Latitude, siteLocation.Longitude));
     }
 
     private static DashboardFloorItem CreateFloorItem(Document document, Element element)

@@ -16,6 +16,7 @@
                     <SolidColorBrush x:Key="KpiWaterBrush" Color="#FF2F6FB0" />
                     <SolidColorBrush x:Key="KpiChartAmberBrush" Color="#FFC98A00" />
                     <SolidColorBrush x:Key="KpiAmberCardBrush" Color="#FFA36A00" />
+                    <SolidColorBrush x:Key="KpiMaintenanceCardBrush" Color="#FF4F5B66" />
                     <SolidColorBrush x:Key="KpiCanvasBrush" Color="#FFF5F7F2" />
                     <SolidColorBrush x:Key="KpiInkBrush" Color="#FF1C281F" />
                     <SolidColorBrush x:Key="KpiSurfaceBrush" Color="#FFFFFFFF" />
@@ -38,6 +39,7 @@
                     <SolidColorBrush x:Key="KpiWaterBrush" Color="#FF2F6FB0" />
                     <SolidColorBrush x:Key="KpiChartAmberBrush" Color="#FFE8B54C" />
                     <SolidColorBrush x:Key="KpiAmberCardBrush" Color="#FFA36A00" />
+                    <SolidColorBrush x:Key="KpiMaintenanceCardBrush" Color="#FF46525C" />
                     <SolidColorBrush x:Key="KpiCanvasBrush" Color="#FF141A16" />
                     <SolidColorBrush x:Key="KpiInkBrush" Color="#FFF0F4EF" />
                     <SolidColorBrush x:Key="KpiSurfaceBrush" Color="#FF202923" />
@@ -60,6 +62,7 @@
                     <SolidColorBrush x:Key="KpiWaterBrush" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="KpiChartAmberBrush" Color="{ThemeResource SystemColorHighlightColor}" />
                     <SolidColorBrush x:Key="KpiAmberCardBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="KpiMaintenanceCardBrush" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="KpiCanvasBrush" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="KpiInkBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="KpiSurfaceBrush" Color="{ThemeResource SystemColorWindowColor}" />
@@ -112,6 +115,7 @@
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="24,18,24,18">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -201,7 +205,15 @@
             </StackPanel>
         </Border>
 
-        <Pivot Grid.Row="2" x:Name="DashboardPages">
+        <!-- Trees left out of the totals: stale ones (an error, their i-Tree result is out of date) or
+             ones with no result at all. Not part of the exported overview, so client images stay clean. -->
+        <InfoBar Grid.Row="2" x:Name="TreeIssuesInfoBar" IsOpen="False" IsClosable="False" Margin="0,4,0,0">
+            <InfoBar.ActionButton>
+                <Button Content="Show them in Data explorer" Click="ShowTreeIssues_Click" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
+        <Pivot Grid.Row="3" x:Name="DashboardPages">
             <PivotItem Header="Executive overview">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                     <Grid x:Name="CaptureRoot" MinWidth="1180" Background="{ThemeResource KpiCanvasBrush}" Padding="22" CornerRadius="20">
@@ -293,7 +305,9 @@
                             <!-- One card per i-Tree benefit category, side by side under the ecosystem value
                             banner — Carbon / Stormwater / Air Quality, the order and colours used throughout.
                             Each leads with its value over the outlook, then the amounts behind it over the
-                            outlook, then the yearly rate now. -->
+                            outlook, then the yearly rate now. Maintenance, what it costs to keep, is the fourth. -->
+                            <Grid Grid.ColumnSpan="3" ColumnSpacing="16">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <Border Background="{ThemeResource KpiForestBrush}" CornerRadius="24" Padding="22,20">
                                 <StackPanel Spacing="6">
                                     <TextBlock Text="CARBON DIOXIDE UPTAKE" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" CharacterSpacing="60" FontSize="12" TextWrapping="Wrap" />
@@ -380,6 +394,32 @@
                                     <TextBlock Text="Per pollutant and £: trees (i-Tree). Planting areas: total removed, from the WWP sheet. Over the outlook." Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="10.5" TextWrapping="Wrap" Opacity="0.85" />
                                 </StackPanel>
                             </Border>
+
+                            <Border Grid.Column="3" Background="{ThemeResource KpiMaintenanceCardBrush}" CornerRadius="24" Padding="22,20"
+                                ToolTipService.ToolTip="The WWP sheet's yearly maintenance rate (!_S_PLT_LDS_MaintenanceCostAnnual_Currency): per tree, or per m² × area for a planting area.">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="MAINTENANCE COST" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" CharacterSpacing="60" FontSize="12" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="HeroMaintenanceText" Text="—" FontSize="26" FontWeight="Bold" Foreground="{ThemeResource KpiOnCategoryBrush}" TextWrapping="Wrap" />
+                                    <Grid ColumnSpacing="6" Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="Trees" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12.5" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroTreeMaintenanceText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12.5" />
+                                    </Grid>
+                                    <Grid ColumnSpacing="6">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="Planting areas" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12.5" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroFloorMaintenanceText" Text="—" Foreground="{ThemeResource KpiOnCategoryBrush}" FontWeight="SemiBold" FontSize="12.5" />
+                                    </Grid>
+                                    <Grid ColumnSpacing="6">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="Net value (benefits − maintenance)" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Column="1" x:Name="HeroNetValueText" Text="—" Foreground="{ThemeResource KpiGoldBrush}" FontWeight="Bold" FontSize="12.5" />
+                                    </Grid>
+                                    <TextBlock x:Name="HeroMaintenanceRateText" Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="12" FontWeight="SemiBold" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                    <TextBlock Text="WWP sheet rates: per tree, or per m² for planting areas. Over the outlook; the rate today is underneath." Foreground="{ThemeResource KpiOnCategoryBrush}" FontSize="10.5" TextWrapping="Wrap" Opacity="0.85" />
+                                </StackPanel>
+                            </Border>
+                            </Grid>
 
                             <!-- Carbon, runoff and pollution outlooks: one bar each, the outlook years layered
                             in shades of the metric's colour (built in code, see BuildOutlookBars). -->
@@ -1119,7 +1159,7 @@
             </PivotItem>
         </Pivot>
 
-        <Grid Grid.Row="3" Margin="0,8,0,0" ColumnSpacing="8">
+        <Grid Grid.Row="4" Margin="0,8,0,0" ColumnSpacing="8">
             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
             <Button Grid.Column="4" Content="Show original data" Click="ShowOriginalData_Click" Style="{StaticResource LimSecondaryButtonStyle}"
                 ToolTipService.ToolTip="One row per tree (or planting area) with every value exactly as stored in Revit" />

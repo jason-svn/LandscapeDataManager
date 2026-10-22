@@ -254,6 +254,25 @@ public sealed record BngSummary(
 public static class DashboardAggregationService
 {
     /// <summary>
+    /// The status the Dashboard reports for a tree, from the inputs the report carries: a stored
+    /// Calculated result whose i-Tree inputs have changed since (or gone missing) is Stale, as in
+    /// Tree Calculator; a WWP-sheet estimate stays Estimated; anything else is what Tree Calculator
+    /// would show now. A report without inputs (an older connector or cached snapshot) keeps its stored status.
+    /// </summary>
+    public static string CurrentStatus(DashboardTreeItem tree)
+    {
+        if (tree.Inputs is null || string.Equals(tree.Status, WwpSheetTreeEstimates.EstimatedStatus, StringComparison.OrdinalIgnoreCase))
+        {
+            return tree.Status;
+        }
+
+        var current = PlantingInstanceStatusEvaluator.Evaluate(tree.Inputs, ITreeBatchCalculator.SignatureEngineVersion).Status;
+        return string.Equals(tree.Status, "Calculated", StringComparison.OrdinalIgnoreCase) && current != "Calculated"
+            ? "Stale"
+            : current;
+    }
+
+    /// <summary>
     /// Converts one tree's stored values onto <paramref name="targetUnitSystem"/>/<paramref name="targetCurrency"/>.
     /// Mass fields arrive already in canonical kilograms — <c>DashboardReportService</c> reads them
     /// via <c>UnitUtils.ConvertFromInternalUnits</c> now that they're Revit-native Mass-spec parameters,
@@ -279,8 +298,10 @@ public static class DashboardAggregationService
         var isEstimate = string.Equals(item.Status, WwpSheetTreeEstimates.EstimatedStatus, StringComparison.OrdinalIgnoreCase);
         return new NormalizedTreeMetrics(
             item,
-            // An i-Tree result, or a WWP-sheet estimate for a tree i-Tree couldn't calculate.
-            isEstimate || string.Equals(item.Status, "Calculated", StringComparison.OrdinalIgnoreCase),
+            // An i-Tree result — current, or Stale (its inputs changed since; still i-Tree's numbers,
+            // flagged on the Dashboard until it's recalculated) — or a WWP-sheet estimate.
+            isEstimate || string.Equals(item.Status, "Calculated", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.Status, "Stale", StringComparison.OrdinalIgnoreCase),
             PoundBasis(item.CarbonSequesteredAnnual), PoundBasis(item.CarbonSequesteredLifetimeTotal),
             OunceBasis(item.CORemovedAnnual), OunceBasis(item.CORemovedLifetimeTotal),
             OunceBasis(item.NO2RemovedAnnual), OunceBasis(item.NO2RemovedLifetimeTotal),

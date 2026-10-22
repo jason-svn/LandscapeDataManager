@@ -35,9 +35,7 @@ internal static class PlantingInstanceValidationScanner
                         ?? throw new InvalidOperationException("Open a Revit project before validating planting instances.");
         var document = uiDocument.Document;
 
-        var projectInfo = document.ProjectInformation;
-        var latitude = GetNullableDouble(projectInfo, LatitudeParameter);
-        var longitude = GetNullableDouble(projectInfo, LongitudeParameter);
+        var (latitude, longitude) = ReadLocation(document);
 
         IEnumerable<Element> instances;
         if (selectedOnly)
@@ -68,37 +66,47 @@ internal static class PlantingInstanceValidationScanner
         var ageSync = TreeAgeSyncService.Apply(document, instanceList);
 
         var items = instanceList
-            .Select(element =>
-            {
-                var elementType = document.GetElement(element.GetTypeId()) as ElementType;
-                var speciesCode = elementType is not null ? GetNullableText(elementType, SpeciesCodeParameter) : null;
-                return new PlantingInstanceValidationItem(
-                    element.UniqueId,
-                    element.Id.Value,
-                    elementType is FamilySymbol symbol ? symbol.FamilyName : elementType?.FamilyName ?? string.Empty,
-                    elementType?.Name ?? element.Name,
-                    speciesCode,
-                    GetNullableInt(element, YearsParameter),
-                    GetNullableText(element, ConditionParameter),
-                    GetNullableInt(element, CrownExposureParameter),
-                    ConvertToInches(GetNullableDouble(element, DbhParameter)),
-                    latitude,
-                    longitude,
-                    GetNullableText(element, StatusParameter) ?? string.Empty,
-                    GetNullableText(element, DetailsParameter) ?? string.Empty,
-                    GetNullableText(element, LastUpdatedParameter) ?? string.Empty,
-                    GetNullableText(element, EngineVersionParameter) ?? string.Empty,
-                    GetNullableText(element, InputSignatureParameter) ?? string.Empty,
-                    document.IsWorkshared ? GrowthYearNames.FromName(document.GetWorksetTable().GetWorkset(element.WorksetId)?.Name) : null,
-                    element.GroupId != ElementId.InvalidElementId,
-                    GetNullableInt(element, AgeAtPlantingParameter),
-                    elementType is not null && GetNullableInt(elementType, MatureAgeParameter) is > 0 and var matureAge ? matureAge : null);
-            })
+            .Select(element => ReadItem(document, element, latitude, longitude))
             .OrderBy(item => item.FamilyName)
             .ThenBy(item => item.TypeName)
             .ToList();
 
         return new ValidatePlantingInstancesResult(document.Title, items, ageSync);
+    }
+
+    /// <summary>The project's i-Tree location (Project Information), shared by every tree.</summary>
+    internal static (double? Latitude, double? Longitude) ReadLocation(Document document) =>
+        (GetNullableDouble(document.ProjectInformation, LatitudeParameter), GetNullableDouble(document.ProjectInformation, LongitudeParameter));
+
+    /// <summary>
+    /// One tree's i-Tree inputs and what its last calculation stored — read only, no age sync — so the
+    /// Dashboard can tell a current result from one whose inputs changed since (Stale), as Tree Calculator does.
+    /// </summary>
+    internal static PlantingInstanceValidationItem ReadItem(Document document, Element element, double? latitude, double? longitude)
+    {
+        var elementType = document.GetElement(element.GetTypeId()) as ElementType;
+        var speciesCode = elementType is not null ? GetNullableText(elementType, SpeciesCodeParameter) : null;
+        return new PlantingInstanceValidationItem(
+            element.UniqueId,
+            element.Id.Value,
+            elementType is FamilySymbol symbol ? symbol.FamilyName : elementType?.FamilyName ?? string.Empty,
+            elementType?.Name ?? element.Name,
+            speciesCode,
+            GetNullableInt(element, YearsParameter),
+            GetNullableText(element, ConditionParameter),
+            GetNullableInt(element, CrownExposureParameter),
+            ConvertToInches(GetNullableDouble(element, DbhParameter)),
+            latitude,
+            longitude,
+            GetNullableText(element, StatusParameter) ?? string.Empty,
+            GetNullableText(element, DetailsParameter) ?? string.Empty,
+            GetNullableText(element, LastUpdatedParameter) ?? string.Empty,
+            GetNullableText(element, EngineVersionParameter) ?? string.Empty,
+            GetNullableText(element, InputSignatureParameter) ?? string.Empty,
+            document.IsWorkshared ? GrowthYearNames.FromName(document.GetWorksetTable().GetWorkset(element.WorksetId)?.Name) : null,
+            element.GroupId != ElementId.InvalidElementId,
+            GetNullableInt(element, AgeAtPlantingParameter),
+            elementType is not null && GetNullableInt(elementType, MatureAgeParameter) is > 0 and var matureAge ? matureAge : null);
     }
 
     private static double? ConvertToInches(double? internalLengthValue) =>

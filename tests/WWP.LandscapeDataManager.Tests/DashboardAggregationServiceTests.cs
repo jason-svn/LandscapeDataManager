@@ -108,16 +108,16 @@ public class DashboardAggregationServiceTests
     public void Rows_not_yet_calculated_are_excluded_from_sums_but_not_dropped()
     {
         var calculated = CreateTree(uniqueId: "uid-1", status: "Calculated", costSavedAnnual: 10d);
-        var stale = CreateTree(uniqueId: "uid-2", status: "Stale", costSavedAnnual: 999d);
+        var missing = CreateTree(uniqueId: "uid-2", status: "MissingInput", costSavedAnnual: 999d);
 
         var normalizedCalculated = DashboardAggregationService.NormalizeTree(calculated, "Metric", "USD", 1d);
-        var normalizedStale = DashboardAggregationService.NormalizeTree(stale, "Metric", "USD", 1d);
+        var normalizedMissing = DashboardAggregationService.NormalizeTree(missing, "Metric", "USD", 1d);
 
         Assert.True(normalizedCalculated.CountsTowardTotals);
-        Assert.False(normalizedStale.CountsTowardTotals);
+        Assert.False(normalizedMissing.CountsTowardTotals);
 
         var total = DashboardAggregationService.BuildGrandTotal(
-            [normalizedCalculated, normalizedStale], []);
+            [normalizedCalculated, normalizedMissing], []);
 
         Assert.Equal(1, total.TreeCount);
         Assert.Equal(1, total.TreesExcludedFromTotals);

@@ -696,7 +696,8 @@ public sealed record DashboardTreeItem(
     double PollutantsRemovedAnnual = 0,
     double PollenAnnual = 0,
     double? IrrigationDemandFactor = null,
-    string? Allergenic = null);
+    string? Allergenic = null,
+    PlantingInstanceValidationItem? Inputs = null);
 
 /// <summary>
 /// One Floor (planted/paved landscape area) instance's identity, placement, and stored LDS/i-Tree
