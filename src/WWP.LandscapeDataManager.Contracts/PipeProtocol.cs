@@ -808,7 +808,8 @@ public sealed record DashboardReportResult(
 /// <summary>
 /// One year of an i-Tree forecast for one tree, as i-Tree returned it in <c>benefits.annual[]</c>
 /// (Year 1 is the first year after planting). Masses in kg, volumes in m³, money in USD; the tree's
-/// size that year (DBH in cm, height in m) as i-Tree grew it, 0 in timelines saved before it was read.
+/// size that year (DBH in cm, height in m, crown area in m²) as i-Tree grew it, 0 in timelines saved
+/// before it was read.
 /// </summary>
 public sealed record TreeBenefitYear(
     int Year,
@@ -824,7 +825,14 @@ public sealed record TreeBenefitYear(
     double StormWaterUsd,
     double AirPollutionUsd,
     double DiameterCm = 0,
-    double HeightM = 0);
+    double HeightM = 0,
+    double CrownAreaM2 = 0)
+{
+    public double CrownWidthM => CrownWidth(CrownAreaM2);
+
+    /// <summary>The width of a circle of i-Tree's crown area, in m; 0 without an area.</summary>
+    public static double CrownWidth(double crownAreaM2) => crownAreaM2 > 0 ? 2 * System.Math.Sqrt(crownAreaM2 / System.Math.PI) : 0;
+}
 
 /// <summary>
 /// i-Tree's year-by-year forecast for one unique planting input (species, planting DBH, condition,

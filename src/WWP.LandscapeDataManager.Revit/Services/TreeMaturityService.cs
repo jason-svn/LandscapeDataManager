@@ -82,6 +82,8 @@ internal static class TreeMaturityService
     {
         var (maxHeight, maxWidth) = GetMaxima(document, tree);
         var years = tree.LookupParameter(TreeAgeSyncService.YearsParameter)!;
+        // A calculated tree is drawn at its i-Tree size whatever its age: measure the growth formulas.
+        GrowthProjectionService.ClearITreeSize(tree);
 
         bool IsMatureAt(int age)
         {

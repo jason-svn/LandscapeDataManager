@@ -426,23 +426,52 @@ internal static class GrowthProjectionService
     /// <summary>
     /// Writes the tree's growth year to <c>!_S_PLT_TreeGrowth_ProjectedYears_Number</c>; the family
     /// computes its age from that. Only when the family has no such formula yet (Years still editable)
-    /// is Years set directly: age at planting + year, capped at mature size.
+    /// is Years set directly: age at planting + year, capped at mature size. A tree whose age changes
+    /// loses its i-Tree size (see <see cref="ClearITreeSize"/>).
     /// </summary>
     internal static void SetAge(Document document, Element tree, int growthYear, IReadOnlyDictionary<long, int> matureAges)
     {
-        if (tree.LookupParameter(TreeAgeSyncService.ProjectedYearsParameter) is { IsReadOnly: false, StorageType: StorageType.Integer } projected)
+        var changed = false;
+        if (tree.LookupParameter(TreeAgeSyncService.ProjectedYearsParameter) is { IsReadOnly: false, StorageType: StorageType.Integer } projected &&
+            !(projected.HasValue && projected.AsInteger() == growthYear))
         {
             projected.Set(growthYear);
+            changed = true;
         }
 
-        if (tree.LookupParameter(TreeAgeSyncService.YearsParameter) is not { IsReadOnly: false, StorageType: StorageType.Integer } years)
+        if (tree.LookupParameter(TreeAgeSyncService.YearsParameter) is { IsReadOnly: false, StorageType: StorageType.Integer } years)
         {
-            return;
+            var typeId = tree.GetTypeId().Value;
+            var age = GrowthYearNames.ModelledAge(
+                TreeAgeSyncService.AgeAtPlanting(tree), growthYear, matureAges.TryGetValue(typeId, out var mature) ? mature : null);
+            if (!(years.HasValue && years.AsInteger() == age))
+            {
+                years.Set(age);
+                changed = true;
+            }
         }
 
-        var typeId = tree.GetTypeId().Value;
-        years.Set(GrowthYearNames.ModelledAge(
-            TreeAgeSyncService.AgeAtPlanting(tree), growthYear, matureAges.TryGetValue(typeId, out var mature) ? mature : null));
+        if (changed)
+        {
+            ClearITreeSize(tree);
+        }
+    }
+
+    private static readonly string[] ITreeSizeParameters = ["!_S_PLT_iTreeResult_TreeHeight_Length", "!_S_PLT_iTreeResult_CrownWidth_Length"];
+
+    /// <summary>
+    /// Clears the height and crown width i-Tree gave the tree at its old age (a copy inherits its
+    /// original's), so the family draws it from its growth rates until i-Tree is calculated again.
+    /// </summary>
+    internal static void ClearITreeSize(Element tree)
+    {
+        foreach (var name in ITreeSizeParameters)
+        {
+            if (tree.LookupParameter(name) is { IsReadOnly: false, StorageType: StorageType.Double } size && size.AsDouble() != 0)
+            {
+                size.Set(0d);
+            }
+        }
     }
 
     /// <summary>

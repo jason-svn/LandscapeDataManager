@@ -7,12 +7,13 @@ namespace WWP.LandscapeDataManager.Tests;
 public class ITreeInstanceResultMapperTests
 {
     [Fact]
-    public void With_no_outcome_only_the_tracking_parameters_are_written()
+    public void With_no_outcome_only_the_tracking_parameters_are_written_and_the_i_tree_size_cleared()
     {
         var items = ITreeInstanceResultMapper.BuildWriteItems(
             "uid-1", "MissingInput", "Missing: TreeTrunk_DBH", "sig-1", null, "Metric");
 
-        Assert.Equal(5, items.Count);
+        Assert.Equal(7, items.Count);
+        Assert.Equal(2, items.Count(item => item.RevitParameter.EndsWith("_Length", StringComparison.Ordinal) && item.SourceValue == "0"));
         Assert.Contains(items, item => item.RevitParameter == "!_S_PLT_iTreeResult_Status_Text" && item.SourceValue == "MissingInput");
         Assert.DoesNotContain(items, item => item.RevitParameter.Contains("Carbon"));
     }

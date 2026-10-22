@@ -131,12 +131,14 @@ internal static class TreeAgeSyncService
                 onGrowthWorksets, 0, notEditable + editable.Count, missingYears, skippedGrouped, NotOnTheirWorkset: notOnTheirWorkset);
         }
 
-        foreach (var (_, writes) in editable)
+        foreach (var (tree, writes) in editable)
         {
             foreach (var (parameter, value) in writes)
             {
                 parameter.Set(value);
             }
+
+            GrowthProjectionService.ClearITreeSize(tree);
         }
 
         var commitStatus = transaction.Commit();

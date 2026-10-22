@@ -11,6 +11,9 @@ namespace WWP.LandscapeDataManager.Shared.Services;
 /// </summary>
 public static class ITreeInstanceResultMapper
 {
+    public const string TreeHeightParameter = "!_S_PLT_iTreeResult_TreeHeight_Length";
+    public const string CrownWidthParameter = "!_S_PLT_iTreeResult_CrownWidth_Length";
+
     /// <param name="preferredCurrency">ISO code (USD, GBP, EUR, CAD, AUD, or NZD) the caller has already resolved the project's preference to.</param>
     /// <param name="usdExchangeRate">USD-to-<paramref name="preferredCurrency"/> rate the caller already looked up (1.0 for USD) — this method only applies it, it never fetches rates itself so it stays synchronous/pure.</param>
     public static IReadOnlyList<InstanceParameterWriteItem> BuildWriteItems(
@@ -34,11 +37,15 @@ public static class ITreeInstanceResultMapper
 
         if (outcome?.Fields is not { } fields)
         {
+            // No i-Tree size for these inputs: the family goes back to drawing from the growth rates.
+            items.AddRange(Size(uniqueId, 0, 0));
             return items;
         }
 
         double GetOrZero(string key) => fields.TryGetValue(key, out var value) && value is double number ? number : 0d;
         string? GetText(string key) => fields.TryGetValue(key, out var value) ? value?.ToString() : null;
+
+        items.AddRange(Size(uniqueId, GetOrZero("Tree_Height_m"), TreeBenefitYear.CrownWidth(GetOrZero("Crown_Area_m2"))));
 
         var engineVersion = GetText("Engine_Version") ?? GetText("Database_Version") ?? "i-Tree API v3";
         items.Add(Text(uniqueId, "!_S_PLT_iTreeResult_EngineVersion_Text", engineVersion));
@@ -118,6 +125,16 @@ public static class ITreeInstanceResultMapper
 
         return items;
     }
+
+    /// <summary>
+    /// i-Tree's height and crown width for the tree's DBH, in m. The planting family draws the tree
+    /// at them, and from its type's growth rates while they're 0.
+    /// </summary>
+    private static InstanceParameterWriteItem[] Size(string uniqueId, double heightMetres, double crownWidthMetres) =>
+    [
+        new(uniqueId, TreeHeightParameter, "Auto (Revit spec)", heightMetres.ToString("G17", CultureInfo.InvariantCulture)),
+        new(uniqueId, CrownWidthParameter, "Auto (Revit spec)", crownWidthMetres.ToString("G17", CultureInfo.InvariantCulture))
+    ];
 
     private static InstanceParameterWriteItem Text(string uniqueId, string parameter, string value) =>
         new(uniqueId, parameter, "Text", value);

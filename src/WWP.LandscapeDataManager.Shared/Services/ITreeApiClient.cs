@@ -335,7 +335,8 @@ public sealed class ITreeApiClient
                 ReadNumber(year, "hydrology", "runoff-avoided-worth"),
                 SumPollutionRemovedWorth(year),
                 ReadNumber(year, "diameter"),
-                ReadNumber(year, "height")))
+                ReadNumber(year, "height"),
+                ReadNumber(year, "crown-area")))
             .ToList();
     }
 
@@ -448,6 +449,11 @@ public sealed class ITreeApiClient
 
         var annual = annualCategory.EnumerateArray().ToList();
         var first = annual[0];
+
+        // The tree's own size: i-Tree grows height and crown from the DBH it was sent, and the first
+        // year is that DBH. The planting family draws the tree at this size once it's calculated.
+        fields["Tree_Height_m"] = ReadNumber(first, "height");
+        fields["Crown_Area_m2"] = ReadNumber(first, "crown-area");
 
         if (profile.Monetary)
         {

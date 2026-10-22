@@ -620,6 +620,11 @@ internal static class SharedParameterSetupService
             // Output — the i-Tree API's own benefit results. Unified under the iTreeResult_
             // prefix (previously split across iTreeAir_/iTreeWater_/iTreeCarbon_) so every
             // i-Tree-sourced benefit reads as one consistent family in the Properties palette.
+            // First the tree's size for its DBH, which the planting family draws the tree at.
+            PlantingInstance("!_S_PLT_iTreeResult_TreeHeight_Length", GroupTypeId.AnalysisResults,
+                "Total tree height i-Tree forecasts for this tree in its growth year (from its species, DBH, condition and crown exposure). Written by LIM when it calculates i-Tree; the planting family draws the tree at this height, and from its type's height growth rate while it's empty. Metric: m."),
+            PlantingInstance("!_S_PLT_iTreeResult_CrownWidth_Length", GroupTypeId.AnalysisResults,
+                "Crown width i-Tree forecasts for this tree in its growth year (the width of a circle of i-Tree's crown area). Written by LIM when it calculates i-Tree; the planting family draws the crown at this width, and from its type's width growth rate while it's empty. Metric: m."),
             PlantingInstance("!_S_PLT_iTreeResult_CORemovedAnnual_Mass", GroupTypeId.AnalysisResults,
                 "Annual carbon-monoxide removal (Revit Mass parameter — displays per the project's Mass unit settings).",
                 legacyAliases: ["!_S_PLT_iTreeResult_CORemovedAnnual_Number"]),
