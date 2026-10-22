@@ -565,8 +565,14 @@ public sealed partial class MainPage : Page
         }
 
         var designYear = DesignYear();
+        // The last report reaches the UI after the result does, so it mustn't replace the summary.
         var progress = new Progress<(int Done, int Total)>(step =>
-            GrowthRatesStatusText.Text = $"Asking i-Tree… {step.Done:N0} of {step.Total:N0}");
+        {
+            if (step.Done < step.Total)
+            {
+                GrowthRatesStatusText.Text = $"Asking i-Tree… {step.Done:N0} of {step.Total:N0}";
+            }
+        });
         var rated = await GrowthRatesFromITree.RunAsync(
             plan,
             location.Latitude!.Value,
