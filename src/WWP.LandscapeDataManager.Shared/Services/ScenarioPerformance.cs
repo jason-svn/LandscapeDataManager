@@ -29,8 +29,15 @@ public sealed record ScenarioPerformance(
     double EmbodiedCarbon,
     double? BngPostInterventionUnits,
     double? BngNetChangeUnits,
-    double? BngNetChangePercent)
+    double? BngNetChangePercent,
+    ConnectivityScenarioResult? Connectivity = null)
 {
+    /// <summary>The Connectivity tool's EC as a share of the habitat area, when this scenario has been calculated.</summary>
+    public double? ConnectedHabitatPercent => Connectivity?.ConnectedPercent;
+
+    /// <summary>The Connectivity tool's equivalent connected area (m², mean over its dispersal distances).</summary>
+    public double? EquivalentConnectedArea => Connectivity?.EquivalentConnectedArea;
+
     /// <summary>Ecosystem value less the cost of maintaining the planting over the same outlook.</summary>
     public double NetValueOutlook => EcosystemValueOutlook - MaintenanceCostOutlook;
 }
@@ -47,7 +54,8 @@ public sealed record ScenarioPerformanceInputs(
     double? SiteAreaSquareMeters,
     int Years,
     int? GrowthYear,
-    IReadOnlyList<int> GrowthYearStops);
+    IReadOnlyList<int> GrowthYearStops,
+    IReadOnlyList<ConnectivityScenarioResult>? Connectivity = null);
 
 public static class ScenarioPerformanceCalculator
 {
@@ -108,7 +116,8 @@ public static class ScenarioPerformanceCalculator
             // The existing site is the baseline itself: no change.
             scenario.IsExistingSite ? (bng.BaselineUnits > 0 ? bng.BaselineUnits : null) : bng.CurrentFloorCount > 0 ? bng.PostInterventionUnits : null,
             scenario.IsExistingSite ? (bng.BaselineUnits > 0 ? 0 : null) : bng.BaselineUnits > 0 ? bng.NetChangeUnits : null,
-            scenario.IsExistingSite ? (bng.BaselineUnits > 0 ? 0 : null) : bng.NetChangePercent);
+            scenario.IsExistingSite ? (bng.BaselineUnits > 0 ? 0 : null) : bng.NetChangePercent,
+            ConnectivityScenarios.For(inputs.Connectivity, scenario));
     }
 
     /// <summary>The difference from a reference value: absolute, and as a % of the reference (null when that's 0 or unknown).</summary>

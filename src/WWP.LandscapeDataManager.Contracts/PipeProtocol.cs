@@ -881,12 +881,23 @@ public sealed record ConnectivityPatchItem(
     bool Locked,
     bool ParametersBound,
     int? StoredBand,
-    string? Note);
+    string? Note,
+    DesignOptionInfo? DesignOption = null,
+    string? PhaseRole = null);
 
-/// <summary>Only primary Design Options and elements not demolished are ever returned — the network is the built design.</summary>
-public sealed record ConnectivityPatchesRequest(bool IncludeFloors = true);
+/// <summary>
+/// <see cref="AllDesignOptions"/>: every design option and phase, each item with its
+/// <see cref="ConnectivityPatchItem.DesignOption"/> and <see cref="ConnectivityPatchItem.PhaseRole"/>,
+/// so the tool can score any design scenario (the existing site too). Without it (and from a connector
+/// that predates it) only the main model and primary options, not demolished: the built design.
+/// </summary>
+public sealed record ConnectivityPatchesRequest(bool IncludeFloors = true, bool AllDesignOptions = false);
 
-public sealed record ConnectivityPatchesResult(string DocumentTitle, IReadOnlyList<ConnectivityPatchItem> Items);
+/// <summary><see cref="DesignOptionSets"/>: every set and option in the model; null from a connector that predates it.</summary>
+public sealed record ConnectivityPatchesResult(
+    string DocumentTitle,
+    IReadOnlyList<ConnectivityPatchItem> Items,
+    IReadOnlyList<DesignOptionSetItem>? DesignOptionSets = null);
 
 public sealed record ConnectivityResultValues(
     string UniqueId,

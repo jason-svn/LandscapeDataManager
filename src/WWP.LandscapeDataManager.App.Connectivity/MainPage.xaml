@@ -13,6 +13,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -24,7 +25,7 @@
             <StackPanel Spacing="4">
                 <TextBlock Text="Connectivity Calculator" Style="{StaticResource LimPageTitleStyle}" />
                 <TextBlock
-                    Text="Scores how much each tree and planting area holds the green network together. Uses the Probability of Connectivity index: dispersal probability falls off with edge-to-edge distance, and each element's dPC is the share of connectivity lost without it. Elements are ranked by dPC into 1 Low, 2 Moderate, 3 Strong connector and 4 Critical stepping-stone. Tick !_S_PLT_ConnectivityInput_Locked_YesNo on an element to keep a band you set by hand."
+                    Text="Scores how much each tree and planting area holds the green network together. Uses the Probability of Connectivity index: dispersal probability falls off with edge-to-edge distance, and each element's dPC is the share of connectivity lost without it. Elements are ranked by dPC into 1 Low, 2 Moderate, 3 Strong connector and 4 Critical stepping-stone. The bands rank elements within one run; to compare schemes or projects, use the connected habitat: the equivalent connected area (EC) as a share of the habitat area. It's the scheme as drawn, new trees at the design year and existing ones today; growth-year copies don't count. Tick !_S_PLT_ConnectivityInput_Locked_YesNo on an element to keep a band you set by hand."
                     Style="{StaticResource LimPageSubtitleStyle}" />
             </StackPanel>
             <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
@@ -38,6 +39,7 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
@@ -56,13 +58,20 @@
                     <CheckBox x:Name="IncludeFloorsCheckBox" Content="Include planting-area floors" IsChecked="True" />
                     <CheckBox x:Name="IncludeUnclassifiedCheckBox" Content="Also include floors whose surface class is unknown" />
                 </StackPanel>
-                <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
+                <ComboBox Grid.Row="1" Grid.ColumnSpan="2" x:Name="ScenarioBox" Header="Design scenario" HorizontalAlignment="Stretch" SelectionChanged="ScenarioBox_SelectionChanged"
+                          ToolTipService.ToolTip="Calculate scores this scenario's trees and planting areas: its design options, and what stands in it (the existing site: what stood before development)." />
+                <StackPanel Grid.Row="1" Grid.Column="2" VerticalAlignment="Bottom" Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="CompareButton" Content="Compare scenarios" Click="CompareScenarios_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                            ToolTipService.ToolTip="Calculates every design scenario (and the existing site) and saves each one's connected habitat on the project, for the Dashboard's scenario comparison." />
+                </StackPanel>
+                <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
                            Text="Pick distances from the literature for the species you're designing for — e.g. ground beetles ~50 m, slow-worms ~250 m, woodland birds ~1 km. With several distances, scores are averaged and an element whose band changes by two or more between distances is flagged Uncertain. Floors count as planting areas when their SurfaceClass (or LDS Type) is pervious." />
             </Grid>
         </Border>
 
         <Grid Grid.Row="2" Margin="0,16,0,0" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
@@ -72,35 +81,42 @@
             </Grid.ColumnDefinitions>
             <Border Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
+                    <TextBlock Text="CONNECTED HABITAT" Style="{StaticResource LimSectionHeaderStyle}" />
+                    <TextBlock x:Name="ConnectedHabitatText" Text="—" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock x:Name="ConnectedHabitatDetailText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" FontSize="12" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="4">
                     <TextBlock Text="PATCHES" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock x:Name="PatchCountText" Text="—" FontSize="22" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
-            <Border Grid.Column="1" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Column="2" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="4 · CRITICAL" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock x:Name="CriticalCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="#FFC51B7D" />
                 </StackPanel>
             </Border>
-            <Border Grid.Column="2" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Column="3" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="3 · STRONG" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock x:Name="StrongCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="#FF318C4A" />
                 </StackPanel>
             </Border>
-            <Border Grid.Column="3" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Column="4" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="2 · MODERATE" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock x:Name="ModerateCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="#FF6EA03C" />
                 </StackPanel>
             </Border>
-            <Border Grid.Column="4" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Column="5" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="1 · LOW" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock x:Name="LowCountText" Text="—" FontSize="22" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
-            <Border Grid.Column="5" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Column="6" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock Text="UNCERTAIN" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock x:Name="UncertainCountText" Text="—" FontSize="22" FontWeight="SemiBold" Foreground="{ThemeResource LimWarningBrush}" />
@@ -108,7 +124,51 @@
             </Border>
         </Grid>
 
-        <Grid Grid.Row="3" Margin="0,16,0,6" ColumnSpacing="10">
+        <!-- Scenario comparison: each scenario's connected habitat, saved on the project for the Dashboard. -->
+        <Border Grid.Row="3" x:Name="ComparisonCard" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}" Visibility="Collapsed">
+            <StackPanel Spacing="8">
+                <TextBlock Text="CONNECTED HABITAT BY SCENARIO" Style="{StaticResource LimSectionHeaderStyle}" />
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <Grid Grid.RowSpan="3" Style="{StaticResource LimTableLanesStyle}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="220" /><ColumnDefinition Width="80" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="100" /><ColumnDefinition Width="160" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border Grid.Column="3" Grid.ColumnSpan="2" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreenBrush}" />
+                    </Grid>
+                    <Grid Style="{StaticResource LimTableGroupRowStyle}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="220" /><ColumnDefinition Width="80" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="100" /><ColumnDefinition Width="160" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="3" Grid.ColumnSpan="2" Text="CONNECTED" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneGreenTextBrush}" />
+                    </Grid>
+                    <Grid Grid.Row="1" Style="{StaticResource LimTableHeaderRowStyle}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="220" /><ColumnDefinition Width="80" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="100" /><ColumnDefinition Width="160" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock Text="Design scenario" Style="{StaticResource LimTableHeaderStyle}" />
+                        <TextBlock Grid.Column="1" Text="Patches" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                        <TextBlock Grid.Column="2" Text="Habitat area&#10;m²" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                        <TextBlock Grid.Column="3" Text="EC&#10;m²" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                        <TextBlock Grid.Column="4" Text="Share&#10;%" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                        <TextBlock Grid.Column="5" Text="Calculated" Style="{StaticResource LimTableHeaderStyle}" Margin="12,0,0,0" />
+                        <TextBlock Grid.Column="6" Text="Note" Style="{StaticResource LimTableHeaderStyle}" />
+                    </Grid>
+                    <ItemsControl Grid.Row="2" ItemsSource="{x:Bind ScenarioResultRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="local:ScenarioResultRow">
+                                <Grid Style="{StaticResource LimTableRowStyle}">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="220" /><ColumnDefinition Width="80" /><ColumnDefinition Width="110" /><ColumnDefinition Width="110" /><ColumnDefinition Width="100" /><ColumnDefinition Width="160" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <TextBlock Text="{x:Bind ScenarioText}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind ScenarioText}" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind PatchesText}" TextAlignment="Right" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind HabitatAreaText}" TextAlignment="Right" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind EcText}" TextAlignment="Right" ToolTipService.ToolTip="{x:Bind EcByDistanceText}" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind ConnectedText}" TextAlignment="Right" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Column="5" Text="{x:Bind CalculatedText}" Margin="12,0,0,0" />
+                                    <TextBlock Grid.Column="6" Text="{x:Bind Note}" TextWrapping="Wrap" Foreground="{ThemeResource LimWarningBrush}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="4" Margin="0,16,0,6" ColumnSpacing="10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -122,7 +182,7 @@
             </Grid.ColumnDefinitions>
             <StackPanel VerticalAlignment="Center" Spacing="2">
                 <TextBlock x:Name="StatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
-                           Text="Select Calculate to score every tree and planting area in the model." />
+                           Text="Pick a design scenario, then Calculate to score its trees and planting areas." />
                 <TextBlock x:Name="EquivalentAreaText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
             </StackPanel>
             <Button Grid.Column="1" x:Name="CalculateButton" Content="Calculate" Click="Calculate_Click" Style="{StaticResource LimPrimaryButtonStyle}" />
@@ -135,10 +195,10 @@
             <Button Grid.Column="8" Content="Reset view colours" Click="ResetColours_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
         </Grid>
 
-        <ProgressBar Grid.Row="4" x:Name="CalculationProgress" Maximum="1" Margin="0,0,0,6" Visibility="Collapsed" />
+        <ProgressBar Grid.Row="5" x:Name="CalculationProgress" Maximum="1" Margin="0,0,0,6" Visibility="Collapsed" />
 
         <!-- Results table: the connectivity columns sit in a swim lane behind the header and rows. -->
-        <Grid Grid.Row="5" Grid.RowSpan="2">
+        <Grid Grid.Row="6" Grid.RowSpan="2">
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
             <Grid Grid.RowSpan="3" Style="{StaticResource LimTableLanesStyle}" ui:TableLanes.FollowRows="True" Margin="{StaticResource LimTableCheckOffset}">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="100" /><ColumnDefinition Width="*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="80" /><ColumnDefinition Width="60" /><ColumnDefinition Width="200" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
@@ -177,7 +237,7 @@
         </Grid>
 
         <ProgressRing x:Name="BusyIndicator"
-                      Grid.RowSpan="7"
+                      Grid.RowSpan="8"
                       Width="40"
                       Height="40"
                       IsActive="False"

@@ -89,3 +89,20 @@ public sealed class ConnectivityRow
     /// <summary>Sort key: patches by score high to low, excluded elements last.</summary>
     public double SortKey => Result?.Score ?? -1;
 }
+
+/// <summary>One design scenario's saved connected habitat, for the scenario comparison table.</summary>
+public sealed class ScenarioResultRow(ConnectivityScenarioResult result, string label, string? note)
+{
+    public string ScenarioText { get; } = label;
+    public string PatchesText { get; } = result.Patches.ToString("N0");
+    public string HabitatAreaText { get; } = result.HabitatAreaSquareMeters.ToString("N0");
+    public string EcText { get; } = result.EquivalentConnectedArea.ToString("N0");
+    public string EcByDistanceText { get; } = "EC by dispersal distance: " + result.DescribeByDistance();
+    public string ConnectedText { get; } = result.ConnectedPercent.ToString("N1");
+
+    public string CalculatedText { get; } = DateTimeOffset.TryParse(result.CalculatedUtc, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var calculated)
+        ? calculated.ToLocalTime().ToString("g")
+        : result.CalculatedUtc;
+
+    public string Note { get; } = note ?? string.Empty;
+}

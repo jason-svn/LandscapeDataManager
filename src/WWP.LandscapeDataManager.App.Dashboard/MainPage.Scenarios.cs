@@ -426,6 +426,8 @@ public sealed partial class MainPage
             new("Air quality", "Pollution removed", $"{pollutantUnit} {over}", p => p.PollutionRemovedOutlook, Number, true),
             new("Biodiversity", "BNG post-intervention", "habitat units", p => p.BngPostInterventionUnits, value => $"{value:N2}", true, Chart: false),
             new("Biodiversity", "BNG net change", "% of baseline", p => p.BngNetChangePercent, value => $"{value:+0.0;-0.0;0.0}", true, IsPercent: true),
+            new("Biodiversity", "Connected habitat", "% of habitat area (EC)", p => p.ConnectedHabitatPercent, value => $"{value:N1}", true, IsPercent: true),
+            new("Biodiversity", "Equivalent connected area", "m² (EC)", p => p.EquivalentConnectedArea, Number, true, Chart: false),
             new("Value", "Ecosystem value", $"{currency} {over}", p => p.EcosystemValueOutlook, Number, true),
             new("Value", "Maintenance cost", $"{currency} {over}", p => p.MaintenanceCostOutlook, Number, false),
             new("Value", "Net value", $"{currency} {over}", p => p.NetValueOutlook, Number, true),
@@ -456,7 +458,8 @@ public sealed partial class MainPage
             _siteBoundary?.AreaSquareMeters,
             _projectionYears,
             _growthYearsFromWorksets ? _projectionYears : null,
-            _growthYearsFromWorksets ? _growthYearStops : []);
+            _growthYearsFromWorksets ? _growthYearStops : [],
+            _connectivityResults);
 
         var offered = OfferedScenarios();
         var performances = offered.Select(scenario => ScenarioPerformanceCalculator.Build(scenario, inputs)).ToList();

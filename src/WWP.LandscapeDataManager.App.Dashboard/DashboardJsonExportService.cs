@@ -100,7 +100,9 @@ internal sealed record DashboardJsonSiteKpi(
     int TreesWithIrrigationFactorCount = 0,
     double? MeanIrrigationDemandFactor = null,
     int LowWaterTreeCount = 0,
-    int TreesWithNativeStatusCount = 0);
+    int TreesWithNativeStatusCount = 0,
+    double? ConnectedHabitatPercent = null,
+    double? EquivalentConnectedAreaSquareMeters = null);
 
 internal sealed record DashboardJsonBngGroup(string Name, int FloorCount, double AreaHectares, double HabitatUnits);
 
@@ -201,7 +203,8 @@ internal static class DashboardJsonExportService
         DashboardJsonLocation location,
         IReadOnlyList<DesignOptionSetItem> sets,
         IReadOnlyList<DesignScenario> scenarios,
-        int designYear = GrowthYearNames.DefaultDesignYear)
+        int designYear = GrowthYearNames.DefaultDesignYear,
+        IReadOnlyList<ConnectivityScenarioResult>? connectivity = null)
     {
         var project = new DashboardJsonProject(report.DocumentTitle, currency, location, DateTimeOffset.Now);
         var hasAlternatives = scenarios.Count > 1;
@@ -225,7 +228,8 @@ internal static class DashboardJsonExportService
             if (worksetYears.Count == 0)
             {
                 return new[] { BuildScenario(label, scenario == defaultScenario, trees, trees, floors, bngFloors, lighting, report,
-                    designOption: hasAlternatives ? scenario.Name : null, choices: scenario.Choices, isExistingSite: scenario.IsExistingSite) };
+                    designOption: hasAlternatives ? scenario.Name : null, choices: scenario.Choices, isExistingSite: scenario.IsExistingSite,
+                    connectivity: ConnectivityScenarios.For(connectivity, scenario)) };
             }
 
             // As in the Dashboard: with i-Tree forecasts in the model, a growth year's benefits are each
@@ -249,7 +253,8 @@ internal static class DashboardJsonExportService
                     designOption: hasAlternatives ? scenario.Name : null,
                     choices: scenario.Choices,
                     benefitsFromForecast: fromForecast,
-                    isExistingSite: scenario.IsExistingSite);
+                    isExistingSite: scenario.IsExistingSite,
+                    connectivity: ConnectivityScenarios.For(connectivity, scenario));
             });
         }).ToList();
 
@@ -271,7 +276,8 @@ internal static class DashboardJsonExportService
         string? designOption = null,
         IReadOnlyDictionary<string, string>? choices = null,
         bool benefitsFromForecast = false,
-        bool isExistingSite = false)
+        bool isExistingSite = false,
+        ConnectivityScenarioResult? connectivity = null)
     {
         var grandTotal = DashboardAggregationService.BuildGrandTotal(normalizedTrees, floors);
         var speciesSubtotals = DashboardAggregationService.AggregateTreesBySpecies(normalizedTrees);
@@ -337,7 +343,9 @@ internal static class DashboardJsonExportService
             siteKpi.LightingFixtureCount, siteKpi.DarkSkyCompliantFixtureCount, siteKpi.LightingCompliancePercent,
             siteKpi.TreePollenAnnual, siteKpi.FloorPollenAnnual, siteKpi.AllergenicTreeCount,
             siteKpi.TreesWithIrrigationFactorCount, siteKpi.MeanIrrigationDemandFactor, siteKpi.LowWaterTreeCount,
-            siteKpi.TreesWithNativeStatusCount);
+            siteKpi.TreesWithNativeStatusCount,
+            // The Connectivity tool's connected habitat for this scenario (the trees as drawn, any growth year).
+            connectivity?.ConnectedPercent, connectivity?.EquivalentConnectedArea);
 
         var bng = DashboardAggregationService.BuildBngSummary(bngFloors, BngMetricCatalog.Default);
         static IReadOnlyList<DashboardJsonBngGroup> Groups(IReadOnlyList<BngGroupSubtotal> groups) =>

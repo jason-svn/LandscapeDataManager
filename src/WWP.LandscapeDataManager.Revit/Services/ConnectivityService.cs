@@ -9,7 +9,9 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 /// Connectivity tool: reports every tree and floor as a plan-geometry patch, and writes back the
 /// 1–4 connectivity band the tool calculated. All of the network maths happens client-side
 /// (<c>ConnectivityCalculator</c>) — this service only reads geometry and writes finished values.
-/// Only the built design counts: elements in a non-primary Design Option, or demolished, are left out.
+/// By default only the built design counts (elements in a non-primary Design Option, or demolished,
+/// are left out); asked for every design option, each element carries its option and phase role so
+/// the tool can score any design scenario.
 /// </summary>
 internal static class ConnectivityService
 {
@@ -31,7 +33,7 @@ internal static class ConnectivityService
                        ?? throw new InvalidOperationException("Open a Revit project before calculating connectivity.");
 
         var items = new List<ConnectivityPatchItem>();
-        foreach (var element in Collect(document, BuiltInCategory.OST_Planting))
+        foreach (var element in Collect(document, BuiltInCategory.OST_Planting, request.AllDesignOptions))
         {
             if (ToTreeItem(document, element) is { } item)
             {
@@ -41,7 +43,7 @@ internal static class ConnectivityService
 
         if (request.IncludeFloors)
         {
-            foreach (var element in Collect(document, BuiltInCategory.OST_Floors))
+            foreach (var element in Collect(document, BuiltInCategory.OST_Floors, request.AllDesignOptions))
             {
                 if (element is Floor floor && ToFloorItem(document, floor) is { } item)
                 {
@@ -50,7 +52,7 @@ internal static class ConnectivityService
             }
         }
 
-        return new ConnectivityPatchesResult(document.Title, items);
+        return new ConnectivityPatchesResult(document.Title, items, DesignOptionScenarioService.GetSets(document));
     }
 
     public static WriteConnectivityResultsResult Write(UIApplication application, WriteConnectivityResultsRequest request)
@@ -118,12 +120,13 @@ internal static class ConnectivityService
         return new WriteConnectivityResultsResult(document.Title, written, skippedLocked, failures, lastUpdated);
     }
 
-    private static IEnumerable<Element> Collect(Document document, BuiltInCategory category) =>
+    /// <summary>The built design (main model and primary options, not demolished), or with <paramref name="allDesignOptions"/> everything: the tool then picks each scenario's elements itself.</summary>
+    private static IEnumerable<Element> Collect(Document document, BuiltInCategory category, bool allDesignOptions) =>
         new FilteredElementCollector(document)
             .OfCategory(category)
             .WhereElementIsNotElementType()
-            .Where(element => element.DesignOption is null || element.DesignOption.IsPrimary)
-            .Where(element => element.DemolishedPhaseId == ElementId.InvalidElementId);
+            .Where(element => allDesignOptions || element.DesignOption is null || element.DesignOption.IsPrimary)
+            .Where(element => allDesignOptions || element.DemolishedPhaseId == ElementId.InvalidElementId);
 
     private static ConnectivityPatchItem? ToTreeItem(Document document, Element element)
     {
@@ -165,7 +168,9 @@ internal static class ConnectivityService
             IsLocked(element),
             element.LookupParameter(BandParameter) is not null,
             GetStoredBand(element),
-            note);
+            note,
+            DashboardReportService.GetDesignOptionInfo(document, element),
+            BngFloorService.GetPhaseRole(document, element).Role);
     }
 
     private static ConnectivityPatchItem? ToFloorItem(Document document, Floor floor)
@@ -197,7 +202,9 @@ internal static class ConnectivityService
             IsLocked(floor),
             floor.LookupParameter(BandParameter) is not null,
             GetStoredBand(floor),
-            null);
+            null,
+            DashboardReportService.GetDesignOptionInfo(document, floor),
+            BngFloorService.GetPhaseRole(document, floor).Role);
     }
 
     /// <summary>The outer boundary of the floor's largest top face, flattened to plan (holes ignored).</summary>

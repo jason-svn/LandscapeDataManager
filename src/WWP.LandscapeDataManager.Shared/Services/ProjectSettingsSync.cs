@@ -46,7 +46,8 @@ public static class ProjectSettingsSync
         IReadOnlyList<DesignScenario>? designScenarios = null,
         string? referenceScenario = null,
         int? growthDesignYear = null,
-        IReadOnlyList<SavedGrowthRates>? growthRates = null)
+        IReadOnlyList<SavedGrowthRates>? growthRates = null,
+        IReadOnlyList<ConnectivityScenarioResult>? connectivityResults = null)
     {
         var existingResult = await client.SendAsync<GetProjectSettingsJsonResult>(PipeCommands.GetProjectSettingsJson);
         var existing = ProjectSettingsJson.Deserialize(existingResult.SettingsJson) ?? new ProjectSettingsSnapshot();
@@ -84,7 +85,8 @@ public static class ProjectSettingsSync
             designScenarios ?? existing.DesignScenarios,
             referenceScenario ?? existing.ReferenceScenario,
             growthDesignYear ?? existing.GrowthDesignYear,
-            growthRates ?? existing.GrowthRates);
+            growthRates ?? existing.GrowthRates,
+            connectivityResults ?? existing.ConnectivityResults);
 
         await client.SendAsync<PublishProjectSettingsJsonResult>(
             PipeCommands.PublishProjectSettingsJson,

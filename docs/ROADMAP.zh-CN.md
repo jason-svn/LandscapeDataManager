@@ -184,6 +184,13 @@ Dashboard 上的每一个数字都取决于选对方案，所以这一步排在�
 - [ ] **Excel Importer** 没有运行（维护费率已经在类型上了）。
 - [ ] 用真实的种植族核对成熟尺寸的计算（见 Phase 4 中 Prunus avium `Mature Age` = 1 的说明）。
 
+## 按设计场景计算连通性（2026-10-22，你的决定）
+
+- [x] **不再算生长年份副本：** 网络只用画出来的树（新树在设计年，现状树按现状）；副本和原始树在同一位置，以前被当成另一个斑块。
+- [x] **任意设计场景：** connector 返回所有设计选项和 phase（每个斑块带上它的选项和 phase 角色），工具按 Dashboard 的规则挑选某个场景的斑块：它的选项，以及在这个场景中存在的元素（现状场景：开发前存在的）。新增 Design scenario 下拉框；Compare scenarios 会把每个场景都算一遍。Revit 端插件有改动：装下一版之前，工具只提供 primary 选项并会提示。
+- [x] **用连通栖息地代替档位比例：** 档位是一次计算内部的排名（总有约五分之一是 critical），不能用来比较方案。每个场景的等效连通面积（EC）以及 EC 占栖息地面积的比例（每个斑块都能到达其他斑块时为 100%）保存在项目设置里（`ConnectivityResults`）。工具里有 Connected habitat 卡片和对比表；Dashboard 的 Habitat connectivity 卡片显示当前场景的值（以前显示的 "% connectors" 永远在一半左右），场景对比表加了 Connected habitat 和 Equivalent connected area 两行，JSON 导出每个场景带 `connectedHabitatPercent` 和 `equivalentConnectedAreaSquareMeters`（网页版会显示）。手填的 GIS 分数仍作为后备。
+- [x] 写回 Revit 时写的是所计算场景的档位；main model 里的元素保留最后一次写入的场景的档位。
+
 ## 后续事项
 
 - [ ] **Growth Projections — "移除不再列出的年份"：** 删除这些年份的副本，然后删除空的 workset。

@@ -182,6 +182,13 @@ Run live on 2026-10-21 with the new build installed (connector driven over its p
 - [ ] **Excel Importer** wasn't run (maintenance rates were already on the types).
 - [ ] Check the mature-size measurement against the real planting families (see the Prunus avium `Mature Age` = 1 note in Phase 4).
 
+## Connectivity by design scenario (2026-10-22, your call)
+
+- [x] **Growth-year copies left out:** the network is the trees as drawn (new trees at the design year, existing ones today); a copy stood where its original does and was scored as another patch.
+- [x] **Any design scenario:** the connector reports every design option and phase (each patch with its option and phase role), and the tool picks a scenario's patches as the Dashboard does: its options, and what stands in it (the existing site: what stood before development). A Design scenario picker; Compare scenarios scores every one. Connector change: until the next install the tool offers the primary options only and says so.
+- [x] **Connected habitat instead of band shares:** the bands rank elements within one run (about a fifth are always critical), so they can't compare schemes. Each scenario's equivalent connected area (EC) and EC as a share of the habitat area (100% when every patch reaches every other) are saved on the project (`ConnectivityResults` in the project settings). The tool shows them in a Connected habitat card and a comparison table; the Dashboard's Habitat connectivity card shows the current scenario's (it showed "% connectors", which is always about half), its scenario overview has Connected habitat and Equivalent connected area rows, and the JSON export carries `connectedHabitatPercent` and `equivalentConnectedAreaSquareMeters` per scenario (the web dashboard shows them). The hand-entered GIS score stays as the fallback.
+- [x] Writing bands to Revit writes the calculated scenario's; main-model elements keep the bands of the scenario written last.
+
 ## Follow-ups
 
 - [ ] **Growth Projections — "Remove years no longer listed":** deletes those years' copies, then their empty worksets.

@@ -54,6 +54,9 @@ public sealed partial class MainPage : Page
     // The scheme's floors before the phase filter: BNG needs its lost (demolished) floors for the baseline.
     private IReadOnlyList<DashboardFloorItem> _bngFloors = [];
     private IReadOnlyList<DesignScenario> _savedScenarios = [];
+
+    // Each scenario's connected habitat from the Connectivity tool, saved on the project.
+    private IReadOnlyList<ConnectivityScenarioResult> _connectivityResults = [];
     private DesignScenario _scenario = new(DesignScenarios.PrimaryScenarioName, new Dictionary<string, string>());
 
     // A scenario shown but not saved (from Edit… or Use current view); listed until another is picked.
@@ -153,6 +156,7 @@ public sealed partial class MainPage : Page
             {
                 _savedSiteBoundaryKey = settings.SiteBoundary ?? _savedSiteBoundaryKey;
                 _savedScenarios = settings.DesignScenarios ?? [];
+                _connectivityResults = settings.ConnectivityResults ?? [];
                 _referenceScenarioName = settings.ReferenceScenario;
                 _designYear = settings.GrowthDesignYear ?? _designYear;
             }
@@ -802,6 +806,11 @@ public sealed partial class MainPage : Page
         _paletteSortKey = column;
         RebuildRows();
     }
+    private static string DescribeCalculated(string utc) =>
+        DateTimeOffset.TryParse(utc, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var calculated)
+            ? calculated.ToLocalTime().ToString("g")
+            : utc;
+
     private void UpdateSiteKpiCards(IReadOnlyList<NormalizedTreeMetrics> filteredTrees, IReadOnlyList<DashboardFloorItem> filteredFloors)
     {
         if (_lastReport is null)
@@ -863,27 +872,27 @@ public sealed partial class MainPage : Page
         FunctionalDiversityText.Text = $"{summary.DistinctEcologicalFunctionsCount} function{(summary.DistinctEcologicalFunctionsCount == 1 ? "" : "s")}";
         FunctionalDiversityDetailText.Text = $"{summary.MultiFunctionAreaSquareMeters:N0} m² of canopy from multi-function species.";
 
-        // The Connectivity Calculator's bands come first; the hand-entered GIS score is the fallback.
-        var bands = summary.ConnectivityBandCounts;
-        var assessed = bands.Take(4).Sum();
-        if (assessed > 0)
+        // The Connectivity tool's connected habitat for this scenario: the equivalent connected area
+        // as a share of the habitat area, which compares across schemes (the bands only rank elements
+        // within one run). The hand-entered GIS score is the fallback.
+        if (ConnectivityScenarios.For(_connectivityResults, _scenario) is { } connectivity)
         {
-            var connectors = bands[2] + bands[3];
-            HabitatConnectivityText.Text = $"{100d * connectors / assessed:N0}% connectors";
+            HabitatConnectivityText.Text = $"{connectivity.ConnectedPercent:N0}% connected";
             HabitatConnectivityDetailText.Text =
-                $"Band 4 critical {bands[3]:N0} · 3 strong {bands[2]:N0} · 2 moderate {bands[1]:N0} · 1 low {bands[0]:N0}" +
-                (bands[4] > 0 ? $" · {bands[4]:N0} not assessed" : string.Empty) +
+                $"EC {connectivity.EquivalentConnectedArea:N0} of {connectivity.HabitatAreaSquareMeters:N0} m² habitat, {connectivity.Patches:N0} patches" +
+                (connectivity.IsExistingSite ? string.Empty : $", new trees at year {connectivity.DesignYear}") +
+                $" · Connectivity tool, {DescribeCalculated(connectivity.CalculatedUtc)}" +
                 (summary.HabitatConnectivityScore is { } gisScore ? $" · GIS score {gisScore:N1}/10" : string.Empty);
         }
         else if (summary.HabitatConnectivityScore is { } connectivityScore)
         {
             HabitatConnectivityText.Text = $"{connectivityScore:N1} / 10";
-            HabitatConnectivityDetailText.Text = "Entered from external GIS connectivity modelling (site-wide, not per design option). Run the Connectivity Calculator for per-element bands.";
+            HabitatConnectivityDetailText.Text = "Entered from external GIS connectivity modelling (site-wide, not per design option). Calculate this scenario in Connectivity for its connected habitat.";
         }
         else
         {
             HabitatConnectivityText.Text = "—";
-            HabitatConnectivityDetailText.Text = "Run the Connectivity Calculator, or enter !_S_PLT_Site_HabitatConnectivityScore_Number on Project Information after GIS analysis.";
+            HabitatConnectivityDetailText.Text = "Not calculated for this scenario: run Connectivity (Compare scenarios does every scenario), or enter !_S_PLT_Site_HabitatConnectivityScore_Number on Project Information after GIS analysis.";
         }
 
         SetPercentCard(LightingImpactText, LightingImpactDetailText, summary.LightingCompliancePercent,
@@ -1589,7 +1598,7 @@ public sealed partial class MainPage : Page
         await RunBusyAsync(async () =>
         {
             var location = await ResolveLocationAsync();
-            var export = DashboardJsonExportService.Build(ReportForJsonExport(), _preferredCurrency, _usdExchangeRate, location, _sets, OfferedScenarios(), _designYear);
+            var export = DashboardJsonExportService.Build(ReportForJsonExport(), _preferredCurrency, _usdExchangeRate, location, _sets, OfferedScenarios(), _designYear, _connectivityResults);
             await DashboardJsonExportService.ExportAsync(file.Path, export);
             StatusText.Text = $"Exported dashboard data to {file.Name}.";
         });
