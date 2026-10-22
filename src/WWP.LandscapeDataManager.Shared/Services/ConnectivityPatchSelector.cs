@@ -18,15 +18,22 @@ public sealed record ConnectivitySettings(
 }
 
 /// <summary>
-/// Decides which scanned elements are habitat patches: every tree, and every Floor that is a
+/// Decides which scanned elements are habitat patches: every tree as drawn, and every Floor that is a
 /// planting area — Pervious by its <c>!_S_PLT_LDS_SurfaceClass_Text</c> tag, or failing that by
-/// <see cref="SurfaceClassCatalog.Resolve"/> on its LDS Type or type name. Building slabs and paving are never patches.
+/// <see cref="SurfaceClassCatalog.Resolve"/> on its LDS Type or type name. Building slabs and paving
+/// are never patches, and neither are Growth Projections' copies: they're the same trees at other
+/// ages, standing where the originals are (new trees drawn at the design year, existing ones today).
 /// </summary>
 public static class ConnectivityPatchSelector
 {
-    /// <summary>Null when the item is a patch; otherwise why it's left out.</summary>
-    public static string? ExclusionReason(ConnectivityPatchItem item, ConnectivitySettings settings)
+    /// <summary>Null when the item is a patch; otherwise why it's left out. <paramref name="growthCopies"/>: unique ids of Growth Projections' copies.</summary>
+    public static string? ExclusionReason(ConnectivityPatchItem item, ConnectivitySettings settings, IReadOnlySet<string>? growthCopies = null)
     {
+        if (growthCopies?.Contains(item.UniqueId) == true)
+        {
+            return "Growth-year copy: the network uses the trees as drawn (new trees at the design year).";
+        }
+
         if (item.AreaSquareMeters <= 0)
         {
             return "No area.";

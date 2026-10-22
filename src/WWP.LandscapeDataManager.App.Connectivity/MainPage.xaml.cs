@@ -87,12 +87,18 @@ public sealed partial class MainPage : Page
         var scan = await GetClient().SendAsync<ConnectivityPatchesResult>(
             PipeCommands.GetConnectivityPatches,
             new ConnectivityPatchesRequest(settings.IncludeFloors));
+        // Growth Projections' copies stand where their originals do: only the trees as drawn count.
+        var organizer = await GetClient().SendAsync<OrganizerTreesResult>(PipeCommands.GetOrganizerTrees);
+        var growthCopies = organizer.Trees
+            .Where(tree => tree.LinkedYear is not null)
+            .Select(tree => tree.UniqueId)
+            .ToHashSet(StringComparer.Ordinal);
 
         var included = new List<ConnectivityPatchItem>();
         var excluded = new List<(ConnectivityPatchItem Item, string Reason)>();
         foreach (var item in scan.Items)
         {
-            if (ConnectivityPatchSelector.ExclusionReason(item, settings) is { } reason)
+            if (ConnectivityPatchSelector.ExclusionReason(item, settings, growthCopies) is { } reason)
             {
                 excluded.Add((item, reason));
             }

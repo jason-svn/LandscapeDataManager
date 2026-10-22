@@ -145,6 +145,17 @@ public class ConnectivityCalculatorTests
         Assert.NotNull(ConnectivityPatchSelector.ExclusionReason(Floor("Lawn", null), settings with { IncludeFloors = false }));
     }
 
+    [Fact]
+    public void Selector_LeavesOutGrowthYearCopies()
+    {
+        ConnectivityPatchItem Tree(string id) =>
+            new(id, 1, "Planting", "Tree", "Oak", 12, new ConnectivityPoint(0, 0), 2, null, null, null, false, true, null, null);
+        var copies = new HashSet<string> { "copy" };
+
+        Assert.Null(ConnectivityPatchSelector.ExclusionReason(Tree("original"), ConnectivitySettings.Default, copies));
+        Assert.StartsWith("Growth-year copy", ConnectivityPatchSelector.ExclusionReason(Tree("copy"), ConnectivitySettings.Default, copies));
+    }
+
     /// <summary>Σᵢ Σⱼ aᵢ·aⱼ·p*ᵢⱼ by Floyd–Warshall over every pair, optionally with one patch removed.</summary>
     private static double BruteForcePcNumerator(IReadOnlyList<ConnectivityPatch> patches, double decay, int removed)
     {
