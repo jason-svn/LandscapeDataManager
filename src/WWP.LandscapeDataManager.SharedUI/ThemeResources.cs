@@ -11,31 +11,22 @@ internal static class ThemeResources
     {
         var colours = new UISettings();
         ThemeSettings? theme = null;
-        var subscribed = false;
         element.ActualThemeChanged += (_, _) => refresh();
+        // Subscribed once and never removed: the subscriptions live as long as the window, and
+        // QueueRefresh skips an unloaded element. Removing ThemeSettings.Changed in Unloaded failed
+        // fast in native code when the window closed (Unloaded runs after the window is gone), so
+        // every tool that observes the theme crashed on close.
         element.Loaded += (_, _) =>
         {
-            if (subscribed)
+            if (theme is null)
             {
-                return;
+                colours.ColorValuesChanged += ColoursChanged;
+                // ThemeSettings is the desktop counterpart to AccessibilitySettings.HighContrastChanged.
+                theme = ThemeSettings.CreateForWindowId(element.XamlRoot.ContentIslandEnvironment.AppWindowId);
+                theme.Changed += ContrastChanged;
             }
 
-            subscribed = true;
-            colours.ColorValuesChanged += ColoursChanged;
-            // ThemeSettings is the desktop counterpart to AccessibilitySettings.HighContrastChanged.
-            theme = ThemeSettings.CreateForWindowId(element.XamlRoot.ContentIslandEnvironment.AppWindowId);
-            theme.Changed += ContrastChanged;
             refresh();
-        };
-        element.Unloaded += (_, _) =>
-        {
-            subscribed = false;
-            colours.ColorValuesChanged -= ColoursChanged;
-            if (theme is not null)
-            {
-                theme.Changed -= ContrastChanged;
-                theme = null;
-            }
         };
 
         // System notifications can arrive on a background thread and can precede XAML's update.
