@@ -76,14 +76,19 @@ LIM（Landscape Information Manager）的计划、已完成的工作，以及修
   - `Years` = `AgeAtPlanting + ProjectedYears`，到 `Mature Age` 为止。没有最大高度时为 `AgeAtPlanting + min(ProjectedYears, 25)`。
   - `DBH` = `5.4 cm + (Years − AgeAtPlanting) × TrunkDiameterbyYear × 1 cm`，从 16/18 胸围的种植规格开始生长，到成熟为止。
   - 高度和宽度上限现在按真实米数比较。有 16 个类型的最大尺寸是按 mm 输入的，已经换算。
-- [ ] **树干生长率：** 每个类型的 `!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number`（cm/年）都是 0，所以在填入真实生长率之前，DBH 一直停在 5.4 cm。
-  - [x] **从 i-Tree 取值（2026-10-21 完成开发，尚未在沙盒里运行）：** i-Tree 的预测会给出每一年的 DBH，而且对同一树种、树况和冠层光照暴露度，每年树干增长的量相同（Acer campestre：Good、暴露度 3 时为 0.44 cm/年；暴露度 5 时为 0.78）。Growth Projections > Trunk growth from i-Tree 会为每个有树种代码的种植类型取生长率，采用该类型多数树的树况和暴露度（没有树时用 Good、3）：每种树种、树况和暴露度的组合只请求一次预测。
-  - [x] **Write to types** 把生长率写到每个 Revit 类型上（先预览，然后一步撤销）。
-  - [x] **Push to sheet** 把它保存到项目 Airtable 表格里新增的 "Trunk diameter annual growth rate (cm/yr)" 数字列，没有这一列时会自动添加（LIM-DATASET 这个 base 允许）。Importer 会把这一列映射到类型参数上。
+- [ ] **从 i-Tree 取生长率：** 族用 `!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number`（cm/年）增长 DBH，用 `..._HeightbyYear_Number` / `..._WidthbyYear_Number`（m/年）增长树高和冠宽，直到 i-Tree 给出这棵树自己的尺寸（见下）。
+  - [x] **树干（2026-10-21 完成开发）：** i-Tree 的预测会给出每一年的 DBH，而且对同一树种、树况和冠层光照暴露度，每年树干增长的量相同（Acer campestre：Good、暴露度 3 时为 0.44 cm/年；暴露度 5 时为 0.78），所以斜率就是族要的生长率。每个有树种代码的种植类型都按该类型多数树的树况和暴露度取值（没有树时用 Good、3）：每种树种、树况和暴露度的组合只请求一次预测。
+  - [x] **树高和冠宽（2026-10-22，你的决定：用 i-Tree 覆盖表格里的值）：** i-Tree 的预测也给出每一年的树高和树冠面积。它们从种植时的尺寸开始，而且越长越慢（Quercus robur，Good，3：种下时 6.34 m 高，第 1 年 +0.41 m，第 25 年 +0.30 m），所以从 0 开始的单一速率不可能每年都对上：速率取设计年时 i-Tree 的尺寸除以设计年（Quercus robur：25 年后 15.21 m 高、冠宽 8.04 m，即 0.61 和 0.32 m/年）。这样在设计年画出来的树，即使还没计算，大小也和 i-Tree 一致。树高速率也决定 `Mature Age`。
+  - [x] Growth Projections 第 3 步改为 **Growth rates**（树干、树高、冠宽）。**Write to types** 把三个速率都写到每个 Revit 类型上（先预览，一步撤销）。**Push to sheet** 覆盖 Airtable 表格里的 "Trunk diameter annual growth rate (cm/yr)"、"Height year annual growth rate (m/yr)" 和 "Width annual growth rate (m/yr)" 三列，缺哪列就加哪列；Importer 会把三列都映射到类型参数上。
   - [ ] 在沙盒里运行：Get rates、Write to types、Push to sheet，然后 Create, refresh & calculate。
-- [ ] **族的几何，尚未修改：**
-  - `TreeOverall_Height = Foliage_Height + TreeTrunk_Diameter` 应该是 `+ TreeTrunk_Height`。
-  - 画出来的树干（`TreeTrunk_Diameter`，7.5 cm）没有和 DBH 关联。
+- [x] **按 i-Tree 的尺寸画树（2026-10-22，你的决定）：** i-Tree 根据 DBH 推算树高和树冠（LIM 不发送树高和树冠），所以画出来的树现在用 i-Tree 的数字。新增两个实例参数（Analysis Results）：`!_S_PLT_iTreeResult_TreeHeight_Length` 和 `!_S_PLT_iTreeResult_CrownWidth_Length`（与 i-Tree 树冠面积相等的圆的直径）。每次 i-Tree 计算（Tree Calculator、Growth Projections、Refresh and Audit）都按树的 DBH 写入；i-Tree 算不了时写 0。族用它们画：树干高 = 树高 / 3，树冠高 = 2 × 树高 / 3，树冠半径 = 冠宽 / 2；为 0 时按生长率画。DBH 仍然用族公式：它是 i-Tree 的输入，而且用了 i-Tree 的树干速率后，每年都等于 i-Tree 的 DBH。工具改动了一棵树的年龄（Growth Projections、自动年龄更新）时，会清掉它的 i-Tree 尺寸，直到重新计算，所以副本不会沿用原始树的尺寸。Import Shared Parameter 会把它们加到项目里，用于明细表。
+- [x] **族的几何（2026-10-22，已载入沙盒；族文件本身没有保存）：**
+  - `TreeOverall_Height = TreeFoliage_Height + TreeTrunk_Height`（原来加的是树干直径）。
+  - `TreeTrunk_Diameter = TreeTrunk_DBH_Diameter`：画出来的树干跟着 DBH 变（原来每棵树都是 7.5 cm）。
+  - `TreeRoot_Diameter` 至少是树干直径的 4 倍，这样很小的树的树根轮廓也不会反转。
+  - `Mature Age` 和树高、冠宽的上限，把小于 1 m 的最大尺寸当作没填。
+  - 载入前测试：每个类型 × 8 个年龄（0 到 40 年，有和没有 i-Tree 尺寸），没有失败。沙盒里 1,010 棵树全部保留，每棵都有树干、树冠和树根。
+- [x] **最大尺寸被存成 mm（2026-10-22 修复）：** 沙盒里有 16 个类型的最大树高和冠宽是 mm（Prunus_Avium 20 mm × 12 mm），所以 `Mature Age` 为 1，这些类型的 75 棵树卡在第 1 年，只有 20 mm 高。已按 Airtable 表格（单位是米）改正（Prunus_Avium 20 m × 12 m，Mature Age 34）。Health Check 现在会提示最大尺寸小于 1 m 的树类型。
 - [ ] **其他种植族：** 给它们加上同样的参数和公式。
 
 ## Phase 2：Design option 方案
@@ -170,6 +175,7 @@ Dashboard 上的每一个数字都取决于选对方案，所以这一步排在�
 - [x] **KPI Schedules：** 重建了 9 个（包括新的 option），带连通性、氧气、维护和预测列。
 - [x] **Connectivity：** 各档数量显示在 Dashboard 上（312 个关键、537 个强、453 个中等、321 个弱、43 个未评估）。
 - [x] **Growth Projections：** 对未激活的 design option，运行会把原始树移到 Baseline workset，并跳过副本，提示需要激活该 option；激活后，在该 option 里的正确 workset 上生成了 543 个副本（ProjectedYears 10 → Years 15）；再次运行更新了这 543 个，没有新建。
+- 2026-10-22 修复：Dashboard、Floor Calculator 和 i-Tree Calculator 每次关闭都会崩溃（窗口已经关掉后才取消主题订阅）；现在订阅一直保留到窗口关闭。
 - 测试中修复的问题：Floor Calculator 启动时崩溃（增量构建产生了不完整的 `.pri`——干净重建后解决；现在启动崩溃会记录到 `%TEMP%`）；"Raingarden" 和湿地类型现在算作透水；`WWP_Surfaces_Building` 类型的 floor（匹配到 Asphalt）作为建筑不计入；KPI 明细表和 Growth Projections 的标签不再重复两次 "primary"（Revit 端插件有改动：需要装下一版，然后重建 KPI 明细表）。
 - [ ] **Excel Importer** 没有运行（维护费率已经在类型上了）。
 - [ ] 用真实的种植族核对成熟尺寸的计算（见 Phase 4 中 Prunus avium `Mature Age` = 1 的说明）。

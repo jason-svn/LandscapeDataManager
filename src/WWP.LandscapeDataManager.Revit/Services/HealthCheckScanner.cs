@@ -36,6 +36,11 @@ internal static class HealthCheckScanner
             warnings.Add("WWP landscape data sheet shared parameters are not set up for Floors yet — run Shared Parameter Setup, then Load parameters and Apply.");
         }
 
+        if (TinyTreeTypesWarning(document) is { } tinyTrees)
+        {
+            warnings.Add(tinyTrees);
+        }
+
         var floorItems = ScanFloors(document, floorParametersBound)
             .OrderBy(item => item.FamilyName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.TypeName, StringComparer.OrdinalIgnoreCase)
@@ -95,6 +100,37 @@ internal static class HealthCheckScanner
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Tree types (those with a trunk growth rate) whose max height or width is under 1 m: a WWP sheet
+    /// size, which is in metres, stored as mm (20 m read as 20 mm). The planting family ignores such a
+    /// size, so the tree gets no Mature Age and no size cap. Null when there are none.
+    /// </summary>
+    private static string? TinyTreeTypesWarning(Document document)
+    {
+        static double? Metres(Element type, string name) =>
+            type.LookupParameter(name) is { HasValue: true, StorageType: StorageType.Double } parameter && parameter.AsDouble() > 0
+                ? UnitUtils.ConvertFromInternalUnits(parameter.AsDouble(), UnitTypeId.Meters)
+                : null;
+
+        var tiny = new FilteredElementCollector(document)
+            .OfCategory(BuiltInCategory.OST_Planting)
+            .WhereElementIsElementType()
+            .Where(type => type.LookupParameter("!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number") is not null)
+            .Select(type => (type.Name, Height: Metres(type, "!_S_PLT_LDS_MaxHeight_Length"), Width: Metres(type, "!_S_PLT_LDS_MaxWidth_Length")))
+            .Where(type => type.Height is < 1 || type.Width is < 1)
+            .OrderBy(type => type.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (tiny.Count == 0)
+        {
+            return null;
+        }
+
+        var examples = string.Join(", ", tiny.Take(5).Select(type => $"{type.Name} {type.Height:0.###} × {type.Width:0.###} m"));
+        return $"{tiny.Count:N0} tree type(s) have a max height or width under 1 m ({examples}{(tiny.Count > 5 ? ", …" : string.Empty)}). " +
+               "The WWP sheet's sizes are in metres, so these were probably stored as mm; the planting family ignores them, so these trees get no Mature Age. " +
+               "Import the types again with the Importer, or fix the sizes on the types.";
     }
 
     private static (string FamilyName, string TypeName) GetFamilyAndTypeName(Document document, Element element)
