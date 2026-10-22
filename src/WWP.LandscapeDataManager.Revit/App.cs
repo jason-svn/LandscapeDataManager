@@ -139,7 +139,7 @@ public sealed class App : IExternalApplication
             "Growth\nProjections",
             "GP",
             "Growth Projections",
-            "Model the planting at each growth year: the original trees become year 0 (Baseline) and each tree is copied onto a growth-year workset with its age set to its age at planting plus that year. Re-run to refresh the linked copies.");
+            "Model the planting at each growth year: the original trees become year 0 (the project start) and each tree is copied onto a growth-year workset with its age set to its age at planting plus that year. Re-run to refresh the linked copies.");
 
         AddWorkflowButton<CalculateITreeCommand>(
             dataCalculationPanel,

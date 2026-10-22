@@ -51,7 +51,7 @@ public sealed class DesignOptionRow(GrowthDesignOptionChoice choice)
 public sealed class YearCalculationRow(int year, int trees, int calculated, int toCalculate, int needsAttention)
 {
     public int Year { get; } = year;
-    public string YearText { get; } = year == 0 ? "0 (Baseline)" : year.ToString();
+    public string YearText { get; } = year == 0 ? "0 (project start)" : year.ToString();
     public string TreesText { get; } = trees.ToString("N0");
     public string CalculatedText { get; } = calculated.ToString("N0");
     public string ToCalculateText { get; } = toCalculate.ToString("N0");
@@ -61,7 +61,7 @@ public sealed class YearCalculationRow(int year, int trees, int calculated, int 
 /// <summary>An existing growth-year workset, for the status table.</summary>
 public sealed class WorksetRow(GrowthYearWorkset workset)
 {
-    public string YearText { get; } = workset.Year == 0 ? "0 (Baseline)" : workset.Year.ToString();
+    public string YearText { get; } = workset.Year == 0 ? "0 (project start)" : workset.Year.ToString();
     public string WorksetName { get; } = workset.WorksetName;
     public string TreeCountText { get; } = workset.TreeCount.ToString("N0");
     public string LinkedText { get; } = workset.Year == 0 ? "originals" : $"{workset.LinkedCopyCount:N0} linked";

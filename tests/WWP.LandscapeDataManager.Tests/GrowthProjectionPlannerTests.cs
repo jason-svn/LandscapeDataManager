@@ -57,6 +57,7 @@ public class GrowthProjectionPlannerTests
 
     [Theory]
     [InlineData("LIM_Growth_0yr - Baseline", 0)]
+    [InlineData("LIM_Growth_0yr - Project start", 0)]
     [InlineData("LIM_Growth_7yr", 7)]
     [InlineData("LIM_Growth_30yr", 30)]
     [InlineData("Trees - 150 Years", null)]

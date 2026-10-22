@@ -9,7 +9,7 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 /// Growth Projections: models the planting at several growth years by copying each original tree
 /// onto a growth-year workset (<see cref="GrowthYearNames.WorksetName"/>) with its modelled age
 /// (<c>!_S_PLT_TreeGrowth_Years_Number</c>) set to its age at planting plus that year. The originals
-/// move to the year-0 "Baseline" workset, so every year is its own complete set. Each copy carries an
+/// move to the year-0 ("Project start") workset, so every year is its own complete set. Each copy carries an
 /// extensible-storage link to its original, so running again refreshes copies in place (location,
 /// rotation, type, i-Tree inputs) instead of duplicating them — and keeps their calculated results.
 /// Copies are labelled in <see cref="GeneratedByParameter"/> and pinned, so nobody edits them by hand.

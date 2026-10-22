@@ -61,7 +61,7 @@ public sealed record TreeOverlapGroup(OrganizerTree Keep, IReadOnlyList<Organize
 
 /// <summary>
 /// Sorting by growth year: <c>!_S_PLT_TreeGrowth_ProjectedYears_Number</c> decides which growth-year
-/// workset a tree belongs on (year 0 = Baseline). A copy Growth Projections made belongs to its
+/// workset a tree belongs on (year 0 = the project start). A copy Growth Projections made belongs to its
 /// link's year instead, since the tool manages it. Trees without a projected year are left where
 /// they are; grouped trees can't change workset on their own.
 /// </summary>

@@ -701,7 +701,7 @@ public sealed partial class MainPage : Page
         var parts = new List<string>
         {
             $"{result.OriginalsInScope:N0} original tree(s) in scope",
-            $"move {result.MovedToBaseline:N0} to the Baseline workset",
+            $"move {result.MovedToBaseline:N0} to the year-0 (project start) workset",
             $"create {result.Created:N0} copies",
             $"refresh {result.Updated:N0}",
             $"remove {result.Deleted:N0} orphaned/duplicate copies"

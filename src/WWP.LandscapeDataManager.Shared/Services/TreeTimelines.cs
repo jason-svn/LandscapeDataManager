@@ -28,7 +28,7 @@ public static class TreeTimelines
             ? Math.Clamp(matureAge.Value - Math.Max(0, ageAtPlanting ?? 0), 1, MaximumHorizonYears)
             : DefaultHorizonYears;
 
-    /// <summary>A planted tree: not a growth-year copy (growth year 0 is the Baseline workset) and not in a group.</summary>
+    /// <summary>A planted tree: not a growth-year copy (growth year 0 is the project-start workset) and not in a group.</summary>
     public static bool IsPlanted(PlantingInstanceValidationItem item) => item.GrowthYear is null or 0 && !item.InGroup;
 
     /// <summary>The planting input sent to i-Tree for the forecast, or null while something it needs is missing.</summary>

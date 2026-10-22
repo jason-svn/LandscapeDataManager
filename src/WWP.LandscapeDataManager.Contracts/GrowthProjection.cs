@@ -24,7 +24,7 @@ public sealed record GrowthYearWorkset(int Year, string WorksetName, int TreeCou
 /// What Growth Projections needs to show before a run. Original trees are Planting instances that
 /// aren't copies made by the tool; <see cref="UnlinkedGrowthTrees"/> are trees on a growth year above
 /// 0 (by workset or by projected year) that the tool didn't make (e.g. placed by hand), which it never
-/// copies or moves back to Baseline.
+/// copies or moves back to year 0.
 /// </summary>
 public sealed record GrowthProjectionStatus(
     string DocumentTitle,

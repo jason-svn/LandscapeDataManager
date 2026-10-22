@@ -26,7 +26,7 @@
                 <StackPanel Spacing="4">
                     <TextBlock Text="Growth Projections" Style="{StaticResource LimPageTitleStyle}" />
                     <TextBlock Style="{StaticResource LimPageSubtitleStyle}" TextWrapping="Wrap"
-                               Text="Models the planting at each growth year. The original trees become year 0 (Baseline); for every growth year below, each tree is copied onto its own workset with that year written to !_S_PLT_TreeGrowth_ProjectedYears_Number — the planting family turns it into the tree's age (AgeAtPlanting + ProjectedYears). Run it again after editing the originals to refresh the copies — they're linked, so nothing is duplicated. Copies are pinned and labelled in !_S_PLT_TreeGrowth_GeneratedBy_Text so nobody edits them by hand: edit the original tree instead." />
+                               Text="Models the planting at each growth year. The original trees become year 0 (the project start); for every growth year below, each tree is copied onto its own workset with that year written to !_S_PLT_TreeGrowth_ProjectedYears_Number — the planting family turns it into the tree's age (AgeAtPlanting + ProjectedYears). Run it again after editing the originals to refresh the copies — they're linked, so nothing is duplicated. Copies are pinned and labelled in !_S_PLT_TreeGrowth_GeneratedBy_Text so nobody edits them by hand: edit the original tree instead." />
                 </StackPanel>
                 <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
             </Grid>
@@ -47,7 +47,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Year 0" FontWeight="SemiBold" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="1" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Text="Baseline — the original trees as planted, moved onto LIM_Growth_0yr - Baseline." />
+                                   Text="Project start — the original trees as planted, moved onto LIM_Growth_0yr - Project start." />
                     </Grid>
                     <ItemsControl ItemsSource="{x:Bind YearRows}">
                         <ItemsControl.ItemTemplate>
@@ -155,7 +155,7 @@
                                 ToolTipService.ToolTip="Reads every tree's projected year, workset, design option and position. Overlapping trees turn red in the active view; nothing else changes." />
                     </Grid>
                     <TextBlock Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
-                               Text="Each tree belongs on the workset of its projected year (!_S_PLT_TreeGrowth_ProjectedYears_Number; 0 = Baseline). Copies made by Growth Projections belong on their own year. Check lists the trees on another workset, and the trees that overlap another one on the same workset in the same design option." />
+                               Text="Each tree belongs on the workset of its projected year (!_S_PLT_TreeGrowth_ProjectedYears_Number; 0 = the project start). Copies made by Growth Projections belong on their own year. Check lists the trees on another workset, and the trees that overlap another one on the same workset in the same design option." />
 
                     <TextBlock Text="Trees on another workset" FontWeight="SemiBold" Margin="0,4,0,0" />
                     <TextBlock x:Name="SortSummaryText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" Text="Select Check to see which trees aren't on their year's workset." />

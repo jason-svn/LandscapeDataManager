@@ -4,7 +4,7 @@ namespace WWP.LandscapeDataManager.Contracts;
 
 /// <summary>
 /// The naming rule for growth years: a workset (or, in older models, a design option) whose name
-/// carries a year count — e.g. "Trees - 15 Years", "LIM_Growth_10yr", "LIM_Growth_0yr - Baseline" —
+/// carries a year count — e.g. "Trees - 15 Years", "LIM_Growth_10yr", "LIM_Growth_0yr - Project start" (or the old "- Baseline") —
 /// holds the planting as it stands that many years after planting (0 = as planted). Any whole
 /// number of years from 0 to <see cref="MaximumYear"/> counts, so Growth Projections can add custom
 /// years. Shared by the Revit connector (tree age sync, Growth Projections) and the tools.
@@ -20,7 +20,8 @@ public static partial class GrowthYearNames
     private static partial Regex GrowthSuffixPattern();
 
     /// <summary>The workset name Growth Projections gives a growth year.</summary>
-    public static string WorksetName(int year) => year == 0 ? "LIM_Growth_0yr - Baseline" : $"LIM_Growth_{year}yr";
+    // Year 0 is the project's start, as planted. Not "Baseline": that's the Existing phase (BNG).
+    public static string WorksetName(int year) => year == 0 ? "LIM_Growth_0yr - Project start" : $"LIM_Growth_{year}yr";
 
     /// <summary>The growth year named in <paramref name="name"/>, else null.</summary>
     public static int? FromName(string? name)
