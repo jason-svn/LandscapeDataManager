@@ -123,4 +123,41 @@ public sealed class DefaultParameterMappingCatalogTests
 
         Assert.Null(match);
     }
+
+    [Fact]
+    public void The_pollutants_column_maps_to_its_rate_never_to_the_calculated_result()
+    {
+        var options = new[] { Option("!_S_PLT_Result_PollutantsRemovedAnnual_Mass", "Instance"), Option("!_S_PLT_LDS_PollutantsRemovedRate_Number") };
+
+        var match = DefaultParameterMappingCatalog.FindMatch("WWP_Pollutants_Removed", options, new HashSet<string>());
+
+        Assert.Equal("!_S_PLT_LDS_PollutantsRemovedRate_Number", match?.Descriptor.Name);
+    }
+
+    [Theory]
+    [InlineData("!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Volume", "!_S_PLT_LDS_RunoffAvoidedRate_Number")]
+    [InlineData("!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Mass", "!_S_PLT_LDS_CO2SequestrationRate_Number")]
+    [InlineData("!_S_PLT_LDS_OxygenLevelsAnnual_Mass", "!_S_PLT_LDS_OxygenProductionRate_Number")]
+    [InlineData("!_S_PLT_LDS_ProductGWP_Number", "!_S_PLT_LDS_ProductGWPRate_Number")]
+    [InlineData("!_S_PLT_LDS_TransportGWP_Number", "!_S_PLT_LDS_TransportGWPRate_Number")]
+    [InlineData("!_S_PLT_LDS_PollutantsRemovedAnnual_Mass", "!_S_PLT_LDS_PollutantsRemovedRate_Number")]
+    [InlineData("!_S_PLT_LDS_TotalGWP_Mass", "!_S_PLT_LDS_TotalGWP_Mass")]          // no successor: still retired
+    [InlineData("!_S_PLT_iTreeSpecies_Code_Text", "!_S_PLT_iTreeSpecies_Code_Text")] // not renamed
+    public void A_mapping_saved_before_a_rename_follows_it(string saved, string current)
+    {
+        Assert.Equal(current, DefaultParameterMappingCatalog.CurrentName(saved));
+        if (saved != current)
+        {
+            Assert.True(DefaultParameterMappingCatalog.IsImportTarget(current));
+        }
+    }
+
+    [Fact]
+    public void Deliberately_skipped_columns_say_why_and_known_columns_name_their_parameter()
+    {
+        Assert.NotNull(DefaultParameterMappingCatalog.SkipReason("WWP_Total_GWP"));
+        Assert.Null(DefaultParameterMappingCatalog.SkipReason("Pollen"));
+        Assert.Equal("!_S_PLT_LDS_RunoffAvoidedRate_Number", DefaultParameterMappingCatalog.DefaultParameter("Avoided runoff m3/yr (16/18 girth)"));
+        Assert.Null(DefaultParameterMappingCatalog.DefaultParameter("Some Totally Unrelated Column"));
+    }
 }

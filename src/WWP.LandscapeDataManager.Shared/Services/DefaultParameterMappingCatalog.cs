@@ -55,6 +55,43 @@ public static class DefaultParameterMappingCatalog
     };
 
     /// <summary>
+    /// What each retired import target became, so a mapping saved before the rename keeps working:
+    /// the Importer and Sync Audit read it as the current parameter, with the user's own on/off and
+    /// conversion choices. Retired names with no importable successor (calculated results) aren't here.
+    /// </summary>
+    private static readonly Dictionary<string, string> RenamedParameters = new(StringComparer.Ordinal)
+    {
+        ["!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Mass"] = "!_S_PLT_LDS_CO2SequestrationRate_Number",
+        ["!_S_PLT_LDS_CarbonDioxideSequestrationAnnual_Number"] = "!_S_PLT_LDS_CO2SequestrationRate_Number",
+        ["!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Volume"] = "!_S_PLT_LDS_RunoffAvoidedRate_Number",
+        ["!_S_PLT_LDS_AvoidedWaterRunoffAnnual_Number"] = "!_S_PLT_LDS_RunoffAvoidedRate_Number",
+        ["!_S_PLT_LDS_OxygenLevelsAnnual_Mass"] = "!_S_PLT_LDS_OxygenProductionRate_Number",
+        ["!_S_PLT_LDS_OxygenLevelsAnnual_Number"] = "!_S_PLT_LDS_OxygenProductionRate_Number",
+        ["!_S_PLT_LDS_ProductGWP_Number"] = "!_S_PLT_LDS_ProductGWPRate_Number",
+        ["!_S_PLT_LDS_TransportGWP_Number"] = "!_S_PLT_LDS_TransportGWPRate_Number",
+        ["!_S_PLT_LDS_PollutantsRemovedAnnual_Mass"] = "!_S_PLT_LDS_PollutantsRemovedRate_Number",
+        ["!_S_PLT_LDS_PollutantsRemovedAnnual_Number"] = "!_S_PLT_LDS_PollutantsRemovedRate_Number",
+    };
+
+    /// <summary>The current name for a saved mapping's parameter: its successor if it was renamed, else itself.</summary>
+    public static string CurrentName(string parameterName) =>
+        RenamedParameters.TryGetValue(parameterName, out var current) ? current : parameterName;
+
+    /// <summary>
+    /// Why a sheet column is deliberately left unmapped, shown in place of "Needs mapping" so it
+    /// doesn't read as a gap; null for an ordinary column.
+    /// </summary>
+    public static string? SkipReason(string header) => header.Trim() switch
+    {
+        "WWP_Total_GWP" => "Not imported — formula column (product + transport GWP)",
+        _ => null
+    };
+
+    /// <summary>The LIM parameter a known sheet column belongs on, or null when the header has no default.</summary>
+    public static string? DefaultParameter(string header) =>
+        GetCandidates(header).FirstOrDefault(candidate => candidate.StartsWith("!_S_PLT_", StringComparison.Ordinal));
+
+    /// <summary>
     /// Whether the Importer may write to this parameter. Never a calculated <c>!_S_PLT_Result_*</c>,
     /// <c>!_S_PLT_BNGResult_*</c>, or <c>!_S_PLT_ConnectivityResult_*</c> parameter
     /// (a calculator owns it — importing would overwrite its results with raw sheet values),
@@ -94,9 +131,9 @@ public static class DefaultParameterMappingCatalog
         "COST SAVED per year - Oxygen" => ["!_S_PLT_LDS_OxygenCostSavedAnnual_Currency", header],
         "f_int and Crg ( fraction of rainfall intercepted by the area(dimensionless, per planting type) (runoff coefficient" => ["!_S_PLT_LDS_RunoffCoefficient_Number", header],
         "Allergenic" => ["!_S_PLT_iTreeSpecies_Allergenic_Text", header],
-        // A per-m² rate; !_S_PLT_Result_PollutantsRemovedAnnual_Mass is Floor Calculator's
-        // area-scaled result — the raw column must never overwrite it, so it isn't auto-mapped.
-        "WWP_Pollutants_Removed" => [],
+        // A rate like the four above. Never !_S_PLT_Result_PollutantsRemovedAnnual_Mass, Floor
+        // Calculator's area-scaled result, which the raw column must not overwrite.
+        "WWP_Pollutants_Removed" => ["!_S_PLT_LDS_PollutantsRemovedRate_Number"],
         "Origin" => ["!_S_PLT_LDS_Origin_Text", header],
         "WWP_LDS_Category" => ["!_S_PLT_LDS_Category_Text", header],
         "WWP_LDS_SubCategory" => ["!_S_PLT_LDS_SubCategory_Text", header],

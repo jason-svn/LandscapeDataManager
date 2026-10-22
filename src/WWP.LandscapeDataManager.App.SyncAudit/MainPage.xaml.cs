@@ -154,9 +154,10 @@ public sealed partial class MainPage : Page
         _preferredCurrency = catalog.PreferredCurrency;
 
         var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
-        // Same guard as the Importer: a mapping saved before a rename (or onto a calculated
-        // !_S_PLT_Result_* parameter) is never re-applied.
+        // Same rules as the Importer: a mapping saved before a rename follows it to the current
+        // parameter; one onto a calculated !_S_PLT_Result_* parameter is never re-applied.
         var mappings = (snapshot?.ParameterMappings ?? [])
+            .Select(mapping => mapping with { RevitParameter = DefaultParameterMappingCatalog.CurrentName(mapping.RevitParameter) })
             .Where(mapping => DefaultParameterMappingCatalog.IsImportTarget(mapping.RevitParameter))
             .ToList();
         var aliases = snapshot?.TypeAliases ?? [];

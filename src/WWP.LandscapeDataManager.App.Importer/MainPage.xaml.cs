@@ -289,19 +289,26 @@ public sealed partial class MainPage : Page
             bool enabled;
             string conversion;
 
-            if (saved is not null)
+            // A saved mapping to a renamed parameter follows the rename, keeping the user's choices.
+            var savedParameter = saved is null ? null : DefaultParameterMappingCatalog.CurrentName(saved.RevitParameter);
+            var savedTarget = saved is null
+                ? null
+                : (string.Equals(saved.Scope, "Instance", StringComparison.OrdinalIgnoreCase) ? instanceOptions : typeOptions)
+                    .FirstOrDefault(option => string.Equals(option.Descriptor.Name, savedParameter, StringComparison.OrdinalIgnoreCase));
+
+            if (saved is not null && savedTarget is not null)
             {
+                target = savedTarget;
                 scope = saved.Scope;
-                var savedTargetOptions = string.Equals(scope, "Instance", StringComparison.OrdinalIgnoreCase) ? instanceOptions : typeOptions;
-                target = savedTargetOptions.FirstOrDefault(option =>
-                    string.Equals(option.Descriptor.Name, saved.RevitParameter, StringComparison.OrdinalIgnoreCase));
-                enabled = target is not null && saved.Enabled;
+                enabled = saved.Enabled;
                 conversion = saved.Conversion;
             }
             else
             {
+                // Never mapped, or the saved parameter is gone (retired, or not bound in this
+                // project): the default mapping, so the column isn't left blank.
                 target = DefaultParameterMappingCatalog.FindMatch(header, allOptions, usedTargetKeys);
-                scope = target?.Descriptor.Scope ?? "Type";
+                scope = target?.Descriptor.Scope ?? saved?.Scope ?? "Type";
                 enabled = target is not null;
                 conversion = "Auto (Revit spec)";
             }
@@ -316,10 +323,22 @@ public sealed partial class MainPage : Page
                 SelectedAirtableField = header,
                 SelectedTarget = target,
                 SelectedConversion = conversion,
-                Enabled = enabled
+                Enabled = enabled,
+                UnmappedReason = UnmappedReason(header, allOptions)
             });
         }
     }
+
+    /// <summary>
+    /// Why a column can't be mapped yet, when that's known: a sheet column deliberately not imported,
+    /// or one whose LIM parameter isn't bound (writable) in this project — fixed by Import Shared Parameter.
+    /// </summary>
+    private static string? UnmappedReason(string header, IReadOnlyList<ParameterOption> options) =>
+        DefaultParameterMappingCatalog.SkipReason(header) ??
+        (DefaultParameterMappingCatalog.DefaultParameter(header) is { } parameter &&
+         !options.Any(option => string.Equals(option.Descriptor.Name, parameter, StringComparison.OrdinalIgnoreCase))
+            ? $"Run Import Shared Parameter: {parameter} isn't in this project yet"
+            : null);
 
     private void AutoMap_Click(object sender, RoutedEventArgs e)
     {

@@ -902,6 +902,11 @@ internal static class SharedParameterSetupService
             PlantingAndFloorType("!_S_PLT_LDS_TransportGWPRate_Number", GroupTypeId.AnalysisResults,
                 "Embodied transport GWP RATE (delivery to site, stage A4) from the WWP landscape data sheet, kg CO2e per m².",
                 legacyAliases: ["!_S_PLT_LDS_TransportGWP_Number"]),
+            // The sheet's WWP_Pollutants_Removed column, the one rate that had no parameter of its own:
+            // imported here like its siblings, never onto the area-scaled Result_PollutantsRemovedAnnual_Mass.
+            PlantingAndFloorType("!_S_PLT_LDS_PollutantsRemovedRate_Number", GroupTypeId.AnalysisResults,
+                "Air pollution removal RATE from the WWP landscape data sheet: kg/yr per 16/18-girth starter tree for trees, kg/m²/yr for planting areas. Floor Calculator multiplies it by area into !_S_PLT_Result_PollutantsRemovedAnnual_Mass.",
+                legacyAliases: ["WWP_Pollutants_Removed"]),
             PlantingAndFloorType("!_S_PLT_LDS_PollenAnnual_Number", GroupTypeId.AnalysisResults,
                 "Estimated annual pollen production for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area. Metric: kg/m²/yr. (Metric-only — no Imperial conversion.)"),
             // Reference values from the WWP landscape data sheet — every instance of a type shares

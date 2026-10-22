@@ -112,8 +112,14 @@ public sealed class MappingRow : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    /// Why this column has no target, when that's known: deliberately not imported, or its
+    /// parameter isn't in the project yet. Shown in place of the plain "Needs mapping".
+    /// </summary>
+    public string? UnmappedReason { get; set; }
+
     public string MappingStatus => SelectedTarget is null
-        ? "Needs mapping"
+        ? UnmappedReason ?? "Needs mapping"
         : Enabled ? "Ready" : "Ignored";
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
