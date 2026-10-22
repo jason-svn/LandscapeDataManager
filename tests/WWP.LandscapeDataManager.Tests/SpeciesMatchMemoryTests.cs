@@ -56,6 +56,22 @@ public sealed class SpeciesMatchMemoryTests : IDisposable
     }
 
     [Fact]
+    public void The_wwp_sheets_species_code_beats_the_name_guess_but_not_a_remembered_pick()
+    {
+        var (record, source) = SpeciesMatchResolver.Resolve("F", "T", null, Catalogue, new Dictionary<string, string>(), () => Birch, () => "QURO");
+        Assert.Equal((Oak, SpeciesMatchSource.Sheet), (record, source));
+
+        var remembered = new Dictionary<string, string> { [SpeciesMatchMemory.Key("F", "T")] = "ACCA" };
+        Assert.Equal(SpeciesMatchSource.Remembered, SpeciesMatchResolver.Resolve("F", "T", null, Catalogue, remembered, () => Birch, () => "QURO").Source);
+    }
+
+    [Fact]
+    public void A_sheet_code_i_tree_doesnt_have_falls_through_to_the_name_guess() =>
+        Assert.Equal(
+            (Birch, SpeciesMatchSource.NameMatch),
+            SpeciesMatchResolver.Resolve("F", "T", null, Catalogue, new Dictionary<string, string>(), () => Birch, () => "CUSTOM1"));
+
+    [Fact]
     public void A_code_missing_from_the_catalogue_falls_through_to_the_next_source()
     {
         var remembered = new Dictionary<string, string> { [SpeciesMatchMemory.Key("F", "T")] = "GONE" };

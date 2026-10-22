@@ -129,11 +129,19 @@ public enum SpeciesMatchSource
     /// <summary>The user picked this species by hand for the same family and type before.</summary>
     Remembered,
 
+    /// <summary>The WWP landscape data sheet (Airtable) lists this type, with this species code.</summary>
+    Sheet,
+
     /// <summary>Guessed from the family or type name.</summary>
     NameMatch
 }
 
-/// <summary>Picks a planting type's species: the one it already has, else a remembered manual pick, else a name match.</summary>
+/// <summary>
+/// Picks a planting type's species: the one it already has, else a remembered manual pick, else the
+/// species code the WWP sheet lists for that type, else a guess from the name against i-Tree's catalogue.
+/// The sheet comes before the guess because it's an exact lookup of the type's own name, while the guess
+/// scores the family name first (a generic family like "WWP_Vegetation_Tree" can match the wrong species).
+/// </summary>
 public static class SpeciesMatchResolver
 {
     public static (SpeciesCatalogueRecord? Record, SpeciesMatchSource Source) Resolve(
@@ -142,7 +150,8 @@ public static class SpeciesMatchResolver
         string? currentSpeciesCode,
         IReadOnlyDictionary<string, SpeciesCatalogueRecord> catalogueByCode,
         IReadOnlyDictionary<string, string> remembered,
-        Func<SpeciesCatalogueRecord?> nameMatch)
+        Func<SpeciesCatalogueRecord?> nameMatch,
+        Func<string?>? sheetSpeciesCode = null)
     {
         // A code no longer in the catalogue (deprecated, or typed by hand) falls through.
         if (!string.IsNullOrWhiteSpace(currentSpeciesCode) && catalogueByCode.TryGetValue(currentSpeciesCode.Trim(), out var saved))
@@ -154,6 +163,12 @@ public static class SpeciesMatchResolver
             catalogueByCode.TryGetValue(rememberedCode, out var picked))
         {
             return (picked, SpeciesMatchSource.Remembered);
+        }
+
+        // A sheet code i-Tree's catalogue doesn't have (a custom or retired code) can't be assigned.
+        if (sheetSpeciesCode?.Invoke() is { } sheetCode && catalogueByCode.TryGetValue(sheetCode.Trim(), out var listed))
+        {
+            return (listed, SpeciesMatchSource.Sheet);
         }
 
         return nameMatch() is { } guessed ? (guessed, SpeciesMatchSource.NameMatch) : (null, SpeciesMatchSource.None);

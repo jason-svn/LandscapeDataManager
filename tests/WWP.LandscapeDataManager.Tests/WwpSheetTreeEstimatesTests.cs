@@ -87,6 +87,27 @@ public sealed class WwpSheetTreeEstimatesTests
         Assert.Equal(expectedHow, how);
     }
 
+    [Theory]
+    [InlineData("WWP_Vegetation_Tree", "Acer_Campestre", "ACCA")]   // the type's own name
+    [InlineData("Quercus Robur", "Large", "QURO")]                  // else its family's
+    [InlineData("WWP_Vegetation_Tree", "Mystery", null)]            // no Generic fallback by name
+    public void Tree_searcher_finds_a_types_species_code_on_the_sheet_by_name(string family, string type, string? expectedCode) =>
+        Assert.Equal(expectedCode, WwpSheetTreeEstimates.FindRowByName(family, type, Sheet).Row?.SpeciesCode);
+
+    [Fact]
+    public void A_sheet_row_without_a_code_finds_its_species_by_scientific_name()
+    {
+        var index = WwpSheetTreeEstimates.ScientificNameIndex(
+        [
+            new SpeciesCatalogueRecord("FREX", "European ash", "Fraxinus excelsior", "Species", null),
+            new SpeciesCatalogueRecord("ACCA", "Hedge maple", "Acer campestre", "Species", null)
+        ]);
+
+        Assert.Equal("FREX", WwpSheetTreeEstimates.SpeciesCodeFor(Row("Fraxinus_Excelsior"), index));
+        Assert.Equal("ACCA", WwpSheetTreeEstimates.SpeciesCodeFor(Row("Hedge_Maple_Variety", code: "ACCA"), index)); // its own code first
+        Assert.Null(WwpSheetTreeEstimates.SpeciesCodeFor(Row("Amelanchier_Robin_Hill"), index));
+    }
+
     [Fact]
     public void Planting_area_rows_are_never_a_trees_row()
     {

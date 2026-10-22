@@ -55,19 +55,55 @@ public static class WwpSheetTreeEstimates
             return (bySpecies, SheetRowMatch.SpeciesCode);
         }
 
-        if (trees.FirstOrDefault(row => SameName(row.TypeName, typeName)) is { } byType)
+        var (named, how) = FindRowByName(familyName, typeName, trees);
+        if (named is not null)
         {
-            return (byType, SheetRowMatch.TypeName);
-        }
-
-        if (trees.FirstOrDefault(row => SameName(row.TypeName, familyName)) is { } byFamily)
-        {
-            return (byFamily, SheetRowMatch.FamilyName);
+            return (named, how);
         }
 
         return trees.FirstOrDefault(row => SameName(row.TypeName, "Generic")) is { } generic
             ? (generic, SheetRowMatch.Generic)
             : (null, SheetRowMatch.None);
+    }
+
+    /// <summary>
+    /// The tree's sheet row by name alone — a sheet type named exactly like the Revit type, else like
+    /// its family — with no species-code or Generic fallback. Tree Searcher uses it to find a type's
+    /// species from the sheet's Species Code when it has none yet.
+    /// </summary>
+    public static (WwpLdsCoefficientRecord? Row, SheetRowMatch How) FindRowByName(
+        string familyName, string typeName, IReadOnlyList<WwpLdsCoefficientRecord> rows)
+    {
+        var trees = rows.Where(IsTreeRow).ToList();
+        if (trees.FirstOrDefault(row => SameName(row.TypeName, typeName)) is { } byType)
+        {
+            return (byType, SheetRowMatch.TypeName);
+        }
+
+        return trees.FirstOrDefault(row => SameName(row.TypeName, familyName)) is { } byFamily
+            ? (byFamily, SheetRowMatch.FamilyName)
+            : (null, SheetRowMatch.None);
+    }
+
+    /// <summary>
+    /// The species a sheet tree row stands for: its Species Code, else the i-Tree species whose
+    /// scientific name is the row's name (the sheet names trees like "Fraxinus_Excelsior" but gives
+    /// only some of them a code). <paramref name="codeByScientificName"/> is from <see cref="ScientificNameIndex"/>.
+    /// </summary>
+    public static string? SpeciesCodeFor(WwpLdsCoefficientRecord row, IReadOnlyDictionary<string, string> codeByScientificName) =>
+        row.SpeciesCode ??
+        (codeByScientificName.TryGetValue(DefaultParameterMappingCatalog.Normalize(row.TypeName), out var code) ? code : null);
+
+    /// <summary>i-Tree species codes by scientific name, letters and digits only ("FRAXINUSEXCELSIOR").</summary>
+    public static IReadOnlyDictionary<string, string> ScientificNameIndex(IEnumerable<SpeciesCatalogueRecord> catalogue)
+    {
+        var index = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var record in catalogue.Where(record => !string.IsNullOrWhiteSpace(record.ScientificName)))
+        {
+            index.TryAdd(DefaultParameterMappingCatalog.Normalize(record.ScientificName), record.SpeciesCode);
+        }
+
+        return index;
     }
 
     public static bool IsTreeRow(WwpLdsCoefficientRecord row) =>

@@ -14,6 +14,9 @@ public sealed partial class MainPage : Page
 
     private readonly SpeciesCatalogueDatabase _catalogueDatabase = new();
     private readonly SpeciesMatchMemory _matchMemory = new();
+    private readonly WwpLdsCoefficientDatabase _sheetCache = new();
+    private IReadOnlyList<WwpLdsCoefficientRecord> _sheetRows = [];
+    private IReadOnlyDictionary<string, string> _codeByScientificName = new Dictionary<string, string>();
     private readonly AirtableApiClient _airtableApiClient = new();
     private readonly AirtableCredentialStore _airtableCredentialStore = new();
     private RevitPipeClient? _revitClient;
@@ -57,6 +60,7 @@ public sealed partial class MainPage : Page
         _catalogueByCode = _allSpecies
             .GroupBy(record => record.SpeciesCode, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        _codeByScientificName = WwpSheetTreeEstimates.ScientificNameIndex(_allSpecies);
         var metadata = await _catalogueDatabase.GetMetadataAsync();
         var lastUpdated = metadata.FormatDownloadedAtLocal();
         var version = string.IsNullOrEmpty(metadata.Version) ? "unknown" : $"{metadata.Version[..Math.Min(8, metadata.Version.Length)]}...";
@@ -71,6 +75,13 @@ public sealed partial class MainPage : Page
         {
             var snapshot = await ProjectSettingsSync.PullAsync(GetClient());
             _airtableSettings = snapshot?.AirtableApi ?? new AirtableApiSettings(string.Empty, string.Empty, null);
+            // The WWP landscape data sheet lists each tree type with its species code: a match for
+            // types i-Tree's catalogue can't be matched to by name. Synced first if this machine has none.
+            _sheetRows = await WwpLdsSheet.LoadAsync(
+                _sheetCache,
+                () => Task.FromResult(snapshot?.WwpLdsSource ?? WwpLdsAirtableSettings.CompanyDefault),
+                _airtableCredentialStore.Load().Trim(),
+                _airtableApiClient);
         }
         catch (Exception exception)
         {
@@ -132,6 +143,11 @@ public sealed partial class MainPage : Page
             found.Add($"{Count(TreeAssignmentRow.RememberedMatch):N0} from your earlier manual matches");
         }
 
+        if (Count(TreeAssignmentRow.SheetMatch) > 0)
+        {
+            found.Add($"{Count(TreeAssignmentRow.SheetMatch):N0} from the WWP sheet's species codes");
+        }
+
         if (Count(TreeAssignmentRow.AutoMatched) > 0)
         {
             found.Add($"{Count(TreeAssignmentRow.AutoMatched):N0} auto-matched by name");
@@ -146,7 +162,8 @@ public sealed partial class MainPage : Page
 
     /// <summary>
     /// The species already on the type comes first, then the one picked by hand for this family and
-    /// type before (in any project), then a guess from the name.
+    /// type before (in any project), then the species code the WWP sheet lists for this type, then a
+    /// guess from the name against i-Tree's catalogue.
     /// </summary>
     private void ApplyAutoMatch(TreeAssignmentRow row)
     {
@@ -156,7 +173,10 @@ public sealed partial class MainPage : Page
             row.CurrentSpeciesCode,
             _catalogueByCode,
             _rememberedMatches,
-            () => SpeciesFuzzyMatcher.FindBestMatch(row.FamilyName, row.TypeName, _allSpecies));
+            () => SpeciesFuzzyMatcher.FindBestMatch(row.FamilyName, row.TypeName, _allSpecies),
+            () => WwpSheetTreeEstimates.FindRowByName(row.FamilyName, row.TypeName, _sheetRows).Row is { } sheetRow
+                ? WwpSheetTreeEstimates.SpeciesCodeFor(sheetRow, _codeByScientificName)
+                : null);
         if (match is null)
         {
             row.MatchStatus = TreeAssignmentRow.NoMatch;
@@ -169,6 +189,7 @@ public sealed partial class MainPage : Page
         {
             SpeciesMatchSource.SavedOnType => TreeAssignmentRow.SavedMatch,
             SpeciesMatchSource.Remembered => TreeAssignmentRow.RememberedMatch,
+            SpeciesMatchSource.Sheet => TreeAssignmentRow.SheetMatch,
             _ => TreeAssignmentRow.AutoMatched
         };
     }

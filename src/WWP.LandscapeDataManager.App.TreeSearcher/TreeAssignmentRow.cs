@@ -12,6 +12,7 @@ public sealed class TreeAssignmentRow(SelectedPlantingTypeItem item) : INotifyPr
 {
     public const string SavedMatch = "Saved match";
     public const string RememberedMatch = "Remembered match";
+    public const string SheetMatch = "WWP sheet match";
     public const string AutoMatched = "Auto-matched";
     public const string ManuallySelected = "Manually selected";
     public const string Assigned = "Assigned";
@@ -91,6 +92,7 @@ public sealed class TreeAssignmentRow(SelectedPlantingTypeItem item) : INotifyPr
         AutoMatched => new SolidColorBrush(Colors.SeaGreen),
         Assigned => new SolidColorBrush(Colors.SeaGreen),
         RememberedMatch => new SolidColorBrush(Colors.Teal),
+        SheetMatch => new SolidColorBrush(Colors.SeaGreen),
         ManuallySelected => new SolidColorBrush(Colors.SteelBlue),
         NoMatch => new SolidColorBrush(Colors.DarkOrange),
         _ => new SolidColorBrush(Colors.Gray)

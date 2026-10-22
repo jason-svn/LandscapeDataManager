@@ -20,9 +20,38 @@ internal static class WwpLdsFuzzyMatcher
     public static WwpLdsCoefficientRecord? FindBestMatch(
         string familyName, string typeName, IReadOnlyList<WwpLdsCoefficientRecord> catalogue)
     {
+        // A sheet row named exactly like the Revit type wins outright: the sheet's "Planting type"
+        // column holds Revit type names (WWP_Vegetation_Meadow), its "Types" column the short ones.
+        var exactName = Normalize(typeName).Trim();
+        if (exactName.Length > 0 &&
+            (catalogue.FirstOrDefault(record => Normalize(record.PlantingTypeCode).Trim() == exactName) ??
+             catalogue.FirstOrDefault(record => Normalize(record.TypeName).Trim() == exactName)) is { } exact)
+        {
+            return exact;
+        }
+
+        // Then the same name without its WWP prefixes, when exactly one sheet row has it:
+        // "WWP_Subs_Raingarden" is the sheet's WWP_Vegetation_Raingarden, "WWP_Surfaces_Asphalt" its WWP_Surface_Asphalt.
+        var core = Core(typeName);
+        if (core.Length > 0 &&
+            catalogue.Where(record => Core(record.PlantingTypeCode) == core || Core(record.TypeName) == core)
+                .DistinctBy(record => record.MatchKey)
+                .ToList() is [var single])
+        {
+            return single;
+        }
+
         var best = FindBestMatch(familyName, catalogue);
         return best ?? FindBestMatch(typeName, catalogue);
     }
+
+    private static readonly HashSet<string> PrefixWords = new(StringComparer.Ordinal)
+    {
+        "wwp", "subs", "sub", "surface", "surfaces", "vegetation", "planting", "floor"
+    };
+
+    private static string Core(string text) =>
+        string.Join(' ', Normalize(text).Split(' ', StringSplitOptions.RemoveEmptyEntries).SkipWhile(PrefixWords.Contains));
 
     private static WwpLdsCoefficientRecord? FindBestMatch(string candidateName, IReadOnlyList<WwpLdsCoefficientRecord> catalogue)
     {
