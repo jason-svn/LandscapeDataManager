@@ -18,6 +18,8 @@ internal static class RevitViewInteractionService
         ["MissingInput"] = new Color(128, 128, 128),
         ["InvalidInput"] = new Color(230, 126, 34),
         ["Calculated"] = new Color(34, 139, 34),
+        // Benefits estimated from the WWP landscape data sheet because i-Tree couldn't calculate them.
+        ["Estimated"] = new Color(124, 179, 66),
         ["APIWarning"] = new Color(230, 180, 30),
         ["APIError"] = new Color(196, 38, 46),
         ["Stale"] = new Color(142, 68, 173),

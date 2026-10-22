@@ -195,7 +195,7 @@ public sealed class DashboardTreeRow
 
         var carbon = showAnnual ? metrics.CarbonSequesteredAnnual : metrics.CarbonSequesteredLifetimeTotal;
         var pollutionMass = showAnnual
-            ? metrics.PM25RemovedAnnual + metrics.NO2RemovedAnnual + metrics.O3RemovedAnnual + metrics.SO2RemovedAnnual + metrics.CORemovedAnnual
+            ? metrics.PollutionRemovedAnnual
             : metrics.PM25RemovedLifetimeTotal + metrics.NO2RemovedLifetimeTotal + metrics.O3RemovedLifetimeTotal + metrics.SO2RemovedLifetimeTotal + metrics.CORemovedLifetimeTotal;
         var cost = showAnnual ? metrics.CostSavedAnnual : metrics.CostSavedLifetimeTotal;
 

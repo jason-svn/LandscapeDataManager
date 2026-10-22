@@ -233,7 +233,13 @@ internal static class DashboardReportService
             GetMassKilograms("!_S_PLT_Result_OxygenProducedLifetimeTotal_Mass"),
             MaintenanceCost.AnnualFor(element),
             ConnectivityService.GetStoredBand(element),
-            GetNullableText(element, TreeTimelineStore.KeyParameter));
+            GetNullableText(element, TreeTimelineStore.KeyParameter),
+            // WWP-sheet values: the pollutant total a sheet estimate stores (i-Tree gives each
+            // pollutant instead), the tree's pollen, and its type's irrigation factor and allergenicity.
+            GetMassKilograms("!_S_PLT_Result_PollutantsRemovedAnnual_Mass"),
+            GetMassKilograms("!_S_PLT_Result_PollenAnnual_Mass"),
+            GetNullableDoubleOnInstanceOrType(element, "!_S_PLT_LDS_IrrigationDemandFactor_Number"),
+            GetNullableTextOnInstanceOrType(element, "!_S_PLT_iTreeSpecies_Allergenic_Text"));
     }
 
     private static DashboardFloorItem CreateFloorItem(Document document, Element element)
@@ -284,7 +290,8 @@ internal static class DashboardReportService
             CreateFloorBng(document, element),
             MaintenanceCost.AnnualFor(element),
             element.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL) is { HasValue: true } structural && structural.AsInteger() == 1,
-            ConnectivityService.GetStoredBand(element));
+            ConnectivityService.GetStoredBand(element),
+            GetMassKilograms("!_S_PLT_Result_PollenAnnual_Mass"));
     }
 
     /// <summary>Reads back what <see cref="BngFloorService"/> wrote; null when the BNG parameters aren't bound in this project.</summary>
@@ -404,6 +411,11 @@ internal static class DashboardReportService
         var parameter = element.LookupParameter(name);
         return parameter is { HasValue: true } ? parameter.AsDouble() : 0d;
     }
+
+    private static double? GetNullableDoubleOnInstanceOrType(Element element, string name) =>
+        ElementParameters.LookupOnInstanceOrType(element, name) is { HasValue: true, StorageType: StorageType.Double } parameter
+            ? parameter.AsDouble()
+            : null;
 
     private static double GetDoubleParameterOnInstanceOrType(Element element, string name)
     {

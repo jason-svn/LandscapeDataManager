@@ -57,7 +57,11 @@ public sealed class WwpLdsCoefficientDatabase
                 RunoffAvoidedAnnual REAL NULL,
                 PollutionMassRemovedAnnual REAL NULL,
                 SurfaceTempReduction REAL NULL,
-                AirTempReduction REAL NULL
+                AirTempReduction REAL NULL,
+                SpeciesCode TEXT NULL,
+                PollenRate REAL NULL,
+                IrrigationDemandFactor REAL NULL,
+                Allergenic TEXT NULL
             );
             CREATE TABLE IF NOT EXISTS CoefficientMeta (
                 Key TEXT PRIMARY KEY,
@@ -94,6 +98,22 @@ public sealed class WwpLdsCoefficientDatabase
             }
         }
 
+        // Migration for caches created before the tree columns (species code, pollen, irrigation,
+        // allergenic) were cached for Tree Calculator's and Floor Calculator's sheet estimates.
+        foreach (var column in new[] { "SpeciesCode TEXT NULL", "PollenRate REAL NULL", "IrrigationDemandFactor REAL NULL", "Allergenic TEXT NULL" })
+        {
+            await using var migrate = connection.CreateCommand();
+            migrate.CommandText = $"ALTER TABLE Coefficients ADD COLUMN {column};";
+            try
+            {
+                await migrate.ExecuteNonQueryAsync();
+            }
+            catch (SqliteException)
+            {
+                // Column already exists.
+            }
+        }
+
         return connection;
     }
 
@@ -114,10 +134,12 @@ public sealed class WwpLdsCoefficientDatabase
                 INSERT OR REPLACE INTO Coefficients (
                     MatchKey, Origin, PlantingTypeCode, Category, SubCategory, TypeName,
                     CostSavedAnnual, OxygenProducedAnnual, TotalGwp,
-                    Co2SequesteredAnnual, RunoffAvoidedAnnual, PollutionMassRemovedAnnual, SurfaceTempReduction, AirTempReduction)
+                    Co2SequesteredAnnual, RunoffAvoidedAnnual, PollutionMassRemovedAnnual, SurfaceTempReduction, AirTempReduction,
+                    SpeciesCode, PollenRate, IrrigationDemandFactor, Allergenic)
                 VALUES (
                     $matchKey, $origin, $plantingTypeCode, $category, $subCategory, $typeName,
-                    $costSaved, $oxygen, $gwp, $co2, $runoff, $pollution, $surfaceTemp, $airTemp);
+                    $costSaved, $oxygen, $gwp, $co2, $runoff, $pollution, $surfaceTemp, $airTemp,
+                    $speciesCode, $pollen, $irrigation, $allergenic);
                 """;
             var matchKey = upsert.CreateParameter(); matchKey.ParameterName = "$matchKey"; upsert.Parameters.Add(matchKey);
             var origin = upsert.CreateParameter(); origin.ParameterName = "$origin"; upsert.Parameters.Add(origin);
@@ -133,6 +155,10 @@ public sealed class WwpLdsCoefficientDatabase
             var pollution = upsert.CreateParameter(); pollution.ParameterName = "$pollution"; upsert.Parameters.Add(pollution);
             var surfaceTemp = upsert.CreateParameter(); surfaceTemp.ParameterName = "$surfaceTemp"; upsert.Parameters.Add(surfaceTemp);
             var airTemp = upsert.CreateParameter(); airTemp.ParameterName = "$airTemp"; upsert.Parameters.Add(airTemp);
+            var speciesCode = upsert.CreateParameter(); speciesCode.ParameterName = "$speciesCode"; upsert.Parameters.Add(speciesCode);
+            var pollen = upsert.CreateParameter(); pollen.ParameterName = "$pollen"; upsert.Parameters.Add(pollen);
+            var irrigation = upsert.CreateParameter(); irrigation.ParameterName = "$irrigation"; upsert.Parameters.Add(irrigation);
+            var allergenic = upsert.CreateParameter(); allergenic.ParameterName = "$allergenic"; upsert.Parameters.Add(allergenic);
 
             foreach (var record in records)
             {
@@ -150,6 +176,10 @@ public sealed class WwpLdsCoefficientDatabase
                 pollution.Value = (object?)record.PollutionMassRemovedAnnual ?? DBNull.Value;
                 surfaceTemp.Value = (object?)record.SurfaceTempReduction ?? DBNull.Value;
                 airTemp.Value = (object?)record.AirTempReduction ?? DBNull.Value;
+                speciesCode.Value = (object?)record.SpeciesCode ?? DBNull.Value;
+                pollen.Value = (object?)record.PollenRate ?? DBNull.Value;
+                irrigation.Value = (object?)record.IrrigationDemandFactor ?? DBNull.Value;
+                allergenic.Value = (object?)record.Allergenic ?? DBNull.Value;
                 await upsert.ExecuteNonQueryAsync();
             }
         }
@@ -174,7 +204,8 @@ public sealed class WwpLdsCoefficientDatabase
         select.CommandText = """
             SELECT MatchKey, Origin, PlantingTypeCode, Category, SubCategory, TypeName,
                    CostSavedAnnual, OxygenProducedAnnual, TotalGwp,
-                   Co2SequesteredAnnual, RunoffAvoidedAnnual, PollutionMassRemovedAnnual, SurfaceTempReduction, AirTempReduction
+                   Co2SequesteredAnnual, RunoffAvoidedAnnual, PollutionMassRemovedAnnual, SurfaceTempReduction, AirTempReduction,
+                   SpeciesCode, PollenRate, IrrigationDemandFactor, Allergenic
             FROM Coefficients ORDER BY Category, SubCategory, TypeName;
             """;
         await using var reader = await select.ExecuteReaderAsync();
@@ -196,7 +227,11 @@ public sealed class WwpLdsCoefficientDatabase
                 reader.IsDBNull(10) ? null : reader.GetDouble(10),
                 reader.IsDBNull(11) ? null : reader.GetDouble(11),
                 reader.IsDBNull(12) ? null : reader.GetDouble(12),
-                reader.IsDBNull(13) ? null : reader.GetDouble(13)));
+                reader.IsDBNull(13) ? null : reader.GetDouble(13),
+                reader.IsDBNull(14) ? null : reader.GetString(14),
+                reader.IsDBNull(15) ? null : reader.GetDouble(15),
+                reader.IsDBNull(16) ? null : reader.GetDouble(16),
+                reader.IsDBNull(17) ? null : reader.GetString(17)));
         }
 
         return records;

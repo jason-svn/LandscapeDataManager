@@ -855,6 +855,10 @@ internal static class SharedParameterSetupService
                 PlantingInstance($"!_S_PLT_Result_CostSaved{years}yr_Currency", GroupTypeId.AnalysisResults,
                     $"Value of the tree's benefits over the first {years} years after planting, from the i-Tree forecast."),
             }),
+            // Pollen from the WWP sheet, which i-Tree doesn't model: per tree for a tree (Tree Calculator or
+            // Floor Calculator, from the tree's sheet row), the per-m² rate × area for a planting area.
+            PlantingAndFloorInstance("!_S_PLT_Result_PollenAnnual_Mass", GroupTypeId.AnalysisResults,
+                "Pollen this tree or planting area releases each year, from the WWP landscape data sheet: per tree for a tree, the per-m² rate × area for a planting area (Revit Mass parameter)."),
             PlantingAndFloorInstance("!_S_PLT_Result_PollutantsRemovedAnnual_Mass", GroupTypeId.AnalysisResults,
                 "Estimated annual pollutants removed, from the WWP landscape data sheet's per-square-metre coefficient times area (Revit Mass parameter).",
                 legacyAliases: ["!_S_PLT_LDS_PollutantsRemovedAnnual_Mass", "!_S_PLT_LDS_PollutantsRemovedAnnual_Number"]),

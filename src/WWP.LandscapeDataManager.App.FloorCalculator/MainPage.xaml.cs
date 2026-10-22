@@ -25,6 +25,9 @@ public sealed partial class MainPage : Page
     private WwpLdsAirtableSettings _wwpLdsSettings = WwpLdsAirtableSettings.CompanyDefault;
     private string _preferredCurrency = "USD";
     private double _preferredCurrencyFactor = 1d;
+    private string _preferredUnitSystem = "Metric";
+    // Project-currency units per sheet pound: the WWP sheet's money is in GBP ("£15.80").
+    private double _sheetCurrencyFactor = 1d;
 
     // Set when the live rate lookup failed at load: costs can't be written in the project's
     // currency, so Calculate is refused rather than storing US-dollar figures labelled as it.
@@ -95,6 +98,19 @@ public sealed partial class MainPage : Page
             : $"Source: base {_wwpLdsSettings.BaseId} / table {_wwpLdsSettings.TableIdOrName} (managed in Settings).";
 
         await RefreshCatalogueStatusAsync();
+        if (WwpLdsSheet.NeedsResync(_allCoefficients) && !string.IsNullOrWhiteSpace(_credentialStore.Load()))
+        {
+            // A cache synced before LIM read the sheet's "£" money (every cost saved was 0) or its tree columns.
+            try
+            {
+                await WwpLdsSheet.SyncAsync(_wwpLdsSettings, _credentialStore.Load().Trim(), _airtableClient, _coefficientDatabase);
+                await RefreshCatalogueStatusAsync();
+            }
+            catch (Exception exception)
+            {
+                StatusText.Text = $"Couldn't refresh the landscape data sheet: {exception.Message}";
+            }
+        }
 
         try
         {
@@ -102,7 +118,15 @@ public sealed partial class MainPage : Page
             var rate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, catalog.PreferredCurrency);
             _preferredCurrency = rate.CurrencyCode;
             _preferredCurrencyFactor = rate.UsdRate;
+            _preferredUnitSystem = catalog.PreferredUnitSystem;
             _rateUnavailableMessage = rate.Success ? null : ProjectExchangeRate.UnavailableMessage(rate);
+            if (_rateUnavailableMessage is null)
+            {
+                var sheetFactor = await WwpLdsSheet.CurrencyFactorAsync(GetClient(), _exchangeRateService, rate.CurrencyCode);
+                _sheetCurrencyFactor = sheetFactor ?? 1d;
+                _rateUnavailableMessage = sheetFactor is null ? $"No GBP → {rate.CurrencyCode} exchange rate available for the sheet's £ values." : null;
+            }
+
             if (_rateUnavailableMessage is not null)
             {
                 StatusText.Text = _rateUnavailableMessage;
@@ -149,63 +173,11 @@ public sealed partial class MainPage : Page
 
         await RunBusyAsync(async () =>
         {
-            var apiSettings = new AirtableApiSettings(_wwpLdsSettings.BaseId, _wwpLdsSettings.TableIdOrName, _wwpLdsSettings.ViewName);
-            var records = await _airtableClient.GetRecordsAsync(apiSettings, token);
-            var coefficients = records.Select(ToCoefficientRecord).ToList();
-            await _coefficientDatabase.SaveAsync(coefficients);
+            var coefficients = await WwpLdsSheet.SyncAsync(_wwpLdsSettings, token, _airtableClient, _coefficientDatabase);
 
             await RefreshCatalogueStatusAsync();
             StatusText.Text = $"Synced {coefficients.Count:N0} landscape data sheet rows from Airtable.";
         });
-    }
-
-    private static WwpLdsCoefficientRecord ToCoefficientRecord(AirtableRecord record)
-    {
-        // CleanHeader: the sheet's first column, Origin, arrives with a byte-order mark from its CSV import.
-        var fields = record.Fields.ToDictionary(kv => DefaultParameterMappingCatalog.CleanHeader(kv.Key), kv => kv.Value, StringComparer.OrdinalIgnoreCase);
-
-        var origin = GetString(fields, "Origin");
-        var plantingTypeCode = GetString(fields, "Planting type");
-        var category = GetString(fields, "WWP_LDS_Category");
-        var subCategory = GetString(fields, "WWP_LDS_SubCategory");
-        var typeName = GetString(fields, "Types");
-        var matchKey = $"{category}|{subCategory}|{typeName}";
-
-        return new WwpLdsCoefficientRecord(
-            matchKey,
-            origin,
-            plantingTypeCode,
-            category,
-            subCategory,
-            typeName,
-            GetDouble(fields, "COST_SAVED"),
-            GetDouble(fields, "Oxygen levels O2 kg/yr (16/18 girth)"),
-            EmbodiedCarbon.Rate(GetDouble(fields, "Product GWP"), GetDouble(fields, "Transport GWP"), GetDouble(fields, "WWP_Total_GWP")),
-            GetDouble(fields, "Carbon dioxide sequestration kgCO2e/(m2)/yr (16/18 girth)"),
-            GetDouble(fields, "Avoided runoff m3/yr (16/18 girth)"),
-            GetDouble(fields, "WWP_Pollutants_Removed"),
-            GetDouble(fields, "Surface_Temperature_Reduction_Min"),
-            GetDouble(fields, "Air temperature reduction (1.5m height)"));
-    }
-
-    private static string GetString(IReadOnlyDictionary<string, JsonElement> fields, string key) =>
-        fields.TryGetValue(key, out var element) && element.ValueKind == JsonValueKind.String
-            ? element.GetString() ?? string.Empty
-            : string.Empty;
-
-    private static double? GetDouble(IReadOnlyDictionary<string, JsonElement> fields, string key)
-    {
-        if (!fields.TryGetValue(key, out var element))
-        {
-            return null;
-        }
-
-        return element.ValueKind switch
-        {
-            JsonValueKind.Number => element.GetDouble(),
-            JsonValueKind.String when double.TryParse(element.GetString(), out var parsed) => parsed,
-            _ => null
-        };
     }
 
     private async void LoadSelectedFloors_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(() => LoadFloorsAsync(allFloors: false));
@@ -290,9 +262,9 @@ public sealed partial class MainPage : Page
     /// <summary>
     /// Recomputes each metric's coefficient-derived default (coefficient × area, or as-is for the
     /// two intrinsic temperature metrics) without touching any metric already flagged Manual. The
-    /// cost-saved coefficient is the WWP landscape data sheet's raw USD figure, so it's converted to
-    /// the project's preferred currency here — the same point i-Tree Calculator applies its rate —
-    /// so a manual override afterward starts from (and edits) the already-converted number.
+    /// cost-saved coefficient is the WWP landscape data sheet's figure in pounds ("£15.80"), so it's
+    /// converted to the project's preferred currency here — the same point i-Tree Calculator applies
+    /// its rate — so a manual override afterward starts from (and edits) the already-converted number.
     /// </summary>
     private void UpdateComputedValues(FloorAssignmentRow row)
     {
@@ -303,7 +275,7 @@ public sealed partial class MainPage : Page
         metrics[FloorAssignmentRow.Co2Index].ComputedValue = (record?.Co2SequesteredAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.RunoffIndex].ComputedValue = (record?.RunoffAvoidedAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.PollutionIndex].ComputedValue = (record?.PollutionMassRemovedAnnual ?? 0) * area;
-        metrics[FloorAssignmentRow.CostSavedIndex].ComputedValue = (record?.CostSavedAnnual ?? 0) * area * _preferredCurrencyFactor;
+        metrics[FloorAssignmentRow.CostSavedIndex].ComputedValue = (record?.CostSavedAnnual ?? 0) * area * _sheetCurrencyFactor;
         metrics[FloorAssignmentRow.OxygenIndex].ComputedValue = (record?.OxygenProducedAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.GwpIndex].ComputedValue = (record?.TotalGwp ?? 0) * area;
         metrics[FloorAssignmentRow.SurfaceTempIndex].ComputedValue = record?.SurfaceTempReduction ?? 0;
@@ -335,7 +307,9 @@ public sealed partial class MainPage : Page
             metrics[FloorAssignmentRow.SurfaceTempIndex].FinalValue,
             metrics[FloorAssignmentRow.AirTempIndex].FinalValue,
             _preferredCurrency,
-            _preferredCurrencyFactor);
+            _preferredCurrencyFactor,
+            // Pollen isn't reviewable per floor: the sheet's per-m² rate × area.
+            (record.PollenRate ?? 0) * row.AreaSquareMeters);
     }
 
     private async void ReviewValues_Click(object sender, RoutedEventArgs e)
@@ -509,7 +483,34 @@ public sealed partial class MainPage : Page
                 (remaining > 0
                     ? $" {remaining:N0} still need a manual match — search and pick a type for the highlighted rows."
                     : string.Empty);
+
+            if (FillTreesCheckBox.IsChecked == true)
+            {
+                StatusText.Text += " " + await FillTreesAsync();
+            }
         });
+    }
+
+    private async void FillTrees_Click(object sender, RoutedEventArgs e)
+    {
+        if (_rateUnavailableMessage is not null)
+        {
+            StatusText.Text = _rateUnavailableMessage + " Reopen Floor Calculator to try again.";
+            return;
+        }
+
+        await RunBusyAsync(async () => StatusText.Text = await FillTreesAsync());
+    }
+
+    /// <summary>
+    /// Trees from the sheet: an estimate for each tree i-Tree hasn't calculated, and pollen for every
+    /// matched tree (see <see cref="WwpSheetTreeEstimates"/>). Same as Tree Calculator's fill.
+    /// </summary>
+    private async Task<string> FillTreesAsync()
+    {
+        var summary = await WwpSheetTreeEstimates.RunAsync(
+            GetClient(), _allCoefficients, _preferredUnitSystem, _preferredCurrency, _sheetCurrencyFactor, _preferredCurrencyFactor);
+        return summary.Describe();
     }
 
     private void UpdateCalculateAllEnabled() => CalculateAllButton.IsEnabled = Rows.Any(row => row.SelectedRecord is not null);

@@ -34,7 +34,15 @@ public sealed record NormalizedTreeMetrics(
     double CO2EquivalentLifetimeTotal,
     double OxygenProducedAnnual = 0,
     double OxygenProducedLifetimeTotal = 0,
-    double MaintenanceCostAnnual = 0);
+    double MaintenanceCostAnnual = 0,
+    double SheetPollutantsAnnual = 0)
+{
+    /// <summary>Benefits estimated from the WWP landscape data sheet because i-Tree couldn't calculate this tree.</summary>
+    public bool IsSheetEstimate => string.Equals(Source.Status, WwpSheetTreeEstimates.EstimatedStatus, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Pollutants removed a year: i-Tree's five, or a sheet estimate's single total.</summary>
+    public double PollutionRemovedAnnual => PM25RemovedAnnual + NO2RemovedAnnual + O3RemovedAnnual + SO2RemovedAnnual + CORemovedAnnual + SheetPollutantsAnnual;
+}
 
 public sealed record SpeciesSubtotal(
     string SpeciesCode,
@@ -68,9 +76,10 @@ public sealed record SpeciesSubtotal(
     double CO2EquivalentLifetimeTotal,
     double OxygenProducedAnnual = 0,
     double OxygenProducedLifetimeTotal = 0,
-    double MaintenanceCostAnnual = 0)
+    double MaintenanceCostAnnual = 0,
+    double SheetPollutantsAnnual = 0)
 {
-    public double PollutionRemovedAnnual => PM25RemovedAnnual + NO2RemovedAnnual + O3RemovedAnnual + SO2RemovedAnnual + CORemovedAnnual;
+    public double PollutionRemovedAnnual => PM25RemovedAnnual + NO2RemovedAnnual + O3RemovedAnnual + SO2RemovedAnnual + CORemovedAnnual + SheetPollutantsAnnual;
 
     public double PollutionRemovedLifetimeTotal => PM25RemovedLifetimeTotal + NO2RemovedLifetimeTotal + O3RemovedLifetimeTotal + SO2RemovedLifetimeTotal + CORemovedLifetimeTotal;
 }
@@ -179,7 +188,13 @@ public sealed record SiteKpiSummary(
     double? HabitatConnectivityScore,
     int LightingFixtureCount,
     int DarkSkyCompliantFixtureCount,
-    double? LightingCompliancePercent);
+    double? LightingCompliancePercent,
+    double TreePollenAnnual = 0,
+    double FloorPollenAnnual = 0,
+    int AllergenicTreeCount = 0,
+    int TreesWithIrrigationFactorCount = 0,
+    double? MeanIrrigationDemandFactor = null,
+    int LowWaterTreeCount = 0);
 
 public sealed record BngGroupSubtotal(string Name, int FloorCount, double AreaHectares, double HabitatUnits);
 
@@ -261,9 +276,11 @@ public static class DashboardAggregationService
         var currencyFactor = ResolveCurrencyFactor(item.StoredCurrency, targetCurrency, item.StoredExchangeRateUsed, usdToTargetRate);
         double Money(double value) => value * currencyFactor;
 
+        var isEstimate = string.Equals(item.Status, WwpSheetTreeEstimates.EstimatedStatus, StringComparison.OrdinalIgnoreCase);
         return new NormalizedTreeMetrics(
             item,
-            string.Equals(item.Status, "Calculated", StringComparison.OrdinalIgnoreCase),
+            // An i-Tree result, or a WWP-sheet estimate for a tree i-Tree couldn't calculate.
+            isEstimate || string.Equals(item.Status, "Calculated", StringComparison.OrdinalIgnoreCase),
             PoundBasis(item.CarbonSequesteredAnnual), PoundBasis(item.CarbonSequesteredLifetimeTotal),
             OunceBasis(item.CORemovedAnnual), OunceBasis(item.CORemovedLifetimeTotal),
             OunceBasis(item.NO2RemovedAnnual), OunceBasis(item.NO2RemovedLifetimeTotal),
@@ -283,7 +300,9 @@ public static class DashboardAggregationService
             PoundBasis(OxygenOrDerived(item.OxygenProducedAnnual, item.CO2EquivalentAnnual)),
             PoundBasis(OxygenOrDerived(item.OxygenProducedLifetimeTotal, item.CO2EquivalentLifetimeTotal)),
             // Maintenance comes from the WWP sheet rate, already in the project currency.
-            item.MaintenanceCostAnnual);
+            item.MaintenanceCostAnnual,
+            // i-Tree gives each pollutant; a sheet estimate gives one total.
+            isEstimate ? OunceBasis(item.PollutantsRemovedAnnual) : 0d);
     }
 
     /// <summary>
@@ -317,7 +336,8 @@ public static class DashboardAggregationService
                 group.Sum(tree => tree.RunoffAvoidedAnnual), group.Sum(tree => tree.RunoffAvoidedLifetimeTotal),
                 group.Sum(tree => tree.CO2EquivalentAnnual), group.Sum(tree => tree.CO2EquivalentLifetimeTotal),
                 group.Sum(tree => tree.OxygenProducedAnnual), group.Sum(tree => tree.OxygenProducedLifetimeTotal),
-                group.Sum(tree => tree.MaintenanceCostAnnual)))
+                group.Sum(tree => tree.MaintenanceCostAnnual),
+                group.Sum(tree => tree.SheetPollutantsAnnual)))
             .OrderByDescending(subtotal => subtotal.TreeCount)
             .ToList();
 
@@ -354,7 +374,7 @@ public static class DashboardAggregationService
             SumTrees(tree => tree.O3RemovedAnnual), SumTrees(tree => tree.O3RemovedLifetimeTotal),
             SumTrees(tree => tree.SO2RemovedAnnual), SumTrees(tree => tree.SO2RemovedLifetimeTotal),
             SumTrees(tree => tree.CORemovedAnnual), SumTrees(tree => tree.CORemovedLifetimeTotal),
-            SumTrees(tree => tree.PM25RemovedAnnual + tree.NO2RemovedAnnual + tree.O3RemovedAnnual + tree.SO2RemovedAnnual + tree.CORemovedAnnual),
+            SumTrees(tree => tree.PollutionRemovedAnnual),
             SumTrees(tree => tree.PM25RemovedLifetimeTotal + tree.NO2RemovedLifetimeTotal + tree.O3RemovedLifetimeTotal + tree.SO2RemovedLifetimeTotal + tree.CORemovedLifetimeTotal),
             SumTrees(tree => tree.CarbonSequesteredAnnual), SumTrees(tree => tree.CarbonSequesteredLifetimeTotal),
             SumTrees(tree => tree.CO2EquivalentAnnual), SumTrees(tree => tree.CO2EquivalentLifetimeTotal),
@@ -453,6 +473,15 @@ public static class DashboardAggregationService
             ? (double)darkSkyCompliantFixtureCount / lightingFixtureCount * 100d
             : (double?)null;
 
+        // From the WWP sheet, which i-Tree doesn't model: pollen per tree and per planting area, the
+        // species flagged allergenic, and each tree type's irrigation demand (plant factor 0–1).
+        var irrigationFactors = trees
+            .Select(tree => tree.Source.IrrigationDemandFactor)
+            .Where(factor => factor is > 0)
+            .Select(factor => factor!.Value)
+            .ToList();
+        var allergenicTreeCount = trees.Count(tree => IsAllergenic(tree.Source.Allergenic));
+
         return new SiteKpiSummary(
             canopyCoverPercent,
             canopyAreaSquareMeters,
@@ -477,8 +506,24 @@ public static class DashboardAggregationService
             habitatConnectivityScore,
             lightingFixtureCount,
             darkSkyCompliantFixtureCount,
-            lightingCompliancePercent);
+            lightingCompliancePercent,
+            trees.Sum(tree => tree.Source.PollenAnnual),
+            floors.Sum(floor => floor.PollenAnnual),
+            allergenicTreeCount,
+            irrigationFactors.Count,
+            irrigationFactors.Count > 0 ? irrigationFactors.Average() : null,
+            irrigationFactors.Count(factor => factor <= LowWaterIrrigationFactor));
     }
+
+    /// <summary>A plant factor at or below this is a low-water planting (WUCOLS "low": 0.1–0.3).</summary>
+    public const double LowWaterIrrigationFactor = 0.3;
+
+    /// <summary>The sheet's Allergenic cell: "Yes", or a positive score (it stores 0.2 for Quercus robur).</summary>
+    public static bool IsAllergenic(string? value) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        (string.Equals(value.Trim(), "Yes", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(value.Trim(), "True", StringComparison.OrdinalIgnoreCase) ||
+         (double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var score) && score > 0));
 
     /// <summary>
     /// Totals the BNG results stored on <paramref name="floors"/> into the metric's on-site headline

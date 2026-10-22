@@ -24,6 +24,9 @@ public sealed partial class MainPage : Page
     private readonly ITreeApiClient _iTreeApiClient = new();
     private readonly ITreeCredentialStore _iTreeCredentialStore = new();
     private readonly ExchangeRateService _exchangeRateService = new();
+    private readonly WwpLdsCoefficientDatabase _sheetCache = new();
+    private readonly AirtableApiClient _airtable = new();
+    private readonly AirtableCredentialStore _airtableCredentialStore = new();
 
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
@@ -232,14 +235,50 @@ public sealed partial class MainPage : Page
         var summary = await ITreeBatchCalculator.CalculateAsync(
             GetClient(), rows.Select(row => row.Item).ToList(), _iTreeCredentialStore.Load(),
             _preferredUnitSystem, _preferredCurrency, _iTreeApiClient, _exchangeRateService);
-        if (!summary.Ran)
+        CalculateStatusText.Text = summary.Ran
+            ? $"Calculated {summary.Succeeded:N0} unique signature(s), {summary.Failed:N0} failed, applied to {summary.Instances:N0} instance(s) in {summary.CurrencyCode}. {summary.Timeline?.Describe()}"
+            : summary.Message;
+
+        // Whatever i-Tree couldn't do (or didn't run for) is filled from the WWP sheet.
+        if (FillFromSheetCheckBox.IsChecked == true)
         {
-            CalculateStatusText.Text = summary.Message;
-            return;
+            CalculateStatusText.Text += " " + await FillFromSheetAsync();
         }
 
-        CalculateStatusText.Text = $"Calculated {summary.Succeeded:N0} unique signature(s), {summary.Failed:N0} failed, applied to {summary.Instances:N0} instance(s) in {summary.CurrencyCode}. {summary.Timeline?.Describe()}";
         await RefreshReportAsync();
+    }
+
+    private async void FillFromSheet_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
+    {
+        CalculateStatusText.Text = await FillFromSheetAsync();
+        await RefreshReportAsync();
+    });
+
+    /// <summary>
+    /// The WWP landscape data sheet as i-Tree's fallback: an estimate for each tree i-Tree hasn't
+    /// calculated, and pollen for every matched tree (see <see cref="WwpSheetTreeEstimates"/>) —
+    /// the same fill Floor Calculator runs. Syncs the sheet first if this machine has no current copy.
+    /// </summary>
+    private async Task<string> FillFromSheetAsync()
+    {
+        var rows = await WwpLdsSheet.LoadAsync(
+            _sheetCache,
+            async () => (await ProjectSettingsSync.PullAsync(GetClient()))?.WwpLdsSource ?? WwpLdsAirtableSettings.CompanyDefault,
+            _airtableCredentialStore.Load().Trim(),
+            _airtable);
+        var rate = await ProjectExchangeRate.GetUsdRateAsync(GetClient(), _exchangeRateService, _preferredCurrency);
+        if (!rate.Success)
+        {
+            return "WWP sheet: " + ProjectExchangeRate.UnavailableMessage(rate);
+        }
+
+        if (await WwpLdsSheet.CurrencyFactorAsync(GetClient(), _exchangeRateService, rate.CurrencyCode) is not { } sheetFactor)
+        {
+            return $"WWP sheet: no GBP → {rate.CurrencyCode} exchange rate for the sheet's £ values.";
+        }
+
+        var summary = await WwpSheetTreeEstimates.RunAsync(GetClient(), rows, _preferredUnitSystem, rate.CurrencyCode, sheetFactor, rate.UsdRate);
+        return summary.Describe();
     }
 
     private async void ExportReport_Click(object sender, RoutedEventArgs e)

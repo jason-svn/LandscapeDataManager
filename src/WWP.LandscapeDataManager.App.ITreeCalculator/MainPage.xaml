@@ -150,8 +150,13 @@
                 </ListView>
             </Grid>
 
-            <Grid Grid.Row="1" Margin="0,10,0,0" ColumnSpacing="10">
+            <Grid Grid.Row="1" Margin="0,10,0,0" ColumnSpacing="10" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -162,7 +167,12 @@
                         ToolTipService.ToolTip="Selects every row currently shown below (respects the status-card filter above)."
                         Click="SelectAllRows_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
                 <Button Grid.Column="2" Content="Recalculate selected" Click="RecalculateSelected_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                <TextBlock Grid.Column="3" x:Name="CalculateStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" />
+                <Button Grid.Column="3" Content="Fill gaps from WWP sheet" Click="FillFromSheet_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                        ToolTipService.ToolTip="No i-Tree calls: estimate every tree i-Tree hasn't calculated from the WWP landscape data sheet, and add pollen for every tree." />
+                <TextBlock Grid.Column="4" x:Name="CalculateStatusText" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <CheckBox Grid.Row="1" Grid.ColumnSpan="5" x:Name="FillFromSheetCheckBox" IsChecked="True"
+                          Content="After calculating, fill the rest from the WWP sheet: estimate the trees i-Tree couldn't calculate, and add pollen for every tree"
+                          ToolTipService.ToolTip="A tree with no i-Tree result (no species code, missing or invalid inputs, an API error) gets the sheet's per-tree CO₂e, oxygen, runoff, pollutants and money saved, marked Estimated. Trees with i-Tree results keep them; i-Tree replaces an estimate once the tree is calculated." />
             </Grid>
         </Grid>
 

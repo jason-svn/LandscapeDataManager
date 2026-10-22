@@ -89,6 +89,7 @@ internal static class KpiScheduleBuilderService
         new("!_S_PLT_iTreeResult_AirPollutionCostSavedAnnual_Currency", Totals: true),
         new("!_S_PLT_iTreeResult_AirPollutionCostSavedLifetimeTotal_Currency", Totals: true),
         new("!_S_PLT_Result_MaintenanceCostAnnual_Currency", Totals: true),
+        new("!_S_PLT_Result_PollenAnnual_Mass", Totals: true),
         // i-Tree forecast totals over the standard outlooks (see TreeTimelineStore).
         .. new[] { 5, 10, 20, 25 }.SelectMany(years => new FieldSpec[]
         {
@@ -113,6 +114,7 @@ internal static class KpiScheduleBuilderService
         new("!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume", Totals: true),
         new("!_S_PLT_iTreeResult_CostSavedAnnual_Currency", Totals: true),
         new("!_S_PLT_Result_MaintenanceCostAnnual_Currency", Totals: true),
+        new("!_S_PLT_Result_PollenAnnual_Mass", Totals: true),
         new("!_S_PLT_LDS_SurfaceTempReduction_Number", Totals: false),
         new("!_S_PLT_LDS_AirTempReduction_Number", Totals: false),
         // Biodiversity net gain, as the Floor Calculator's BNG tab writes it: the floor's role, its

@@ -272,7 +272,7 @@ internal static class DashboardJsonExportService
             s.CommonName,
             s.TreeCount,
             s.CarbonSequesteredAnnual, s.CarbonSequesteredLifetimeTotal,
-            s.PM25RemovedAnnual + s.NO2RemovedAnnual + s.O3RemovedAnnual + s.SO2RemovedAnnual + s.CORemovedAnnual,
+            s.PollutionRemovedAnnual,
             s.PM25RemovedLifetimeTotal + s.NO2RemovedLifetimeTotal + s.O3RemovedLifetimeTotal + s.SO2RemovedLifetimeTotal + s.CORemovedLifetimeTotal,
             s.CarbonCostSavedAnnual, s.CarbonCostSavedLifetimeTotal,
             s.StormWaterCostSavedAnnual, s.StormWaterCostSavedLifetimeTotal,

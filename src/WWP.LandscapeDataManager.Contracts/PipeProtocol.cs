@@ -364,7 +364,11 @@ public sealed record WwpLdsCoefficientRecord(
     double? RunoffAvoidedAnnual,
     double? PollutionMassRemovedAnnual,
     double? SurfaceTempReduction,
-    double? AirTempReduction);
+    double? AirTempReduction,
+    string? SpeciesCode = null,
+    double? PollenRate = null,
+    double? IrrigationDemandFactor = null,
+    string? Allergenic = null);
 
 /// <summary>One distinct selected Floor instance, with whatever WWP landscape data sheet type is already assigned (if any).</summary>
 public sealed record SelectedFloorItem(
@@ -402,7 +406,8 @@ public sealed record FloorLdsValues(
     double SurfaceTempReduction,
     double AirTempReduction,
     string CurrencyUsed = "USD",
-    double ExchangeRateUsed = 1d);
+    double ExchangeRateUsed = 1d,
+    double PollenAnnual = 0);
 
 public sealed record FloorLdsAssignment(string FloorUniqueId, FloorLdsValues Values);
 
@@ -687,7 +692,11 @@ public sealed record DashboardTreeItem(
     double OxygenProducedLifetimeTotal = 0,
     double MaintenanceCostAnnual = 0,
     int? ConnectivityBand = null,
-    string? TimelineKey = null);
+    string? TimelineKey = null,
+    double PollutantsRemovedAnnual = 0,
+    double PollenAnnual = 0,
+    double? IrrigationDemandFactor = null,
+    string? Allergenic = null);
 
 /// <summary>
 /// One Floor (planted/paved landscape area) instance's identity, placement, and stored LDS/i-Tree
@@ -717,7 +726,8 @@ public sealed record DashboardFloorItem(
     DashboardFloorBng? Bng = null,
     double MaintenanceCostAnnual = 0,
     bool IsStructural = false,
-    int? ConnectivityBand = null);
+    int? ConnectivityBand = null,
+    double PollenAnnual = 0);
 
 /// <summary>
 /// A Floor's stored BNG inputs and headline A-2 results, as written by Floor Calculator's BNG tab —

@@ -68,7 +68,11 @@
 
                     <!-- Step 2: load & assign -->
                     <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
-                        <Grid ColumnSpacing="10">
+                        <Grid ColumnSpacing="10" RowSpacing="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
@@ -84,6 +88,12 @@
                                 Click="CalculateAll_Click"
                                 IsEnabled="False"
                                 Style="{StaticResource LimPrimaryButtonStyle}" />
+                            <CheckBox Grid.Row="1" Grid.ColumnSpan="3" x:Name="FillTreesCheckBox" IsChecked="True"
+                                Content="Also fill trees from the sheet: estimate the ones i-Tree hasn't calculated, and add pollen for every tree"
+                                ToolTipService.ToolTip="A tree with no i-Tree result (no species code, missing or invalid inputs, an API error) gets the sheet's per-tree CO₂e, oxygen, runoff, pollutants and money saved, marked Estimated. Trees with i-Tree results keep them; i-Tree replaces an estimate once the tree is calculated." />
+                            <Button Grid.Row="1" Grid.Column="3" Content="Fill trees from sheet" Click="FillTrees_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                                HorizontalAlignment="Stretch"
+                                ToolTipService.ToolTip="Only the trees: estimate the ones i-Tree hasn't calculated, and add pollen for every tree." />
                         </Grid>
                     </Border>
 

@@ -70,6 +70,10 @@ public static class ITreeInstanceResultMapper
         items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_O3RemovedAnnual_Mass", FromOunces(GetOrZero("Annual_O3_oz"))));
         items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_PM25RemovedAnnual_Mass", FromOunces(GetOrZero("Annual_PM25_oz"))));
         items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_SO2RemovedAnnual_Mass", FromOunces(GetOrZero("Annual_SO2_oz"))));
+        // Their total, in the parameter planting areas and WWP-sheet estimates use, so it means the
+        // same for every element (and a tree i-Tree recalculates after an estimate loses the old figure).
+        items.Add(Mass(uniqueId, "!_S_PLT_Result_PollutantsRemovedAnnual_Mass", FromOunces(
+            GetOrZero("Annual_CO_oz") + GetOrZero("Annual_NO2_oz") + GetOrZero("Annual_O3_oz") + GetOrZero("Annual_PM25_oz") + GetOrZero("Annual_SO2_oz"))));
         items.Add(Number(uniqueId, "!_S_PLT_iTreeResult_CostSavedAnnual_Currency", ToPreferredCurrency(GetOrZero("Annual_Benefit_USD"))));
         items.Add(Mass(uniqueId, "!_S_PLT_iTreeResult_CO2EquivalentAnnual_Mass",
             FromPounds(GetOrZero("Annual_CO2Equivalent_lb"))));

@@ -45,6 +45,7 @@ internal static class FloorLdsCalculationService
     private const double CarbonToCo2MassRatio = 3.67d;
     private const string RunoffAvoidedParameter = "!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume";
     private const string PollutionMassRemovedParameter = "!_S_PLT_Result_PollutantsRemovedAnnual_Mass";
+    private const string PollenParameter = "!_S_PLT_Result_PollenAnnual_Mass";
     private const string CurrencyUsedParameter = "!_S_PLT_iTreeResult_CurrencyUsed_Text";
     private const string ExchangeRateUsedParameter = "!_S_PLT_iTreeResult_ExchangeRateUsed_Number";
 
@@ -164,6 +165,7 @@ internal static class FloorLdsCalculationService
         Set(Co2EquivalentParameter, floor.LookupParameter(Co2EquivalentParameter), UnitUtils.ConvertToInternalUnits(values.Co2SequesteredAnnual, UnitTypeId.Kilograms));
         Set(RunoffAvoidedParameter, floor.LookupParameter(RunoffAvoidedParameter), UnitUtils.ConvertToInternalUnits(values.RunoffAvoidedAnnual, UnitTypeId.CubicMeters));
         Set(PollutionMassRemovedParameter, floor.LookupParameter(PollutionMassRemovedParameter), UnitUtils.ConvertToInternalUnits(values.PollutionMassRemovedAnnual, UnitTypeId.Kilograms));
+        Set(PollenParameter, floor.LookupParameter(PollenParameter), UnitUtils.ConvertToInternalUnits(values.PollenAnnual, UnitTypeId.Kilograms));
         Set(CostSavedParameter, floor.LookupParameter(CostSavedParameter), values.CostSavedAnnual);
         Set(CurrencyUsedParameter, floor.LookupParameter(CurrencyUsedParameter), values.CurrencyUsed);
         Set(ExchangeRateUsedParameter, floor.LookupParameter(ExchangeRateUsedParameter), values.ExchangeRateUsed);

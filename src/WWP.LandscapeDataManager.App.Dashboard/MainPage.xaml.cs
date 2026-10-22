@@ -351,9 +351,12 @@ public sealed partial class MainPage : Page
         FloorMaintenanceHeader.Text = $"Cost\n{currency} per year";
 
         TreeCountText.Text = grandTotal.TreeCount.ToString("N0");
-        TreeExcludedText.Text = grandTotal.TreesExcludedFromTotals > 0
-            ? $"{grandTotal.TreesExcludedFromTotals:N0} excluded (not yet Calculated)"
-            : string.Empty;
+        var estimatedTrees = filteredTrees.Count(tree => tree.IsSheetEstimate);
+        TreeExcludedText.Text = string.Join(" · ", new[]
+        {
+            estimatedTrees > 0 ? $"{estimatedTrees:N0} estimated from the WWP sheet (i-Tree couldn't calculate them)" : null,
+            grandTotal.TreesExcludedFromTotals > 0 ? $"{grandTotal.TreesExcludedFromTotals:N0} excluded (not yet calculated)" : null
+        }.Where(note => note is not null));
         // Grouped and ordered to match the public i-Tree "MyTree Benefits" report's own three
         // categories and their component metrics — each swim lane leads with that category's
         // money value, then the metrics behind it, in the report's own order.
@@ -865,6 +868,26 @@ public sealed partial class MainPage : Page
             "Tag !_S_PLT_Lighting_DarkSkyCompliant_Text on Lighting Fixture Types to see a percentage.",
             high: 80d, medium: 50d);
 
+        // From the WWP landscape data sheet, which i-Tree doesn't model: Tree Calculator and Floor
+        // Calculator store pollen per tree and per planting area; allergenicity and irrigation demand
+        // are on the tree types (Excel Importer).
+        var pollen = summary.TreePollenAnnual + summary.FloorPollenAnnual;
+        PollenText.Text = pollen > 0 ? $"{DashboardFormat.Number(pollen)} kg/yr" : "—";
+        PollenDetailText.Text = pollen > 0
+            ? $"Trees {DashboardFormat.Number(summary.TreePollenAnnual)} kg · planting areas {DashboardFormat.Number(summary.FloorPollenAnnual)} kg a year, from the WWP sheet."
+            : "Fill trees from the WWP sheet in Tree Calculator or Floor Calculator, and calculate planting areas, to store pollen (!_S_PLT_Result_PollenAnnual_Mass).";
+
+        var treeCount = filteredTrees.Count;
+        AllergenicText.Text = treeCount > 0 ? summary.AllergenicTreeCount.ToString("N0") : "—";
+        AllergenicDetailText.Text = treeCount > 0
+            ? $"{100d * summary.AllergenicTreeCount / treeCount:N0}% of {treeCount:N0} trees are species the WWP sheet flags allergenic (!_S_PLT_iTreeSpecies_Allergenic_Text)."
+            : "No trees in this scenario.";
+
+        IrrigationText.Text = summary.MeanIrrigationDemandFactor is { } plantFactor ? $"{plantFactor:N2} plant factor" : "—";
+        IrrigationDetailText.Text = summary.TreesWithIrrigationFactorCount > 0
+            ? $"Average of {summary.TreesWithIrrigationFactorCount:N0} trees, 0–1 (lower needs less water); {100d * summary.LowWaterTreeCount / summary.TreesWithIrrigationFactorCount:N0}% are low-water (≤ {DashboardAggregationService.LowWaterIrrigationFactor:0.0})."
+            : "Import the sheet's Irrigation_Demand_Plant Factor onto the tree types (Excel Importer) to see it.";
+
         UpdateBngCards(filteredFloors);
     }
 
@@ -1079,6 +1102,7 @@ public sealed partial class MainPage : Page
         InvalidCountText.Text = Count("InvalidInput").ToString("N0");
         WarningCountText.Text = Count("APIWarning").ToString("N0");
         ErrorCountText.Text = Count("APIError").ToString("N0");
+        EstimatedCountText.Text = Count(WwpSheetTreeEstimates.EstimatedStatus).ToString("N0");
 
         StatusBreakdownRows.Clear();
         foreach (var (status, label) in new[]
@@ -1089,7 +1113,8 @@ public sealed partial class MainPage : Page
                      ("MissingInput", "Missing input"),
                      ("InvalidInput", "Invalid input"),
                      ("APIWarning", "API warning"),
-                     ("APIError", "API error")
+                     ("APIError", "API error"),
+                     (WwpSheetTreeEstimates.EstimatedStatus, "Estimated (WWP sheet)")
                  })
         {
             var count = Count(status);
@@ -1097,7 +1122,7 @@ public sealed partial class MainPage : Page
             StatusBreakdownRows.Add(new KpiBarRow(label, $"{count:N0} · {percent:N0}%", percent));
         }
 
-        foreach (var card in new[] { CalculatedCard, ReadyCard, StaleCard, MissingCard, InvalidCard, WarningCard, ErrorCard })
+        foreach (var card in new[] { CalculatedCard, ReadyCard, StaleCard, MissingCard, InvalidCard, WarningCard, ErrorCard, EstimatedCard })
         {
             var isActive = _activeStatusFilter is not null && (string)card.Tag == _activeStatusFilter;
             if (isActive)
