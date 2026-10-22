@@ -31,6 +31,7 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         InitializeComponent();
+        StepHintText.Text = StepHints[0];
     }
 
     public ObservableCollection<GrowthYearRow> YearRows { get; } = [];
@@ -57,6 +58,10 @@ public sealed partial class MainPage : Page
             var settings = await ProjectSettingsSync.PullAsync(GetClient());
             savedYears = settings?.GrowthProjectionYears;
             DesignYearBox.Value = settings?.GrowthDesignYear ?? GrowthYearNames.DefaultDesignYear;
+            if (savedYears is { Count: > 0 } && settings?.GrowthDesignYear is not null)
+            {
+                SetStep(0, StepState.Done);
+            }
         }
         catch (Exception exception) when (exception is not InvalidOperationException)
         {
@@ -189,11 +194,15 @@ public sealed partial class MainPage : Page
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(RefreshStatusAsync);
 
-    private async void Preview_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
+    private async void Preview_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(PreviewRunAsync);
+
+    /// <summary>What Create & refresh would do. Done when every original is on its year and has its copies (refreshing them is routine).</summary>
+    private async Task PreviewRunAsync()
     {
         var result = await GetClient().SendAsync<GrowthProjectionResult>(PipeCommands.RunGrowthProjection, BuildRequest(previewOnly: true));
         StatusText.Text = Describe(result, DesignYear());
-    });
+        SetStep(3, result.Created + result.Deleted + result.MovedToBaseline == 0 ? StepState.Done : StepState.Attention);
+    }
 
     /// <summary>
     /// One step: create/refresh the growth-year copies, then calculate i-Tree for every growth-year
@@ -211,6 +220,7 @@ public sealed partial class MainPage : Page
         if (!changesModel && waitingNow == 0)
         {
             StatusText.Text = "Nothing to do — the growth years are up to date and every growth-year tree is calculated (or still needs inputs).";
+            SetStep(3, StepState.Done);
             return;
         }
 
@@ -273,6 +283,7 @@ public sealed partial class MainPage : Page
         }
 
         StatusText.Text = string.Join(" ", status);
+        SetStep(3, StepState.Done);
         await RefreshStatusAsync();
     });
 
@@ -313,16 +324,21 @@ public sealed partial class MainPage : Page
 
         var capped = validation.AgeSync?.CappedAtMaturity ?? 0;
         var flatDbh = GrowthProjectionChecks.TypesWithUnchangingDbh(_growthTrees.Select(tree => tree.Item));
+        SetStep(4, _growthTrees.Count > 0 && _growthTrees.All(tree => tree.Status == "Calculated") ? StepState.Done : StepState.Attention);
+        if (flatDbh.Count > 0)
+        {
+            SetStep(2, StepState.Attention);
+        }
         CalculationStatusText.Text = _growthTrees.Count == 0
-            ? "No trees are on growth-year worksets yet — create the growth years above first."
+            ? "No trees are on growth-year worksets yet — create the growth years in step 4 first."
             : $"{_growthTrees.Count:N0} tree(s) across {CalculationRows.Count:N0} growth year(s)." +
               (validation.AgeSync is { Updated: > 0 } sync ? $" Updated {sync.Updated:N0} tree(s) to their projected year." : string.Empty) +
               (capped > 0 ? $" {capped:N0} tree(s) without a family age formula have reached mature size, so LIM capped their age." : string.Empty) +
               (validation.AgeSync is { NotOnTheirWorkset: > 0 } misplaced
-                  ? $" {misplaced.NotOnTheirWorkset:N0} tree(s) have a projected year that isn't their workset's: Sort & check trees moves them."
+                  ? $" {misplaced.NotOnTheirWorkset:N0} tree(s) have a projected year that isn't their workset's: step 2 (Check trees) moves them."
                   : string.Empty) +
               (flatDbh.Count > 0
-                  ? $" ⚠ DBH is the same in every growth year for {flatDbh.Count:N0} type(s) ({string.Join(", ", flatDbh.Take(5))}{(flatDbh.Count > 5 ? ", …" : string.Empty)}), so i-Tree will give every year the same results — fill in their trunk growth rate (!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number) with Trunk growth from i-Tree above."
+                  ? $" ⚠ DBH is the same in every growth year for {flatDbh.Count:N0} type(s) ({string.Join(", ", flatDbh.Take(5))}{(flatDbh.Count > 5 ? ", …" : string.Empty)}), so i-Tree will give every year the same results — fill in their trunk growth rate (!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number) in step 3 (Trunk growth)."
                   : string.Empty);
     }
 
@@ -336,6 +352,7 @@ public sealed partial class MainPage : Page
         _organizerTrees = await GetClient().SendAsync<OrganizerTreesResult>(PipeCommands.GetOrganizerTrees);
         ShowSortPlan(_organizerTrees);
         await ShowOverlapsAsync();
+        SetStep(1, _sortPlan is { Moves.Count: 0, Problems.Count: 0 } && _overlaps.Count == 0 ? StepState.Done : StepState.Attention);
     }
 
     private void ShowSortPlan(OrganizerTreesResult trees)
@@ -594,6 +611,7 @@ public sealed partial class MainPage : Page
             TrunkGrowthStatusText.Text = problems.Count == 0
                 ? "Every type already has its i-Tree rate."
                 : $"Nothing written. {string.Join("; ", problems.Take(5).Select(row => $"{row.TypeName}: {row.Message}"))}";
+            SetStep(2, problems.Count == 0 ? StepState.Done : StepState.Attention);
             return;
         }
 
@@ -618,6 +636,7 @@ public sealed partial class MainPage : Page
         var result = await GetClient().SendAsync<ParameterWriteResult>(PipeCommands.ApplyParameterWrites, batch);
         TrunkGrowthStatusText.Text = $"Wrote the trunk growth rate on {result.ChangedParameterCount:N0} type(s). " +
                                      "Run Create, refresh & calculate so the growth-year copies get their new DBH and i-Tree results.";
+        SetStep(2, StepState.Done);
     });
 
     private static string Blank(string value) => string.IsNullOrWhiteSpace(value) ? "(empty)" : value;
@@ -695,6 +714,121 @@ public sealed partial class MainPage : Page
                                      (problems.Count > 0 ? $" Failed: {string.Join("; ", problems.Take(3))}." : string.Empty);
     });
 
+    // ---- Steps ----
+
+    private enum StepState { None, Attention, Done }
+
+    private static readonly string[] StepNames = ["Years", "Check trees", "Trunk growth", "Create & calculate", "Results"];
+
+    private static readonly string[] StepHints =
+    [
+        "Set the year new trees are drawn at, the growth years to model and the trees in scope. Next saves them on the project, so the next run starts from them.",
+        "Puts every tree on its year's workset and finds trees that overlap (shown red in the active view). Fix what it finds, then go on.",
+        "Gives each tree type its trunk growth rate from i-Tree, so DBH grows between the years. Do it before creating the copies.",
+        "Makes or refreshes the growth-year copies and calculates i-Tree for them, in one confirmation.",
+        "Each growth year's i-Tree status: done when every growth-year tree is calculated."
+    ];
+
+    private readonly StepState[] _stepStates = new StepState[5];
+    private int _step;
+
+    private SelectorBarItem[] StepItems => [Step1Item, Step2Item, Step3Item, Step4Item, Step5Item];
+
+    private StackPanel[] StepPanels => [Step1Panel, Step2Panel, Step3Panel, Step4Panel, Step5Panel];
+
+    /// <summary>Shows one step and runs its read-only check on arrival, so the step opens on what's left to do.</summary>
+    private async void StepBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        var index = Array.IndexOf(StepItems, sender.SelectedItem);
+        if (index < 0 || Step5Panel is null || NextButton is null)
+        {
+            return;
+        }
+
+        _step = index;
+        for (var i = 0; i < StepPanels.Length; i++)
+        {
+            StepPanels[i].Visibility = i == index ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        BackButton.IsEnabled = index > 0;
+        NextButton.Visibility = index < StepNames.Length - 1 ? Visibility.Visible : Visibility.Collapsed;
+        NextButton.Content = index < StepNames.Length - 1 ? $"Next: {StepNames[index + 1]}" : string.Empty;
+        StepHintText.Text = StepHints[index];
+        if (_revitClient is null)
+        {
+            return;
+        }
+
+        switch (index)
+        {
+            case 1:
+                await RunBusyAsync(CheckTreesAsync);
+                break;
+            case 3:
+                await RunBusyAsync(PreviewRunAsync);
+                break;
+            case 4:
+                await RunBusyAsync(ScanGrowthTreesAsync);
+                break;
+        }
+    }
+
+    private async void Next_Click(object sender, RoutedEventArgs e)
+    {
+        if (_step == 0 && !await SaveYearsAsync())
+        {
+            return;
+        }
+
+        if (_step < StepNames.Length - 1)
+        {
+            StepBar.SelectedItem = StepItems[_step + 1];
+        }
+    }
+
+    private void Back_Click(object sender, RoutedEventArgs e)
+    {
+        if (_step > 0)
+        {
+            StepBar.SelectedItem = StepItems[_step - 1];
+        }
+    }
+
+    /// <summary>Saves the growth years and design year on the project. False (and stays on the step) when that fails.</summary>
+    private async Task<bool> SaveYearsAsync()
+    {
+        var years = YearRows.Select(row => row.Year).Where(year => year > 0).Distinct().Order().ToList();
+        if (years.Count == 0)
+        {
+            SetStep(0, StepState.Attention);
+            ErrorBar.Title = "Add at least one growth year";
+            ErrorBar.Message = "The years below the design year (and any above it) get copies; you need at least one.";
+            ErrorBar.IsOpen = true;
+            return false;
+        }
+
+        var saved = false;
+        await RunBusyAsync(async () =>
+        {
+            await ProjectSettingsSync.PushAsync(GetClient(), growthProjectionYears: years, growthDesignYear: DesignYear());
+            saved = true;
+        });
+        SetStep(0, saved ? StepState.Done : StepState.Attention);
+        return saved;
+    }
+
+    private void SetStep(int index, StepState state)
+    {
+        _stepStates[index] = state;
+        StepItems[index].Text = $"{index + 1}  {StepNames[index]}" + state switch
+        {
+            StepState.Done => "  ✓",
+            StepState.Attention => "  !",
+            _ => string.Empty
+        };
+    }
+
     /// <summary>The year new-construction trees are drawn at (the design year).</summary>
     private int DesignYear() =>
         double.IsNaN(DesignYearBox.Value) ? GrowthYearNames.DefaultDesignYear : Math.Clamp((int)Math.Round(DesignYearBox.Value), 1, GrowthYearNames.MaximumYear);
@@ -743,6 +877,7 @@ public sealed partial class MainPage : Page
     {
         BusyIndicator.IsActive = true;
         BusyIndicator.Visibility = Visibility.Visible;
+        ErrorBar.IsOpen = false;
         try
         {
             await operation();
@@ -750,6 +885,9 @@ public sealed partial class MainPage : Page
         catch (Exception exception)
         {
             StatusText.Text = $"Failed: {exception.Message}";
+            ErrorBar.Title = "Failed";
+            ErrorBar.Message = exception.Message;
+            ErrorBar.IsOpen = true;
         }
         finally
         {
