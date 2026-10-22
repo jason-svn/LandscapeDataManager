@@ -71,11 +71,15 @@ public static partial class GrowthYearNames
             : ActualAge(ageAtPlanting, Math.Min(growthYear, GrowthLimitWithoutMatureSize));
 }
 
-/// <summary>What the automatic tree-age update did before a Tree Calculator scan.</summary>
+/// <summary>
+/// What the automatic tree-age update did before a Tree Calculator scan. <see cref="NotOnTheirWorkset"/>:
+/// trees whose projected year isn't their workset's growth year (Growth Projections' Sort &amp; check trees moves them).
+/// </summary>
 public sealed record TreeAgeSyncSummary(
     int OnGrowthWorksets,
     int Updated,
     int SkippedNotEditable,
     int MissingYearsParameter,
     int SkippedGrouped,
-    int CappedAtMaturity = 0);
+    int CappedAtMaturity = 0,
+    int NotOnTheirWorkset = 0);

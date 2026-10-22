@@ -23,6 +23,10 @@ public sealed partial class MainPage : Page
     private string _preferredUnitSystem = "Metric";
     private string _preferredCurrency = "USD";
     private IReadOnlyList<TypeTrunkGrowth> _trunkGrowth = [];
+    private OrganizerTreesResult? _organizerTrees;
+    private TreeSortPlan? _sortPlan;
+    private IReadOnlyList<TreeOverlapGroup> _overlaps = [];
+    private IReadOnlyList<string> _redTreeIds = [];
 
     public MainPage()
     {
@@ -34,6 +38,8 @@ public sealed partial class MainPage : Page
     public ObservableCollection<WorksetRow> WorksetRows { get; } = [];
     public ObservableCollection<YearCalculationRow> CalculationRows { get; } = [];
     public ObservableCollection<TrunkGrowthRow> TrunkGrowthRows { get; } = [];
+    public ObservableCollection<SortMoveRow> SortMoveRows { get; } = [];
+    public ObservableCollection<OverlapRow> OverlapRows { get; } = [];
 
     public void Initialize(string pipeName, nint windowHandle)
     {
@@ -117,7 +123,7 @@ public sealed partial class MainPage : Page
 
         if (_status.UnlinkedGrowthTrees > 0)
         {
-            warnings.Add($"{_status.UnlinkedGrowthTrees:N0} tree(s) are already on growth-year worksets but weren't made by this tool (copied by hand?). They're left alone — delete them if these projections replace them.");
+            warnings.Add($"{_status.UnlinkedGrowthTrees:N0} tree(s) are on a growth year (on its workset, or given a projected year) but weren't made by this tool, e.g. placed by hand. Create & refresh leaves them alone; Sort & check trees moves them onto their year's workset and finds any that overlap.");
         }
 
         WarningsText.Text = string.Join(Environment.NewLine, warnings.Select(warning => $"• {warning}"));
@@ -310,10 +316,194 @@ public sealed partial class MainPage : Page
             : $"{_growthTrees.Count:N0} tree(s) across {CalculationRows.Count:N0} growth year(s)." +
               (validation.AgeSync is { Updated: > 0 } sync ? $" Updated {sync.Updated:N0} tree(s) to their projected year." : string.Empty) +
               (capped > 0 ? $" {capped:N0} tree(s) without a family age formula have reached mature size, so LIM capped their age." : string.Empty) +
+              (validation.AgeSync is { NotOnTheirWorkset: > 0 } misplaced
+                  ? $" {misplaced.NotOnTheirWorkset:N0} tree(s) have a projected year that isn't their workset's: Sort & check trees moves them."
+                  : string.Empty) +
               (flatDbh.Count > 0
                   ? $" ⚠ DBH is the same in every growth year for {flatDbh.Count:N0} type(s) ({string.Join(", ", flatDbh.Take(5))}{(flatDbh.Count > 5 ? ", …" : string.Empty)}), so i-Tree will give every year the same results — fill in their trunk growth rate (!_S_PLT_GrowthRatio_TrunkDiameterbyYear_Number) with Trunk growth from i-Tree above."
                   : string.Empty);
     }
+
+    // ---- Sort & check trees ----
+
+    private async void CheckTrees_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(CheckTreesAsync);
+
+    /// <summary>Reads every tree, lists the ones on another workset than their year's, and finds and reddens overlapping ones.</summary>
+    private async Task CheckTreesAsync()
+    {
+        _organizerTrees = await GetClient().SendAsync<OrganizerTreesResult>(PipeCommands.GetOrganizerTrees);
+        ShowSortPlan(_organizerTrees);
+        await ShowOverlapsAsync();
+    }
+
+    private void ShowSortPlan(OrganizerTreesResult trees)
+    {
+        var plan = _sortPlan = TreeSortPlanner.Plan(trees.Trees);
+        SortMoveRows.Clear();
+        foreach (var group in plan.Moves
+                     .GroupBy(move => (From: move.Tree.WorksetName, move.Year))
+                     .OrderBy(group => group.Key.Year)
+                     .ThenBy(group => group.Key.From, StringComparer.OrdinalIgnoreCase))
+        {
+            var exists = trees.YearWorksets.TryGetValue(group.Key.Year, out var to);
+            SortMoveRows.Add(new SortMoveRow(group.Key.From, exists ? to! : GrowthYearNames.WorksetName(group.Key.Year), group.Count(), !exists));
+        }
+
+        SortTable.Visibility = SortMoveRows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        SortTreesButton.IsEnabled = trees.IsWorkshared && plan.Moves.Count > 0;
+        var problems = plan.Problems.Count > 0
+            ? $" {plan.Problems.Count:N0} can't be sorted: {string.Join("; ", plan.Problems.Take(3).Select(problem => $"{problem.Tree.TypeName} ({problem.Tree.ElementId}): {problem.Reason}"))}{(plan.Problems.Count > 3 ? " …" : string.Empty)}"
+            : string.Empty;
+        var withoutYear = plan.WithoutProjectedYear > 0
+            ? $" {plan.WithoutProjectedYear:N0} tree(s) have no projected year yet and stay where they are (Create & refresh gives the originals year 0)."
+            : string.Empty;
+        SortSummaryText.Text = !trees.IsWorkshared
+            ? "This model isn't workshared, so there are no growth-year worksets to sort into."
+            : (plan.Moves.Count == 0
+                  ? "Every tree with a projected year is on its year's workset."
+                  : $"{plan.Moves.Count:N0} tree(s) aren't on their projected year's workset.") + problems + withoutYear;
+    }
+
+    private async void OverlapToleranceBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) => await RefreshOverlapsAsync();
+
+    private async void SameTypeOnly_Changed(object sender, RoutedEventArgs e) => await RefreshOverlapsAsync();
+
+    private async Task RefreshOverlapsAsync()
+    {
+        if (_organizerTrees is not null && OverlapInfoBar is not null)
+        {
+            await RunBusyAsync(ShowOverlapsAsync);
+        }
+    }
+
+    /// <summary>Finds overlapping trees in the last Check and paints the ones to delete red in the active view (clearing the last ones painted).</summary>
+    private async Task ShowOverlapsAsync()
+    {
+        if (_organizerTrees is null)
+        {
+            return;
+        }
+
+        var tolerance = double.IsNaN(OverlapToleranceBox.Value) ? 0.1 : OverlapToleranceBox.Value;
+        var sameTypeOnly = SameTypeOnlyCheckBox.IsChecked == true;
+        _overlaps = TreeOverlapFinder.Find(_organizerTrees.Trees, tolerance, sameTypeOnly);
+        OverlapRows.Clear();
+        foreach (var group in _overlaps)
+        {
+            OverlapRows.Add(new OverlapRow(group));
+        }
+
+        var extras = _overlaps.SelectMany(group => group.Extras).Select(tree => tree.UniqueId).ToList();
+        if (_redTreeIds.Count > 0)
+        {
+            await GetClient().SendAsync<OperationResult>(PipeCommands.ResetColourOverrides, new ElementSelectionRequest(_redTreeIds));
+        }
+
+        if (extras.Count > 0)
+        {
+            await GetClient().SendAsync<OperationResult>(
+                PipeCommands.ApplyStatusColourOverrides,
+                new StatusColourOverrideRequest(extras.ToDictionary(id => id, _ => "Overlap", StringComparer.Ordinal)));
+        }
+
+        _redTreeIds = extras;
+        OverlapTable.Visibility = _overlaps.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        SelectOverlapsButton.IsEnabled = extras.Count > 0;
+        ResetOverlapColoursButton.IsEnabled = extras.Count > 0;
+        OverlapInfoBar.IsOpen = extras.Count > 0;
+        OverlapInfoBar.Title = $"{extras.Count:N0} overlapping tree(s), shown red in the active view";
+        OverlapInfoBar.Message =
+            $"In {_overlaps.Count:N0} place(s), trees stand within {tolerance:0.###} m of another {(sameTypeOnly ? "of the same type " : string.Empty)}on the same workset in the same design option. " +
+            "One tree in each place is kept (the original its growth-year copies project, else the oldest). Delete the red ones?";
+        OverlapSummaryText.Text = extras.Count > 0
+            ? "Each row is one place where trees overlap. Select the red trees to look at them in Revit first."
+            : $"No trees overlap within {tolerance:0.###} m on the same workset in the same design option.";
+    }
+
+    private async void SortTrees_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
+    {
+        if (_sortPlan is not { Moves.Count: > 0 } plan)
+        {
+            return;
+        }
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Sort trees into worksets?",
+            Content = $"Moves {plan.Moves.Count:N0} tree(s) onto their projected year's workset: " +
+                      string.Join(", ", SortMoveRows.GroupBy(row => row.ToText).Select(group => $"{group.Sum(row => row.Trees):N0} to {group.Key}{(group.First().IsNewWorkset ? " (new)" : string.Empty)}")) +
+                      ". One Revit undo step. Afterwards, Create, refresh & calculate brings their i-Tree results up to date.",
+            PrimaryButtonText = "Sort",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        var result = await GetClient().SendAsync<TreeSortResult>(
+            PipeCommands.SortTreesIntoWorksets,
+            new TreeSortRequest(plan.Moves.Select(move => new TreeSortItem(move.Tree.UniqueId, move.Year)).ToList()));
+        await RefreshStatusAsync();
+        await CheckTreesAsync();
+        SortSummaryText.Text = $"Moved {result.Moved:N0} tree(s)." +
+                               (result.WorksetsCreated.Count > 0 ? $" Created {string.Join(", ", result.WorksetsCreated)}." : string.Empty) +
+                               (result.Notes.Count > 0 ? " " + string.Join(" ", result.Notes) : string.Empty) +
+                               " " + SortSummaryText.Text;
+    });
+
+    private async void DeleteOverlaps_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
+    {
+        var extras = _overlaps.SelectMany(group => group.Extras).ToList();
+        if (extras.Count == 0 || _organizerTrees is null)
+        {
+            return;
+        }
+
+        var leaving = extras.Select(tree => tree.UniqueId).ToHashSet(StringComparer.Ordinal);
+        var copies = _organizerTrees.Trees.Count(tree =>
+            !leaving.Contains(tree.UniqueId) && tree.LinkedSourceUniqueId is { } source && leaving.Contains(source));
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = $"Delete {extras.Count:N0} overlapping tree(s)?",
+            Content = $"Keeps one tree in each of the {_overlaps.Count:N0} place(s) and deletes the {extras.Count:N0} red one(s)" +
+                      (copies > 0 ? $", plus the {copies:N0} growth-year copies Growth Projections made of them" : string.Empty) +
+                      ". One Revit undo step.",
+            PrimaryButtonText = "Delete",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        var result = await GetClient().SendAsync<DeleteTreesResult>(PipeCommands.DeleteTrees, new DeleteTreesRequest(leaving.ToList()));
+        await RefreshStatusAsync();
+        await CheckTreesAsync();
+        OverlapSummaryText.Text = $"Deleted {result.Deleted:N0} tree(s)" +
+                                  (result.CopiesDeleted > 0 ? $" and {result.CopiesDeleted:N0} growth-year copies of them" : string.Empty) + "." +
+                                  (result.Notes.Count > 0 ? " " + string.Join(" ", result.Notes) : string.Empty) +
+                                  " " + OverlapSummaryText.Text;
+    });
+
+    private async void SelectOverlaps_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(() =>
+        GetClient().SendAsync<OperationResult>(PipeCommands.SelectElements, new ElementSelectionRequest(_redTreeIds)));
+
+    private async void ResetOverlapColours_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
+    {
+        if (_redTreeIds.Count > 0)
+        {
+            await GetClient().SendAsync<OperationResult>(PipeCommands.ResetColourOverrides, new ElementSelectionRequest(_redTreeIds));
+        }
+
+        _redTreeIds = [];
+        ResetOverlapColoursButton.IsEnabled = false;
+        OverlapSummaryText.Text = "Colours reset. Select Check to paint the overlapping trees again.";
+    });
 
     // ---- Trunk growth from i-Tree ----
 

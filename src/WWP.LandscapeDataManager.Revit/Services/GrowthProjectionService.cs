@@ -101,7 +101,7 @@ internal static class GrowthProjectionService
 
         if (model.UnlinkedGrowthTrees > 0)
         {
-            notes.Add($"{model.UnlinkedGrowthTrees:N0} tree(s) already on growth-year worksets weren't made by Growth Projections and were left alone.");
+            notes.Add($"{model.UnlinkedGrowthTrees:N0} tree(s) on a growth year (placed by hand, or given a projected year) weren't made by Growth Projections and were left alone.");
         }
 
         if (request.PreviewOnly)
@@ -253,19 +253,7 @@ internal static class GrowthProjectionService
     /// </summary>
     private static ModelTrees ReadModel(Document document)
     {
-        var yearWorksets = new Dictionary<int, Workset>();
-        if (document.IsWorkshared)
-        {
-            foreach (var workset in new FilteredWorksetCollector(document).OfKind(WorksetKind.UserWorkset))
-            {
-                if (GrowthYearNames.FromName(workset.Name) is { } year &&
-                    (!yearWorksets.TryGetValue(year, out var existing) || workset.Name == GrowthYearNames.WorksetName(year) && existing.Name != workset.Name))
-                {
-                    yearWorksets[year] = workset;
-                }
-            }
-        }
-
+        var yearWorksets = FindYearWorksets(document);
         var yearByWorkset = document.IsWorkshared
             ? new FilteredWorksetCollector(document).OfKind(WorksetKind.UserWorkset)
                 .Where(workset => GrowthYearNames.FromName(workset.Name) is not null)
@@ -284,11 +272,14 @@ internal static class GrowthProjectionService
         var unlinkedGrowthTrees = 0;
         foreach (var tree in trees)
         {
-            if (schema is not null && tree.GetEntity(schema) is { } entity && entity.IsValid())
+            if (LinkOf(tree, schema) is { } link)
             {
-                copies.Add(new LinkedCopy(tree, new GrowthCopyLink(tree.UniqueId, entity.Get<string>("SourceUniqueId"), entity.Get<int>("GrowthYear"))));
+                copies.Add(new LinkedCopy(tree, link));
             }
-            else if (yearByWorkset.TryGetValue(tree.WorksetId.IntegerValue, out var year) && year > 0)
+            // On a growth year above 0, or given one by hand (its projected year decides its
+            // workset; Sort & check trees moves it there): not an original to project.
+            else if (yearByWorkset.TryGetValue(tree.WorksetId.IntegerValue, out var year) && year > 0 ||
+                     ProjectedYearOf(tree) is > 0)
             {
                 unlinkedGrowthTrees++;
             }
@@ -300,6 +291,42 @@ internal static class GrowthProjectionService
 
         return new ModelTrees(trees, originals, copies, yearWorksets, yearByWorkset, unlinkedGrowthTrees);
     }
+
+    /// <summary>The model's growth-year worksets by year; of two for one year, the one with the standard name.</summary>
+    internal static Dictionary<int, Workset> FindYearWorksets(Document document)
+    {
+        var yearWorksets = new Dictionary<int, Workset>();
+        if (!document.IsWorkshared)
+        {
+            return yearWorksets;
+        }
+
+        foreach (var workset in new FilteredWorksetCollector(document).OfKind(WorksetKind.UserWorkset))
+        {
+            if (GrowthYearNames.FromName(workset.Name) is { } year &&
+                (!yearWorksets.TryGetValue(year, out var existing) || workset.Name == GrowthYearNames.WorksetName(year) && existing.Name != workset.Name))
+            {
+                yearWorksets[year] = workset;
+            }
+        }
+
+        return yearWorksets;
+    }
+
+    /// <summary>The link a Growth Projections copy carries to its original; null for any other tree.</summary>
+    internal static GrowthCopyLink? LinkOf(Element tree, Schema? schema = null)
+    {
+        schema ??= Schema.Lookup(LinkSchemaGuid);
+        return schema is not null && tree.GetEntity(schema) is { } entity && entity.IsValid()
+            ? new GrowthCopyLink(tree.UniqueId, entity.Get<string>("SourceUniqueId"), entity.Get<int>("GrowthYear"))
+            : null;
+    }
+
+    /// <summary>The tree's <c>!_S_PLT_TreeGrowth_ProjectedYears_Number</c>, if it has a value.</summary>
+    internal static int? ProjectedYearOf(Element tree) =>
+        tree.LookupParameter(TreeAgeSyncService.ProjectedYearsParameter) is { HasValue: true, StorageType: StorageType.Integer } projected
+            ? projected.AsInteger()
+            : null;
 
     private static List<Element> SelectScope(UIDocument uiDocument, ModelTrees model, GrowthProjectionRequest request, List<string> notes)
     {
@@ -358,7 +385,7 @@ internal static class GrowthProjectionService
     private static int? GrowthYearOf(ModelTrees model, Element tree) =>
         model.YearByWorkset.TryGetValue(tree.WorksetId.IntegerValue, out var year) ? year : null;
 
-    private static void SetWorkset(Element element, WorksetId worksetId)
+    internal static void SetWorkset(Element element, WorksetId worksetId)
     {
         if (element.WorksetId != worksetId &&
             element.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM) is { IsReadOnly: false } parameter)
@@ -367,13 +394,12 @@ internal static class GrowthProjectionService
         }
     }
 
-    /// <summary>Modelled age = the type's age at planting + the growth year, capped at the type's mature age (see <see cref="GrowthYearNames.ModelledAge"/>).</summary>
     /// <summary>
     /// Writes the tree's growth year to <c>!_S_PLT_TreeGrowth_ProjectedYears_Number</c>; the family
     /// computes its age from that. Only when the family has no such formula yet (Years still editable)
     /// is Years set directly: age at planting + year, capped at mature size.
     /// </summary>
-    private static void SetAge(Document document, Element tree, int growthYear, IReadOnlyDictionary<long, int> matureAges)
+    internal static void SetAge(Document document, Element tree, int growthYear, IReadOnlyDictionary<long, int> matureAges)
     {
         if (tree.LookupParameter(TreeAgeSyncService.ProjectedYearsParameter) is { IsReadOnly: false, StorageType: StorageType.Integer } projected)
         {
@@ -434,7 +460,7 @@ internal static class GrowthProjectionService
         }
     }
 
-    private static string OptionKey(Element tree) =>
+    internal static string OptionKey(Element tree) =>
         tree.DesignOption is null ? GrowthOptionKeys.MainModel : tree.DesignOption.Id.Value.ToString();
 
     private static long? ActiveOptionId(Document document)
@@ -444,7 +470,7 @@ internal static class GrowthProjectionService
     }
 
     /// <summary>"Set : Option (primary)", matching the labels the Dashboard and BNG tab show.</summary>
-    private static string OptionLabel(Document document, DesignOption option)
+    internal static string OptionLabel(Document document, DesignOption option)
     {
         // DesignOptionSet isn't a public API type; read the set's name through its element.
         var set = option.get_Parameter(BuiltInParameter.OPTION_SET_ID) is { HasValue: true } setParameter

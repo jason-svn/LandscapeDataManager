@@ -4,8 +4,10 @@ using WWP.LandscapeDataManager.Contracts;
 namespace WWP.LandscapeDataManager.Revit.Services;
 
 /// <summary>
-/// Keeps each growth-year tree's <c>!_S_PLT_TreeGrowth_ProjectedYears_Number</c> equal to the
-/// growth year of its workset (see <see cref="GrowthYearNames"/>). The planting family computes the
+/// Gives each growth-year tree with no <c>!_S_PLT_TreeGrowth_ProjectedYears_Number</c> the growth
+/// year of its workset (see <see cref="GrowthYearNames"/>). A projected year the tree already has is
+/// kept: it decides the tree's workset, and one that differs is counted for Growth Projections' Sort
+/// &amp; check trees, which moves the tree, rather than overwritten. The planting family computes the
 /// modelled age (<c>!_S_PLT_TreeGrowth_Years_Number</c>, which drives DBH, crown and height) as
 /// AgeAtPlanting + ProjectedYears. For a family that doesn't have that formula yet — Years is still a
 /// plain editable value — Years is also set here (age at planting + year, capped at mature size), so
@@ -35,16 +37,22 @@ internal static class TreeAgeSyncService
         var matureAges = TreeMaturityService.GetMatureAges(
             document, trees.Where(tree => GrowthYearNames.FromName(worksets.GetWorkset(tree.WorksetId)?.Name) is not null));
         var candidates = new List<(Element Tree, List<(Parameter Parameter, int Value)> Writes)>();
-        int onGrowthWorksets = 0, notEditable = 0, missingYears = 0, skippedGrouped = 0, capped = 0;
+        int onGrowthWorksets = 0, notEditable = 0, missingYears = 0, skippedGrouped = 0, capped = 0, notOnTheirWorkset = 0;
         foreach (var tree in trees)
         {
-            if (GrowthYearNames.FromName(worksets.GetWorkset(tree.WorksetId)?.Name) is not { } growthYear)
+            if (GrowthYearNames.FromName(worksets.GetWorkset(tree.WorksetId)?.Name) is not { } worksetYear)
             {
                 continue;
             }
 
             onGrowthWorksets++;
             var projected = tree.LookupParameter(ProjectedYearsParameter) is { StorageType: StorageType.Integer } p ? p : null;
+            var growthYear = projected is { HasValue: true } ? projected.AsInteger() : worksetYear;
+            if (growthYear != worksetYear)
+            {
+                notOnTheirWorkset++;
+            }
+
             var years = tree.LookupParameter(YearsParameter) is { StorageType: StorageType.Integer } y ? y : null;
             // Nothing to drive the age: no ProjectedYears to write, and Years is missing or formula-driven.
             if (projected is null && years is not { IsReadOnly: false })
@@ -61,7 +69,7 @@ internal static class TreeAgeSyncService
             }
 
             var writes = new List<(Parameter Parameter, int Value)>();
-            if (projected is not null && !(projected.HasValue && projected.AsInteger() == growthYear))
+            if (projected is { HasValue: false })
             {
                 if (projected.IsReadOnly)
                 {
@@ -97,13 +105,13 @@ internal static class TreeAgeSyncService
 
         if (candidates.Count == 0)
         {
-            return new TreeAgeSyncSummary(onGrowthWorksets, 0, notEditable, missingYears, skippedGrouped, capped);
+            return new TreeAgeSyncSummary(onGrowthWorksets, 0, notEditable, missingYears, skippedGrouped, capped, notOnTheirWorkset);
         }
 
         if (document.IsReadOnly)
         {
             return new TreeAgeSyncSummary(
-                onGrowthWorksets, 0, notEditable + candidates.Count, missingYears, skippedGrouped);
+                onGrowthWorksets, 0, notEditable + candidates.Count, missingYears, skippedGrouped, NotOnTheirWorkset: notOnTheirWorkset);
         }
 
         var editableIds = document.IsDetached
@@ -113,14 +121,14 @@ internal static class TreeAgeSyncService
         notEditable += candidates.Count - editable.Count;
         if (editable.Count == 0)
         {
-            return new TreeAgeSyncSummary(onGrowthWorksets, 0, notEditable, missingYears, skippedGrouped);
+            return new TreeAgeSyncSummary(onGrowthWorksets, 0, notEditable, missingYears, skippedGrouped, NotOnTheirWorkset: notOnTheirWorkset);
         }
 
         using var transaction = new Transaction(document, "LIM Update tree ages from growth-year worksets");
         if (transaction.Start() != TransactionStatus.Started)
         {
             return new TreeAgeSyncSummary(
-                onGrowthWorksets, 0, notEditable + editable.Count, missingYears, skippedGrouped);
+                onGrowthWorksets, 0, notEditable + editable.Count, missingYears, skippedGrouped, NotOnTheirWorkset: notOnTheirWorkset);
         }
 
         foreach (var (_, writes) in editable)
@@ -133,7 +141,7 @@ internal static class TreeAgeSyncService
 
         var commitStatus = transaction.Commit();
         return commitStatus == TransactionStatus.Committed
-            ? new TreeAgeSyncSummary(onGrowthWorksets, editable.Count, notEditable, missingYears, skippedGrouped, capped)
-            : new TreeAgeSyncSummary(onGrowthWorksets, 0, notEditable + editable.Count, missingYears, skippedGrouped);
+            ? new TreeAgeSyncSummary(onGrowthWorksets, editable.Count, notEditable, missingYears, skippedGrouped, capped, notOnTheirWorkset)
+            : new TreeAgeSyncSummary(onGrowthWorksets, 0, notEditable + editable.Count, missingYears, skippedGrouped, NotOnTheirWorkset: notOnTheirWorkset);
     }
 }

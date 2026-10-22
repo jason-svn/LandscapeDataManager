@@ -46,6 +46,9 @@ public static class PipeCommands
     public const string GetViewDesignScenario = "get-view-design-scenario";
     public const string GetTreeTimelines = "get-tree-timelines";
     public const string SaveTreeTimelines = "save-tree-timelines";
+    public const string GetOrganizerTrees = "get-organizer-trees";
+    public const string SortTreesIntoWorksets = "sort-trees-into-worksets";
+    public const string DeleteTrees = "delete-trees";
 }
 
 public sealed record PipeRequest(string RequestId, string Command, JsonElement? Payload);

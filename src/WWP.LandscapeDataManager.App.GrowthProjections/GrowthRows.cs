@@ -79,3 +79,25 @@ public sealed class TrunkGrowthRow(Shared.Services.TypeTrunkGrowth type)
     public string RateText { get; } = type.RateCmPerYear is { } rate ? rate.ToString("0.00") : "—";
     public string Note { get; } = type.Error ?? (type.TreeCount == 0 ? "No trees placed: default inputs" : string.Empty);
 }
+
+/// <summary>Trees on one workset that belong on another growth year's, for the sort table.</summary>
+public sealed class SortMoveRow(string from, string to, int trees, bool isNewWorkset)
+{
+    public string FromText { get; } = string.IsNullOrEmpty(from) ? "(not workshared)" : from;
+    public string ToText { get; } = to;
+    public int Trees { get; } = trees;
+    public string TreesText { get; } = trees.ToString("N0");
+    public bool IsNewWorkset { get; } = isNewWorkset;
+    public string Note { get; } = isNewWorkset ? "New workset" : string.Empty;
+}
+
+/// <summary>One place where trees overlap: the one kept and the ones offered for deletion.</summary>
+public sealed class OverlapRow(TreeOverlapGroup group)
+{
+    public string WorksetName { get; } = string.IsNullOrEmpty(group.WorksetName) ? "—" : group.WorksetName;
+    public string OptionLabel { get; } = group.OptionLabel;
+    public string TypeLabel { get; } = string.Join(", ", group.Extras.Prepend(group.Keep).Select(tree => tree.TypeLabel).Distinct());
+    public string TreesText { get; } = (group.Extras.Count + 1).ToString("N0");
+    public string KeepText { get; } = group.Keep.ElementId + (group.Keep.IsSourceOfCopies ? " (original)" : group.Keep.LinkedYear is not null ? " (copy)" : string.Empty);
+    public string DeleteText { get; } = string.Join(", ", group.Extras.Select(tree => tree.ElementId));
+}

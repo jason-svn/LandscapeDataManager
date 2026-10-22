@@ -15,6 +15,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Grid>
@@ -141,8 +142,117 @@
                 </StackPanel>
             </Border>
 
-            <!-- Trunk growth from i-Tree -->
+            <!-- Sort & check trees -->
             <Border Grid.Row="5" Style="{StaticResource LimCardStyle}">
+                <StackPanel Spacing="10">
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="SORT &amp; CHECK TREES" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="Check" Click="CheckTrees_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                                ToolTipService.ToolTip="Reads every tree's projected year, workset, design option and position. Overlapping trees turn red in the active view; nothing else changes." />
+                    </Grid>
+                    <TextBlock Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
+                               Text="Each tree belongs on the workset of its projected year (!_S_PLT_TreeGrowth_ProjectedYears_Number; 0 = Baseline). Copies made by Growth Projections belong on their own year. Check lists the trees on another workset, and the trees that overlap another one on the same workset in the same design option." />
+
+                    <TextBlock Text="Trees on another workset" FontWeight="SemiBold" Margin="0,4,0,0" />
+                    <TextBlock x:Name="SortSummaryText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" Text="Select Check to see which trees aren't on their year's workset." />
+                    <Grid x:Name="SortTable" Visibility="Collapsed">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid Grid.RowSpan="3" Style="{StaticResource LimTableLanesStyle}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="2*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border Grid.ColumnSpan="2" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneBlueBrush}" />
+                        </Grid>
+                        <Grid Style="{StaticResource LimTableGroupRowStyle}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="2*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <TextBlock Grid.ColumnSpan="2" Text="WORKSET" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneBlueTextBrush}" />
+                        </Grid>
+                        <Grid Grid.Row="1" Style="{StaticResource LimTableHeaderRowStyle}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="2*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="Now on" Style="{StaticResource LimTableHeaderStyle}" />
+                            <TextBlock Grid.Column="1" Text="Moves to" Style="{StaticResource LimTableHeaderStyle}" />
+                            <TextBlock Grid.Column="2" Text="Trees" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                            <TextBlock Grid.Column="3" Text="Note" Style="{StaticResource LimTableHeaderStyle}" />
+                        </Grid>
+                        <ItemsControl Grid.Row="2" ItemsSource="{x:Bind SortMoveRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:SortMoveRow">
+                                    <Grid Style="{StaticResource LimTableRowStyle}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="2*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind FromText}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind ToText}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
+                                        <TextBlock Grid.Column="2" Text="{x:Bind TreesText}" TextAlignment="Right" />
+                                        <TextBlock Grid.Column="3" Text="{x:Bind Note}" Opacity="0.75" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                    <Button x:Name="SortTreesButton" Content="Sort into worksets" Click="SortTrees_Click" IsEnabled="False"
+                            Style="{StaticResource LimPrimaryButtonStyle}"
+                            ToolTipService.ToolTip="Moves these trees onto their year's workset, creating missing worksets (one Revit undo step)." />
+
+                    <TextBlock Text="Overlapping trees" FontWeight="SemiBold" Margin="0,8,0,0" />
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <NumberBox x:Name="OverlapToleranceBox" Header="Closer than (m)" Value="0.1" Minimum="0.01" Maximum="10" SmallChange="0.05" LargeChange="0.5"
+                                   SpinButtonPlacementMode="Compact" Width="150" ValueChanged="OverlapToleranceBox_ValueChanged" />
+                        <CheckBox x:Name="SameTypeOnlyCheckBox" Content="Same type only" IsChecked="True" VerticalAlignment="Bottom"
+                                  Checked="SameTypeOnly_Changed" Unchecked="SameTypeOnly_Changed" />
+                    </StackPanel>
+                    <InfoBar x:Name="OverlapInfoBar" Severity="Error" IsClosable="False" IsOpen="False">
+                        <InfoBar.ActionButton>
+                            <Button Content="Delete the red trees" Click="DeleteOverlaps_Click" />
+                        </InfoBar.ActionButton>
+                    </InfoBar>
+                    <TextBlock x:Name="OverlapSummaryText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" Text="Select Check to look for overlapping trees." />
+                    <Grid x:Name="OverlapTable" Visibility="Collapsed">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid Grid.RowSpan="3" Style="{StaticResource LimTableLanesStyle}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="1.4*" /><ColumnDefinition Width="1.4*" /><ColumnDefinition Width="2*" /><ColumnDefinition Width="60" /><ColumnDefinition Width="120" /><ColumnDefinition Width="1.4*" /></Grid.ColumnDefinitions>
+                            <Border Grid.Column="4" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreenBrush}" />
+                            <Border Grid.Column="5" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneAmberBrush}" />
+                        </Grid>
+                        <Grid Style="{StaticResource LimTableGroupRowStyle}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="1.4*" /><ColumnDefinition Width="1.4*" /><ColumnDefinition Width="2*" /><ColumnDefinition Width="60" /><ColumnDefinition Width="120" /><ColumnDefinition Width="1.4*" /></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="4" Text="KEEP" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneGreenTextBrush}" />
+                            <TextBlock Grid.Column="5" Text="DELETE (RED)" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneAmberTextBrush}" />
+                        </Grid>
+                        <Grid Grid.Row="1" Style="{StaticResource LimTableHeaderRowStyle}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="1.4*" /><ColumnDefinition Width="1.4*" /><ColumnDefinition Width="2*" /><ColumnDefinition Width="60" /><ColumnDefinition Width="120" /><ColumnDefinition Width="1.4*" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="Workset" Style="{StaticResource LimTableHeaderStyle}" />
+                            <TextBlock Grid.Column="1" Text="Design option" Style="{StaticResource LimTableHeaderStyle}" />
+                            <TextBlock Grid.Column="2" Text="Type" Style="{StaticResource LimTableHeaderStyle}" />
+                            <TextBlock Grid.Column="3" Text="Trees" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                            <TextBlock Grid.Column="4" Text="Element ID" Style="{StaticResource LimTableHeaderStyle}" />
+                            <TextBlock Grid.Column="5" Text="Element IDs" Style="{StaticResource LimTableHeaderStyle}" />
+                        </Grid>
+                        <ItemsControl Grid.Row="2" ItemsSource="{x:Bind OverlapRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:OverlapRow">
+                                    <Grid Style="{StaticResource LimTableRowStyle}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="1.4*" /><ColumnDefinition Width="1.4*" /><ColumnDefinition Width="2*" /><ColumnDefinition Width="60" /><ColumnDefinition Width="120" /><ColumnDefinition Width="1.4*" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind WorksetName}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind OptionLabel}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="2" Text="{x:Bind TypeLabel}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind TypeLabel}" />
+                                        <TextBlock Grid.Column="3" Text="{x:Bind TreesText}" TextAlignment="Right" />
+                                        <TextBlock Grid.Column="4" Text="{x:Bind KeepText}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="5" Text="{x:Bind DeleteText}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind DeleteText}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="SelectOverlapsButton" Content="Select the red trees" Click="SelectOverlaps_Click" IsEnabled="False" Style="{StaticResource LimSecondaryButtonStyle}" />
+                        <Button x:Name="ResetOverlapColoursButton" Content="Reset colours" Click="ResetOverlapColours_Click" IsEnabled="False" Style="{StaticResource LimSecondaryButtonStyle}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Trunk growth from i-Tree -->
+            <Border Grid.Row="6" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
@@ -204,7 +314,7 @@
             </Border>
 
             <!-- Run -->
-            <Border Grid.Row="6" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Row="7" Style="{StaticResource LimCardStyle}">
                 <Grid ColumnSpacing="10" RowSpacing="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -226,7 +336,7 @@
             </Border>
 
             <!-- i-Tree by growth year -->
-            <Border Grid.Row="7" Style="{StaticResource LimCardStyle}">
+            <Border Grid.Row="8" Style="{StaticResource LimCardStyle}">
                 <StackPanel Spacing="10">
                     <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
@@ -277,7 +387,7 @@
                 </StackPanel>
             </Border>
 
-            <ProgressRing x:Name="BusyIndicator" Grid.RowSpan="8" Width="40" Height="40" IsActive="False" Visibility="Collapsed"
+            <ProgressRing x:Name="BusyIndicator" Grid.RowSpan="9" Width="40" Height="40" IsActive="False" Visibility="Collapsed"
                           HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Grid>
     </ScrollViewer>

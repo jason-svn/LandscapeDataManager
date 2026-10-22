@@ -149,6 +149,9 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.GetViewDesignScenario => await GetViewDesignScenarioAsync(request).ConfigureAwait(false),
                 PipeCommands.GetTreeTimelines => await GetTreeTimelinesAsync(request).ConfigureAwait(false),
                 PipeCommands.SaveTreeTimelines => await SaveTreeTimelinesAsync(request).ConfigureAwait(false),
+                PipeCommands.GetOrganizerTrees => await GetOrganizerTreesAsync(request).ConfigureAwait(false),
+                PipeCommands.SortTreesIntoWorksets => await SortTreesIntoWorksetsAsync(request).ConfigureAwait(false),
+                PipeCommands.DeleteTrees => await DeleteTreesAsync(request).ConfigureAwait(false),
                 _ => new PipeResponse(request.RequestId, false, Error: $"Unknown command: {request.Command}")
             };
         }
@@ -439,6 +442,30 @@ internal sealed class RevitPipeServer : IDisposable
     private async Task<PipeResponse> GetGrowthProjectionStatusAsync(PipeRequest request)
     {
         var result = await _dispatcher.RunAsync(GrowthProjectionService.GetStatus).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetOrganizerTreesAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(GrowthTreeOrganizerService.ReadTrees).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> SortTreesIntoWorksetsAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<TreeSortRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The sort request was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            GrowthTreeOrganizerService.Sort(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> DeleteTreesAsync(PipeRequest request)
+    {
+        var options = request.Payload?.Deserialize<DeleteTreesRequest>(JsonDefaults.Options)
+                      ?? throw new InvalidDataException("The delete request was empty.");
+        var result = await _dispatcher.RunAsync(application =>
+            GrowthTreeOrganizerService.Delete(application, options)).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

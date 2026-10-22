@@ -113,9 +113,14 @@ public sealed partial class MainPage : Page
         var notes = new List<string>
         {
             sync.Updated > 0
-                ? $"Updated {sync.Updated:N0} growth-year tree(s) to their workset's projected year."
-                : "Growth-year trees already match their workset's projected year."
+                ? $"Updated {sync.Updated:N0} growth-year tree(s) to their projected year."
+                : "Growth-year trees are already at their projected year."
         };
+        if (sync.NotOnTheirWorkset > 0)
+        {
+            notes.Add($"{sync.NotOnTheirWorkset:N0} tree(s) have a projected year that isn't their workset's: Growth Projections > Sort & check trees moves them.");
+        }
+
         if (sync.SkippedNotEditable > 0)
         {
             notes.Add($"{sync.SkippedNotEditable:N0} tree(s) aren't editable, so their age wasn't updated.");

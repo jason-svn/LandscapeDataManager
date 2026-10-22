@@ -49,6 +49,10 @@ Shipped in **v1.3.0 / v1.3.1**:
 The planting family computes the tree's age; LIM supplies the inputs.
 
 - [x] `!_S_PLT_TreeGrowth_ProjectedYears_Number` (Instance): Growth Projections writes the growth year (0 = Baseline, 5, 10, … from the workset).
+- [x] **The projected year decides the workset (2026-10-22, your call):** a tree's `ProjectedYears` says which growth-year workset it belongs on. The automatic age update only fills an empty `ProjectedYears` from the workset and no longer overwrites one you set; a tree whose year differs is counted ("Sort & check trees moves them"). Create & refresh treats a hand-placed tree with a projected year above 0 as a growth-year tree, not an original to copy or move back to Baseline.
+- [ ] **Growth Projections > Sort & check trees (built 2026-10-22, not run on the sandbox yet):**
+  - **Sort into worksets:** moves every tree onto its projected year's workset (a Growth Projections copy onto its link's year), creating missing worksets; one undo step. Grouped trees and years outside 0–100 are listed instead.
+  - **Overlapping trees:** trees within a set distance (0.1 m by default) of another on the same workset in the same design option, of the same type unless unticked. One per place is kept (the original its copies project, else a tool-made copy, else the oldest); the rest turn red in the active view, with Select, Reset colours and "Delete the red trees" (one undo step, with the growth-year copies made from them).
 - [x] `!_S_PLT_TreeGrowth_AgeAtPlanting_Number` changed from Type to **Instance**, same GUID. Import Shared Parameter moves each type's value onto its trees, and growth copies inherit their original's value.
 - [x] Fallback: while a family has no formula yet (its `Years` is still editable), LIM keeps setting `Years` itself, capped as before.
 - [x] `WWP_Vegetation_Tree` family (2026-10-21, saved by you):
