@@ -8,6 +8,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -21,13 +22,16 @@
             <StackPanel Spacing="4">
                 <TextBlock Text="Location Finder" Style="{StaticResource LimPageTitleStyle}" />
                 <TextBlock
-                    Text="Pick a point on the map (or search an address), then publish it to the project's i-Tree latitude/longitude parameters. Map data © OpenStreetMap contributors."
+                    Text="Opens on the location this project already has. Pick a point on the map (or search an address), then publish it to the project's i-Tree latitude/longitude parameters. Map data © OpenStreetMap contributors."
                     Style="{StaticResource LimPageSubtitleStyle}" />
             </StackPanel>
             <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
         </Grid>
 
-        <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
+        <!-- Whether the project already has a location, so whoever opens the tool knows. -->
+        <InfoBar Grid.Row="1" x:Name="LocationStatusBar" Margin="0,16,0,0" IsClosable="False" IsOpen="False" />
+
+        <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
             <StackPanel Spacing="10">
                 <Grid ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
@@ -67,14 +71,14 @@
             </StackPanel>
         </Border>
 
-        <Border Grid.Row="2" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}" Padding="0">
+        <Border Grid.Row="3" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}" Padding="0">
             <WebView2 x:Name="MapView" />
         </Border>
 
-        <CheckBox Grid.Row="3" x:Name="MatchCurrencyBox" Margin="0,16,0,0" IsChecked="True"
+        <CheckBox Grid.Row="4" x:Name="MatchCurrencyBox" Margin="0,16,0,0" IsChecked="True"
                   Content="Also set the preferred currency to match this location" />
 
-        <Grid Grid.Row="4" Margin="0,10,0,0" ColumnSpacing="10">
+        <Grid Grid.Row="5" Margin="0,10,0,0" ColumnSpacing="10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -93,7 +97,7 @@
         </Grid>
 
         <ProgressRing x:Name="BusyIndicator"
-                      Grid.RowSpan="5"
+                      Grid.RowSpan="6"
                       Width="40"
                       Height="40"
                       IsActive="False"

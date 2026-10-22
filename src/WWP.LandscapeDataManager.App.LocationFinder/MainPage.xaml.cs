@@ -19,6 +19,7 @@ public sealed partial class MainPage : Page
     private nint _windowHandle;
     private string _pipeName = string.Empty;
     private bool _mapReady;
+    private bool _savedShown;
 
     public MainPage()
     {
@@ -49,6 +50,7 @@ public sealed partial class MainPage : Page
     {
         await MapView.EnsureCoreWebView2Async();
         MapView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+        MapView.CoreWebView2.NavigationCompleted += MapView_NavigationCompleted;
 
         // Served from a virtual https host rather than file://, because OSM's tile usage policy
         // blocks (403 "Access blocked") tile requests that arrive without a Referer header, and
@@ -59,6 +61,67 @@ public sealed partial class MainPage : Page
             CoreWebView2HostResourceAccessKind.Allow);
         MapView.Source = new Uri($"https://{MapVirtualHost}/map.html");
         _mapReady = true;
+    }
+
+    /// <summary>Once the map has loaded, show the location the project already has.</summary>
+    private async void MapView_NavigationCompleted(CoreWebView2 sender, CoreWebView2NavigationCompletedEventArgs args)
+    {
+        if (_savedShown || !args.IsSuccess)
+        {
+            return;
+        }
+
+        _savedShown = true;
+        try
+        {
+            var result = await GetClient().SendAsync<ProjectSiteLocationResult>(PipeCommands.GetProjectSiteLocation, null);
+            await ShowProjectLocationAsync(result.Latitude, result.Longitude, result.PlaceName, result.IsPublished);
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Couldn't read the project's location: {exception.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Shows the project's location on the map and says whether it's set: the published i-Tree
+    /// location (green), only Revit's Site Location (amber, a starting point), or either (an older
+    /// connector can't tell).
+    /// </summary>
+    private async Task ShowProjectLocationAsync(double latitude, double longitude, string? placeName, bool? isPublished)
+    {
+        var where = $"{latitude:F6}, {longitude:F6}" + (string.IsNullOrWhiteSpace(placeName) ? string.Empty : $" ({placeName})");
+        SetCoordinateBoxes(latitude, longitude);
+        if (isPublished == false)
+        {
+            await MoveMapPinAsync(latitude, longitude);
+            PublishButton.IsEnabled = true;
+            LocationStatusBar.Severity = InfoBarSeverity.Warning;
+            LocationStatusBar.Title = "No location published yet";
+            LocationStatusBar.Message = $"Showing Revit's Site Location, {where}, as a starting point. Check it, move the pin if needed, and publish: i-Tree needs it.";
+        }
+        else
+        {
+            await ShowSavedMarkerAsync(latitude, longitude);
+            LocationStatusBar.Severity = isPublished == true ? InfoBarSeverity.Success : InfoBarSeverity.Informational;
+            LocationStatusBar.Title = isPublished == true ? "Location set" : "Project location";
+            LocationStatusBar.Message = $"This project's location is {where}" +
+                                        (isPublished == true ? "; every i-Tree calculation uses it." : ".") +
+                                        " To change it, pick a new point and publish.";
+        }
+
+        LocationStatusBar.IsOpen = true;
+    }
+
+    private async Task ShowSavedMarkerAsync(double latitude, double longitude)
+    {
+        if (!_mapReady)
+        {
+            return;
+        }
+
+        var script = $"showSaved({latitude.ToString(CultureInfo.InvariantCulture)}, {longitude.ToString(CultureInfo.InvariantCulture)}, 'Project location')";
+        await MapView.CoreWebView2.ExecuteScriptAsync(script);
     }
 
     private void CoreWebView2_WebMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
@@ -146,6 +209,7 @@ public sealed partial class MainPage : Page
                 PipeCommands.PublishProjectLocation,
                 new PublishProjectLocationRequest(latitude, longitude));
             var message = $"Published {result.Latitude:F6}, {result.Longitude:F6} to {result.DocumentTitle}.";
+            await ShowProjectLocationAsync(result.Latitude, result.Longitude, null, true);
 
             if (MatchCurrencyBox.IsChecked == true)
             {

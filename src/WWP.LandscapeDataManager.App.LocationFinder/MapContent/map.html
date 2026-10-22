@@ -20,6 +20,23 @@
         }).addTo(limMap);
 
         var limMarker = null;
+        var limSaved = null;
+
+        // The location already published to the project: fixed, labelled, so whoever opens the
+        // tool sees it's set. The draggable pin is the new choice.
+        function showSaved(lat, lng, label) {
+            var target = [lat, lng];
+            if (limSaved === null) {
+                limSaved = L.circleMarker(target, { radius: 9, color: '#1b5e20', weight: 3, fillColor: '#43a047', fillOpacity: 0.9 })
+                    .addTo(limMap)
+                    .bindTooltip(label, { permanent: true, direction: 'top', offset: [0, -10] });
+            } else {
+                limSaved.setLatLng(target);
+                limSaved.setTooltipContent(label);
+            }
+
+            limMap.setView(target, 15);
+        }
 
         function postLatLng(lat, lng) {
             window.chrome.webview.postMessage(JSON.stringify({ lat: lat, lng: lng }));

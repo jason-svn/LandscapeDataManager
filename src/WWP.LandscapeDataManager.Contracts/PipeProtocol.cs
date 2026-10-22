@@ -300,7 +300,12 @@ public sealed record AssignSpeciesBatchResult(string DocumentTitle, IReadOnlyLis
 /// Location). This reflects the Revit template default until someone has actually set it, so a
 /// non-null result here is not proof the project was deliberately geolocated.
 /// </summary>
-public sealed record ProjectSiteLocationResult(string DocumentTitle, double Latitude, double Longitude, string? PlaceName);
+/// <summary>
+/// The project's location. <see cref="IsPublished"/>: true when it's the i-Tree location Location
+/// Finder published (what every calculation uses), false when it's only Revit's Site Location, null
+/// from a connector that predates the flag.
+/// </summary>
+public sealed record ProjectSiteLocationResult(string DocumentTitle, double Latitude, double Longitude, string? PlaceName, bool? IsPublished = null);
 
 public sealed record PublishProjectLocationRequest(double Latitude, double Longitude);
 

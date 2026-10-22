@@ -33,10 +33,10 @@ internal static class ProjectLocationService
             (latitude != 0 || longitude != 0))
         {
             var samePlace = Math.Abs(latitude - siteLatitude) < 0.01 && Math.Abs(longitude - siteLongitude) < 0.01;
-            return new ProjectSiteLocationResult(document.Title, latitude, longitude, samePlace ? siteLocation.PlaceName : null);
+            return new ProjectSiteLocationResult(document.Title, latitude, longitude, samePlace ? siteLocation.PlaceName : null, IsPublished: true);
         }
 
-        return new ProjectSiteLocationResult(document.Title, siteLatitude, siteLongitude, siteLocation.PlaceName);
+        return new ProjectSiteLocationResult(document.Title, siteLatitude, siteLongitude, siteLocation.PlaceName, IsPublished: false);
     }
 
     private static double? GetDouble(Element element, string name) =>
