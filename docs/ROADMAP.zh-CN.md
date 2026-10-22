@@ -82,7 +82,7 @@ LIM（Landscape Information Manager）的计划、已完成的工作，以及修
   - [x] Growth Projections 第 3 步改为 **Growth rates**（树干、树高、冠宽）。**Write to types** 把三个速率都写到每个 Revit 类型上（先预览，一步撤销）。**Push to sheet** 覆盖 Airtable 表格里的 "Trunk diameter annual growth rate (cm/yr)"、"Height year annual growth rate (m/yr)" 和 "Width annual growth rate (m/yr)" 三列，缺哪列就加哪列；Importer 会把三列都映射到类型参数上。
   - [x] **显示是否已经写过（2026-10-22，你的决定）：** 每个类型都显示它的 Revit 类型和 Airtable 行是否已经有 i-Tree 的速率：Up to date（跳过）、Stale、Missing 或 No row，鼠标悬停显示会改什么。Write 和 Push 只改不一样的，并说明跳过了几个。
   - [x] 已在沙盒运行（2026-10-22）：Write to types 在 9 个类型上写了 18 个速率（9 个树干速率原来就一样）。
-- [x] **副本要等它的设计选项（2026-10-22）：** Revit 只把新元素放进当前激活的设计选项，而 API 无法切换激活的选项。沙盒里所有树都在设计选项里，而激活的是 main model，所以 Create & calculate 复制出每个副本后发现选项不对就删掉了，但这一步仍显示完成，结果只有 25 年。现在预览会按选项统计等待中的副本，运行时跳过它们，这一步保持未完成，并列出需要依次激活的选项（状态栏 > Design Options）。Revit 端插件有改动：需要装下一版。
+- [x] **副本要等它的设计选项（2026-10-22）：** Revit 只把新元素放进当前激活的设计选项，而 API 无法切换激活的选项。沙盒里所有树都在设计选项里，而激活的是 main model，所以 Create & calculate 复制出每个副本后发现选项不对就删掉了，但这一步仍显示完成，结果只有 25 年。现在预览会按选项统计等待中的副本，运行时跳过它们，这一步保持未完成，并列出需要依次激活的选项（状态栏 > Design Options）。Revit 端插件有改动，已于 2026-10-22 19:55 安装。
 - [x] **按设计选项显示进度（2026-10-22，你的决定）：** Create & calculate 里新增一张表，列出每个设计选项的原始树、已建/需要的副本（每棵原始树在除自己那一年以外的每个生长年份都需要一个副本）、缺少的年份、i-Tree 还要计算的树，以及下一步：Done、Run，或先激活这个选项。用现装的插件就能用。
 - [x] **以设计年为基准（2026-10-22，你的决定）：** Dashboard 默认打开设计年（项目里的 25），不再是 10；JSON 导出把默认场景的设计年标为 primary，所以网页版也默认打开设计年。Growth Projections 的表格会标出设计年，原始树数量标在它们实际所在的 workset 上（不再固定在 0 年）。沙盒：6 个树的明细表只统计原始树（`!_S_PLT_TreeGrowth_GeneratedBy_Text` 为空），XX-0003 上的 5 年和 10 年视图各自只显示自己那一年的 workset。
 - [x] **按 i-Tree 的尺寸画树（2026-10-22，你的决定）：** i-Tree 根据 DBH 推算树高和树冠（LIM 不发送树高和树冠），所以画出来的树现在用 i-Tree 的数字。新增两个实例参数（Analysis Results）：`!_S_PLT_iTreeResult_TreeHeight_Length` 和 `!_S_PLT_iTreeResult_CrownWidth_Length`（与 i-Tree 树冠面积相等的圆的直径）。每次 i-Tree 计算（Tree Calculator、Growth Projections、Refresh and Audit）都按树的 DBH 写入；i-Tree 算不了时写 0。族用它们画：树干高 = 树高 / 3，树冠高 = 2 × 树高 / 3，树冠半径 = 冠宽 / 2；为 0 时按生长率画。DBH 仍然用族公式：它是 i-Tree 的输入，而且用了 i-Tree 的树干速率后，每年都等于 i-Tree 的 DBH。工具改动了一棵树的年龄（Growth Projections、自动年龄更新）时，会清掉它的 i-Tree 尺寸，直到重新计算，所以副本不会沿用原始树的尺寸。Import Shared Parameter 会把它们加到项目里，用于明细表。
@@ -187,7 +187,7 @@ Dashboard 上的每一个数字都取决于选对方案，所以这一步排在�
 ## 按设计场景计算连通性（2026-10-22，你的决定）
 
 - [x] **不再算生长年份副本：** 网络只用画出来的树（新树在设计年，现状树按现状）；副本和原始树在同一位置，以前被当成另一个斑块。
-- [x] **任意设计场景：** connector 返回所有设计选项和 phase（每个斑块带上它的选项和 phase 角色），工具按 Dashboard 的规则挑选某个场景的斑块：它的选项，以及在这个场景中存在的元素（现状场景：开发前存在的）。新增 Design scenario 下拉框；Compare scenarios 会把每个场景都算一遍。Revit 端插件有改动：装下一版之前，工具只提供 primary 选项并会提示。
+- [x] **任意设计场景：** connector 返回所有设计选项和 phase（每个斑块带上它的选项和 phase 角色），工具按 Dashboard 的规则挑选某个场景的斑块：它的选项，以及在这个场景中存在的元素（现状场景：开发前存在的）。新增 Design scenario 下拉框；Compare scenarios 会把每个场景都算一遍。Revit 端插件有改动，已于 2026-10-22 19:55 安装（旧版插件只提供 primary 选项，工具会提示）。
 - [x] **用连通栖息地代替档位比例：** 档位是一次计算内部的排名（总有约五分之一是 critical），不能用来比较方案。每个场景的等效连通面积（EC）以及 EC 占栖息地面积的比例（每个斑块都能到达其他斑块时为 100%）保存在项目设置里（`ConnectivityResults`）。工具里有 Connected habitat 卡片和对比表；Dashboard 的 Habitat connectivity 卡片显示当前场景的值（以前显示的 "% connectors" 永远在一半左右），场景对比表加了 Connected habitat 和 Equivalent connected area 两行，JSON 导出每个场景带 `connectedHabitatPercent` 和 `equivalentConnectedAreaSquareMeters`（网页版会显示）。手填的 GIS 分数仍作为后备。
 - [x] 写回 Revit 时写的是所计算场景的档位；main model 里的元素保留最后一次写入的场景的档位。
 
