@@ -46,7 +46,9 @@ internal sealed record DashboardJsonTotals(
     double FloorTotalGwp,
     double FloorCostSavedAnnual,
     double TreeMaintenanceCostAnnual = 0,
-    double FloorMaintenanceCostAnnual = 0);
+    double FloorMaintenanceCostAnnual = 0,
+    int StaleTreeCount = 0,
+    int EstimatedTreeCount = 0);
 
 internal sealed record DashboardJsonSpecies(
     string SpeciesCode,
@@ -91,7 +93,14 @@ internal sealed record DashboardJsonSiteKpi(
     double? HabitatConnectivityScore,
     int LightingFixtureCount,
     int DarkSkyCompliantFixtureCount,
-    double? LightingCompliancePercent);
+    double? LightingCompliancePercent,
+    double TreePollenAnnualKg = 0,
+    double FloorPollenAnnualKg = 0,
+    int AllergenicTreeCount = 0,
+    int TreesWithIrrigationFactorCount = 0,
+    double? MeanIrrigationDemandFactor = null,
+    int LowWaterTreeCount = 0,
+    int TreesWithNativeStatusCount = 0);
 
 internal sealed record DashboardJsonBngGroup(string Name, int FloorCount, double AreaHectares, double HabitatUnits);
 
@@ -144,6 +153,9 @@ internal sealed record DashboardJsonBng(
 /// Schema v5: a scenario is a design scenario — one chosen option per design option set, named
 /// in <see cref="DesignOption"/>, with the choices themselves in <see cref="Choices"/> (set → option).
 /// Before v5, each design option was its own scenario and the other sets were dropped.
+/// Schema v6 adds, without changing anything earlier: <see cref="BenefitsFromForecast"/>, stale
+/// and WWP-sheet-estimate tree counts, pollen, allergen and irrigation site figures, and how many
+/// trees have a native status (the native share's denominator).
 /// </remarks>
 internal sealed record DashboardJsonScenario(
     string Label,
@@ -155,7 +167,8 @@ internal sealed record DashboardJsonScenario(
     IReadOnlyList<DashboardJsonSpecies> Species,
     IReadOnlyList<DashboardJsonFloorType> FloorTypes,
     string? DesignOption = null,
-    IReadOnlyDictionary<string, string>? Choices = null);
+    IReadOnlyDictionary<string, string>? Choices = null,
+    bool BenefitsFromForecast = false);
 
 /// <summary>The full payload written by "Export JSON" — a standalone snapshot meant to be loaded into another (e.g. browser-based) dashboard, independent of this app's own unit/currency toggles.</summary>
 internal sealed record DashboardJsonExport(
@@ -165,7 +178,7 @@ internal sealed record DashboardJsonExport(
 
 internal static class DashboardJsonExportService
 {
-    private const int SchemaVersion = 5;
+    private const int SchemaVersion = 6;
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     /// <summary>
@@ -192,52 +205,64 @@ internal static class DashboardJsonExportService
         var worksetYears = GrowthYears.InModel(report.Trees);
         var entries = scenarios.SelectMany(scenario =>
         {
-            var trees = DesignScenarios.Filter(report.Trees, tree => tree.DesignOption, scenario, sets);
+            var trees = DesignScenarios.Filter(report.Trees, tree => tree.DesignOption, scenario, sets)
+                .Select(tree => DashboardAggregationService.NormalizeTree(tree, "Metric", currency, usdToTargetRate))
+                .ToList();
             var floors = DesignScenarios.Filter(report.Floors, floor => floor.DesignOption, scenario, sets);
             var lighting = DesignScenarios.Filter(report.Lighting, fixture => fixture.DesignOption, scenario, sets);
             var label = hasAlternatives ? DesignScenarios.Label(scenario, sets) : scenario.Name;
-            return worksetYears.Count == 0
-                ? new[] { BuildScenario(label, scenario == defaultScenario, trees, floors, lighting, report, currency, usdToTargetRate,
-                    designOption: hasAlternatives ? scenario.Name : null, choices: scenario.Choices) }
-                : worksetYears.Select((year, index) => BuildScenario(
+            if (worksetYears.Count == 0)
+            {
+                return new[] { BuildScenario(label, scenario == defaultScenario, trees, trees, floors, lighting, report,
+                    designOption: hasAlternatives ? scenario.Name : null, choices: scenario.Choices) };
+            }
+
+            // As in the Dashboard: with i-Tree forecasts in the model, a growth year's benefits are each
+            // planted tree's forecast for that year, and that year's copies only drive canopy and the
+            // other geometry figures (a copy whose trunk doesn't grow reports the planting-size benefit).
+            var outlook = new TreeOutlook(trees, worksetYears, report.TreeTimelines, "Metric", usdToTargetRate);
+            var fromForecast = outlook.Method == TreeOutlookMethod.Timeline;
+            return worksetYears.Select((year, index) =>
+            {
+                var geometryTrees = trees.Where(tree => GrowthYears.CountsIn(tree.Source, year)).ToList();
+                return BuildScenario(
                     hasAlternatives ? $"{scenario.Name} · {year} years" : $"{year} years",
                     scenario == defaultScenario && index == 0,
-                    trees.Where(tree => GrowthYears.CountsIn(tree, year)).ToList(),
+                    fromForecast ? outlook.InYear(year) : geometryTrees,
+                    geometryTrees,
                     floors,
                     lighting,
                     report,
-                    currency,
-                    usdToTargetRate,
                     years: year,
                     designOption: hasAlternatives ? scenario.Name : null,
-                    choices: scenario.Choices));
+                    choices: scenario.Choices,
+                    benefitsFromForecast: fromForecast);
+            });
         }).ToList();
 
         return new DashboardJsonExport(SchemaVersion, project, entries);
     }
 
+    /// <param name="normalizedTrees">The trees whose benefits count (normalized onto Metric and the export currency).</param>
+    /// <param name="geometryTrees">The trees as modelled in this growth year, for canopy and the other site figures.</param>
     private static DashboardJsonScenario BuildScenario(
         string label,
         bool isPrimary,
-        IReadOnlyList<DashboardTreeItem> treeItems,
+        IReadOnlyList<NormalizedTreeMetrics> normalizedTrees,
+        IReadOnlyList<NormalizedTreeMetrics> geometryTrees,
         IReadOnlyList<DashboardFloorItem> floors,
         IReadOnlyList<DashboardLightingItem> lighting,
         DashboardReportResult report,
-        string currency,
-        double usdToTargetRate,
         int? years = null,
         string? designOption = null,
-        IReadOnlyDictionary<string, string>? choices = null)
+        IReadOnlyDictionary<string, string>? choices = null,
+        bool benefitsFromForecast = false)
     {
-        var normalizedTrees = treeItems
-            .Select(tree => DashboardAggregationService.NormalizeTree(tree, "Metric", currency, usdToTargetRate))
-            .ToList();
-
         var grandTotal = DashboardAggregationService.BuildGrandTotal(normalizedTrees, floors);
         var speciesSubtotals = DashboardAggregationService.AggregateTreesBySpecies(normalizedTrees);
         var floorSubtotals = DashboardAggregationService.AggregateFloorsByType(floors);
         var siteKpi = DashboardAggregationService.BuildSiteKpiSummary(
-            normalizedTrees, floors, lighting, report.SiteTotalAreaSquareMeters, report.HabitatConnectivityScore);
+            geometryTrees, floors, lighting, report.SiteTotalAreaSquareMeters, report.HabitatConnectivityScore);
 
         var totals = new DashboardJsonTotals(
             grandTotal.TreeCount,
@@ -265,7 +290,9 @@ internal static class DashboardJsonExportService
             grandTotal.FloorTotalGwp,
             grandTotal.FloorCostSavedAnnual,
             grandTotal.TreeMaintenanceCostAnnual,
-            grandTotal.FloorMaintenanceCostAnnual);
+            grandTotal.FloorMaintenanceCostAnnual,
+            normalizedTrees.Count(tree => string.Equals(tree.Source.Status, "Stale", StringComparison.OrdinalIgnoreCase)),
+            normalizedTrees.Count(tree => tree.IsSheetEstimate));
 
         var species = speciesSubtotals.Select(s => new DashboardJsonSpecies(
             s.SpeciesCode,
@@ -292,7 +319,10 @@ internal static class DashboardJsonExportService
             siteKpi.DistinctSpeciesCount, siteKpi.NativeTreeCount, siteKpi.AdaptiveTreeCount,
             siteKpi.NativeSpeciesRatioPercent, siteKpi.DistinctBloomMonthsCount,
             siteKpi.DistinctEcologicalFunctionsCount, siteKpi.HabitatConnectivityScore,
-            siteKpi.LightingFixtureCount, siteKpi.DarkSkyCompliantFixtureCount, siteKpi.LightingCompliancePercent);
+            siteKpi.LightingFixtureCount, siteKpi.DarkSkyCompliantFixtureCount, siteKpi.LightingCompliancePercent,
+            siteKpi.TreePollenAnnual, siteKpi.FloorPollenAnnual, siteKpi.AllergenicTreeCount,
+            siteKpi.TreesWithIrrigationFactorCount, siteKpi.MeanIrrigationDemandFactor, siteKpi.LowWaterTreeCount,
+            siteKpi.TreesWithNativeStatusCount);
 
         var bng = DashboardAggregationService.BuildBngSummary(floors, BngMetricCatalog.Default);
         static IReadOnlyList<DashboardJsonBngGroup> Groups(IReadOnlyList<BngGroupSubtotal> groups) =>
@@ -310,7 +340,7 @@ internal static class DashboardJsonExportService
 
         return new DashboardJsonScenario(
             label, years ?? DashboardUnitLabels.ExtractProjectionYears(label), isPrimary, totals, siteKpiJson, bngJson, species, floorTypes, designOption,
-            choices is { Count: > 0 } ? choices : null);
+            choices is { Count: > 0 } ? choices : null, benefitsFromForecast);
     }
 
     public static async Task ExportAsync(string path, DashboardJsonExport export)
