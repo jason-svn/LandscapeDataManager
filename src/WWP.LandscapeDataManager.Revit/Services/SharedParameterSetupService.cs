@@ -567,6 +567,10 @@ internal static class SharedParameterSetupService
             // the planting family computes its modelled age as AgeAtPlanting + ProjectedYears.
             PlantingInstance("!_S_PLT_TreeGrowth_ProjectedYears_Number", GroupTypeId.Constraints,
                 "Growth years after planting this tree is projected to (0 = Baseline, as planted), written by Growth Projections from the tree's growth-year workset. The planting family computes the modelled age (!_S_PLT_TreeGrowth_Years_Number) as AgeAtPlanting + this."),
+            // Growth Projections labels its copies so nobody edits them by hand (it also pins them);
+            // the copy's link to its original stays in extensible storage.
+            PlantingInstance("!_S_PLT_TreeGrowth_GeneratedBy_Text", GroupTypeId.IdentityData,
+                "Set by LIM Growth Projections on each growth-year copy it makes: its year and the original tree it copies. Don't edit, move or delete these copies: edit the original tree and run Growth Projections again. Empty on every other tree."),
             // Instance: trees of one type can go in at different nursery ages (and retained trees
             // are older again). Was Type — Import Shared Parameter migrates the binding in place
             // (same GUID) and gives each tree its type's old value.

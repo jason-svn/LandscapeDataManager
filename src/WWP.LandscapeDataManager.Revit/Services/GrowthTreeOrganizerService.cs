@@ -197,6 +197,12 @@ internal static class GrowthTreeOrganizerService
             var ids = all.Where(tree => editable.Contains(tree.Id.Value)).Select(tree => tree.Id).ToList();
             if (ids.Count > 0)
             {
+                // Growth Projections pins its copies; unpin them so they can go.
+                foreach (var id in ids)
+                {
+                    GrowthProjectionService.SetPinned(document.GetElement(id), false);
+                }
+
                 document.Delete(ids);
             }
 

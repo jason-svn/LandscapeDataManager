@@ -26,7 +26,7 @@
                 <StackPanel Spacing="4">
                     <TextBlock Text="Growth Projections" Style="{StaticResource LimPageTitleStyle}" />
                     <TextBlock Style="{StaticResource LimPageSubtitleStyle}" TextWrapping="Wrap"
-                               Text="Models the planting at each growth year. The original trees become year 0 (Baseline); for every growth year below, each tree is copied onto its own workset with that year written to !_S_PLT_TreeGrowth_ProjectedYears_Number — the planting family turns it into the tree's age (AgeAtPlanting + ProjectedYears). Run it again after editing the originals to refresh the copies — they're linked, so nothing is duplicated." />
+                               Text="Models the planting at each growth year. The original trees become year 0 (Baseline); for every growth year below, each tree is copied onto its own workset with that year written to !_S_PLT_TreeGrowth_ProjectedYears_Number — the planting family turns it into the tree's age (AgeAtPlanting + ProjectedYears). Run it again after editing the originals to refresh the copies — they're linked, so nothing is duplicated. Copies are pinned and labelled in !_S_PLT_TreeGrowth_GeneratedBy_Text so nobody edits them by hand: edit the original tree instead." />
                 </StackPanel>
                 <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
             </Grid>

@@ -12,11 +12,13 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 /// move to the year-0 "Baseline" workset, so every year is its own complete set. Each copy carries an
 /// extensible-storage link to its original, so running again refreshes copies in place (location,
 /// rotation, type, i-Tree inputs) instead of duplicating them — and keeps their calculated results.
+/// Copies are labelled in <see cref="GeneratedByParameter"/> and pinned, so nobody edits them by hand.
 /// Which copies to create/refresh/remove is planned by <see cref="GrowthProjectionPlanner"/>.
 /// </summary>
 internal static class GrowthProjectionService
 {
     private const string InputParameterPrefix = "!_S_PLT_iTreeInput_";
+    internal const string GeneratedByParameter = "!_S_PLT_TreeGrowth_GeneratedBy_Text";
     private static readonly Guid LinkSchemaGuid = new("5b0f2d8e-3c1a-4e7b-9a62-1d4c8f7e2a90");
 
     public static GrowthProjectionStatus GetStatus(UIApplication application)
@@ -133,7 +135,7 @@ internal static class GrowthProjectionService
         }
 
         var worksetsCreated = new List<string>();
-        int moved = 0, created = 0, updated = 0, deleted = 0;
+        int moved = 0, created = 0, updated = 0, deleted = 0, unlabelled = 0;
         using var transaction = new Transaction(document, "LIM Growth Projections");
         var failureOptions = transaction.GetFailureHandlingOptions();
         failureOptions.SetFailuresPreprocessor(new SuppressWarnings());
@@ -173,9 +175,12 @@ internal static class GrowthProjectionService
                     continue;
                 }
 
+                SetPinned(copy, false);
                 MatchOriginal(document, source, copy);
                 SetWorkset(copy, worksetIds[link.Year]);
                 SetAge(document, copy, link.Year, matureAges);
+                unlabelled += MarkGenerated(copy, link.Year, source) ? 0 : 1;
+                SetPinned(copy, true);
                 updated++;
             }
 
@@ -205,6 +210,8 @@ internal static class GrowthProjectionService
                 entity.Set("SourceUniqueId", item.SourceUniqueId);
                 entity.Set("GrowthYear", item.Year);
                 copy.SetEntity(entity);
+                unlabelled += MarkGenerated(copy, item.Year, source) ? 0 : 1;
+                SetPinned(copy, true);
                 created++;
             }
 
@@ -219,7 +226,17 @@ internal static class GrowthProjectionService
                 .ToList();
             if (deleteIds.Count > 0)
             {
+                foreach (var id in deleteIds)
+                {
+                    SetPinned(document.GetElement(id), false);
+                }
+
                 deleted = document.Delete(deleteIds).Count;
+            }
+
+            if (unlabelled > 0)
+            {
+                notes.Add($"{unlabelled:N0} copies couldn't be labelled in {GeneratedByParameter}: run Import Shared Parameter, then run again.");
             }
 
             transaction.Commit();
@@ -414,6 +431,42 @@ internal static class GrowthProjectionService
         var typeId = tree.GetTypeId().Value;
         years.Set(GrowthYearNames.ModelledAge(
             TreeAgeSyncService.AgeAtPlanting(tree), growthYear, matureAges.TryGetValue(typeId, out var mature) ? mature : null));
+    }
+
+    /// <summary>
+    /// Labels a copy so people leave it alone: which growth year it is and which tree it copies. False
+    /// when the parameter isn't on the trees yet (Import Shared Parameter adds it).
+    /// </summary>
+    internal static bool MarkGenerated(Element copy, int year, Element source)
+    {
+        if (copy.LookupParameter(GeneratedByParameter) is not { IsReadOnly: false, StorageType: StorageType.String } label)
+        {
+            return false;
+        }
+
+        var text = $"LIM Growth Projections: {year}-year copy of tree {source.Id.Value}. Edit the original tree, not this copy.";
+        if (label.AsString() != text)
+        {
+            label.Set(text);
+        }
+
+        return true;
+    }
+
+    /// <summary>Pins or unpins a copy: pinned while it waits for the next run, unpinned while the run moves, retypes or deletes it.</summary>
+    internal static void SetPinned(Element? element, bool pinned)
+    {
+        if (element is not null && element.Pinned != pinned)
+        {
+            try
+            {
+                element.Pinned = pinned;
+            }
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+            {
+                // Some elements can't be pinned (e.g. in a group); the label still says what it is.
+            }
+        }
     }
 
     /// <summary>Moves, rotates and retypes a copy to match its original, and copies its i-Tree inputs (condition, crown exposure...).</summary>
