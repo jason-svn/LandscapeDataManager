@@ -48,7 +48,8 @@ internal static class GrowthTreeOrganizerService
                 entry.Link?.SourceUniqueId,
                 sources.Contains(tree.UniqueId),
                 tree.GroupId != ElementId.InvalidElementId,
-                x, y, z);
+                x, y, z,
+                GrowthProjectionService.IsNewConstruction(document, tree));
         }).ToList();
 
         var yearWorksets = GrowthProjectionService.FindYearWorksets(document)

@@ -16,7 +16,7 @@ public sealed class TrunkGrowthFromITreeTests
 
     private static PlantingInstanceValidationItem Tree(string type, string? condition = "Good", int? exposure = 3, int? growthYear = null) =>
         new("uid", 1, "WWP_Vegetation_Tree", type, "ACCA", 5, condition, exposure, 2.1, 51.5, -0.1,
-            "Calculated", string.Empty, string.Empty, string.Empty, string.Empty, growthYear);
+            "Calculated", string.Empty, string.Empty, string.Empty, string.Empty, growthYear, IsGrowthCopy: growthYear is not null);
 
     [Fact]
     public void The_rate_is_the_forecast_slope_from_the_first_year_to_the_last()

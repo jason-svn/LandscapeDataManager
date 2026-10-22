@@ -13,6 +13,17 @@ public static partial class GrowthYearNames
 {
     public const int MaximumYear = 100;
 
+    /// <summary>The year new-construction trees are drawn at unless the project sets another: schemes are shown grown, not as planted.</summary>
+    public const int DefaultDesignYear = 25;
+
+    /// <summary>
+    /// The growth year a tree that isn't a Growth Projections copy is drawn at (its "original" year):
+    /// its projected year when it has one above 0, else by phase — an existing tree as it stands
+    /// today (0), a new one at the design year. Copies fill the other listed years.
+    /// </summary>
+    public static int OwnYear(int? projectedYears, bool isNewConstruction, int designYear) =>
+        projectedYears is > 0 ? projectedYears.Value : isNewConstruction ? designYear : 0;
+
     [GeneratedRegex(@"(?<!\d)(\d{1,3})(?!\d)\s*(?:years?|yrs?)(?![A-Za-z0-9])|\b(?:year|yr)\s*(\d{1,3})(?!\d)", RegexOptions.IgnoreCase)]
     private static partial Regex ExplicitYearPattern();
 

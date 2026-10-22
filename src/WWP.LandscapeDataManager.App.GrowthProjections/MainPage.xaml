@@ -26,7 +26,7 @@
                 <StackPanel Spacing="4">
                     <TextBlock Text="Growth Projections" Style="{StaticResource LimPageTitleStyle}" />
                     <TextBlock Style="{StaticResource LimPageSubtitleStyle}" TextWrapping="Wrap"
-                               Text="Models the planting at each growth year. The original trees become year 0 (the project start); for every growth year below, each tree is copied onto its own workset with that year written to !_S_PLT_TreeGrowth_ProjectedYears_Number — the planting family turns it into the tree's age (AgeAtPlanting + ProjectedYears). Run it again after editing the originals to refresh the copies — they're linked, so nothing is duplicated. Copies are pinned and labelled in !_S_PLT_TreeGrowth_GeneratedBy_Text so nobody edits them by hand: edit the original tree instead." />
+                               Text="Models the planting at each growth year. You draw each tree once: existing trees as they stand today (year 0), new trees grown, at the design year. For every other growth year below, each tree is copied onto its own workset with that year written to !_S_PLT_TreeGrowth_ProjectedYears_Number — the planting family turns it into the tree's age (AgeAtPlanting + ProjectedYears). Run it again after editing the originals to refresh the copies — they're linked, so nothing is duplicated. Copies are pinned and labelled in !_S_PLT_TreeGrowth_GeneratedBy_Text so nobody edits them by hand: edit the original tree instead." />
                 </StackPanel>
                 <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />
             </Grid>
@@ -47,7 +47,17 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Year 0" FontWeight="SemiBold" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="1" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Text="Project start — the original trees as planted, moved onto LIM_Growth_0yr - Project start." />
+                                   Text="Project start — existing trees as they stand today, on LIM_Growth_0yr - Project start. New trees aren't drawn at year 0; their year-0 benefits still come from i-Tree's forecast." />
+                    </Grid>
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <NumberBox x:Name="DesignYearBox" Header="New trees drawn at" Value="25" Minimum="1" Maximum="100" SmallChange="5"
+                                   SpinButtonPlacementMode="Compact" AutomationProperties.Name="Design year for new trees" />
+                        <TextBlock Grid.Column="1" Style="{StaticResource LimMutedTextStyle}" VerticalAlignment="Bottom" TextWrapping="Wrap"
+                                   Text="years — the design year. New-construction trees are drawn grown, on its workset; only the years listed below get copies, so leave out any you don't need. A tree whose projected year you set yourself keeps it." />
                     </Grid>
                     <ItemsControl ItemsSource="{x:Bind YearRows}">
                         <ItemsControl.ItemTemplate>

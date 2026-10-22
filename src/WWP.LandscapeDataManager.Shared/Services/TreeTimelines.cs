@@ -28,8 +28,11 @@ public static class TreeTimelines
             ? Math.Clamp(matureAge.Value - Math.Max(0, ageAtPlanting ?? 0), 1, MaximumHorizonYears)
             : DefaultHorizonYears;
 
-    /// <summary>A planted tree: not a growth-year copy (growth year 0 is the project-start workset) and not in a group.</summary>
-    public static bool IsPlanted(PlantingInstanceValidationItem item) => item.GrowthYear is null or 0 && !item.InGroup;
+    /// <summary>
+    /// A planted tree: an original, not a Growth Projections copy and not in a group — whichever year
+    /// it's drawn at (an existing tree today, a new one at the design year).
+    /// </summary>
+    public static bool IsPlanted(PlantingInstanceValidationItem item) => !item.IsGrowthCopy && !item.InGroup;
 
     /// <summary>The planting input sent to i-Tree for the forecast, or null while something it needs is missing.</summary>
     public static ITreeRevitInput? PlantingInput(PlantingInstanceValidationItem item)
@@ -40,9 +43,13 @@ public static class TreeTimelines
             return null;
         }
 
+        // The forecast starts at planting. A new tree drawn grown (at the design year, say) has the
+        // family's planting DBH then, not the DBH it's drawn with; an existing tree starts as it is.
+        var drawnGrown = item.IsNewConstruction && item.Years is { } age && age > (item.AgeAtPlanting ?? 0);
+        var plantingDbhInches = drawnGrown ? TrunkGrowthFromITree.PlantingDbhCm / 2.54 : item.DbhInches.Value;
         return new ITreeRevitInput(
             item.SpeciesCode.Trim(), string.Empty, string.Empty, item.FamilyName, item.TypeName, 0,
-            item.Condition.Trim(), item.DbhInches.Value, item.Latitude.Value, item.Longitude.Value,
+            item.Condition.Trim(), plantingDbhInches, item.Latitude.Value, item.Longitude.Value,
             Horizon(item.MatureAge, item.AgeAtPlanting), item.CrownExposure ?? 0);
     }
 

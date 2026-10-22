@@ -106,7 +106,9 @@ internal static class PlantingInstanceValidationScanner
             document.IsWorkshared ? GrowthYearNames.FromName(document.GetWorksetTable().GetWorkset(element.WorksetId)?.Name) : null,
             element.GroupId != ElementId.InvalidElementId,
             GetNullableInt(element, AgeAtPlantingParameter),
-            elementType is not null && GetNullableInt(elementType, MatureAgeParameter) is > 0 and var matureAge ? matureAge : null);
+            elementType is not null && GetNullableInt(elementType, MatureAgeParameter) is > 0 and var matureAge ? matureAge : null,
+            GrowthProjectionService.IsNewConstruction(document, element),
+            GrowthProjectionService.LinkOf(element) is not null);
     }
 
     private static double? ConvertToInches(double? internalLengthValue) =>

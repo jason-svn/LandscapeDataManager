@@ -586,7 +586,9 @@ public sealed record PlantingInstanceValidationItem(
     int? GrowthYear = null,
     bool InGroup = false,
     int? AgeAtPlanting = null,
-    int? MatureAge = null);
+    int? MatureAge = null,
+    bool IsNewConstruction = false,
+    bool IsGrowthCopy = false);
 
 public sealed record ValidatePlantingInstancesRequest(bool SelectedOnly = false);
 
@@ -703,7 +705,8 @@ public sealed record DashboardTreeItem(
     double? IrrigationDemandFactor = null,
     string? Allergenic = null,
     PlantingInstanceValidationItem? Inputs = null,
-    string? PhaseRole = null);
+    string? PhaseRole = null,
+    bool IsGrowthCopy = false);
 
 /// <summary>
 /// One Floor (planted/paved landscape area) instance's identity, placement, and stored LDS/i-Tree

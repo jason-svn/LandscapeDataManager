@@ -17,11 +17,12 @@ public sealed class TreeOrganizationTests
         double x = 0,
         double y = 0,
         long typeId = 1,
-        string option = GrowthOptionKeys.MainModel) =>
+        string option = GrowthOptionKeys.MainModel,
+        bool isNew = false) =>
         new($"uid-{id}", id, "WWP_Vegetation_Tree", $"Type{typeId}", typeId,
             worksetYear is { } year ? GrowthYearNames.WorksetName(year) : "Planting", worksetYear,
             option, option == GrowthOptionKeys.MainModel ? "Main model" : option,
-            projected, linkedYear, linkedSource, isSource, inGroup, x, y, 0);
+            projected, linkedYear, linkedSource, isSource, inGroup, x, y, 0, isNew);
 
     [Fact]
     public void A_tree_moves_to_the_workset_of_its_projected_year()
@@ -40,16 +41,33 @@ public sealed class TreeOrganizationTests
     }
 
     [Fact]
-    public void Trees_without_a_projected_year_stay_and_grouped_or_out_of_range_ones_are_reported()
+    public void Without_a_projected_year_the_phase_decides_existing_today_and_new_at_the_design_year()
     {
         var plan = TreeSortPlanner.Plan([
-            Tree(1, worksetYear: null),
+            Tree(1, worksetYear: null),                                // existing, on no growth workset
+            Tree(2, worksetYear: 0, isNew: true),                      // new, still on year 0
+            Tree(3, worksetYear: 0, projected: 0, isNew: true),        // new, copied from a year-0 tree
+            Tree(4, worksetYear: 25, projected: 25, isNew: true),      // already where it belongs
+            Tree(5, worksetYear: 25, isNew: true)                      // right workset, year not written yet
+        ], designYear: 25);
+
+        Assert.Equal([(1L, 0), (2L, 25), (3L, 25), (5L, 25)], plan.Moves.Select(move => (move.Tree.ElementId, move.Year)));
+        Assert.Equal(4, plan.YearFromPhase);
+    }
+
+    [Fact]
+    public void A_projected_year_set_by_hand_wins_over_the_design_year() =>
+        Assert.Equal(10, Assert.Single(TreeSortPlanner.Plan([Tree(1, worksetYear: 0, projected: 10, isNew: true)], designYear: 25).Moves).Year);
+
+    [Fact]
+    public void Grouped_or_out_of_range_trees_are_reported_not_moved()
+    {
+        var plan = TreeSortPlanner.Plan([
             Tree(2, worksetYear: 0, projected: 10, inGroup: true),
             Tree(3, worksetYear: 0, projected: 150)
         ]);
 
         Assert.Empty(plan.Moves);
-        Assert.Equal(1, plan.WithoutProjectedYear);
         Assert.Equal([2L, 3L], plan.Problems.Select(problem => problem.Tree.ElementId));
     }
 

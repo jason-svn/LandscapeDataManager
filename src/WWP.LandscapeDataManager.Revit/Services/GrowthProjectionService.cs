@@ -94,21 +94,24 @@ internal static class GrowthProjectionService
             inScope = inScope.Except(grouped).ToList();
         }
 
+        // Each original stays drawn at its own year (existing trees today, new ones at the design
+        // year) and gets a copy for every other listed year.
+        var designYear = Math.Clamp(request.DesignYear, 1, GrowthYearNames.MaximumYear);
+        var ownYears = inScope.ToDictionary(tree => tree.UniqueId, tree => OwnYearOf(document, tree, designYear), StringComparer.Ordinal);
         var plan = GrowthProjectionPlanner.Plan(
             inScope.Select(tree => tree.UniqueId).ToList(),
             model.Originals.Select(tree => tree.UniqueId).ToHashSet(StringComparer.Ordinal),
             model.Copies.Select(copy => copy.Link).ToList(),
-            years);
-        var toMove = inScope.Where(tree => GrowthYearOf(model, tree) != 0).ToList();
-
-        if (model.UnlinkedGrowthTrees > 0)
-        {
-            notes.Add($"{model.UnlinkedGrowthTrees:N0} tree(s) on a growth year (placed by hand, or given a projected year) weren't made by Growth Projections and were left alone.");
-        }
+            years,
+            ownYears);
+        var toMove = inScope
+            .Where(tree => GrowthYearOf(model, tree) != ownYears[tree.UniqueId] || ProjectedYearOf(tree) != ownYears[tree.UniqueId])
+            .ToList();
+        var worksetYears = years.Concat(ownYears.Values).Prepend(0).Distinct().Order().ToList();
 
         if (request.PreviewOnly)
         {
-            var missingWorksets = years.Prepend(0).Where(year => !model.YearWorksets.ContainsKey(year)).Select(GrowthYearNames.WorksetName).ToList();
+            var missingWorksets = worksetYears.Where(year => !model.YearWorksets.ContainsKey(year)).Select(GrowthYearNames.WorksetName).ToList();
             return new GrowthProjectionResult(
                 document.Title, true, inScope.Count, toMove.Count, plan.ToCreate.Count, plan.ToUpdate.Count, plan.ToDelete.Count, missingWorksets, notes);
         }
@@ -143,7 +146,7 @@ internal static class GrowthProjectionService
         transaction.Start();
         try
         {
-            var worksetIds = EnsureWorksets(document, model, years.Prepend(0), worksetsCreated);
+            var worksetIds = EnsureWorksets(document, model, worksetYears, worksetsCreated);
             var schema = GetOrCreateSchema();
             var byUniqueId = model.Trees.ToDictionary(tree => tree.UniqueId, StringComparer.Ordinal);
 
@@ -162,8 +165,9 @@ internal static class GrowthProjectionService
 
             foreach (var tree in toMove.Where(tree => editable.Contains(tree.Id.Value)))
             {
-                SetWorkset(tree, worksetIds[0]);
-                SetAge(document, tree, 0, matureAges);
+                var ownYear = ownYears[tree.UniqueId];
+                SetWorkset(tree, worksetIds[ownYear]);
+                SetAge(document, tree, ownYear, matureAges);
                 moved++;
             }
 
@@ -289,16 +293,10 @@ internal static class GrowthProjectionService
         var unlinkedGrowthTrees = 0;
         foreach (var tree in trees)
         {
+            // Every tree that isn't a copy is an original, drawn at its own year (see OwnYearOf).
             if (LinkOf(tree, schema) is { } link)
             {
                 copies.Add(new LinkedCopy(tree, link));
-            }
-            // On a growth year above 0, or given one by hand (its projected year decides its
-            // workset; Sort & check trees moves it there): not an original to project.
-            else if (yearByWorkset.TryGetValue(tree.WorksetId.IntegerValue, out var year) && year > 0 ||
-                     ProjectedYearOf(tree) is > 0)
-            {
-                unlinkedGrowthTrees++;
             }
             else
             {
@@ -338,6 +336,20 @@ internal static class GrowthProjectionService
             ? new GrowthCopyLink(tree.UniqueId, entity.Get<string>("SourceUniqueId"), entity.Get<int>("GrowthYear"))
             : null;
     }
+
+    /// <summary>
+    /// Created after the project's first phase (new construction). With a single phase there's no
+    /// existing site, and every tree is new.
+    /// </summary>
+    internal static bool IsNewConstruction(Document document, Element element)
+    {
+        var first = document.Phases.Cast<Phase>().FirstOrDefault();
+        return document.Phases.Size <= 1 || first is null || element.CreatedPhaseId != first.Id;
+    }
+
+    /// <summary>The year an original is drawn at: see <see cref="GrowthYearNames.OwnYear"/>.</summary>
+    internal static int OwnYearOf(Document document, Element tree, int designYear) =>
+        GrowthYearNames.OwnYear(ProjectedYearOf(tree), IsNewConstruction(document, tree), designYear);
 
     /// <summary>The tree's <c>!_S_PLT_TreeGrowth_ProjectedYears_Number</c>, if it has a value.</summary>
     internal static int? ProjectedYearOf(Element tree) =>

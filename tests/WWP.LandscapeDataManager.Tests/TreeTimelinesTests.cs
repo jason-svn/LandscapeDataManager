@@ -27,8 +27,9 @@ public sealed class TreeTimelinesTests
     public void Only_planted_trees_get_a_timeline()
     {
         Assert.True(TreeTimelines.IsPlanted(Item()));
-        Assert.True(TreeTimelines.IsPlanted(Item(growthYear: 0)));   // the Baseline workset
-        Assert.False(TreeTimelines.IsPlanted(Item(growthYear: 10))); // a growth-year copy
+        Assert.True(TreeTimelines.IsPlanted(Item(growthYear: 0)));   // an existing tree, as it stands today
+        Assert.True(TreeTimelines.IsPlanted(Item(growthYear: 25) with { IsNewConstruction = true })); // a new tree drawn at the design year
+        Assert.False(TreeTimelines.IsPlanted(Item(growthYear: 10) with { IsGrowthCopy = true }));     // a Growth Projections copy
         Assert.False(TreeTimelines.IsPlanted(Item(inGroup: true)));
     }
 

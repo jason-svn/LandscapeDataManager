@@ -22,7 +22,8 @@ public sealed record OrganizerTree(
     bool InGroup,
     double X,
     double Y,
-    double Z)
+    double Z,
+    bool IsNewConstruction = false)
 {
     public string TypeLabel => $"{FamilyName} : {TypeName}";
 }
@@ -39,7 +40,8 @@ public sealed record TreeMove(OrganizerTree Tree, int Year);
 /// <summary>A tree that can't be sorted, and why.</summary>
 public sealed record TreeSortProblem(OrganizerTree Tree, string Reason);
 
-public sealed record TreeSortPlan(IReadOnlyList<TreeMove> Moves, IReadOnlyList<TreeSortProblem> Problems, int WithoutProjectedYear);
+/// <summary><see cref="YearFromPhase"/>: trees without a projected year of their own, placed by phase (existing at 0, new at the design year).</summary>
+public sealed record TreeSortPlan(IReadOnlyList<TreeMove> Moves, IReadOnlyList<TreeSortProblem> Problems, int YearFromPhase);
 
 public sealed record TreeSortItem(string UniqueId, int Year);
 
@@ -60,29 +62,32 @@ public sealed record TreeOverlapGroup(OrganizerTree Keep, IReadOnlyList<Organize
 }
 
 /// <summary>
-/// Sorting by growth year: <c>!_S_PLT_TreeGrowth_ProjectedYears_Number</c> decides which growth-year
-/// workset a tree belongs on (year 0 = the project start). A copy Growth Projections made belongs to its
-/// link's year instead, since the tool manages it. Trees without a projected year are left where
-/// they are; grouped trees can't change workset on their own.
+/// Sorting by growth year: each tree belongs on the workset of its year (0 = the project start). A copy
+/// Growth Projections made belongs to its link's year, since the tool manages it. Any other tree is an
+/// original, on its <c>!_S_PLT_TreeGrowth_ProjectedYears_Number</c> when that's above 0, else by phase
+/// (<see cref="GrowthYearNames.OwnYear"/>): existing trees as they stand today (0), new ones at the
+/// design year. An original whose projected year doesn't say its year yet gets it written too.
+/// Grouped trees can't change workset on their own.
 /// </summary>
 public static class TreeSortPlanner
 {
-    public static int? TargetYear(OrganizerTree tree) => tree.LinkedYear ?? tree.ProjectedYears;
+    public static int TargetYear(OrganizerTree tree, int designYear = GrowthYearNames.DefaultDesignYear) =>
+        tree.LinkedYear ?? GrowthYearNames.OwnYear(tree.ProjectedYears, tree.IsNewConstruction, designYear);
 
-    public static TreeSortPlan Plan(IEnumerable<OrganizerTree> trees)
+    public static TreeSortPlan Plan(IEnumerable<OrganizerTree> trees, int designYear = GrowthYearNames.DefaultDesignYear)
     {
         var moves = new List<TreeMove>();
         var problems = new List<TreeSortProblem>();
-        var withoutYear = 0;
+        var yearFromPhase = 0;
         foreach (var tree in trees)
         {
-            if (TargetYear(tree) is not { } year)
+            var year = TargetYear(tree, designYear);
+            if (tree.LinkedYear is null && tree.ProjectedYears is not > 0)
             {
-                withoutYear++;
-                continue;
+                yearFromPhase++;
             }
 
-            if (year == tree.WorksetYear)
+            if (year == tree.WorksetYear && (tree.LinkedYear is not null || tree.ProjectedYears == year))
             {
                 continue;
             }
@@ -101,7 +106,7 @@ public static class TreeSortPlanner
             }
         }
 
-        return new TreeSortPlan(moves, problems, withoutYear);
+        return new TreeSortPlan(moves, problems, yearFromPhase);
     }
 }
 

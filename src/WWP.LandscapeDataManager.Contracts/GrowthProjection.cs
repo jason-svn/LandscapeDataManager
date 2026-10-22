@@ -22,9 +22,8 @@ public sealed record GrowthYearWorkset(int Year, string WorksetName, int TreeCou
 
 /// <summary>
 /// What Growth Projections needs to show before a run. Original trees are Planting instances that
-/// aren't copies made by the tool; <see cref="UnlinkedGrowthTrees"/> are trees on a growth year above
-/// 0 (by workset or by projected year) that the tool didn't make (e.g. placed by hand), which it never
-/// copies or moves back to year 0.
+/// aren't copies made by the tool, each drawn at its own year (<see cref="GrowthYearNames.OwnYear"/>).
+/// <see cref="UnlinkedGrowthTrees"/> is no longer counted (0): every tree that isn't a copy is an original.
 /// </summary>
 public sealed record GrowthProjectionStatus(
     string DocumentTitle,
@@ -43,11 +42,13 @@ public sealed record GrowthProjectionStatus(
 /// <see cref="Years"/> are the growth years to project (above 0 — year 0 is always the originals).
 /// <see cref="OptionKeys"/> is only read for <see cref="GrowthProjectionScopes.DesignOptions"/>.
 /// </summary>
+/// <see cref="DesignYear"/>: the year new-construction trees are drawn at (see <see cref="GrowthYearNames.OwnYear"/>).
 public sealed record GrowthProjectionRequest(
     IReadOnlyList<int> Years,
     string Scope,
     IReadOnlyList<string> OptionKeys,
-    bool PreviewOnly);
+    bool PreviewOnly,
+    int DesignYear = GrowthYearNames.DefaultDesignYear);
 
 public sealed record GrowthProjectionResult(
     string DocumentTitle,
@@ -76,7 +77,9 @@ public sealed record GrowthProjectionPlan(
 /// original in scope gets exactly one linked copy per growth year: a missing one is created, an
 /// existing one is refreshed (moved/retyped to match its original), and extra copies of the same
 /// original and year are removed. Copies whose original no longer exists anywhere are removed too.
-/// Copies for years not in this run are left alone — dropping a year never deletes its trees.
+/// Copies for years not in this run are left alone — dropping a year never deletes its trees. An
+/// original gets no copy for its own year (<c>ownYears</c>: a new tree drawn at the design year),
+/// and a copy left over for that year is removed.
 /// </summary>
 public static class GrowthProjectionPlanner
 {
@@ -84,7 +87,8 @@ public static class GrowthProjectionPlanner
         IReadOnlyCollection<string> originalsInScope,
         IReadOnlySet<string> allOriginals,
         IReadOnlyList<GrowthCopyLink> existingCopies,
-        IReadOnlyList<int> years)
+        IReadOnlyList<int> years,
+        IReadOnlyDictionary<string, int>? ownYears = null)
     {
         var projectedYears = years.Where(year => year > 0).Distinct().Order().ToList();
         var copiesByKey = existingCopies
@@ -97,7 +101,13 @@ public static class GrowthProjectionPlanner
 
         foreach (var source in originalsInScope.Distinct(StringComparer.Ordinal))
         {
-            foreach (var year in projectedYears)
+            var ownYear = ownYears is not null && ownYears.TryGetValue(source, out var own) ? own : 0;
+            if (copiesByKey.TryGetValue((source, ownYear), out var redundant))
+            {
+                toDelete.AddRange(redundant);
+            }
+
+            foreach (var year in projectedYears.Where(year => year != ownYear))
             {
                 if (copiesByKey.TryGetValue((source, year), out var copies))
                 {

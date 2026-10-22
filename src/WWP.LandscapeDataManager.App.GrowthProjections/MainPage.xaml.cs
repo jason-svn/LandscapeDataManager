@@ -48,13 +48,15 @@ public sealed partial class MainPage : Page
         _ = RunBusyAsync(LoadAsync);
     }
 
-    /// <summary>Years: the project's saved list, else the growth years already modelled, else 5–25.</summary>
+    /// <summary>Years: the project's saved list, else the growth years already modelled, else 5–25; the design year: the project's, else 25.</summary>
     private async Task LoadAsync()
     {
         IReadOnlyList<int>? savedYears = null;
         try
         {
-            savedYears = (await ProjectSettingsSync.PullAsync(GetClient()))?.GrowthProjectionYears;
+            var settings = await ProjectSettingsSync.PullAsync(GetClient());
+            savedYears = settings?.GrowthProjectionYears;
+            DesignYearBox.Value = settings?.GrowthDesignYear ?? GrowthYearNames.DefaultDesignYear;
         }
         catch (Exception exception) when (exception is not InvalidOperationException)
         {
@@ -182,7 +184,7 @@ public sealed partial class MainPage : Page
             _ => GrowthProjectionScopes.AllTrees
         };
         var optionKeys = OptionRows.Where(row => row.IsChecked).Select(row => row.Key).ToList();
-        return new GrowthProjectionRequest(years, scope, optionKeys, previewOnly);
+        return new GrowthProjectionRequest(years, scope, optionKeys, previewOnly, DesignYear());
     }
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(RefreshStatusAsync);
@@ -242,7 +244,7 @@ public sealed partial class MainPage : Page
             status.Add(Describe(result));
             try
             {
-                await ProjectSettingsSync.PushAsync(GetClient(), growthProjectionYears: request.Years);
+                await ProjectSettingsSync.PushAsync(GetClient(), growthProjectionYears: request.Years, growthDesignYear: request.DesignYear);
             }
             catch (Exception exception)
             {
@@ -338,7 +340,8 @@ public sealed partial class MainPage : Page
 
     private void ShowSortPlan(OrganizerTreesResult trees)
     {
-        var plan = _sortPlan = TreeSortPlanner.Plan(trees.Trees);
+        var designYear = DesignYear();
+        var plan = _sortPlan = TreeSortPlanner.Plan(trees.Trees, designYear);
         SortMoveRows.Clear();
         foreach (var group in plan.Moves
                      .GroupBy(move => (From: move.Tree.WorksetName, move.Year))
@@ -354,14 +357,14 @@ public sealed partial class MainPage : Page
         var problems = plan.Problems.Count > 0
             ? $" {plan.Problems.Count:N0} can't be sorted: {string.Join("; ", plan.Problems.Take(3).Select(problem => $"{problem.Tree.TypeName} ({problem.Tree.ElementId}): {problem.Reason}"))}{(plan.Problems.Count > 3 ? " …" : string.Empty)}"
             : string.Empty;
-        var withoutYear = plan.WithoutProjectedYear > 0
-            ? $" {plan.WithoutProjectedYear:N0} tree(s) have no projected year yet and stay where they are (Create & refresh gives the originals year 0)."
+        var byPhase = plan.YearFromPhase > 0
+            ? $" {plan.YearFromPhase:N0} tree(s) have no projected year of their own, so their phase decides: existing trees year 0, new trees year {designYear} (the design year)."
             : string.Empty;
         SortSummaryText.Text = !trees.IsWorkshared
             ? "This model isn't workshared, so there are no growth-year worksets to sort into."
             : (plan.Moves.Count == 0
-                  ? "Every tree with a projected year is on its year's workset."
-                  : $"{plan.Moves.Count:N0} tree(s) aren't on their projected year's workset.") + problems + withoutYear;
+                  ? "Every tree is on its year's workset."
+                  : $"{plan.Moves.Count:N0} tree(s) aren't on their year's workset yet, or need their projected year written.") + problems + byPhase;
     }
 
     private async void OverlapToleranceBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) => await RefreshOverlapsAsync();
@@ -691,6 +694,10 @@ public sealed partial class MainPage : Page
                                      (unmatched.Count > 0 ? $" No row for: {string.Join(", ", unmatched.Take(5))}{(unmatched.Count > 5 ? ", …" : string.Empty)}." : string.Empty) +
                                      (problems.Count > 0 ? $" Failed: {string.Join("; ", problems.Take(3))}." : string.Empty);
     });
+
+    /// <summary>The year new-construction trees are drawn at (the design year).</summary>
+    private int DesignYear() =>
+        double.IsNaN(DesignYearBox.Value) ? GrowthYearNames.DefaultDesignYear : Math.Clamp((int)Math.Round(DesignYearBox.Value), 1, GrowthYearNames.MaximumYear);
 
     /// <summary>Has every input and just needs (re)calculating.</summary>
     private static bool IsWaiting(string status) => status is "Ready" or "Stale";

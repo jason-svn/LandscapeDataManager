@@ -244,7 +244,8 @@ internal static class DashboardReportService
             // Its i-Tree inputs, so the Dashboard can flag a result whose inputs changed since (Stale).
             PlantingInstanceValidationScanner.ReadItem(document, element, siteLocation.Latitude, siteLocation.Longitude),
             // Retained, lost (demolished), created or excluded, from its phases (see BngPhaseRoles).
-            BngFloorService.GetPhaseRole(document, element).Role);
+            BngFloorService.GetPhaseRole(document, element).Role,
+            GrowthProjectionService.LinkOf(element) is not null);
     }
 
     private static DashboardFloorItem CreateFloorItem(Document document, Element element)

@@ -96,7 +96,12 @@ public sealed class TreeOutlook
         DashboardAggregationService.BuildGrandTotal(_trees.Where(tree => GrowthYears.CountsIn(tree.Source, growthYear)).ToList(), []);
 
     /// <summary>A planted tree, not a growth-year copy of one (a copy sits on a growth-year workset after year 0).</summary>
-    private static bool IsPlanted(DashboardTreeItem tree) => GrowthYears.Of(tree) is null or 0;
+    /// <summary>
+    /// An original, not a Growth Projections copy — whichever year it's drawn at. A report from an
+    /// older connector (no phase role) can't tell copies apart: its year-0 trees are the originals.
+    /// </summary>
+    private static bool IsPlanted(DashboardTreeItem tree) =>
+        tree.PhaseRole is null ? GrowthYears.Of(tree) is null or 0 : !tree.IsGrowthCopy;
 
     private bool HasTimeline(DashboardTreeItem tree) =>
         tree.TimelineKey is { } key && _timelines.TryGetValue(key, out var timeline) && timeline.Years.Count > 0;
