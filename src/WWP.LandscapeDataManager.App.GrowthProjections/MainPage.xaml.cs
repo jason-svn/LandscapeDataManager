@@ -52,6 +52,8 @@ public sealed partial class MainPage : Page
     /// <summary>Years: the project's saved list, else the growth years already modelled, else 5–25; the design year: the project's, else 25.</summary>
     private async Task LoadAsync()
     {
+        // The defaults first, so a failure below never leaves the list empty.
+        ShowYears(DefaultYears);
         IReadOnlyList<int>? savedYears = null;
         try
         {
@@ -886,13 +888,28 @@ public sealed partial class MainPage : Page
         {
             StatusText.Text = $"Failed: {exception.Message}";
             ErrorBar.Title = "Failed";
-            ErrorBar.Message = exception.Message;
+            ErrorBar.Message = exception.Message + LogError(exception);
             ErrorBar.IsOpen = true;
         }
         finally
         {
             BusyIndicator.IsActive = false;
             BusyIndicator.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    /// <summary>Appends the full error to %TEMP%\LIM-GrowthProjections-errors.log; returns where, for the message.</summary>
+    private static string LogError(Exception exception)
+    {
+        try
+        {
+            var path = Path.Combine(Path.GetTempPath(), "LIM-GrowthProjections-errors.log");
+            File.AppendAllText(path, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}{Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}");
+            return $" (details in {path})";
+        }
+        catch (IOException)
+        {
+            return string.Empty;
         }
     }
 
