@@ -366,10 +366,8 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <!-- The trees in scope (step 1), switchable to every tree here. -->
-                                <TextBlock x:Name="RunScopeText" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                <Button Grid.Column="2" x:Name="SelectAllTreesButton" Content="Select all trees" Click="SelectAllTrees_Click" Style="{StaticResource LimSecondaryButtonStyle}"
-                                        ToolTipService.ToolTip="Puts every tree in the project in scope, in every design option. Copies are made for the active option's trees; the table below says which options to make active next." />
+                                <!-- The trees in scope (step 1). -->
+                                <TextBlock Grid.ColumnSpan="3" x:Name="RunScopeText" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
                                 <TextBlock Grid.Row="1" x:Name="StatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" VerticalAlignment="Center"
                                            Text="Set the growth years and the trees to project, then Preview to see what will change." />
                                 <Button Grid.Row="1" Grid.Column="1" Content="Preview" Click="Preview_Click" Style="{StaticResource LimSecondaryButtonStyle}" VerticalAlignment="Top" />

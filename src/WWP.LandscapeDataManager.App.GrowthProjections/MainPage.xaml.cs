@@ -187,14 +187,6 @@ public sealed partial class MainPage : Page
             1 => $"Trees: the {_status.SelectedOriginalCount:N0} original tree(s) selected in Revit.",
             _ => $"Trees: the ticked design options ({(ticked.Count > 0 ? string.Join(", ", ticked) : "none")})."
         };
-        SelectAllTreesButton.IsEnabled = ScopeButtons.SelectedIndex != 0;
-    }
-
-    /// <summary>Puts every tree in the project in scope (step 1's first choice) and previews again.</summary>
-    private async void SelectAllTrees_Click(object sender, RoutedEventArgs e)
-    {
-        ScopeButtons.SelectedIndex = 0;
-        await RunBusyAsync(PreviewRunAsync);
     }
 
     /// <summary>Copies made and trees calculated per batch, so a large project never holds Revit in one huge change.</summary>
