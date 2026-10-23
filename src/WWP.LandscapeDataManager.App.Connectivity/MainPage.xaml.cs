@@ -325,6 +325,7 @@ public sealed partial class MainPage : Page
             ResultRows.Add(row);
         }
 
+        ElementsStepItem.Text = $"2  Elements · {ResultRows.Count:N0}";
         UpdateCounts();
         EquivalentAreaText.Text = "Equivalent connected area: " + string.Join("  ·  ", settings.DispersalDistancesMeters
             .Select((distance, index) => $"{distance:0.##} m → {run.EquivalentConnectedAreaByDistance[index]:N0} m²"));
@@ -417,6 +418,19 @@ public sealed partial class MainPage : Page
         var result = await GetClient().SendAsync<OperationResult>(PipeCommands.ApplyStatusColourOverrides, new StatusColourOverrideRequest(statusByUniqueId));
         StatusText.Text = result.Message ?? "Band colours applied.";
     });
+
+    /// <summary>Step 1 shows the settings and every scenario's connected habitat; step 2 the scored elements, the window's full height.</summary>
+    private void ConnectivitySteps_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (SetupPanel is null || ElementsPanel is null)
+        {
+            return;
+        }
+
+        var elements = sender.SelectedItem == ElementsStepItem;
+        SetupPanel.Visibility = elements ? Visibility.Collapsed : Visibility.Visible;
+        ElementsPanel.Visibility = elements ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private async void HeatmapView_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
     {
