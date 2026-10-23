@@ -56,7 +56,7 @@ public static class DefaultParameterMappingCatalog
 
     /// <summary>
     /// What each retired import target became, so a mapping saved before the rename keeps working:
-    /// the Importer and Sync Audit read it as the current parameter, with the user's own on/off and
+    /// the Importer reads it as the current parameter, with the user's own on/off and
     /// conversion choices. Retired names with no importable successor (calculated results) aren't here.
     /// </summary>
     private static readonly Dictionary<string, string> RenamedParameters = new(StringComparer.Ordinal)

@@ -50,12 +50,6 @@ public sealed class CalculateITreeCommand : LaunchToolCommand
 }
 
 [Transaction(TransactionMode.Manual)]
-public sealed class SyncLatestCommand : LaunchToolCommand
-{
-    protected override ToolProcessLauncher? Launcher => App.SyncAuditLauncher;
-}
-
-[Transaction(TransactionMode.Manual)]
 public sealed class SearchTreesCommand : LaunchToolCommand
 {
     protected override ToolProcessLauncher? Launcher => App.TreeSearcherLauncher;
@@ -71,12 +65,6 @@ public sealed class CalculateFloorCommand : LaunchToolCommand
 public sealed class FindLocationCommand : LaunchToolCommand
 {
     protected override ToolProcessLauncher? Launcher => App.LocationFinderLauncher;
-}
-
-[Transaction(TransactionMode.Manual)]
-public sealed class RunHealthCheckCommand : LaunchToolCommand
-{
-    protected override ToolProcessLauncher? Launcher => App.HealthCheckLauncher;
 }
 
 [Transaction(TransactionMode.Manual)]

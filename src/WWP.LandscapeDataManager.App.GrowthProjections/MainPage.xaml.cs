@@ -133,7 +133,7 @@ public sealed partial class MainPage : Page
 
         if (_status.GroupedTrees > 0)
         {
-            warnings.Add($"{_status.GroupedTrees:N0} tree(s) are in groups. Trees in a group share one age and growth year, so they're skipped here — ungroup them (Health Check lists them).");
+            warnings.Add($"{_status.GroupedTrees:N0} tree(s) are in groups. Trees in a group share one age and growth year, so they're skipped here — ungroup them (the Dashboard lists them under Model checks).");
         }
 
         if (_status.UnlinkedGrowthTrees > 0)

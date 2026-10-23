@@ -37,7 +37,6 @@ public static class PipeCommands
     public const string CalculateFloorsBatch = "calculate-floors-batch";
     public const string GetBngFloors = "get-bng-floors";
     public const string WriteBngFloors = "write-bng-floors";
-    public const string RunHealthCheck = "run-health-check";
     public const string GetDashboardReport = "get-dashboard-report";
     public const string GetConnectivityPatches = "get-connectivity-patches";
     public const string WriteConnectivityResults = "write-connectivity-results";
@@ -541,32 +540,6 @@ public sealed record WriteBngFloorsResult(
     string LastUpdated);
 
 /// <summary>
-/// One Planting or Floor instance reduced to a single Success/NeedsAttention verdict for the
-/// Health Check tool — Status is one of "Success" or "NeedsAttention", matching the colour keys
-/// the Revit-side view-override service already knows how to apply.
-/// </summary>
-public sealed record HealthCheckItem(
-    string UniqueId,
-    string Category,
-    string FamilyName,
-    string TypeName,
-    string Status,
-    string Reason);
-
-/// <summary>
-/// Floor items plus project-wide setup gaps (e.g. a shared parameter never bound at all) that
-/// would otherwise make every single Floor look identically broken for the same root cause.
-/// Planting items are not included here — the client evaluates those itself via
-/// <see cref="ValidatePlantingInstancesResult"/> and the shared PlantingInstanceStatusEvaluator,
-/// the same way i-Tree Calculator and Refresh &amp; Audit already do, so Health Check never
-/// duplicates that business logic.
-/// </summary>
-public sealed record HealthCheckResult(
-    string DocumentTitle,
-    IReadOnlyList<HealthCheckItem> FloorItems,
-    IReadOnlyList<string> ProjectWarnings);
-
-/// <summary>
 /// A single Planting instance's raw i-Tree inputs plus whatever tracking values were stored by
 /// the last calculation — read-only, no status classification (that's pure client-side logic,
 /// see Shared.Services.PlantingInstanceStatusEvaluator, so it stays unit-testable).
@@ -718,7 +691,8 @@ public sealed record DashboardTreeItem(
 /// results, per <c>FloorLdsCalculationService</c>. Floor cost is reported as-calculated (no currency
 /// provenance is tracked for Floors today; see <c>WWP.LandscapeDataManager.App.FloorCalculator</c>,
 /// which never calls <c>ExchangeRateService</c>). <see cref="Bng"/> is null when the BNG
-/// parameters aren't bound in this project yet.
+/// parameters aren't bound in this project yet. <see cref="HasLdsResult"/>: Floor Calculator has
+/// calculated the floor; null from a connector older than the field.
 /// </summary>
 public sealed record DashboardFloorItem(
     string UniqueId,
@@ -743,7 +717,8 @@ public sealed record DashboardFloorItem(
     bool IsStructural = false,
     int? ConnectivityBand = null,
     double PollenAnnual = 0,
-    string? PhaseRole = null);
+    string? PhaseRole = null,
+    bool? HasLdsResult = null);
 
 /// <summary>
 /// A Floor's stored BNG inputs and headline A-2 results, as written by Floor Calculator's BNG tab —
@@ -791,6 +766,10 @@ public sealed record DashboardPropertyLine(string UniqueId, string Name, double 
 
 public sealed record DashboardReportRequest(bool SelectedOnly = false);
 
+/// <summary>
+/// Everything the Dashboard reports on. <see cref="ModelWarnings"/>: project-wide setup problems
+/// (parameters not bound, tree sizes stored as mm), null from an older connector.
+/// </summary>
 public sealed record DashboardReportResult(
     string DocumentTitle,
     string PreferredUnitSystem,
@@ -803,7 +782,8 @@ public sealed record DashboardReportResult(
     IReadOnlyList<DashboardPropertyLine>? PropertyLines = null,
     IReadOnlyList<DesignOptionSetItem>? DesignOptionSets = null,
     ViewDesignScenarioResult? ViewScenario = null,
-    IReadOnlyList<TreeBenefitTimeline>? TreeTimelines = null);
+    IReadOnlyList<TreeBenefitTimeline>? TreeTimelines = null,
+    IReadOnlyList<string>? ModelWarnings = null);
 
 /// <summary>
 /// One year of an i-Tree forecast for one tree, as i-Tree returned it in <c>benefits.annual[]</c>

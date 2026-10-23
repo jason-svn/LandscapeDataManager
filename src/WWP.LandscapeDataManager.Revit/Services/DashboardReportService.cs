@@ -94,7 +94,8 @@ internal static class DashboardReportService
             GetPropertyLines(document),
             DesignOptionScenarioService.GetSets(document),
             viewScenario,
-            TreeTimelineStore.Load(document));
+            TreeTimelineStore.Load(document),
+            ModelSetupChecks.Warnings(document));
     }
 
     /// <summary>Every property line in the model, whatever the scope/selection — a site boundary isn't something you select.</summary>
@@ -298,7 +299,9 @@ internal static class DashboardReportService
             element.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL) is { HasValue: true } structural && structural.AsInteger() == 1,
             ConnectivityService.GetStoredBand(element),
             GetMassKilograms("!_S_PLT_Result_PollenAnnual_Mass"),
-            BngFloorService.GetPhaseRole(document, element).Role);
+            BngFloorService.GetPhaseRole(document, element).Role,
+            // Floor Calculator stamps its source (sheet, or reviewed by hand) on every floor it calculates.
+            GetNullableTextOnInstanceOrType(element, "!_S_PLT_Result_LDS_Source_Text") is not null);
     }
 
     /// <summary>Reads back what <see cref="BngFloorService"/> wrote; null when the BNG parameters aren't bound in this project.</summary>

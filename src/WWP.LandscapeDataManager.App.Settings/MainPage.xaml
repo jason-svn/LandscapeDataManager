@@ -92,7 +92,7 @@
                 <StackPanel Spacing="10">
                     <TextBlock Text="i-TREE API KEY" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock
-                        Text="Used by i-Tree Calculator, i-Tree Downloader, and Refresh &amp; Audit. Use Fetch from MyTree to pull the free public key straight from the i-Tree website — no browser or login needed. For a client-billed production job, paste an org key issued by Davey instead."
+                        Text="Used by i-Tree Calculator, i-Tree Downloader and Growth Projections. Use Fetch from MyTree to pull the free public key straight from the i-Tree website — no browser or login needed. For a client-billed production job, paste an org key issued by Davey instead."
                         Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
                     <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
@@ -121,7 +121,7 @@
                 <StackPanel Spacing="10">
                     <TextBlock Text="AIRTABLE PERSONAL ACCESS TOKEN" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock
-                        Text="Used by Importer, Refresh &amp; Audit, and Floor Calculator (anything reading Airtable via its REST API). Not needed for the companion app's own public-share-link workflow."
+                        Text="Used by Importer and Floor Calculator (anything reading Airtable via its REST API). Not needed for the companion app's own public-share-link workflow."
                         Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
                     <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
@@ -177,7 +177,7 @@
                 <StackPanel Spacing="10">
                     <TextBlock Text="PLANTING DATA SOURCE (AIRTABLE)" Style="{StaticResource LimSectionHeaderStyle}" />
                     <TextBlock
-                        Text="The Airtable base this project imports its planting data from — used by Excel Importer and Refresh &amp; Audit whenever Airtable is the selected source. Each project can point at its own base; there's nothing to fill in if you only ever import from Excel."
+                        Text="The Airtable base this project imports its planting data from — used by Excel Importer whenever Airtable is the selected source. Each project can point at its own base; there's nothing to fill in if you only ever import from Excel."
                         Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
                     <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>

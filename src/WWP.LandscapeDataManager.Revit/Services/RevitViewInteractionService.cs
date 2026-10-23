@@ -24,8 +24,6 @@ internal static class RevitViewInteractionService
         ["APIError"] = new Color(196, 38, 46),
         ["Stale"] = new Color(142, 68, 173),
         ["Failed"] = new Color(255, 0, 0),
-        ["Success"] = new Color(34, 139, 34),
-        ["NeedsAttention"] = new Color(196, 38, 46),
         // Growth Projections: an overlapping tree offered for deletion.
         ["Overlap"] = new Color(230, 0, 0),
         // Connectivity tool bands 1–4.

@@ -142,6 +142,10 @@ Dashboard 上的每一个数字都取决于选对方案，所以这一步排在�
 - [x] **维护成本卡片：** 在碳、雨水和空气污染旁边加了第四张分类卡片：展望期内的维护成本、树和种植区各自的维护成本、净值，以及当前的年费率。
 - [x] **JSON 导出与网页版仪表板（2026-10-21）：** 导出原来按每个生长年份的副本求和，在树干生长率为 0 时，网页版每个年份显示的效益都一样。现在和 Dashboard 一样，用每棵种下的树在该年份的 i-Tree 预测（缓存的沙盒快照中，0 到 25 年为 9,323 到 34,524 kg CO2e）。Schema 6 新增过期和表格估算的树数量、花粉、致敏和灌溉数据，以及本地种比例的分母；之前的字段都没变。网页版仪表板（LandscapeCoBenefitsDashboard，已在本地提交，未推送）顶部是维护成本和净值面板，会提示过期、缺结果和估算的树，并新增花粉、致敏树和低需水树的卡片。已在无头 Edge 中检查：schema 6 的导出和自带的 v3 示例都能加载，任何生长年份和期间都没有脚本错误、NaN 或 undefined。
 - [x] **Floor Calculator 分步骤（2026-10-22，你的决定）：** 两个页签的表格都占满窗口高度。Benefit coefficients：**1 Match**（加载、匹配、计算）和 **2 Results**，表格列出每个 floor 每年的 CO₂e、径流、污染物、O₂ 和节省费用，以及隐含 GWP，最后一行是合计；表格的同步状态和来源缩成一行，放在 Sync sheet 和 Settings 按钮旁边。BNG：**1 Existing habitat (A-1)**（保留、损失和提升的 floor，显示基线生境、状况、不可替代、基线单位、战略重要性和单位）和 **2 New & enhanced (A-2, A-3)**（新建和提升的 floor，显示拟建生境及之后的所有列），每一步只显示自己的列和 floor 数量；状态卡片改成小标签，只统计当前步骤的 floor，说明文字放在 ⓘ 里，每行的写入时间显示为一行 "Written 2026-10-22 13:58"（完整时间在提示里）。
+- [x] **删除 Refresh and Audit 和 Health Check（2026-10-22，你的决定），改由 Dashboard 报告。** 筛选栏下面新增 **Model checks** 提示条，列出模型本身的问题（不分 design option）：Planting 或 Floor 还没设置 LIM 参数、树类型的尺寸存成了 mm、成组的树、没有景观类型或已匹配但还没计算的 floor（结构楼板，以及在同一个阶段新建又拆除的 floor 不算），并有 **Select them in Revit** 按钮。（Revit 端插件有改动：Dashboard 报告现在带上设置警告，以及每个 floor 有没有 Floor Calculator 的结果；旧插件下提示条只列成组的树。）随之去掉的功能：Refresh and Audit 的三方比较（表格变了还是 Revit 里手动改了、Conflict、Keep Revit value）和"表格里有、Revit 里没有"的列表，以及 Health Check 给 floor 上红/绿色。Importer 仍然可以预览和应用表格的改动，Tree Calculator 和 Dashboard 仍然标出过期的树。安装程序会删除旧版本留下的这两个工具的文件夹。
+- [x] **Save shared parameter file…（Import Shared Parameter，2026-10-22）：** 把这个 LIM 版本内置的共享参数文件原样保存出来：165 个参数，GUID 和工具绑定的一样，用来在工具管不到的地方手动加参数，比如标签族的标签。不需要 Revit。文件里没有绑定信息（实例还是类型、类别），这些在工具的表格里能看到。
+- [x] **Check for Updates** 移到功能区最后，单独一个面板（Updates），放在工作流程之后。
+- [x] **Site & Biodiversity 的文字：** Lighting Impact Reduction 在场景里完全没有 Lighting Fixture 时会直接说明（"—" 是这个意思，不是灯具没标记）；页面顶部说明 Habitat Connectivity 优先来自 Connectivity 工具。
 
 ## Phase 4：用 i-Tree 逐年预测代替生长副本
 
@@ -199,7 +203,7 @@ Dashboard 上的每一个数字都取决于选对方案，所以这一步排在�
 
 - [ ] **Growth Projections — "移除不再列出的年份"：** 删除这些年份的副本，然后删除空的 workset。
 - [ ] **Growth Projections — 放错 option 的副本：** 副本和原树不在同一个 design option 时，在正确的 option 激活后，删除并在正确的 option 里重新生成。
-- [ ] **Refresh and Audit：** 应用新的表格费率之后，自动重算受影响的 floor，让 floor 的合计永远不过期。
+- [ ] **Importer：** 应用新的表格费率之后，自动重算受影响的 floor，让 floor 的合计永远不过期。
 - [ ] **Importer：** 参数改名时，可以选择把数值复制到新参数，而不是重新计算。目前的做法：重新计算。
 
 ## WWP 景观数据表格（Airtable）里的数据问题

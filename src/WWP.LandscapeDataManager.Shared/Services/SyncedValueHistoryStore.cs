@@ -3,11 +3,10 @@ using Microsoft.Data.Sqlite;
 namespace WWP.LandscapeDataManager.Shared.Services;
 
 /// <summary>
-/// Remembers the value each synced field held immediately after its last successful write, so
-/// Refresh/Compare/Audit can do a true 3-way diff (previous synced vs current Revit vs latest
-/// source) instead of just current-vs-latest. Without this, a manual edit made in Revit after a
-/// sync is indistinguishable from a source-side change — this store is what makes that
-/// distinction, and therefore "Conflict," possible at all.
+/// Remembers the value each synced field held immediately after its last successful write (the
+/// Importer records it), so a 3-way diff (previous synced vs current Revit vs latest source) can
+/// tell a manual edit made in Revit after a sync from a source-side change. Nothing reads it since
+/// Refresh and Audit was removed; it's kept so that history keeps building up.
 ///
 /// <see cref="TargetKey"/> is the stable identity a value belongs to: a Revit <c>UniqueId</c> for
 /// instance-scoped parameters, or <c>"type:{TypeId}"</c> for type-scoped ones — never a display

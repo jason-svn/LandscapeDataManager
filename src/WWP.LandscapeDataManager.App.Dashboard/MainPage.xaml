@@ -206,12 +206,20 @@
         </Border>
 
         <!-- Trees left out of the totals: stale ones (an error, their i-Tree result is out of date) or
-             ones with no result at all. Not part of the exported overview, so client images stay clean. -->
-        <InfoBar Grid.Row="2" x:Name="TreeIssuesInfoBar" IsOpen="False" IsClosable="False" Margin="0,4,0,0">
-            <InfoBar.ActionButton>
-                <Button Content="Show them in Data explorer" Click="ShowTreeIssues_Click" />
-            </InfoBar.ActionButton>
-        </InfoBar>
+             ones with no result at all; then what's wrong with the model itself (see DashboardModelChecks).
+             Not part of the exported overview, so client images stay clean. -->
+        <StackPanel Grid.Row="2">
+            <InfoBar x:Name="TreeIssuesInfoBar" IsOpen="False" IsClosable="False" Margin="0,4,0,0">
+                <InfoBar.ActionButton>
+                    <Button Content="Show them in Data explorer" Click="ShowTreeIssues_Click" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+            <InfoBar x:Name="ModelChecksInfoBar" IsOpen="False" IsClosable="True" Severity="Warning" Margin="0,4,0,0">
+                <InfoBar.ActionButton>
+                    <Button x:Name="ModelChecksSelectButton" Content="Select them in Revit" Click="SelectModelCheckElements_Click" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+        </StackPanel>
 
         <Pivot Grid.Row="3" x:Name="DashboardPages">
             <PivotItem Header="Executive overview">
@@ -993,7 +1001,7 @@
                         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                         <StackPanel Spacing="4">
                             <TextBlock Text="Site &amp; Biodiversity KPIs" FontSize="24" FontWeight="Bold" />
-                            <TextBlock Text="Canopy Cover and Softscape Surface Ratio are percentages of the site boundary chosen below: a Revit property line, all property lines, or the area entered on Project Information (!_S_PLT_Site_TotalArea_Area). Habitat Connectivity Score is entered after external GIS connectivity modelling, not calculated here." Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
+                            <TextBlock Text="Canopy Cover and Softscape Surface Ratio are percentages of the site boundary chosen below: a Revit property line, all property lines, or the area entered on Project Information (!_S_PLT_Site_TotalArea_Area). Habitat Connectivity comes from the Connectivity tool's result for this scenario, else a score entered on Project Information after GIS analysis." Foreground="{ThemeResource KpiMutedBrush}" TextWrapping="Wrap" />
                             <ComboBox x:Name="SiteBoundaryBox" Header="Site boundary (for Canopy Cover and Softscape Surface Ratio)" MinWidth="420" Margin="0,6,0,0"
                                 DisplayMemberPath="Label" SelectionChanged="SiteBoundaryBox_SelectionChanged" />
                         </StackPanel>

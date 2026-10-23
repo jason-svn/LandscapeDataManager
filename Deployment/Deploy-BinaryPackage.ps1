@@ -54,6 +54,14 @@ foreach ($toolSource in $toolSources) {
 
 Write-Progress -Activity "Installing LIM for Revit $RevitVersion" -Completed
 
+# Tools removed in a later version: their folders would otherwise stay behind from the last install.
+foreach ($retiredTool in 'SyncAudit', 'HealthCheck') {
+    $retiredPath = Join-Path $deploymentRoot $retiredTool
+    if (Test-Path -LiteralPath $retiredPath) {
+        Remove-Item -LiteralPath $retiredPath -Recurse -Force
+    }
+}
+
 # Files extracted from a downloaded ZIP carry the "from the internet" mark, and Copy-Item keeps it;
 # clear it so the tool executables launch without SmartScreen/"unknown publisher" prompts.
 Write-Host 'Step 3 of 4: Clearing the "downloaded from the internet" mark...'

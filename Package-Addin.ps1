@@ -29,11 +29,9 @@ $toolApps = @(
     @{ Name = 'Importer'; Project = 'src\WWP.LandscapeDataManager.App.Importer\WWP.LandscapeDataManager.App.Importer.csproj' }
     @{ Name = 'ITreeDownloader'; Project = 'src\WWP.LandscapeDataManager.App.ITreeDownloader\WWP.LandscapeDataManager.App.ITreeDownloader.csproj' }
     @{ Name = 'ITreeCalculator'; Project = 'src\WWP.LandscapeDataManager.App.ITreeCalculator\WWP.LandscapeDataManager.App.ITreeCalculator.csproj' }
-    @{ Name = 'SyncAudit'; Project = 'src\WWP.LandscapeDataManager.App.SyncAudit\WWP.LandscapeDataManager.App.SyncAudit.csproj' }
     @{ Name = 'TreeSearcher'; Project = 'src\WWP.LandscapeDataManager.App.TreeSearcher\WWP.LandscapeDataManager.App.TreeSearcher.csproj' }
     @{ Name = 'LocationFinder'; Project = 'src\WWP.LandscapeDataManager.App.LocationFinder\WWP.LandscapeDataManager.App.LocationFinder.csproj' }
     @{ Name = 'FloorCalculator'; Project = 'src\WWP.LandscapeDataManager.App.FloorCalculator\WWP.LandscapeDataManager.App.FloorCalculator.csproj' }
-    @{ Name = 'HealthCheck'; Project = 'src\WWP.LandscapeDataManager.App.HealthCheck\WWP.LandscapeDataManager.App.HealthCheck.csproj' }
     @{ Name = 'Dashboard'; Project = 'src\WWP.LandscapeDataManager.App.Dashboard\WWP.LandscapeDataManager.App.Dashboard.csproj' }
     @{ Name = 'GrowthProjections'; Project = 'src\WWP.LandscapeDataManager.App.GrowthProjections\WWP.LandscapeDataManager.App.GrowthProjections.csproj' }
     @{ Name = 'Connectivity'; Project = 'src\WWP.LandscapeDataManager.App.Connectivity\WWP.LandscapeDataManager.App.Connectivity.csproj' }

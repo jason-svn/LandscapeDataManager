@@ -241,7 +241,7 @@ public sealed partial class MainPage : Page
             _airtableCredentialStore.Save(token);
             AirtableStatusText.Text = string.IsNullOrWhiteSpace(token)
                 ? "No Airtable personal access token saved."
-                : "Airtable personal access token saved — Importer, Refresh & Audit, and Floor Calculator will now read it from here.";
+                : "Airtable personal access token saved — Importer and Floor Calculator will now read it from here.";
         }
         else
         {
@@ -274,7 +274,7 @@ public sealed partial class MainPage : Page
             ImportTableIdBox.Text.Trim(),
             string.IsNullOrWhiteSpace(ImportViewIdBox.Text) ? null : ImportViewIdBox.Text.Trim());
         await ProjectSettingsSync.PushAsync(GetClient(), airtableApi: settings);
-        ImportSourceStatusText.Text = "Planting data source saved — Excel Importer and Refresh & Audit will use it next time Airtable is selected.";
+        ImportSourceStatusText.Text = "Planting data source saved — Excel Importer will use it next time Airtable is selected.";
     }
 
     private async void BrowseLdsSource_Click(object sender, RoutedEventArgs e)

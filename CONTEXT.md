@@ -31,8 +31,6 @@ A Revit add-in (.NET 8, C#) called LIM (Landscape Information Manager) for WWP/E
 | Data Processing | Excel Importer | App.Importer | Map Airtable/Excel columns → Revit parameters |
 | Data Calculation | Tree Calculator | App.ITreeCalculator | Calls i-Tree API, writes tree benefit results |
 | Data Calculation | Floor Calculator | App.FloorCalculator | Matches Floors to WWP landscape data sheet, computes benefits |
-| Diagnosis | Refresh and Audit | App.SyncAudit | 3-way diff (last-synced/current/latest-source) |
-| Diagnosis | Health Check | App.HealthCheck | Scans for missing/stale data, colors the view |
 | Reporting | Benefits Dashboard | App.Dashboard | Rolls up stored results into subtotals/grand totals |
 
 There used to be a 12th project, the companion `WWP.LandscapeDataManager.App` — an older, tabbed

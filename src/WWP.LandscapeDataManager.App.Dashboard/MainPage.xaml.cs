@@ -53,6 +53,7 @@ public sealed partial class MainPage : Page
 
     // The scheme's floors before the phase filter: BNG needs its lost (demolished) floors for the baseline.
     private IReadOnlyList<DashboardFloorItem> _bngFloors = [];
+    private IReadOnlyList<string> _modelCheckIds = [];
     private IReadOnlyList<DesignScenario> _savedScenarios = [];
 
     // Each scenario's connected habitat from the Connectivity tool, saved on the project.
@@ -201,6 +202,7 @@ public sealed partial class MainPage : Page
         RebuildFilterOptions();
         RebuildSiteBoundaryOptions();
         RebuildRows();
+        UpdateModelChecks(report);
         _originalDataWindow?.ShowReport(report);
 
         // One rate lookup per report, not per tree — the rate doesn't vary by tree, only by currency.
@@ -896,8 +898,10 @@ public sealed partial class MainPage : Page
         }
 
         SetPercentCard(LightingImpactText, LightingImpactDetailText, summary.LightingCompliancePercent,
-            $"{summary.DarkSkyCompliantFixtureCount:N0} of {summary.LightingFixtureCount:N0} fixtures compliant",
-            "Tag !_S_PLT_Lighting_DarkSkyCompliant_Text on Lighting Fixture Types to see a percentage.",
+            $"{summary.DarkSkyCompliantFixtureCount:N0} of {summary.LightingFixtureCount:N0} fixtures compliant" +
+            (summary.DarkSkyCompliantFixtureCount < summary.LightingFixtureCount ? " — a fixture counts once its type's !_S_PLT_Lighting_DarkSkyCompliant_Text is Yes." : "."),
+            // No value means no fixtures at all: untagged ones count as not compliant (0%).
+            "No Lighting Fixtures in this scenario. Lights modelled in another category (Lighting Devices, Site, Generic Models) aren't counted.",
             high: 80d, medium: 50d);
 
         // From the WWP landscape data sheet, which i-Tree doesn't model: Tree Calculator and Floor
@@ -1196,6 +1200,30 @@ public sealed partial class MainPage : Page
               (noResult > 0 ? $" {noResult:N0} more have no result at all and are left out: {noResultFix}" : string.Empty)
             : $"Missing or invalid i-Tree inputs, or an i-Tree error. {noResultFix}";
         TreeIssuesInfoBar.IsOpen = true;
+    }
+
+    /// <summary>The model's own problems, whatever scenario is shown (see <see cref="DashboardModelChecks"/>).</summary>
+    private void UpdateModelChecks(DashboardReportResult report)
+    {
+        var checks = DashboardModelChecks.For(report);
+        _modelCheckIds = checks.UniqueIds;
+        ModelChecksInfoBar.Title = checks.Lines.Count == 1 ? "Model check" : $"Model checks: {checks.Lines.Count:N0} things to fix";
+        ModelChecksInfoBar.Message = string.Join(Environment.NewLine, checks.Lines.Select(line => checks.Lines.Count == 1 ? line : $"• {line}"));
+        ModelChecksSelectButton.Visibility = checks.UniqueIds.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ModelChecksInfoBar.IsOpen = checks.HasIssues;
+    }
+
+    private async void SelectModelCheckElements_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var result = await GetClient().SendAsync<OperationResult>(PipeCommands.SelectElements, new ElementSelectionRequest(_modelCheckIds));
+            StatusText.Text = result.Message ?? $"Selected {_modelCheckIds.Count:N0} element(s) in Revit.";
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Couldn't reach Revit ({exception.Message}). If this is a cached snapshot, open the model and Refresh first.";
+        }
     }
 
     /// <summary>Opens Data explorer filtered to the stale trees (or, with none stale, every tree).</summary>

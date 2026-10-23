@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.8.12009.203 stable
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -16,15 +16,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.Ap
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.ITreeCalculator", "src\WWP.LandscapeDataManager.App.ITreeCalculator\WWP.LandscapeDataManager.App.ITreeCalculator.csproj", "{45699D92-8EFE-4663-82D6-77AAB8D388C9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.SyncAudit", "src\WWP.LandscapeDataManager.App.SyncAudit\WWP.LandscapeDataManager.App.SyncAudit.csproj", "{400953BA-4462-4427-A4E2-B0A265E216CE}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.TreeSearcher", "src\WWP.LandscapeDataManager.App.TreeSearcher\WWP.LandscapeDataManager.App.TreeSearcher.csproj", "{2C6B9E7D-1A4F-4E8B-9C3D-7F2A8E5B4D91}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.LocationFinder", "src\WWP.LandscapeDataManager.App.LocationFinder\WWP.LandscapeDataManager.App.LocationFinder.csproj", "{8D4F2A6C-3E9B-4D17-A5C8-1B6E9F3A7C52}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.FloorCalculator", "src\WWP.LandscapeDataManager.App.FloorCalculator\WWP.LandscapeDataManager.App.FloorCalculator.csproj", "{3F7A1D9E-6C2B-4A85-9E4F-2D8B5C1A9F63}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.HealthCheck", "src\WWP.LandscapeDataManager.App.HealthCheck\WWP.LandscapeDataManager.App.HealthCheck.csproj", "{7B2E4C81-9A3D-4F6E-8C1B-5E9A2D7F3B84}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WWP.LandscapeDataManager.App.Dashboard", "src\WWP.LandscapeDataManager.App.Dashboard\WWP.LandscapeDataManager.App.Dashboard.csproj", "{9E3F5C21-7A4B-4D82-BE19-2C6F8A1D5E30}"
 EndProject
@@ -98,14 +94,6 @@ Global
 		{45699D92-8EFE-4663-82D6-77AAB8D388C9}.Debug|Any CPU.Build.0 = Debug|x64
 		{45699D92-8EFE-4663-82D6-77AAB8D388C9}.Release|Any CPU.ActiveCfg = Release|x64
 		{45699D92-8EFE-4663-82D6-77AAB8D388C9}.Release|Any CPU.Build.0 = Release|x64
-		{400953BA-4462-4427-A4E2-B0A265E216CE}.Debug 2025|Any CPU.ActiveCfg = Debug 2025|x64
-		{400953BA-4462-4427-A4E2-B0A265E216CE}.Debug 2025|Any CPU.Build.0 = Debug 2025|x64
-		{400953BA-4462-4427-A4E2-B0A265E216CE}.Debug 2026|Any CPU.ActiveCfg = Debug 2026|x64
-		{400953BA-4462-4427-A4E2-B0A265E216CE}.Debug 2026|Any CPU.Build.0 = Debug 2026|x64
-		{400953BA-4462-4427-A4E2-B0A265E216CE}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{400953BA-4462-4427-A4E2-B0A265E216CE}.Debug|Any CPU.Build.0 = Debug|x64
-		{400953BA-4462-4427-A4E2-B0A265E216CE}.Release|Any CPU.ActiveCfg = Release|x64
-		{400953BA-4462-4427-A4E2-B0A265E216CE}.Release|Any CPU.Build.0 = Release|x64
 		{2C6B9E7D-1A4F-4E8B-9C3D-7F2A8E5B4D91}.Debug 2025|Any CPU.ActiveCfg = Debug 2025|x64
 		{2C6B9E7D-1A4F-4E8B-9C3D-7F2A8E5B4D91}.Debug 2025|Any CPU.Build.0 = Debug 2025|x64
 		{2C6B9E7D-1A4F-4E8B-9C3D-7F2A8E5B4D91}.Debug 2026|Any CPU.ActiveCfg = Debug 2026|x64
@@ -130,14 +118,6 @@ Global
 		{3F7A1D9E-6C2B-4A85-9E4F-2D8B5C1A9F63}.Debug|Any CPU.Build.0 = Debug|x64
 		{3F7A1D9E-6C2B-4A85-9E4F-2D8B5C1A9F63}.Release|Any CPU.ActiveCfg = Release|x64
 		{3F7A1D9E-6C2B-4A85-9E4F-2D8B5C1A9F63}.Release|Any CPU.Build.0 = Release|x64
-		{7B2E4C81-9A3D-4F6E-8C1B-5E9A2D7F3B84}.Debug 2025|Any CPU.ActiveCfg = Debug 2025|x64
-		{7B2E4C81-9A3D-4F6E-8C1B-5E9A2D7F3B84}.Debug 2025|Any CPU.Build.0 = Debug 2025|x64
-		{7B2E4C81-9A3D-4F6E-8C1B-5E9A2D7F3B84}.Debug 2026|Any CPU.ActiveCfg = Debug 2026|x64
-		{7B2E4C81-9A3D-4F6E-8C1B-5E9A2D7F3B84}.Debug 2026|Any CPU.Build.0 = Debug 2026|x64
-		{7B2E4C81-9A3D-4F6E-8C1B-5E9A2D7F3B84}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{7B2E4C81-9A3D-4F6E-8C1B-5E9A2D7F3B84}.Debug|Any CPU.Build.0 = Debug|x64
-		{7B2E4C81-9A3D-4F6E-8C1B-5E9A2D7F3B84}.Release|Any CPU.ActiveCfg = Release|x64
-		{7B2E4C81-9A3D-4F6E-8C1B-5E9A2D7F3B84}.Release|Any CPU.Build.0 = Release|x64
 		{9E3F5C21-7A4B-4D82-BE19-2C6F8A1D5E30}.Debug 2025|Any CPU.ActiveCfg = Debug 2025|x64
 		{9E3F5C21-7A4B-4D82-BE19-2C6F8A1D5E30}.Debug 2025|Any CPU.Build.0 = Debug 2025|x64
 		{9E3F5C21-7A4B-4D82-BE19-2C6F8A1D5E30}.Debug 2026|Any CPU.ActiveCfg = Debug 2026|x64

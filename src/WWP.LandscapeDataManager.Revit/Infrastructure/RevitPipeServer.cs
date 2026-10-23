@@ -140,7 +140,6 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.CalculateFloorsBatch => await CalculateFloorsBatchAsync(request).ConfigureAwait(false),
                 PipeCommands.GetBngFloors => await GetBngFloorsAsync(request).ConfigureAwait(false),
                 PipeCommands.WriteBngFloors => await WriteBngFloorsAsync(request).ConfigureAwait(false),
-                PipeCommands.RunHealthCheck => await RunHealthCheckAsync(request).ConfigureAwait(false),
                 PipeCommands.GetDashboardReport => await GetDashboardReportAsync(request).ConfigureAwait(false),
                 PipeCommands.GetConnectivityPatches => await GetConnectivityPatchesAsync(request).ConfigureAwait(false),
                 PipeCommands.WriteConnectivityResults => await WriteConnectivityResultsAsync(request).ConfigureAwait(false),
@@ -383,12 +382,6 @@ internal sealed class RevitPipeServer : IDisposable
         var options = request.Payload?.Deserialize<WriteBngFloorsRequest>(JsonDefaults.Options)
                       ?? throw new InvalidDataException("The BNG write request was empty.");
         var result = await _dispatcher.RunAsync(application => BngFloorService.Write(application, options)).ConfigureAwait(false);
-        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
-    }
-
-    private async Task<PipeResponse> RunHealthCheckAsync(PipeRequest request)
-    {
-        var result = await _dispatcher.RunAsync(HealthCheckScanner.Scan).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

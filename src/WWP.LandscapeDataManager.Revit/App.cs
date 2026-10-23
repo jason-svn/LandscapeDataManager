@@ -18,11 +18,9 @@ public sealed class App : IExternalApplication
     internal static ToolProcessLauncher? ImporterLauncher { get; private set; }
     internal static ToolProcessLauncher? ITreeDownloaderLauncher { get; private set; }
     internal static ToolProcessLauncher? ITreeCalculatorLauncher { get; private set; }
-    internal static ToolProcessLauncher? SyncAuditLauncher { get; private set; }
     internal static ToolProcessLauncher? TreeSearcherLauncher { get; private set; }
     internal static ToolProcessLauncher? LocationFinderLauncher { get; private set; }
     internal static ToolProcessLauncher? FloorCalculatorLauncher { get; private set; }
-    internal static ToolProcessLauncher? HealthCheckLauncher { get; private set; }
     internal static ToolProcessLauncher? DashboardLauncher { get; private set; }
     internal static ToolProcessLauncher? ConnectivityLauncher { get; private set; }
     internal static ToolProcessLauncher? GrowthProjectionsLauncher { get; private set; }
@@ -48,9 +46,6 @@ public sealed class App : IExternalApplication
         ITreeCalculatorLauncher = new ToolProcessLauncher(
             Path.Combine("ITreeCalculator", "WWP.LandscapeDataManager.ITreeCalculator.exe"),
             PipeServer.PipeName);
-        SyncAuditLauncher = new ToolProcessLauncher(
-            Path.Combine("SyncAudit", "WWP.LandscapeDataManager.SyncAudit.exe"),
-            PipeServer.PipeName);
         TreeSearcherLauncher = new ToolProcessLauncher(
             Path.Combine("TreeSearcher", "WWP.LandscapeDataManager.TreeSearcher.exe"),
             PipeServer.PipeName);
@@ -59,9 +54,6 @@ public sealed class App : IExternalApplication
             PipeServer.PipeName);
         FloorCalculatorLauncher = new ToolProcessLauncher(
             Path.Combine("FloorCalculator", "WWP.LandscapeDataManager.FloorCalculator.exe"),
-            PipeServer.PipeName);
-        HealthCheckLauncher = new ToolProcessLauncher(
-            Path.Combine("HealthCheck", "WWP.LandscapeDataManager.HealthCheck.exe"),
             PipeServer.PipeName);
         DashboardLauncher = new ToolProcessLauncher(
             Path.Combine("Dashboard", "WWP.LandscapeDataManager.Dashboard.exe"),
@@ -80,8 +72,8 @@ public sealed class App : IExternalApplication
         var projectSetupPanel = GetOrCreatePanel(application, "Project Setup");
         var dataProcessingPanel = GetOrCreatePanel(application, "Data Processing");
         var dataCalculationPanel = GetOrCreatePanel(application, "Data Calculation");
-        var diagnosisPanel = GetOrCreatePanel(application, "Diagnosis");
         var reportingPanel = GetOrCreatePanel(application, "Reporting");
+        var updatesPanel = GetOrCreatePanel(application, "Updates");
 
         AddWorkflowButton<OpenSettingsCommand>(
             projectSetupPanel,
@@ -111,13 +103,6 @@ public sealed class App : IExternalApplication
             "LF",
             "Location Finder",
             "Pick a location on a map (or search an address, or read the project's existing Site Location) and publish it to the i-Tree latitude/longitude parameters.");
-        AddWorkflowButton<CheckForUpdatesCommand>(
-            projectSetupPanel,
-            "LIMCheckForUpdates",
-            $"Check for Updates\n{UpdateService.InstalledVersionText}",
-            "UP",
-            $"Check for Updates (installed: {UpdateService.InstalledVersionText})",
-            "Check GitHub for a newer LIM- Landscape Data release. The update downloads in its own window while you keep working, then installs once Revit closes.");
 
         AddWorkflowButton<SearchTreesCommand>(
             dataProcessingPanel,
@@ -163,21 +148,6 @@ public sealed class App : IExternalApplication
             "Connectivity Calculator",
             "Score every tree and planting area 1-4 by how much it holds the green network together (Probability of Connectivity, dPC), write the band back to Revit, and colour the view by band.");
 
-        AddWorkflowButton<SyncLatestCommand>(
-            diagnosisPanel,
-            "LIMSyncLatestPlantingData",
-            "Refresh\nand Audit",
-            "RA",
-            "Refresh and Audit",
-            "Compare with the last pull, reapply changed data, report updates, and identify stale or incomplete planting elements.");
-        AddWorkflowButton<RunHealthCheckCommand>(
-            diagnosisPanel,
-            "LIMRunHealthCheck",
-            "Health\nCheck",
-            "HC",
-            "Health Check",
-            "Scan every Planting and Floor element for missing i-Tree or landscape data sheet results, list what still needs attention, and colour the active view red (needs attention) or green (calculated).");
-
         AddWorkflowButton<OpenDashboardCommand>(
             reportingPanel,
             "LIMOpenDashboard",
@@ -194,6 +164,15 @@ public sealed class App : IExternalApplication
             "Create KPI Schedules",
             "Create a Planting and a Planting Area schedule per Design Option, covering every KPI parameter the Dashboard reports (i-Tree, oxygen, maintenance, forecast outlooks, BNG and connectivity), grouped by species/landscape type with counts and totals. Run it again to add newer parameters to schedules it made before.");
 
+        // Not part of the workflow, so after it, in a panel of its own.
+        AddWorkflowButton<CheckForUpdatesCommand>(
+            updatesPanel,
+            "LIMCheckForUpdates",
+            $"Check for Updates\n{UpdateService.InstalledVersionText}",
+            "UP",
+            $"Check for Updates (installed: {UpdateService.InstalledVersionText})",
+            "Check GitHub for a newer LIM- Landscape Data release. The update downloads in its own window while you keep working, then installs once Revit closes.");
+
         StartBackgroundUpdateCheck(application);
         return Result.Succeeded;
     }
@@ -206,11 +185,9 @@ public sealed class App : IExternalApplication
         ImporterLauncher?.Dispose();
         ITreeDownloaderLauncher?.Dispose();
         ITreeCalculatorLauncher?.Dispose();
-        SyncAuditLauncher?.Dispose();
         TreeSearcherLauncher?.Dispose();
         LocationFinderLauncher?.Dispose();
         FloorCalculatorLauncher?.Dispose();
-        HealthCheckLauncher?.Dispose();
         DashboardLauncher?.Dispose();
         ConnectivityLauncher?.Dispose();
         GrowthProjectionsLauncher?.Dispose();
@@ -222,11 +199,9 @@ public sealed class App : IExternalApplication
         ImporterLauncher = null;
         ITreeDownloaderLauncher = null;
         ITreeCalculatorLauncher = null;
-        SyncAuditLauncher = null;
         TreeSearcherLauncher = null;
         LocationFinderLauncher = null;
         FloorCalculatorLauncher = null;
-        HealthCheckLauncher = null;
         DashboardLauncher = null;
         ConnectivityLauncher = null;
         GrowthProjectionsLauncher = null;

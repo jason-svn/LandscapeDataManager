@@ -26,11 +26,9 @@ $toolApps = @(
     @{ Name = 'Importer'; Project = 'src\WWP.LandscapeDataManager.App.Importer\WWP.LandscapeDataManager.App.Importer.csproj'; ExeName = 'WWP.LandscapeDataManager.Importer.exe' }
     @{ Name = 'ITreeDownloader'; Project = 'src\WWP.LandscapeDataManager.App.ITreeDownloader\WWP.LandscapeDataManager.App.ITreeDownloader.csproj'; ExeName = 'WWP.LandscapeDataManager.ITreeDownloader.exe' }
     @{ Name = 'ITreeCalculator'; Project = 'src\WWP.LandscapeDataManager.App.ITreeCalculator\WWP.LandscapeDataManager.App.ITreeCalculator.csproj'; ExeName = 'WWP.LandscapeDataManager.ITreeCalculator.exe' }
-    @{ Name = 'SyncAudit'; Project = 'src\WWP.LandscapeDataManager.App.SyncAudit\WWP.LandscapeDataManager.App.SyncAudit.csproj'; ExeName = 'WWP.LandscapeDataManager.SyncAudit.exe' }
     @{ Name = 'TreeSearcher'; Project = 'src\WWP.LandscapeDataManager.App.TreeSearcher\WWP.LandscapeDataManager.App.TreeSearcher.csproj'; ExeName = 'WWP.LandscapeDataManager.TreeSearcher.exe' }
     @{ Name = 'LocationFinder'; Project = 'src\WWP.LandscapeDataManager.App.LocationFinder\WWP.LandscapeDataManager.App.LocationFinder.csproj'; ExeName = 'WWP.LandscapeDataManager.LocationFinder.exe' }
     @{ Name = 'FloorCalculator'; Project = 'src\WWP.LandscapeDataManager.App.FloorCalculator\WWP.LandscapeDataManager.App.FloorCalculator.csproj'; ExeName = 'WWP.LandscapeDataManager.FloorCalculator.exe' }
-    @{ Name = 'HealthCheck'; Project = 'src\WWP.LandscapeDataManager.App.HealthCheck\WWP.LandscapeDataManager.App.HealthCheck.csproj'; ExeName = 'WWP.LandscapeDataManager.HealthCheck.exe' }
     @{ Name = 'Dashboard'; Project = 'src\WWP.LandscapeDataManager.App.Dashboard\WWP.LandscapeDataManager.App.Dashboard.csproj'; ExeName = 'WWP.LandscapeDataManager.Dashboard.exe' }
     @{ Name = 'GrowthProjections'; Project = 'src\WWP.LandscapeDataManager.App.GrowthProjections\WWP.LandscapeDataManager.App.GrowthProjections.csproj'; ExeName = 'WWP.LandscapeDataManager.GrowthProjections.exe' }
     @{ Name = 'Connectivity'; Project = 'src\WWP.LandscapeDataManager.App.Connectivity\WWP.LandscapeDataManager.App.Connectivity.csproj'; ExeName = 'WWP.LandscapeDataManager.Connectivity.exe' }
