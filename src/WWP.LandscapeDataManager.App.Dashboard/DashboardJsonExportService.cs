@@ -161,6 +161,9 @@ internal sealed record DashboardJsonBng(
 /// Schema v6 adds, without changing anything earlier: <see cref="BenefitsFromForecast"/>, stale
 /// and WWP-sheet-estimate tree counts, pollen, allergen and irrigation site figures, and how many
 /// trees have a native status (the native share's denominator).
+/// Schema v8: with growth years, a scenario's tree lifetime figures (totals and species) are the
+/// benefits from planting to its growth year, so they rise year by year; before v8 they were each
+/// tree's whole forecast, the same at every growth year. Without growth years, nothing changes.
 /// </remarks>
 internal sealed record DashboardJsonScenario(
     string Label,
@@ -184,7 +187,7 @@ internal sealed record DashboardJsonExport(
 
 internal static class DashboardJsonExportService
 {
-    private const int SchemaVersion = 7;
+    private const int SchemaVersion = 8;
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     /// <summary>
@@ -237,6 +240,13 @@ internal static class DashboardJsonExportService
             // other geometry figures (a copy whose trunk doesn't grow reports the planting-size benefit).
             var outlook = new TreeOutlook(trees, worksetYears, report.TreeTimelines, "Metric", usdToTargetRate);
             var fromForecast = outlook.Method == TreeOutlookMethod.Timeline;
+            var speciesOutlooks = new Dictionary<string, TreeOutlook>(StringComparer.Ordinal);
+            TreeOutlook OutlookOf(string? species) => species is null
+                ? outlook
+                : speciesOutlooks.TryGetValue(species, out var cached)
+                    ? cached
+                    : speciesOutlooks[species] = new TreeOutlook(
+                        [.. trees.Where(tree => (tree.Source.SpeciesCode ?? "Unassigned") == species)], worksetYears, report.TreeTimelines, "Metric", usdToTargetRate);
             return worksetYears.Select(year =>
             {
                 var geometryTrees = trees.Where(tree => GrowthYears.CountsIn(tree.Source, year)).ToList();
@@ -254,7 +264,8 @@ internal static class DashboardJsonExportService
                     choices: scenario.Choices,
                     benefitsFromForecast: fromForecast,
                     isExistingSite: scenario.IsExistingSite,
-                    connectivity: ConnectivityScenarios.For(connectivity, scenario));
+                    connectivity: ConnectivityScenarios.For(connectivity, scenario),
+                    sincePlanting: (species, metric) => OutlookOf(species).Accumulate(metric, year));
             });
         }).ToList();
 
@@ -263,6 +274,11 @@ internal static class DashboardJsonExportService
 
     /// <param name="normalizedTrees">The trees whose benefits count (normalized onto Metric and the export currency).</param>
     /// <param name="geometryTrees">The trees as modelled in this growth year, for canopy and the other site figures.</param>
+    /// <param name="sincePlanting">
+    /// With growth years, an annual metric added up from planting to this growth year (the outlook's
+    /// running total), for all trees (species null) or one species code: the lifetime figures, so they
+    /// rise year by year. Without, the lifetime figures are each tree's whole forecast.
+    /// </param>
     private static DashboardJsonScenario BuildScenario(
         string label,
         bool isPrimary,
@@ -277,7 +293,8 @@ internal static class DashboardJsonExportService
         IReadOnlyDictionary<string, string>? choices = null,
         bool benefitsFromForecast = false,
         bool isExistingSite = false,
-        ConnectivityScenarioResult? connectivity = null)
+        ConnectivityScenarioResult? connectivity = null,
+        Func<string?, Func<DashboardGrandTotal, double>, double>? sincePlanting = null)
     {
         var grandTotal = DashboardAggregationService.BuildGrandTotal(normalizedTrees, floors);
         var speciesSubtotals = DashboardAggregationService.AggregateTreesBySpecies(normalizedTrees);
@@ -285,23 +302,30 @@ internal static class DashboardJsonExportService
         var siteKpi = DashboardAggregationService.BuildSiteKpiSummary(
             geometryTrees, floors, lighting, report.SiteTotalAreaSquareMeters, report.HabitatConnectivityScore);
 
+        // A lifetime figure: from planting to this growth year when there are growth years, else as stored.
+        double Lifetime(string? species, Func<DashboardGrandTotal, double> annual, double stored) =>
+            sincePlanting is null ? stored : sincePlanting(species, annual);
+        double Total(Func<DashboardGrandTotal, double> annual, Func<DashboardGrandTotal, double> lifetime) =>
+            Lifetime(null, annual, lifetime(grandTotal));
+
         var totals = new DashboardJsonTotals(
             grandTotal.TreeCount,
             grandTotal.TreesExcludedFromTotals,
-            grandTotal.CarbonSequesteredAnnual, grandTotal.CarbonSequesteredLifetimeTotal,
-            grandTotal.CO2EquivalentAnnual, grandTotal.CO2EquivalentLifetimeTotal,
-            grandTotal.RunoffAvoidedAnnual, grandTotal.RunoffAvoidedLifetimeTotal,
-            grandTotal.RainfallInterceptedAnnual, grandTotal.RainfallInterceptedLifetimeTotal,
+            grandTotal.CarbonSequesteredAnnual, Total(t => t.CarbonSequesteredAnnual, t => t.CarbonSequesteredLifetimeTotal),
+            grandTotal.CO2EquivalentAnnual, Total(t => t.CO2EquivalentAnnual, t => t.CO2EquivalentLifetimeTotal),
+            grandTotal.RunoffAvoidedAnnual, Total(t => t.RunoffAvoidedAnnual, t => t.RunoffAvoidedLifetimeTotal),
+            grandTotal.RainfallInterceptedAnnual, Total(t => t.RainfallInterceptedAnnual, t => t.RainfallInterceptedLifetimeTotal),
             new DashboardJsonPollutants(
                 grandTotal.PM25RemovedAnnual, grandTotal.NO2RemovedAnnual, grandTotal.O3RemovedAnnual,
                 grandTotal.SO2RemovedAnnual, grandTotal.CORemovedAnnual, grandTotal.TotalPollutionMassRemovedAnnual),
             new DashboardJsonPollutants(
-                grandTotal.PM25RemovedLifetimeTotal, grandTotal.NO2RemovedLifetimeTotal, grandTotal.O3RemovedLifetimeTotal,
-                grandTotal.SO2RemovedLifetimeTotal, grandTotal.CORemovedLifetimeTotal, grandTotal.TotalPollutionMassRemovedLifetimeTotal),
-            grandTotal.TreeCostSavedAnnual, grandTotal.TreeCostSavedLifetimeTotal,
-            grandTotal.CarbonCostSavedAnnual, grandTotal.CarbonCostSavedLifetimeTotal,
-            grandTotal.StormWaterCostSavedAnnual, grandTotal.StormWaterCostSavedLifetimeTotal,
-            grandTotal.AirPollutionCostSavedAnnual, grandTotal.AirPollutionCostSavedLifetimeTotal,
+                Total(t => t.PM25RemovedAnnual, t => t.PM25RemovedLifetimeTotal), Total(t => t.NO2RemovedAnnual, t => t.NO2RemovedLifetimeTotal),
+                Total(t => t.O3RemovedAnnual, t => t.O3RemovedLifetimeTotal), Total(t => t.SO2RemovedAnnual, t => t.SO2RemovedLifetimeTotal),
+                Total(t => t.CORemovedAnnual, t => t.CORemovedLifetimeTotal), Total(t => t.TotalPollutionMassRemovedAnnual, t => t.TotalPollutionMassRemovedLifetimeTotal)),
+            grandTotal.TreeCostSavedAnnual, Total(t => t.TreeCostSavedAnnual, t => t.TreeCostSavedLifetimeTotal),
+            grandTotal.CarbonCostSavedAnnual, Total(t => t.CarbonCostSavedAnnual, t => t.CarbonCostSavedLifetimeTotal),
+            grandTotal.StormWaterCostSavedAnnual, Total(t => t.StormWaterCostSavedAnnual, t => t.StormWaterCostSavedLifetimeTotal),
+            grandTotal.AirPollutionCostSavedAnnual, Total(t => t.AirPollutionCostSavedAnnual, t => t.AirPollutionCostSavedLifetimeTotal),
             grandTotal.FloorCount,
             grandTotal.FloorAreaSquareMeters,
             grandTotal.FloorCarbonSequesteredAnnual,
@@ -319,12 +343,13 @@ internal static class DashboardJsonExportService
             s.SpeciesCode,
             s.CommonName,
             s.TreeCount,
-            s.CarbonSequesteredAnnual, s.CarbonSequesteredLifetimeTotal,
+            s.CarbonSequesteredAnnual, Lifetime(s.SpeciesCode, t => t.CarbonSequesteredAnnual, s.CarbonSequesteredLifetimeTotal),
             s.PollutionRemovedAnnual,
-            s.PM25RemovedLifetimeTotal + s.NO2RemovedLifetimeTotal + s.O3RemovedLifetimeTotal + s.SO2RemovedLifetimeTotal + s.CORemovedLifetimeTotal,
-            s.CarbonCostSavedAnnual, s.CarbonCostSavedLifetimeTotal,
-            s.StormWaterCostSavedAnnual, s.StormWaterCostSavedLifetimeTotal,
-            s.AirPollutionCostSavedAnnual, s.AirPollutionCostSavedLifetimeTotal,
+            Lifetime(s.SpeciesCode, t => t.TotalPollutionMassRemovedAnnual,
+                s.PM25RemovedLifetimeTotal + s.NO2RemovedLifetimeTotal + s.O3RemovedLifetimeTotal + s.SO2RemovedLifetimeTotal + s.CORemovedLifetimeTotal),
+            s.CarbonCostSavedAnnual, Lifetime(s.SpeciesCode, t => t.CarbonCostSavedAnnual, s.CarbonCostSavedLifetimeTotal),
+            s.StormWaterCostSavedAnnual, Lifetime(s.SpeciesCode, t => t.StormWaterCostSavedAnnual, s.StormWaterCostSavedLifetimeTotal),
+            s.AirPollutionCostSavedAnnual, Lifetime(s.SpeciesCode, t => t.AirPollutionCostSavedAnnual, s.AirPollutionCostSavedLifetimeTotal),
             s.MaintenanceCostAnnual))
             .ToList();
 

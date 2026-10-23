@@ -148,6 +148,8 @@ Dashboard 上的每一个数字都取决于选对方案，所以这一步排在�
 - [x] **Executive overview 改用其他页面的配色（2026-10-23，你的决定）：** 原来实心的深绿色横幅，以及实心的绿、蓝、琥珀、灰色分类卡片（白字和金色字），改成和表格泳道同色系的浅色底，标题和数值用分类颜色，其余文字用页面正文颜色。PNG 导出跟着变；SVG 导出用自己的配色，没有改。
 - [x] **Site details（2026-10-23）：** 点击 Site & Biodiversity 的任意一张卡片（鼠标移上去会出现描边），就会在新的 Site details 页打开它的明细，用统一的表格样式（泳道、两行表头）：按树种的树冠；按景观类型的地面分类和占比；树种；原生状态；按月份的开花、结果、结籽日历；每种生态功能的树和树冠；每个方案的连通生境；灯具类型；按树种和景观类型的花粉；按树种的致敏和灌溉；按生境和角色的 BNG 单位（基线、拟建后、变化）；以及需要处理的 BNG floor 和处理方法。每页显示卡片上的数值和计算方法，可以用下拉框切换指标。数据和卡片来自同样的元素（纯逻辑 `SiteKpiDetails`，有测试）。
 - [x] **Connectivity 热力图视图（2026-10-23，你的决定）：** Connectivity 的 **Heatmap view** 按钮会新建或更新 `Connectivity_Heatmap` 三维视图，设置和手工做的 Avoided_Water、Pollution 视图一样（轴测、Flat Colors、最后一个阶段、Show Complete），对树和种植区按 `!_S_PLT_ConnectivityResult_Score_Number` 加视图过滤器：每 0.1 一档共十档，从冷蓝（对网络连通贡献最小）到红（最大），没有分数的元素是浅灰（`WWP_Connectivity not assessed`），生长年份副本隐藏（`WWP_Growth-year copies`）。再运行会就地更新过滤器和视图。沙盒里已经生成（1,010 棵树有分数；floor 要等 Connectivity 写入后才有分数）。Revit 端插件有改动：按钮要装下一版才能用。
+- [x] **网页版仪表板的生长曲线是平的（2026-10-23 修复，schema 8）：** 原来每个生长年份的 lifetime 数值都是每棵树完整的 i-Tree 预测，5、10、25 年都一样（每个阶段径流都是 1,130 m³），所以网页版的 "Growth curve" 是一条直线。现在有生长年份时，每个场景的树 lifetime 数值（合计和按树种）改为从种植到该年份累计的效益，也就是 Dashboard 的展望期合计，所以会逐年上升。没有生长年份时不变。需要重新导出 JSON。
+- [x] **Connectivity 分成两个页签（2026-10-23，你的决定）：** **1 Scenario & results**（设置、本次计算的卡片、按方案的连通生境）和 **2 Elements**（打分的树和种植区，占满窗口高度）。按钮放在两个页签上方，状态文字单独一行；很长的介绍收进了 ⓘ。
 - [x] **Check for Updates** 移到功能区最后，单独一个面板（Updates），放在工作流程之后。
 - [x] **Site & Biodiversity 的文字：** Lighting Impact Reduction 在场景里完全没有 Lighting Fixture 时会直接说明（"—" 是这个意思，不是灯具没标记）；页面顶部说明 Habitat Connectivity 优先来自 Connectivity 工具。
 
