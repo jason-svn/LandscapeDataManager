@@ -12,6 +12,8 @@ Not released yet (branch `dashboard-include-floors`):
 - **KPI Schedules group the planting schedule by workset** when growth years exist, with a subtotal per year, so a tree isn't counted once per growth year. (Since Phase 3, running KPI Schedules again adds newer columns to existing schedules; delete one only to change its grouping.)
 - Dashboard cards include planting-area (Airtable) carbon, runoff, pollution and cost. BNG labels no longer say "primary" twice.
 
+**v1.6.2** (released 2026-10-23): the BNG tab works scheme by scheme with the Dashboard's schemes (and can make them), and an existing floor's baseline is shared by every existing floor of its type.
+
 **v1.6.1** (released 2026-10-23): a fix: the Dashboard's saved schemes (Scheme A, Scheme B, …) are offered again when it's reopened.
 
 **v1.6.0** (released 2026-10-23, the first release since v1.4.0, so it carries v1.5.0 too): everything below down to v1.4.0, including Refresh and Audit and Health Check removed in favour of the Dashboard's Model checks, Save shared parameter file, Floor Calculator and Connectivity in steps, Site details, the connectivity heatmap view and the web dashboard's growth curve.
