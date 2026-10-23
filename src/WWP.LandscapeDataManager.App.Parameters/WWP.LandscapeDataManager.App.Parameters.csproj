@@ -31,5 +31,7 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Content Include="..\..\Assets\LIM-logo-256.png" Link="Assets\LIM-logo.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- The same file the connector binds from (see SharedParameterSetupService), for Save shared parameter file. -->
+    <EmbeddedResource Include="..\..\Shared_Parameters_WWP.txt" LogicalName="LIM.LandscapeData.SharedParameters.txt" />
   </ItemGroup>
 </Project>
