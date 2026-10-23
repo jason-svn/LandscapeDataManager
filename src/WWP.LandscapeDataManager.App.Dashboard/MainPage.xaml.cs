@@ -925,7 +925,116 @@ public sealed partial class MainPage : Page
             : "Import the sheet's Irrigation_Demand_Plant Factor onto the tree types (Excel Importer) to see it.";
 
         UpdateBngCards(_bngFloors);
+
+        // The same elements the cards were worked out from, for their breakdowns on Site details.
+        _siteDetailInputs = new SiteKpiDetailInputs(
+            filteredTrees, filteredFloors, _bngFloors, FilteredLighting(), siteArea, _connectivityResults, _scenario.Name, BngMetricCatalog.Default);
+        RebuildSiteDetail();
     }
+
+    // ---- Site details: a card's breakdown ----
+
+    private SiteKpiDetailInputs? _siteDetailInputs;
+    private string _siteDetailKey = SiteKpiDetails.Kpis[0].Key;
+    private bool _populatingSiteDetailBox;
+
+    private void SiteCard_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string key })
+        {
+            _siteDetailKey = key;
+            DashboardPages.SelectedItem = SiteDetailsPage;
+            RebuildSiteDetail();
+        }
+    }
+
+    private void SiteCard_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Border card)
+        {
+            card.BorderBrush = (Brush)Application.Current.Resources["LimAccentBrush"];
+        }
+    }
+
+    private void SiteCard_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Border card)
+        {
+            card.ClearValue(Border.BorderBrushProperty);
+        }
+    }
+
+    private void BackToSite_Click(object sender, RoutedEventArgs e) => DashboardPages.SelectedItem = SitePage;
+
+    private void SiteDetailBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_populatingSiteDetailBox || SiteDetailBox.SelectedIndex < 0)
+        {
+            return;
+        }
+
+        _siteDetailKey = SiteKpiDetails.Kpis[SiteDetailBox.SelectedIndex].Key;
+        RebuildSiteDetail();
+    }
+
+    private void RebuildSiteDetail()
+    {
+        _populatingSiteDetailBox = true;
+        try
+        {
+            if (SiteDetailBox.Items.Count == 0)
+            {
+                foreach (var kpi in SiteKpiDetails.Kpis)
+                {
+                    SiteDetailBox.Items.Add(kpi.Title);
+                }
+            }
+
+            SiteDetailBox.SelectedIndex = Math.Max(0, SiteKpiDetails.Kpis.ToList().FindIndex(kpi => kpi.Key == _siteDetailKey));
+        }
+        finally
+        {
+            _populatingSiteDetailBox = false;
+        }
+
+        SiteDetailHost.Children.Clear();
+        if (_siteDetailInputs is null)
+        {
+            SiteDetailValueText.Text = string.Empty;
+            SiteDetailValueDetailText.Text = string.Empty;
+            SiteDetailExplanationText.Text = "Refresh the model to see what each figure is made of.";
+            return;
+        }
+
+        var table = SiteKpiDetails.Build(_siteDetailKey, _siteDetailInputs);
+        var (value, detail) = SiteCardTexts(_siteDetailKey);
+        SiteDetailValueText.Text = value.Text;
+        SiteDetailValueText.Foreground = value.Foreground;
+        SiteDetailValueDetailText.Text = detail.Text;
+        SiteDetailExplanationText.Text = table.Explanation;
+        SiteDetailHost.Children.Add(SiteDetailTableView.Build(table));
+    }
+
+    /// <summary>The card's figure and the line under it, shown above its breakdown.</summary>
+    private (TextBlock Value, TextBlock Detail) SiteCardTexts(string key) => key switch
+    {
+        "Canopy" => (CanopyCoverText, CanopyCoverDetailText),
+        "Softscape" => (SoftscapeRatioText, SoftscapeRatioDetailText),
+        "Greenspace" => (GreenspaceRatioText, GreenspaceRatioDetailText),
+        "Species" => (BiodiversityAddedText, BiodiversityAddedDetailText),
+        "Native" => (NativeSpeciesRatioText, NativeSpeciesRatioDetailText),
+        "Phenology" => (PhenologicalResilienceText, PhenologicalResilienceDetailText),
+        "Functions" => (FunctionalDiversityText, FunctionalDiversityDetailText),
+        "Connectivity" => (HabitatConnectivityText, HabitatConnectivityDetailText),
+        "Lighting" => (LightingImpactText, LightingImpactDetailText),
+        "Pollen" => (PollenText, PollenDetailText),
+        "Allergenic" => (AllergenicText, AllergenicDetailText),
+        "Irrigation" => (IrrigationText, IrrigationDetailText),
+        "BngNet" => (BngNetChangeText, BngNetChangeDetailText),
+        "BngBaseline" => (BngBaselineText, BngBaselineDetailText),
+        "BngPost" => (BngPostText, BngPostDetailText),
+        _ => (BngAttentionText, BngAttentionDetailText)
+    };
 
     private void UpdateBngCards(IReadOnlyList<DashboardFloorItem> filteredFloors)
     {

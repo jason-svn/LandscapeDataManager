@@ -198,6 +198,16 @@ public sealed record SiteKpiSummary(
 
 public sealed record BngGroupSubtotal(string Name, int FloorCount, double AreaHectares, double HabitatUnits);
 
+/// <summary>A floor's place in the BNG totals (see <see cref="DashboardAggregationService.ClassifyBngFloor"/>).</summary>
+public static class BngFloorStates
+{
+    public const string Current = "Current";
+    public const string CheckData = "Check data";
+    public const string Stale = "Stale";
+    public const string NotAssessed = "Not assessed";
+    public const string Excluded = "Excluded";
+}
+
 /// <summary>
 /// The Statutory Biodiversity Metric's on-site headline for the floors in scope, from the BNG
 /// results Floor Calculator wrote. Baseline = A-1 total units of Existing-phase floors; post-
@@ -560,33 +570,23 @@ public static class DashboardAggregationService
         int checkData = 0, stale = 0, excluded = 0;
         foreach (var floor in floors)
         {
-            if (floor.Bng is { PhaseRole: BngPhaseRoles.Excluded })
+            var (state, role) = ClassifyBngFloor(floor, catalog);
+            switch (state)
             {
-                excluded++;
-                continue;
+                case BngFloorStates.Excluded:
+                    excluded++;
+                    continue;
+                case BngFloorStates.NotAssessed:
+                    continue;
+                case BngFloorStates.Stale:
+                    stale++;
+                    continue;
+                case BngFloorStates.CheckData:
+                    checkData++;
+                    break;
             }
 
-            if (floor.Bng is not { } bng ||
-                string.IsNullOrEmpty(bng.StoredInputSignature) ||
-                !(string.Equals(bng.StoredStatus, nameof(BngCalculationOutcome.Calculated), StringComparison.Ordinal) ||
-                  string.Equals(bng.StoredStatus, nameof(BngCalculationOutcome.CheckData), StringComparison.Ordinal)))
-            {
-                continue;
-            }
-
-            var input = ToFloorInput(floor, bng, catalog);
-            if (!string.Equals(BngFloorCalculator.ComputeSignature(input, catalog), bng.StoredInputSignature, StringComparison.Ordinal))
-            {
-                stale++;
-                continue;
-            }
-
-            if (string.Equals(bng.StoredStatus, nameof(BngCalculationOutcome.CheckData), StringComparison.Ordinal))
-            {
-                checkData++;
-            }
-
-            current.Add((floor, bng, input.Role));
+            current.Add((floor, floor.Bng!, role));
         }
 
         static double Hectares(DashboardFloorItem floor) => floor.AreaSquareMeters / BngFloorStatusEvaluator.SquareMetresPerHectare;
@@ -643,6 +643,36 @@ public static class DashboardAggregationService
         floor.AreaSquareMeters / BngFloorStatusEvaluator.SquareMetresPerHectare);
 
     /// <summary>The floor's explicit surface class tag, else one inferred from its LDS type; null when neither says.</summary>
+    /// <summary>
+    /// Where a floor stands in <see cref="BuildBngSummary"/> (see <see cref="BngFloorStates"/>), and its
+    /// metric role: Excluded when demolished in the phase it was created; Not assessed without a written
+    /// Calculated/CheckData result; Stale when its inputs, area or phase role changed since; otherwise
+    /// Current or CheckData.
+    /// </summary>
+    public static (string State, string Role) ClassifyBngFloor(DashboardFloorItem floor, BngMetricCatalog catalog)
+    {
+        if (floor.Bng is { PhaseRole: BngPhaseRoles.Excluded })
+        {
+            return (BngFloorStates.Excluded, BngPhaseRoles.Excluded);
+        }
+
+        if (floor.Bng is not { } bng ||
+            string.IsNullOrEmpty(bng.StoredInputSignature) ||
+            !(string.Equals(bng.StoredStatus, nameof(BngCalculationOutcome.Calculated), StringComparison.Ordinal) ||
+              string.Equals(bng.StoredStatus, nameof(BngCalculationOutcome.CheckData), StringComparison.Ordinal)))
+        {
+            return (BngFloorStates.NotAssessed, floor.Bng?.PhaseRole ?? SitePhases.RoleOf(floor) ?? BngPhaseRoles.Created);
+        }
+
+        var input = ToFloorInput(floor, bng, catalog);
+        if (!string.Equals(BngFloorCalculator.ComputeSignature(input, catalog), bng.StoredInputSignature, StringComparison.Ordinal))
+        {
+            return (BngFloorStates.Stale, input.Role);
+        }
+
+        return (string.Equals(bng.StoredStatus, nameof(BngCalculationOutcome.CheckData), StringComparison.Ordinal) ? BngFloorStates.CheckData : BngFloorStates.Current, input.Role);
+    }
+
     public static string? ResolveSurfaceClass(DashboardFloorItem floor) =>
         SurfaceClassCatalog.Resolve(floor.SurfaceClass, floor.LdsType, floor.TypeName, floor.FamilyName);
 
@@ -689,7 +719,7 @@ public static class DashboardAggregationService
         return CanopyUnion.AreaSquareMeters(circles) + unplaced;
     }
 
-    private static IReadOnlyList<int> ParseMonthList(string? raw) =>
+    internal static IReadOnlyList<int> ParseMonthList(string? raw) =>
         string.IsNullOrWhiteSpace(raw)
             ? []
             : raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -698,7 +728,7 @@ public static class DashboardAggregationService
                 .Select(month => month!.Value)
                 .ToList();
 
-    private static IReadOnlyList<string> ParseTagList(string? raw) =>
+    internal static IReadOnlyList<string> ParseTagList(string? raw) =>
         string.IsNullOrWhiteSpace(raw)
             ? []
             : raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
