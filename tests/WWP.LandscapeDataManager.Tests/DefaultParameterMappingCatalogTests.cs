@@ -89,6 +89,9 @@ public sealed class DefaultParameterMappingCatalogTests
         "f_int and Crg ( fraction of rainfall intercepted by the area(dimensionless, per planting type) (runoff coefficient",
         "!_S_PLT_LDS_RunoffCoefficient_Number")]
     [InlineData("Allergenic", "!_S_PLT_iTreeSpecies_Allergenic_Text")]
+    [InlineData("Native_Status", "!_S_PLT_iTreeSpecies_NativeStatus_Text")]
+    [InlineData("Bloom_Months", "!_S_PLT_iTreeSpecies_BloomMonths_Text")]
+    [InlineData("Ecological_Functions", "!_S_PLT_iTreeSpecies_EcologicalFunctions_Text")]
     public void Every_documented_default_header_resolves_to_its_current_parameter_name(string header, string expectedParameter)
     {
         var options = new[] { Option(expectedParameter) };

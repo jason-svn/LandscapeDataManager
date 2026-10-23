@@ -939,8 +939,9 @@ internal static class SharedParameterSetupService
             PlantingAndFloorType("!_S_PLT_LDS_IrrigationDemandFactor_Number", GroupTypeId.AnalysisResults,
                 "Irrigation demand plant factor for this landscape type, from the WWP landscape data sheet — an intrinsic reference value, not scaled by area."),
 
-            // Site & Biodiversity KPI dashboard — new reference data, person-entered directly in
-            // Revit rather than synced from Airtable (no external source exists for any of this).
+            // Site & Biodiversity KPI dashboard reference data. Native status, bloom months and
+            // ecological functions come from the WWP sheet (Native_Status, Bloom_Months,
+            // Ecological_Functions) through the Importer; the rest is entered in Revit.
             ProjectInfo("!_S_PLT_Site_TotalArea_Area", GroupTypeId.General,
                 "Total site boundary area entered by the project team, used to compute canopy-cover and softscape-surface-ratio percentages."),
             ProjectInfo("!_S_PLT_Site_HabitatConnectivityScore_Number", GroupTypeId.General,

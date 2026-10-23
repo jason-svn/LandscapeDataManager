@@ -154,6 +154,11 @@ public static class DefaultParameterMappingCatalog
         "Surface_Temperature_Reduction_Min" => ["!_S_PLT_LDS_SurfaceTempReduction_Number", header],
         "Air temperature reduction (1.5m height)" => ["!_S_PLT_LDS_AirTempReduction_Number", header],
         "Irrigation_Demand_Plant Factor" => ["!_S_PLT_LDS_IrrigationDemandFactor_Number", header],
+        // Site & Biodiversity reference data per species (native to the row's Origin region; months
+        // in flower, fruit or seed; function tags), read by the Dashboard.
+        "Native_Status" => ["!_S_PLT_iTreeSpecies_NativeStatus_Text", header],
+        "Bloom_Months" => ["!_S_PLT_iTreeSpecies_BloomMonths_Text", header],
+        "Ecological_Functions" => ["!_S_PLT_iTreeSpecies_EcologicalFunctions_Text", header],
         "Max_Height" => ["!_S_PLT_LDS_MaxHeight_Length", header],
         "Max_Width" => ["!_S_PLT_LDS_MaxWidth_Length", header],
         // The growth rates: filled from i-Tree's forecast by Growth Projections (Growth rates from
