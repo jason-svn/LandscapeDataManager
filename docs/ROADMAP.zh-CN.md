@@ -14,6 +14,8 @@ LIM（Landscape Information Manager）的计划、已完成的工作，以及修
 - **KPI Schedules 在有生长年份时按 workset 给种植明细表分组**，每年一个小计，这样一棵树不会每个生长年份都被计一次。（从 Phase 3 起，再次运行 KPI Schedules 会把新增的列加到已有明细表里；只有要改分组时才需要删掉明细表。）
 - Dashboard 卡片计入种植区（Airtable）的碳、径流、污染物和节省费用。BNG 标签不再重复显示两次 "primary"。
 
+**v1.6.1**（2026-10-23 发布）：修复：重新打开 Dashboard 时，保存的方案（Scheme A、Scheme B 等）会重新出现。
+
 **v1.6.0**（2026-10-23 发布，是 v1.4.0 之后的第一个发布版本，所以也包含 v1.5.0）：下面直到 v1.4.0 的所有内容，包括删除 Refresh and Audit 和 Health Check、改由 Dashboard 的 Model checks 报告，Save shared parameter file，分步骤的 Floor Calculator 和 Connectivity，Site details，连通性热力图视图，以及网页版仪表板的生长曲线。
 
 **v1.5.0**（2026-10-22，分支 `roadmap-phases-2-5`，没有单独发布：随 v1.6.0 发布）：Phase 2–5 以及之后的所有内容，从设计场景、Dashboard 重新设计，到 i-Tree 生长率和树的尺寸、分步的 Growth Projections、按场景计算的连通性。从现在起，每次推送到 GitHub 的更新都升一个小版本。
