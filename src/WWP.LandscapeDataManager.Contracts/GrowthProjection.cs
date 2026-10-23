@@ -43,12 +43,18 @@ public sealed record GrowthProjectionStatus(
 /// <see cref="OptionKeys"/> is only read for <see cref="GrowthProjectionScopes.DesignOptions"/>.
 /// </summary>
 /// <see cref="DesignYear"/>: the year new-construction trees are drawn at (see <see cref="GrowthYearNames.OwnYear"/>).
+/// <see cref="MaxCopies"/>: make at most this many copies in one run (0: all), so a large project goes
+/// in batches, each its own transaction; <see cref="GrowthProjectionResult.CopiesLeft"/> says how many
+/// are still to make. <see cref="RefreshCopies"/>: false skips refreshing the existing copies (a later
+/// batch of the same run, when the first already refreshed them).
 public sealed record GrowthProjectionRequest(
     IReadOnlyList<int> Years,
     string Scope,
     IReadOnlyList<string> OptionKeys,
     bool PreviewOnly,
-    int DesignYear = GrowthYearNames.DefaultDesignYear);
+    int DesignYear = GrowthYearNames.DefaultDesignYear,
+    int MaxCopies = 0,
+    bool RefreshCopies = true);
 
 /// <summary>
 /// <see cref="Created"/> counts only copies Revit can make now: it adds new elements to the active
@@ -66,7 +72,8 @@ public sealed record GrowthProjectionResult(
     IReadOnlyList<string> WorksetsCreated,
     IReadOnlyList<string> Notes,
     IReadOnlyList<GrowthOptionWaiting>? WaitingForOption = null,
-    string? ActiveOption = null)
+    string? ActiveOption = null,
+    int CopiesLeft = 0)
 {
     /// <summary>
     /// Copies are waiting for another design option to be active. An older connector only says so in

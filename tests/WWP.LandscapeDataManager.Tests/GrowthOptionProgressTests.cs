@@ -44,4 +44,14 @@ public sealed class GrowthOptionProgressTests
         var row = Assert.Single(rows);
         Assert.Equal((5, GrowthOptionProgressRow.Run), (row.CopiesNeeded, row.ToDo));
     }
+
+    [Fact]
+    public void Trees_that_need_inputs_are_counted_but_don_t_hold_an_option_back()
+    {
+        var trees = new List<OrganizerTree> { Tree("1"), Tree("1", 5) };
+
+        var row = Assert.Single(GrowthOptionProgress.Build(trees, [5, 25], 25, "1", new HashSet<string>(), new HashSet<string> { trees[1].UniqueId }));
+
+        Assert.Equal((1, GrowthOptionProgressRow.Done), (row.NeedsInputs, row.ToDo));
+    }
 }

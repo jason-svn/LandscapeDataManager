@@ -137,6 +137,12 @@ internal static class GrowthProjectionService
                 waiting, activeLabel);
         }
 
+        // A large project goes in batches (each its own transaction): this run makes at most MaxCopies
+        // copies, and a later batch of the same run leaves the existing copies alone (the first refreshed them).
+        IReadOnlyList<GrowthCopyLink> toRefresh = request.RefreshCopies ? plan.ToUpdate : [];
+        var batch = request.MaxCopies > 0 ? toCreateNow.Take(request.MaxCopies).ToList() : toCreateNow;
+        var copiesLeft = toCreateNow.Count - batch.Count;
+
         // Measured before the transaction: it probes sample trees in a rolled-back transaction of its own.
         var matureAges = TreeMaturityService.GetMatureAges(document, inScope);
         var cappedTypes = inScope
@@ -173,7 +179,7 @@ internal static class GrowthProjectionService
 
             // Elements other people own can't be edited; check them out first and skip what we can't get.
             var editIds = toMove.Select(tree => tree.Id)
-                .Concat(plan.ToUpdate.Concat(plan.ToDelete).Select(copy => byUniqueId[copy.CopyUniqueId].Id))
+                .Concat(toRefresh.Concat(plan.ToDelete).Select(copy => byUniqueId[copy.CopyUniqueId].Id))
                 .ToList();
             var editable = editIds.Count == 0
                 ? new HashSet<long>()
@@ -192,7 +198,7 @@ internal static class GrowthProjectionService
                 moved++;
             }
 
-            foreach (var link in plan.ToUpdate)
+            foreach (var link in toRefresh)
             {
                 var copy = byUniqueId[link.CopyUniqueId];
                 if (!editable.Contains(copy.Id.Value) || !byUniqueId.TryGetValue(link.SourceUniqueId, out var source))
@@ -210,7 +216,7 @@ internal static class GrowthProjectionService
             }
 
             var wrongOption = new Dictionary<string, int>(StringComparer.Ordinal);
-            foreach (var item in toCreateNow)
+            foreach (var item in batch)
             {
                 var source = byUniqueId[item.SourceUniqueId];
                 var copyId = ElementTransformUtils.CopyElement(document, source.Id, XYZ.Zero).FirstOrDefault();
@@ -276,7 +282,7 @@ internal static class GrowthProjectionService
             throw;
         }
 
-        return new GrowthProjectionResult(document.Title, false, inScope.Count, moved, created, updated, deleted, worksetsCreated, notes, waiting, activeLabel);
+        return new GrowthProjectionResult(document.Title, false, inScope.Count, moved, created, updated, deleted, worksetsCreated, notes, waiting, activeLabel, copiesLeft);
     }
 
     private sealed record LinkedCopy(Element Element, GrowthCopyLink Link);

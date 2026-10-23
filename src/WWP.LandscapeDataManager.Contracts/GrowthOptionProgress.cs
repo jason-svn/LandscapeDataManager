@@ -14,7 +14,8 @@ public sealed record GrowthOptionProgressRow(
     bool IsActive,
     int Originals,
     IReadOnlyList<GrowthYearCopies> Years,
-    int ToCalculate)
+    int ToCalculate,
+    int NeedsInputs = 0)
 {
     public const string Done = "Done";
     public const string Run = "Run Create & calculate";
@@ -37,14 +38,16 @@ public static class GrowthOptionProgress
     /// <summary>
     /// One row per design option (and the main model) with trees. An original needs a copy for every
     /// listed year but its own (existing trees year 0, new trees the design year); grouped trees get
-    /// none. <paramref name="waitingForITree"/>: unique ids of trees that still need calculating.
+    /// none. <paramref name="waitingForITree"/>: unique ids of trees that still need calculating;
+    /// <paramref name="needingInputs"/>: of trees i-Tree can't calculate until their inputs are filled in.
     /// </summary>
     public static IReadOnlyList<GrowthOptionProgressRow> Build(
         IReadOnlyList<OrganizerTree> trees,
         IReadOnlyList<int> years,
         int designYear,
         string activeOptionKey,
-        IReadOnlySet<string> waitingForITree)
+        IReadOnlySet<string> waitingForITree,
+        IReadOnlySet<string>? needingInputs = null)
     {
         var growthYears = years.Where(year => year > 0).Distinct().Order().ToList();
         return trees
@@ -65,7 +68,8 @@ public static class GrowthOptionProgress
                     growthYears
                         .Select(year => new GrowthYearCopies(year, copyYears.Count(copy => copy == year), ownYears.Count(own => own != year)))
                         .ToList(),
-                    option.Count(tree => waitingForITree.Contains(tree.UniqueId)));
+                    option.Count(tree => waitingForITree.Contains(tree.UniqueId)),
+                    needingInputs is null ? 0 : option.Count(tree => needingInputs.Contains(tree.UniqueId)));
             })
             .OrderBy(row => row.OptionLabel, StringComparer.OrdinalIgnoreCase)
             .ToList();

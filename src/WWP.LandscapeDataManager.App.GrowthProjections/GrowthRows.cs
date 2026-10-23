@@ -47,17 +47,6 @@ public sealed class DesignOptionRow(GrowthDesignOptionChoice choice)
         $"{choice.Label} — {choice.OriginalTreeCount:N0} tree(s){(choice.IsActive ? " · active option" : string.Empty)}";
 }
 
-/// <summary>One growth year's i-Tree state: how many of its trees are calculated, waiting, or need inputs.</summary>
-public sealed class YearCalculationRow(int year, int designYear, int trees, int calculated, int toCalculate, int needsAttention)
-{
-    public int Year { get; } = year;
-    public string YearText { get; } = GrowthYearLabel.Of(year, designYear);
-    public string TreesText { get; } = trees.ToString("N0");
-    public string CalculatedText { get; } = calculated.ToString("N0");
-    public string ToCalculateText { get; } = toCalculate.ToString("N0");
-    public string NeedsAttentionText { get; } = needsAttention.ToString("N0");
-}
-
 /// <summary>
 /// An existing growth-year workset, for the status table. The originals are wherever they're drawn
 /// (existing trees at year 0, new ones at the design year): every tree on a workset that isn't a
@@ -87,6 +76,7 @@ public sealed class OptionProgressRow(GrowthOptionProgressRow row)
     public string CopiesText { get; } = row.CopiesNeeded == 0 ? "—" : $"{row.CopiesMade:N0} of {row.CopiesNeeded:N0}";
     public string MissingYearsText { get; } = row.MissingYears.Count == 0 ? "—" : string.Join(", ", row.MissingYears);
     public string ToCalculateText { get; } = row.ToCalculate.ToString("N0");
+    public string NeedsInputsText { get; } = row.NeedsInputs.ToString("N0");
     public string ToDo { get; } = row.ToDo;
 }
 

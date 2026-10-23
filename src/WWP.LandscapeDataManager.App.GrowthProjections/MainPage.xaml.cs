@@ -20,6 +20,10 @@ public sealed partial class MainPage : Page
     private string _pipeName = string.Empty;
     private GrowthProjectionStatus? _status;
     private List<(PlantingInstanceValidationItem Item, string Status)> _growthTrees = [];
+
+    // What the last tree scan noticed (ages updated or capped, trees on the wrong workset, DBH that
+    // doesn't grow), shown under the by-design-option table.
+    private string _scanNotes = string.Empty;
     private string _preferredUnitSystem = "Metric";
     private string _preferredCurrency = "USD";
     private IReadOnlyList<TypeGrowthRates> _growthRates = [];
@@ -39,7 +43,6 @@ public sealed partial class MainPage : Page
     public ObservableCollection<GrowthYearRow> YearRows { get; } = [];
     public ObservableCollection<DesignOptionRow> OptionRows { get; } = [];
     public ObservableCollection<WorksetRow> WorksetRows { get; } = [];
-    public ObservableCollection<YearCalculationRow> CalculationRows { get; } = [];
     public ObservableCollection<GrowthRateRow> GrowthRateRows { get; } = [];
     public ObservableCollection<OptionProgressRow> OptionProgressRows { get; } = [];
     public ObservableCollection<SortMoveRow> SortMoveRows { get; } = [];
@@ -177,7 +180,25 @@ public sealed partial class MainPage : Page
             1 => $"{_status.SelectedOriginalCount:N0} original tree(s) selected in Revit (click Refresh after changing the selection).",
             _ => "Tick the main model and/or design options to project."
         };
+        var ticked = OptionRows.Where(row => row.IsChecked).Select(row => row.Label.Split(" — ")[0]).ToList();
+        RunScopeText.Text = ScopeButtons.SelectedIndex switch
+        {
+            0 => $"Trees: all {_status.OriginalTreeCount:N0} original trees in the project, every design option.",
+            1 => $"Trees: the {_status.SelectedOriginalCount:N0} original tree(s) selected in Revit.",
+            _ => $"Trees: the ticked design options ({(ticked.Count > 0 ? string.Join(", ", ticked) : "none")})."
+        };
+        SelectAllTreesButton.IsEnabled = ScopeButtons.SelectedIndex != 0;
     }
+
+    /// <summary>Puts every tree in the project in scope (step 1's first choice) and previews again.</summary>
+    private async void SelectAllTrees_Click(object sender, RoutedEventArgs e)
+    {
+        ScopeButtons.SelectedIndex = 0;
+        await RunBusyAsync(PreviewRunAsync);
+    }
+
+    /// <summary>Copies made and trees calculated per batch, so a large project never holds Revit in one huge change.</summary>
+    private const int BatchSize = 500;
 
     private GrowthProjectionRequest BuildRequest(bool previewOnly)
     {
@@ -210,8 +231,11 @@ public sealed partial class MainPage : Page
         var result = await GetClient().SendAsync<GrowthProjectionResult>(PipeCommands.RunGrowthProjection, BuildRequest(previewOnly: true));
         StatusText.Text = Describe(result, DesignYear());
         var options = await ShowOptionProgressAsync();
-        var copiesDone = options.Count > 0 ? options.All(option => option.MissingYears.Count == 0) : result.Created == 0 && !result.HasCopiesWaiting;
-        SetStep(3, copiesDone && result.Deleted + result.MovedToBaseline == 0 ? StepState.Done : StepState.Attention);
+        // Done when every option has its copies and every tree i-Tree can calculate is calculated.
+        var allDone = options.Count > 0
+            ? options.All(option => option.ToDo == GrowthOptionProgressRow.Done)
+            : result.Created == 0 && !result.HasCopiesWaiting;
+        SetStep(3, allDone && result.Deleted + result.MovedToBaseline == 0 ? StepState.Done : StepState.Attention);
     }
 
     /// <summary>
@@ -225,8 +249,12 @@ public sealed partial class MainPage : Page
         var organizer = await GetClient().SendAsync<OrganizerTreesResult>(PipeCommands.GetOrganizerTrees);
         await ScanGrowthTreesAsync();
         var waiting = _growthTrees.Where(tree => IsWaiting(tree.Status)).Select(tree => tree.Item.UniqueId).ToHashSet(StringComparer.Ordinal);
+        var needingInputs = _growthTrees
+            .Where(tree => tree.Status != "Calculated" && !IsWaiting(tree.Status))
+            .Select(tree => tree.Item.UniqueId)
+            .ToHashSet(StringComparer.Ordinal);
         var activeKey = _status?.Options.FirstOrDefault(option => option.IsActive)?.Key ?? GrowthOptionKeys.MainModel;
-        var rows = GrowthOptionProgress.Build(organizer.Trees, BuildRequest(previewOnly: true).Years, DesignYear(), activeKey, waiting);
+        var rows = GrowthOptionProgress.Build(organizer.Trees, BuildRequest(previewOnly: true).Years, DesignYear(), activeKey, waiting, needingInputs);
 
         OptionProgressRows.Clear();
         foreach (var row in rows)
@@ -236,17 +264,21 @@ public sealed partial class MainPage : Page
 
         var makeActive = rows.Where(row => row.ToDo == GrowthOptionProgressRow.MakeActive).Select(row => row.OptionLabel).ToList();
         var run = rows.Where(row => row.ToDo == GrowthOptionProgressRow.Run).Select(row => row.OptionLabel).ToList();
-        OptionProgressText.Text = makeActive.Count + run.Count == 0
-            ? "Every design option has all its growth-year copies, and every tree is calculated."
-            : (run.Count > 0 ? $"Run Create, refresh & calculate for: {string.Join(", ", run)}. " : string.Empty) +
-              (makeActive.Count > 0 ? $"Then make each of these active in turn and run again: {string.Join(", ", makeActive)}." : string.Empty);
+        var needsInputs = rows.Sum(row => row.NeedsInputs);
+        OptionProgressText.Text = (makeActive.Count + run.Count == 0
+                                      ? "Every design option has all its growth-year copies, and every tree i-Tree can calculate is calculated."
+                                      : (run.Count > 0 ? $"Run Create, refresh & calculate for: {string.Join(", ", run)}. " : string.Empty) +
+                                        (makeActive.Count > 0 ? $"Then make each of these active in turn and run again: {string.Join(", ", makeActive)}." : string.Empty)) +
+                                  (needsInputs > 0 ? $" {needsInputs:N0} tree(s) need inputs before i-Tree can calculate them (species, DBH, condition or location)." : string.Empty) +
+                                  _scanNotes;
         return rows;
     }
 
     /// <summary>
     /// One step: create/refresh the growth-year copies, then calculate i-Tree for every growth-year
     /// tree that's new or changed (refreshed ages change DBH, so those results go stale). One
-    /// confirmation covers both; the model change is a single Revit undo step.
+    /// confirmation covers both. Copies are made <see cref="BatchSize"/> at a time, each batch its own
+    /// Revit undo step; i-Tree is calculated and written <see cref="BatchSize"/> trees at a time.
     /// </summary>
     private async void Run_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
     {
@@ -268,7 +300,8 @@ public sealed partial class MainPage : Page
         var steps = new List<string>();
         if (changesModel)
         {
-            steps.Add("1. " + Describe(preview, request.DesignYear) + " (one Revit undo step)");
+            steps.Add("1. " + Describe(preview, request.DesignYear) +
+                      (preview.Created > BatchSize ? $" (in batches of {BatchSize:N0} copies, one Revit undo step each)" : " (one Revit undo step)"));
         }
 
         steps.Add($"{(changesModel ? "2" : "1")}. Calculate i-Tree for growth-year trees that are new or changed" +
@@ -292,7 +325,21 @@ public sealed partial class MainPage : Page
         var copiesWaiting = preview.HasCopiesWaiting;
         if (changesModel)
         {
-            var result = await GetClient().SendAsync<GrowthProjectionResult>(PipeCommands.RunGrowthProjection, request);
+            // The first batch also moves originals onto their year, refreshes the existing copies and
+            // makes the worksets; the later ones only make copies. An older connector makes them all at once.
+            var first = await GetClient().SendAsync<GrowthProjectionResult>(
+                PipeCommands.RunGrowthProjection, request with { MaxCopies = BatchSize, RefreshCopies = true });
+            var last = first;
+            var made = first.Created;
+            while (last.CopiesLeft > 0 && last.Created > 0)
+            {
+                StatusText.Text = $"Making copies… {made:N0} made, {last.CopiesLeft:N0} to go.";
+                last = await GetClient().SendAsync<GrowthProjectionResult>(
+                    PipeCommands.RunGrowthProjection, request with { MaxCopies = BatchSize, RefreshCopies = false });
+                made += last.Created;
+            }
+
+            var result = first with { Created = made, Notes = last.Notes, WaitingForOption = last.WaitingForOption, CopiesLeft = last.CopiesLeft };
             status.Add(Describe(result, request.DesignYear));
             copiesWaiting = result.HasCopiesWaiting;
             try
@@ -313,11 +360,32 @@ public sealed partial class MainPage : Page
             .ToList();
         if (targets.Count > 0)
         {
-            var summary = await ITreeBatchCalculator.CalculateAsync(
-                GetClient(), targets, _iTreeCredentialStore.Load(), _preferredUnitSystem, _preferredCurrency, _iTreeApiClient, _exchangeRateService);
-            status.Add(summary.Ran
-                ? $"i-Tree: calculated {summary.Succeeded:N0} unique input set(s), {summary.Failed:N0} failed, written to {summary.Instances:N0} tree(s) in {summary.CurrencyCode}. {summary.Timeline?.Describe()}"
-                : $"i-Tree not run: {summary.Message}");
+            int succeeded = 0, failed = 0, written = 0, batches = 0;
+            string? currency = null, timeline = null, notRun = null;
+            foreach (var chunk in targets.Chunk(BatchSize))
+            {
+                StatusText.Text = $"i-Tree: {written:N0} of {targets.Count:N0} tree(s) calculated…";
+                var summary = await ITreeBatchCalculator.CalculateAsync(
+                    GetClient(), chunk, _iTreeCredentialStore.Load(), _preferredUnitSystem, _preferredCurrency, _iTreeApiClient, _exchangeRateService);
+                if (!summary.Ran)
+                {
+                    notRun = summary.Message;
+                    break;
+                }
+
+                succeeded += summary.Succeeded;
+                failed += summary.Failed;
+                written += summary.Instances;
+                currency = summary.CurrencyCode;
+                timeline = summary.Timeline?.Describe();
+                batches++;
+            }
+
+            status.Add(notRun is not null && batches == 0
+                ? $"i-Tree not run: {notRun}"
+                : $"i-Tree: calculated {succeeded:N0} unique input set(s), {failed:N0} failed, written to {written:N0} tree(s) in {currency}" +
+                  (batches > 1 ? $", in {batches:N0} batches" : string.Empty) + $". {timeline}" +
+                  (notRun is not null ? $" Stopped: {notRun}" : string.Empty));
             await ScanGrowthTreesAsync();
         }
         else
@@ -327,16 +395,14 @@ public sealed partial class MainPage : Page
 
         StatusText.Text = string.Join(" ", status);
         var options = await ShowOptionProgressAsync();
-        SetStep(3, copiesWaiting || options.Any(option => option.MissingYears.Count > 0) ? StepState.Attention : StepState.Done);
+        SetStep(3, copiesWaiting || options.Any(option => option.ToDo != GrowthOptionProgressRow.Done) ? StepState.Attention : StepState.Done);
     });
 
     // ---- i-Tree by growth year ----
 
-    private async void CheckCalculation_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(ScanGrowthTreesAsync);
-
     /// <summary>
     /// Scans every tree (which also brings growth-year ages up to date, capped at mature size), keeps
-    /// the ones on a growth-year workset, and tallies each year's i-Tree status.
+    /// the ones on a growth-year workset with their i-Tree status, and notes what needs attention.
     /// </summary>
     private async Task ScanGrowthTreesAsync()
     {
@@ -354,28 +420,14 @@ public sealed partial class MainPage : Page
             .Select(item => (item, PlantingInstanceStatusEvaluator.Evaluate(item, ITreeBatchCalculator.SignatureEngineVersion).Status))
             .ToList();
 
-        CalculationRows.Clear();
-        foreach (var year in _growthTrees.GroupBy(tree => tree.Item.GrowthYear!.Value).OrderBy(group => group.Key))
-        {
-            CalculationRows.Add(new YearCalculationRow(
-                year.Key,
-                DesignYear(),
-                year.Count(),
-                year.Count(tree => tree.Status == "Calculated"),
-                year.Count(tree => IsWaiting(tree.Status)),
-                year.Count(tree => tree.Status != "Calculated" && !IsWaiting(tree.Status))));
-        }
-
         var capped = validation.AgeSync?.CappedAtMaturity ?? 0;
         var flatDbh = GrowthProjectionChecks.TypesWithUnchangingDbh(_growthTrees.Select(tree => tree.Item));
-        SetStep(4, _growthTrees.Count > 0 && _growthTrees.All(tree => tree.Status == "Calculated") ? StepState.Done : StepState.Attention);
         if (flatDbh.Count > 0)
         {
             SetStep(2, StepState.Attention);
         }
-        CalculationStatusText.Text = _growthTrees.Count == 0
-            ? "No trees are on growth-year worksets yet — create the growth years in step 4 first."
-            : $"{_growthTrees.Count:N0} tree(s) across {CalculationRows.Count:N0} growth year(s)." +
+
+        _scanNotes =
               (validation.AgeSync is { Updated: > 0 } sync ? $" Updated {sync.Updated:N0} tree(s) to their projected year." : string.Empty) +
               (capped > 0 ? $" {capped:N0} tree(s) without a family age formula have reached mature size, so LIM capped their age." : string.Empty) +
               (validation.AgeSync is { NotOnTheirWorkset: > 0 } misplaced
@@ -921,29 +973,28 @@ public sealed partial class MainPage : Page
 
     private enum StepState { None, Attention, Done }
 
-    private static readonly string[] StepNames = ["Years", "Check trees", "Growth rates", "Create & calculate", "Results"];
+    private static readonly string[] StepNames = ["Years", "Check trees", "Growth rates", "Create & calculate"];
 
     private static readonly string[] StepHints =
     [
         "Set the year new trees are drawn at, the growth years to model and the trees in scope. Next saves them on the project, so the next run starts from them.",
         "Puts every tree on its year's workset and finds trees that overlap (shown red in the active view). Fix what it finds, then go on.",
         "Gives each tree type its trunk, height and crown growth rates from i-Tree, so trees grow between the years. Do it before creating the copies.",
-        "Makes or refreshes the growth-year copies and calculates i-Tree for them, in one confirmation. Revit adds copies only to the active design option: with trees in several options, make each one active in turn (status bar > Design Options) and run again.",
-        "Each growth year's i-Tree status: done when every growth-year tree is calculated."
+        "Makes or refreshes the growth-year copies and calculates i-Tree for them, in one confirmation. Revit adds copies only to the active design option: with trees in several options, make each one active in turn (status bar > Design Options) and run again. Done when every option has its copies and every tree is calculated."
     ];
 
-    private readonly StepState[] _stepStates = new StepState[5];
+    private readonly StepState[] _stepStates = new StepState[4];
     private int _step;
 
-    private SelectorBarItem[] StepItems => [Step1Item, Step2Item, Step3Item, Step4Item, Step5Item];
+    private SelectorBarItem[] StepItems => [Step1Item, Step2Item, Step3Item, Step4Item];
 
-    private StackPanel[] StepPanels => [Step1Panel, Step2Panel, Step3Panel, Step4Panel, Step5Panel];
+    private StackPanel[] StepPanels => [Step1Panel, Step2Panel, Step3Panel, Step4Panel];
 
     /// <summary>Shows one step and runs its read-only check on arrival, so the step opens on what's left to do.</summary>
     private async void StepBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
     {
         var index = Array.IndexOf(StepItems, sender.SelectedItem);
-        if (index < 0 || Step5Panel is null || NextButton is null)
+        if (index < 0 || Step4Panel is null || NextButton is null)
         {
             return;
         }
@@ -973,9 +1024,6 @@ public sealed partial class MainPage : Page
                 break;
             case 3:
                 await RunBusyAsync(PreviewRunAsync);
-                break;
-            case 4:
-                await RunBusyAsync(ScanGrowthTreesAsync);
                 break;
         }
     }
