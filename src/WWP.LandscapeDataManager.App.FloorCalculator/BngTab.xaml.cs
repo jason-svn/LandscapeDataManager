@@ -40,10 +40,16 @@ public sealed partial class BngTab : UserControl
     private const string AllOptions = "All design options";
     private const string MainModelOnly = "Main model only";
 
+    private const string Intro = "Each floor becomes one row of the Statutory Biodiversity Metric, using the floor's own area and its Revit phases. " +
+        "Step 1 is the baseline on sheet A-1: floors created in the first phase (e.g. Existing), retained — or lost if demolished. " +
+        "Step 2 is new habitat on A-2 (floors created later, e.g. New Construction) and retained floors ticked Enhanced (A-3). " +
+        "Fill the habitat, condition, strategic significance and year offset (+ years in advance, − years of delay); the rest is calculated " +
+        "exactly as the metric workbook does, then written to the floor's BNG parameters.";
+
     public BngTab()
     {
         InitializeComponent();
-        IntroText.Text += $" Metric: {_catalog.DisplayVersion}.";
+        ToolTipService.SetToolTip(IntroIcon, $"{Intro} Metric: {_catalog.DisplayVersion}.");
         // handledEventsToo: the ListView inside consumes wheel events for its own vertical scrolling.
         TableScroller.AddHandler(PointerWheelChangedEvent, new PointerEventHandler(TableScroller_PointerWheelChanged), true);
         UpdateCounts();
@@ -765,7 +771,37 @@ public sealed partial class BngTab : UserControl
         return (mappings, conflicts);
     }
 
-    // ---- Sideways scrolling of the wide A-2 table ----
+    // ---- The two steps: existing habitat (A-1), then new and enhanced habitat (A-2, A-3) ----
+
+    private bool IsNewHabitatStep => BngSteps.SelectedItem == NewStepItem;
+
+    /// <summary>
+    /// Step 1 lists every floor on site at baseline (plus the excluded ones, so they don't vanish);
+    /// step 2 the floors with a proposed habitat. Enhanced floors are in both.
+    /// </summary>
+    private bool InStep(BngFloorRow row) => IsNewHabitatStep ? row.UsesProposedHabitat : InExistingStep(row);
+
+    private static bool InExistingStep(BngFloorRow row) => row.IsBaselineRow || !row.UsesProposedHabitat;
+
+    /// <summary>Each step has its own columns: swaps the lanes, the header and the row template.</summary>
+    private void BngSteps_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (ExistingLanes is null || NewHeader is null || RowsList is null)
+        {
+            return;
+        }
+
+        var newHabitat = IsNewHabitatStep;
+        ExistingLanes.Visibility = newHabitat ? Visibility.Collapsed : Visibility.Visible;
+        ExistingHeader.Visibility = newHabitat ? Visibility.Collapsed : Visibility.Visible;
+        NewLanes.Visibility = newHabitat ? Visibility.Visible : Visibility.Collapsed;
+        NewHeader.Visibility = newHabitat ? Visibility.Visible : Visibility.Collapsed;
+        RowsList.ItemTemplate = (DataTemplate)Resources[newHabitat ? "NewRowTemplate" : "ExistingRowTemplate"];
+        TableScroller.ChangeView(0, null, null, disableAnimation: true);
+        ApplyFilter();
+    }
+
+    // ---- Sideways scrolling of the wide table ----
 
     private void TableScroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e) => UpdateFrozenColumn();
 
@@ -773,8 +809,10 @@ public sealed partial class BngTab : UserControl
     private void UpdateFrozenColumn()
     {
         var offset = TableScroller.HorizontalOffset;
-        FrozenHeaderTransform.X = offset;
-        FrozenLaneTransform.X = offset;
+        ExistingFrozenHeaderTransform.X = offset;
+        ExistingFrozenLaneTransform.X = offset;
+        NewFrozenHeaderTransform.X = offset;
+        NewFrozenLaneTransform.X = offset;
         foreach (var row in AllRows)
         {
             row.FrozenOffset = offset;
@@ -837,7 +875,7 @@ public sealed partial class BngTab : UserControl
     {
         FilteredRows.Clear();
         UpdateFrozenColumn();
-        foreach (var row in OptionRows.Where(row => _activeFilter is null || row.Status == _activeFilter))
+        foreach (var row in OptionRows.Where(row => InStep(row) && (_activeFilter is null || row.Status == _activeFilter)))
         {
             FilteredRows.Add(row);
         }
@@ -943,8 +981,10 @@ public sealed partial class BngTab : UserControl
 
     private void UpdateCounts()
     {
+        // The chips count this step's floors; the headline adds up the whole scenario.
         var optionRows = OptionRows.ToList();
-        int Count(string status) => optionRows.Count(row => row.Status == status);
+        var stepRows = optionRows.Where(InStep).ToList();
+        int Count(string status) => stepRows.Count(row => row.Status == status);
         CalculatedCountText.Text = Count(BngFloorStatus.Calculated).ToString("N0");
         ReadyCountText.Text = Count(BngFloorStatus.Ready).ToString("N0");
         AutoMatchedCountText.Text = Count(BngFloorStatus.AutoMatched).ToString("N0");
@@ -966,11 +1006,16 @@ public sealed partial class BngTab : UserControl
                     baseline, post, post - baseline, (post - baseline) / baseline * 100d)
                 : string.Format(CultureInfo.InvariantCulture, "{0:0.00} post-intervention habitat units — no baseline (Existing-phase) floors loaded", post);
 
+        var existing = optionRows.Count(InExistingStep);
+        var proposed = optionRows.Count(row => row.UsesProposedHabitat);
+        ExistingStepItem.Text = AllRows.Count == 0 ? "1  Existing habitat (A-1)" : $"1  Existing habitat (A-1) · {existing:N0}";
+        NewStepItem.Text = AllRows.Count == 0 ? "2  New & enhanced (A-2, A-3)" : $"2  New & enhanced (A-2, A-3) · {proposed:N0}";
+
         FilterStatusText.Text = AllRows.Count == 0
-            ? "Load floors to start — click a card above to filter the list to just that status."
+            ? "Load floors to start — click a chip to filter the list to just that status."
             : _activeFilter is null
-                ? $"Showing all {optionRows.Count:N0} floor(s){(_optionFilter == AllOptions ? string.Empty : $" in {_optionFilter}")} — click a card above to filter the list to just that status."
-                : $"Showing {FilteredRows.Count:N0} {DisplayStatus(_activeFilter)} floor(s) — click the card again to show all. (The list refreshes when you click a card, so rows you fix stay in view.)";
+                ? $"Showing all {stepRows.Count:N0} floor(s){(_optionFilter == AllOptions ? string.Empty : $" in {_optionFilter}")} — click a chip to filter."
+                : $"Showing {FilteredRows.Count:N0} {DisplayStatus(_activeFilter)} floor(s) — click the chip again to show all. (The list refreshes when you click a chip, so rows you fix stay in view.)";
 
         var guessedCount = AllRows.Count(row => row.IsAutoMatched);
         ConfirmAutoMatchesButton.IsEnabled = guessedCount > 0;

@@ -16,109 +16,90 @@
         <!-- Two calculators over the same floors: WWP landscape data sheet benefits, and BNG habitat units. -->
         <Pivot Grid.Row="1" x:Name="CalculatorTabs" SelectionChanged="CalculatorTabs_SelectionChanged">
             <PivotItem Header="Benefit coefficients">
-                <Grid Padding="0,12,0,0" SizeChanged="CoefficientLayout_SizeChanged">
+                <Grid Padding="0,8,0,0" RowSpacing="8">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <!-- Configuration can scroll independently without consuming the result viewport. -->
-                    <ScrollViewer x:Name="CoefficientSetupScroller" MaxHeight="260" HorizontalScrollBarVisibility="Auto">
-                        <Grid MinWidth="1100" Width="{Binding ViewportWidth, ElementName=CoefficientSetupScroller}" Padding="0,0,20,20">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <StackPanel Grid.Row="0" Spacing="4">
-                                <TextBlock
-                                    Text="Select one or more Floor instances in Revit, then load them here. Each floor is auto-matched to the WWP landscape data sheet by family name; results are the sheet's per-square-metre coefficients times the floor's area (except the two temperature-reduction fields, which are intrinsic to the type). Click &quot;Review...&quot; on a row to check a value manually before calculating — there's no separate override parameter in Revit; editing a value here is the entire mechanism."
-                                    Style="{StaticResource LimPageSubtitleStyle}" />
-                            </StackPanel>
+                    <!-- Steps, and the landscape data sheet the coefficients come from (its source is set in Settings). -->
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <SelectorBar x:Name="CoefficientSteps" SelectionChanged="CoefficientSteps_SelectionChanged">
+                            <SelectorBarItem x:Name="MatchStepItem" Text="1  Match" IsSelected="True" />
+                            <SelectorBarItem x:Name="ResultsStepItem" Text="2  Results" />
+                        </SelectorBar>
+                        <FontIcon Grid.Column="2" Glyph="&#xE946;" FontSize="16" Opacity="0.7" VerticalAlignment="Center">
+                            <ToolTipService.ToolTip>
+                                <TextBlock TextWrapping="Wrap" MaxWidth="460"
+                                           Text="Load floors from Revit; each one is auto-matched to the WWP landscape data sheet by family name. Results are the sheet's per-square-metre coefficients times the floor's area (the two temperature-reduction fields are the type's own). Review... on a row changes a value by hand before calculating: there's no separate override parameter in Revit." />
+                            </ToolTipService.ToolTip>
+                        </FontIcon>
+                        <StackPanel Grid.Column="3" VerticalAlignment="Center" Spacing="0">
+                            <TextBlock x:Name="CatalogueStatusText" Style="{StaticResource LimMutedTextStyle}" FontSize="12" TextAlignment="Right" />
+                            <TextBlock x:Name="SourceStatusText" Style="{StaticResource LimMutedTextStyle}" FontSize="12" TextAlignment="Right" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button Content="Sync sheet" Click="Sync_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                                    ToolTipService.ToolTip="Download the landscape data sheet again (it's cached locally and refreshed when it's out of date)." />
+                            <Button Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                        </StackPanel>
+                    </Grid>
 
-                            <!-- Step 1: WWP landscape data sheet sync -->
-                            <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
-                                <StackPanel Spacing="10">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="STEP 1 — WWP LANDSCAPE DATA SHEET" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
-                                        <Button Grid.Column="1" Content="Settings" Click="OpenSettings_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                                    </Grid>
-                                    <TextBlock x:Name="SourceStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
-                                    <Grid ColumnSpacing="10">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock x:Name="CatalogueStatusText" VerticalAlignment="Center" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" />
-                                        <Button Grid.Column="1" Content="Sync coefficient data" Click="Sync_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-
-
-                        </Grid>
-                    </ScrollViewer>
-
-                    <!-- Step 2: load & assign -->
-                    <Border Grid.Row="1" Margin="0,16,0,0" Style="{StaticResource LimCardStyle}">
-                        <Grid ColumnSpacing="10" RowSpacing="8">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="STEP 2 — MATCH &amp; CALCULATE" Style="{StaticResource LimSectionHeaderStyle}" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Content="Load selected floors" Click="LoadSelectedFloors_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                            <Button Grid.Column="2" Content="Load all floors" Click="LoadAllFloors_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
-                            <Button Grid.Column="3"
+                    <!-- Step 1: match — load floors, match them, calculate. -->
+                    <Grid Grid.Row="1" x:Name="MatchToolbar" ColumnSpacing="10" RowSpacing="6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Button Content="Load selected floors" Click="LoadSelectedFloors_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                        <Button Grid.Column="1" Content="Load all floors" Click="LoadAllFloors_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+                        <CheckBox Grid.Column="2" x:Name="FillTreesCheckBox" IsChecked="True" Margin="8,0,0,0"
+                                  Content="Also fill trees from the sheet"
+                                  ToolTipService.ToolTip="With Calculate all matched: a tree with no i-Tree result (no species code, missing or invalid inputs, an API error) gets the sheet's per-tree CO₂e, oxygen, runoff, pollutants and money saved, marked Estimated, and every tree gets pollen. Trees with i-Tree results keep them; i-Tree replaces an estimate once the tree is calculated." />
+                        <Button Grid.Column="3" Content="Fill trees from sheet" Click="FillTrees_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                                ToolTipService.ToolTip="Only the trees: estimate the ones i-Tree hasn't calculated, and add pollen for every tree." />
+                        <Button Grid.Column="4"
                                 x:Name="CalculateAllButton"
                                 Content="Calculate all matched"
                                 Click="CalculateAll_Click"
                                 IsEnabled="False"
                                 Style="{StaticResource LimPrimaryButtonStyle}" />
-                            <CheckBox Grid.Row="1" Grid.ColumnSpan="3" x:Name="FillTreesCheckBox" IsChecked="True"
-                                Content="Also fill trees from the sheet: estimate the ones i-Tree hasn't calculated, and add pollen for every tree"
-                                ToolTipService.ToolTip="A tree with no i-Tree result (no species code, missing or invalid inputs, an API error) gets the sheet's per-tree CO₂e, oxygen, runoff, pollutants and money saved, marked Estimated. Trees with i-Tree results keep them; i-Tree replaces an estimate once the tree is calculated." />
-                            <Button Grid.Row="1" Grid.Column="3" Content="Fill trees from sheet" Click="FillTrees_Click" Style="{StaticResource LimSecondaryButtonStyle}"
-                                HorizontalAlignment="Stretch"
-                                ToolTipService.ToolTip="Only the trees: estimate the ones i-Tree hasn't calculated, and add pollen for every tree." />
-                        </Grid>
-                    </Border>
+                    </Grid>
+                    <!-- Step 2: results — a line on what they are. -->
+                    <TextBlock Grid.Row="1" x:Name="ResultsSummaryText" Visibility="Collapsed" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" VerticalAlignment="Center" />
 
-                    <TextBlock Grid.Row="2" x:Name="RowsCountText" Margin="0,12,0,6" Style="{StaticResource LimMutedTextStyle}" />
-
-                    <!-- Horizontal scrolling moves the header and rows together; ListView owns vertical scrolling. -->
-                    <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Auto"
-                        VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
-                        <Grid MinWidth="1100">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <Grid Grid.RowSpan="2">
+                    <!-- Step 1 table: horizontal scrolling moves the header and rows together; ListView owns vertical scrolling. -->
+                    <Grid Grid.Row="2" x:Name="MatchPanel">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="RowsCountText" Margin="0,0,0,4" Style="{StaticResource LimMutedTextStyle}" />
+                        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
+                            <Grid MinWidth="1000">
                                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                                 <Grid Grid.RowSpan="3" Style="{StaticResource LimTableLanesStyle}" ui:TableLanes.FollowRows="True">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="130" /><ColumnDefinition Width="260" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /></Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="130" /><ColumnDefinition Width="300" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /></Grid.ColumnDefinitions>
                                     <Border Grid.Column="2" Grid.ColumnSpan="2" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneBlueBrush}" />
                                 </Grid>
                                 <Grid Style="{StaticResource LimTableGroupRowStyle}">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="130" /><ColumnDefinition Width="260" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /></Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="130" /><ColumnDefinition Width="300" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /></Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="2" Grid.ColumnSpan="2" Text="LANDSCAPE TYPE" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneBlueTextBrush}" />
                                 </Grid>
                                 <Grid Grid.Row="1" Style="{StaticResource LimTableHeaderRowStyle}">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="130" /><ColumnDefinition Width="260" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /></Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="130" /><ColumnDefinition Width="300" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /></Grid.ColumnDefinitions>
                                     <TextBlock Text="Family : Type" Style="{StaticResource LimTableHeaderStyle}" />
                                     <TextBlock Grid.Column="1" Text="Area&#x0a;m²" Style="{StaticResource LimTableNumberHeaderStyle}" />
                                     <TextBlock Grid.Column="2" Text="Status" Style="{StaticResource LimTableHeaderStyle}" />
@@ -128,7 +109,7 @@
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="local:FloorAssignmentRow">
                                             <Grid Style="{StaticResource LimTableRowStyle}">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="130" /><ColumnDefinition Width="260" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /></Grid.ColumnDefinitions>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="80" /><ColumnDefinition Width="130" /><ColumnDefinition Width="300" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /></Grid.ColumnDefinitions>
                                                 <TextBlock Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind DisplayName}" />
                                                 <TextBlock Grid.Column="1" Text="{x:Bind AreaDisplay}" TextAlignment="Right" VerticalAlignment="Center" />
                                                 <TextBlock Grid.Column="2"
@@ -153,19 +134,78 @@
                                     </ListView.ItemTemplate>
                                 </ListView>
                             </Grid>
+                        </ScrollViewer>
+                    </Grid>
 
+                    <!-- Step 2 table: what each floor gets (or got) from its match, with the totals. -->
+                    <ScrollViewer Grid.Row="2" x:Name="ResultsPanel" Visibility="Collapsed" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
+                        <Grid MinWidth="1100">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Grid Grid.RowSpan="4" Style="{StaticResource LimTableLanesStyle}" ui:TableLanes.FollowRows="True">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="200" /><ColumnDefinition Width="80" /><ColumnDefinition Width="2*" MinWidth="180" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="130" /></Grid.ColumnDefinitions>
+                                <Border Grid.Column="3" Grid.ColumnSpan="5" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneGreenBrush}" />
+                                <Border Grid.Column="8" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneAmberBrush}" />
+                            </Grid>
+                            <Grid Style="{StaticResource LimTableGroupRowStyle}">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="200" /><ColumnDefinition Width="80" /><ColumnDefinition Width="2*" MinWidth="180" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="130" /></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="3" Grid.ColumnSpan="5" Text="BENEFITS PER YEAR" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneGreenTextBrush}" />
+                                <TextBlock Grid.Column="8" Text="EMBODIED" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneAmberTextBrush}" />
+                            </Grid>
+                            <Grid Grid.Row="1" Style="{StaticResource LimTableHeaderRowStyle}">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="200" /><ColumnDefinition Width="80" /><ColumnDefinition Width="2*" MinWidth="180" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="130" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="Family : Type" Style="{StaticResource LimTableHeaderStyle}" />
+                                <TextBlock Grid.Column="1" Text="Area&#x0a;m²" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                                <TextBlock Grid.Column="2" Text="Landscape type" Style="{StaticResource LimTableHeaderStyle}" />
+                                <TextBlock Grid.Column="3" Text="CO₂e&#x0a;kg" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                                <TextBlock Grid.Column="4" Text="Runoff&#x0a;m³" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                                <TextBlock Grid.Column="5" Text="Pollutants&#x0a;kg" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                                <TextBlock Grid.Column="6" Text="O₂&#x0a;kg" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                                <TextBlock Grid.Column="7" x:Name="CostHeaderText" Text="Cost saved&#x0a;per year" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                                <TextBlock Grid.Column="8" Text="GWP&#x0a;kg CO₂e" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                                <TextBlock Grid.Column="9" Text="Status" Style="{StaticResource LimTableHeaderStyle}" Margin="12,0,0,0" />
+                            </Grid>
+                            <ListView Grid.Row="2" AutomationProperties.Name="Floor results" ItemsSource="{x:Bind ResultRows}" SelectionMode="None" ItemContainerStyle="{StaticResource LimTableItemStyle}">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="local:FloorResultRow">
+                                        <Grid Style="{StaticResource LimTableRowStyle}">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="200" /><ColumnDefinition Width="80" /><ColumnDefinition Width="2*" MinWidth="180" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="130" /></Grid.ColumnDefinitions>
+                                            <TextBlock Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind DisplayName}" />
+                                            <TextBlock Grid.Column="1" Text="{x:Bind AreaText}" TextAlignment="Right" />
+                                            <TextBlock Grid.Column="2" Text="{x:Bind LandscapeType}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind LandscapeType}" />
+                                            <TextBlock Grid.Column="3" Text="{x:Bind Co2Text}" TextAlignment="Right" />
+                                            <TextBlock Grid.Column="4" Text="{x:Bind RunoffText}" TextAlignment="Right" />
+                                            <TextBlock Grid.Column="5" Text="{x:Bind PollutantsText}" TextAlignment="Right" />
+                                            <TextBlock Grid.Column="6" Text="{x:Bind OxygenText}" TextAlignment="Right" />
+                                            <TextBlock Grid.Column="7" Text="{x:Bind CostText}" TextAlignment="Right" />
+                                            <TextBlock Grid.Column="8" Text="{x:Bind GwpText}" TextAlignment="Right" />
+                                            <TextBlock Grid.Column="9" Text="{x:Bind Status}" Margin="12,0,0,0" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Status}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                            <!-- Totals over the matched floors. -->
+                            <Grid Grid.Row="3" Style="{StaticResource LimTableHeaderRowStyle}" BorderThickness="0,1,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*" MinWidth="200" /><ColumnDefinition Width="80" /><ColumnDefinition Width="2*" MinWidth="180" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="90" /><ColumnDefinition Width="100" /><ColumnDefinition Width="100" /><ColumnDefinition Width="130" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="Total" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1" x:Name="TotalAreaText" FontWeight="SemiBold" TextAlignment="Right" />
+                                <TextBlock Grid.Column="3" x:Name="TotalCo2Text" FontWeight="SemiBold" TextAlignment="Right" />
+                                <TextBlock Grid.Column="4" x:Name="TotalRunoffText" FontWeight="SemiBold" TextAlignment="Right" />
+                                <TextBlock Grid.Column="5" x:Name="TotalPollutantsText" FontWeight="SemiBold" TextAlignment="Right" />
+                                <TextBlock Grid.Column="6" x:Name="TotalOxygenText" FontWeight="SemiBold" TextAlignment="Right" />
+                                <TextBlock Grid.Column="7" x:Name="TotalCostText" FontWeight="SemiBold" TextAlignment="Right" />
+                                <TextBlock Grid.Column="8" x:Name="TotalGwpText" FontWeight="SemiBold" TextAlignment="Right" />
+                            </Grid>
                         </Grid>
                     </ScrollViewer>
 
-                    <TextBlock Grid.Row="4"
+                    <TextBlock Grid.Row="3"
                         x:Name="StatusText"
-                        Margin="0,12,0,0"
                         Text="Select floors in Revit, then click &quot;Load selected floors&quot;."
                         Style="{StaticResource LimMutedTextStyle}"
                         TextWrapping="Wrap" />
 
                     <ProgressRing x:Name="BusyIndicator"
-                        Grid.RowSpan="5"
+                        Grid.RowSpan="4"
                         Width="40"
                         Height="40"
                         IsActive="False"

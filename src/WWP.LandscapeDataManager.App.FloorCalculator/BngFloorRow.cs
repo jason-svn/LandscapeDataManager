@@ -545,8 +545,15 @@ public sealed class BngFloorRow : INotifyPropertyChanged
         BngFloorStatus.CheckData => Result.Issues.Count > 0 ? Result.Issues[0] : "The metric flags this row.",
         BngFloorStatus.Stale => "Area, phases or inputs changed since the last write.",
         BngFloorStatus.Ready => ParametersBound ? "Not written to Revit yet." : "BNG parameters aren't set up in this project — run Parameters first.",
-        _ => _lastUpdated is null ? string.Empty : $"Written {_lastUpdated}"
+        _ => _lastUpdated is null ? string.Empty : $"Written {ShortStamp(_lastUpdated)}"
     };
+
+    /// <summary>"2026-10-21, 15:15:32, GMT Summer Time" as "2026-10-21 15:15", so it fits one line; the tooltip has it all.</summary>
+    private static string ShortStamp(string stamp)
+    {
+        var parts = stamp.Split(", ");
+        return parts.Length >= 2 && parts[1].Length >= 5 ? $"{parts[0]} {parts[1][..5]}" : stamp;
+    }
 
     /// <summary>Everything behind the row's status — shown as the status column's tooltip.</summary>
     public string StatusDetails

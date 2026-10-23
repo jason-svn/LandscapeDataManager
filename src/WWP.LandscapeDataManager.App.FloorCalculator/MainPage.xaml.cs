@@ -45,16 +45,66 @@ public sealed partial class MainPage : Page
         });
     }
 
-    private void CoefficientLayout_SizeChanged(object sender, SizeChangedEventArgs e)
+    public ObservableCollection<FloorAssignmentRow> Rows { get; } = [];
+
+    /// <summary>The Results step: each loaded floor's benefits from its match.</summary>
+    public ObservableCollection<FloorResultRow> ResultRows { get; } = [];
+
+    /// <summary>Step 1 matches floors and calculates; step 2 shows what each floor gets.</summary>
+    private void CoefficientSteps_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
     {
-        if (CoefficientSetupScroller is not null)
+        if (MatchPanel is null || ResultsPanel is null)
         {
-            // Reserve space for results on short/high-DPI work areas instead of letting setup fill the tab.
-            CoefficientSetupScroller.MaxHeight = Math.Clamp(e.NewSize.Height * 0.4, 96, 260);
+            return;
+        }
+
+        var results = sender.SelectedItem == ResultsStepItem;
+        MatchToolbar.Visibility = results ? Visibility.Collapsed : Visibility.Visible;
+        MatchPanel.Visibility = results ? Visibility.Collapsed : Visibility.Visible;
+        ResultsSummaryText.Visibility = results ? Visibility.Visible : Visibility.Collapsed;
+        ResultsPanel.Visibility = results ? Visibility.Visible : Visibility.Collapsed;
+        if (results)
+        {
+            RebuildResults();
         }
     }
 
-    public ObservableCollection<FloorAssignmentRow> Rows { get; } = [];
+    /// <summary>The loaded floors' benefits from their matches, with the totals over the matched ones.</summary>
+    private void RebuildResults()
+    {
+        ResultRows.Clear();
+        var totals = new List<FloorBenefits>();
+        foreach (var row in Rows)
+        {
+            var benefits = row.SelectedRecord is null ? null : BenefitsOf(row);
+            if (benefits is not null)
+            {
+                totals.Add(benefits);
+            }
+
+            ResultRows.Add(new FloorResultRow(row, row.SelectedRecord is { } record ? new CoefficientRow(record).DisplayName : "—", benefits));
+        }
+
+        CostHeaderText.Text = $"Cost saved{Environment.NewLine}{_preferredCurrency}";
+        TotalAreaText.Text = Rows.Where(row => row.SelectedRecord is not null).Sum(row => row.AreaSquareMeters).ToString("N0");
+        TotalCo2Text.Text = FloorResultRow.Format(totals.Sum(total => total.Co2Kg));
+        TotalRunoffText.Text = FloorResultRow.Format(totals.Sum(total => total.RunoffM3));
+        TotalPollutantsText.Text = FloorResultRow.Format(totals.Sum(total => total.PollutantsKg));
+        TotalOxygenText.Text = FloorResultRow.Format(totals.Sum(total => total.OxygenKg));
+        TotalCostText.Text = FloorResultRow.Format(totals.Sum(total => total.CostSaved));
+        TotalGwpText.Text = FloorResultRow.Format(totals.Sum(total => total.GwpKg));
+        ResultsSummaryText.Text = Rows.Count == 0
+            ? "Load floors in step 1 first."
+            : $"{totals.Count:N0} of {Rows.Count:N0} floor(s) matched. Per year, except embodied GWP: the sheet's coefficient × area (or a value reviewed by hand), which Calculate writes to Revit. Status says whether it's written.";
+    }
+
+    private static FloorBenefits BenefitsOf(FloorAssignmentRow row) => new(
+        row.Metrics[FloorAssignmentRow.Co2Index].FinalValue,
+        row.Metrics[FloorAssignmentRow.RunoffIndex].FinalValue,
+        row.Metrics[FloorAssignmentRow.PollutionIndex].FinalValue,
+        row.Metrics[FloorAssignmentRow.OxygenIndex].FinalValue,
+        row.Metrics[FloorAssignmentRow.CostSavedIndex].FinalValue,
+        row.Metrics[FloorAssignmentRow.GwpIndex].FinalValue);
 
     /// <summary>Reused across "Review values" dialog openings — cleared and repopulated with the target row's own Metrics objects (not copies) so edits apply directly.</summary>
     public ObservableCollection<FloorMetricEntry> EditingMetrics { get; } = [];
@@ -95,7 +145,7 @@ public sealed partial class MainPage : Page
         _wwpLdsSettings = snapshot?.WwpLdsSource ?? WwpLdsAirtableSettings.CompanyDefault;
         SourceStatusText.Text = string.IsNullOrWhiteSpace(_credentialStore.Load())
             ? "No Airtable token saved, and no landscape data sheet source configured — open Settings from the LIM ribbon first."
-            : $"Source: base {_wwpLdsSettings.BaseId} / table {_wwpLdsSettings.TableIdOrName} (managed in Settings).";
+            : $"From {_wwpLdsSettings.BaseId} / {_wwpLdsSettings.TableIdOrName} (set in Settings)";
 
         await RefreshCatalogueStatusAsync();
         if (WwpLdsSheet.NeedsResync(_allCoefficients) && !string.IsNullOrWhiteSpace(_credentialStore.Load()))
@@ -156,10 +206,10 @@ public sealed partial class MainPage : Page
             : null;
 
         CatalogueStatusText.Text = _allCoefficients.Count == 0
-            ? "No landscape data sheet has been synced yet — click \"Sync coefficient data\" (make sure your Airtable token is saved in Settings first)."
+            ? "No landscape data sheet yet: Sync sheet (needs the Airtable token in Settings)"
             : lastUpdated is null
-                ? $"{_allCoefficients.Count:N0} landscape data sheet rows cached locally."
-                : $"{_allCoefficients.Count:N0} landscape data sheet rows cached locally, last synced {lastUpdated}.";
+                ? $"Landscape data sheet: {_allCoefficients.Count:N0} rows"
+                : $"Landscape data sheet: {_allCoefficients.Count:N0} rows, synced {lastUpdated}";
     }
 
     private async void Sync_Click(object sender, RoutedEventArgs e)
