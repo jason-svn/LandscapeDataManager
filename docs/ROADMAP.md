@@ -12,6 +12,8 @@ Not released yet (branch `dashboard-include-floors`):
 - **KPI Schedules group the planting schedule by workset** when growth years exist, with a subtotal per year, so a tree isn't counted once per growth year. (Since Phase 3, running KPI Schedules again adds newer columns to existing schedules; delete one only to change its grouping.)
 - Dashboard cards include planting-area (Airtable) carbon, runoff, pollution and cost. BNG labels no longer say "primary" twice.
 
+**v1.5.0** (2026-10-22, branch `roadmap-phases-2-5`, not released yet): Phases 2–5 and everything after them below, from design scenarios and the dashboard redesign to i-Tree growth rates and sizes, Growth Projections in steps and connectivity per scenario. From now on every update pushed to GitHub gets the next minor version.
+
 Shipped in **v1.4.0**:
 
 - **Tree growth driven by the family:**
