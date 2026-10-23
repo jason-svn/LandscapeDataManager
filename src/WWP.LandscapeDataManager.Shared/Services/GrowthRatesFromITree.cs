@@ -23,7 +23,8 @@ public sealed record TypeGrowthRates(
     double? HeightMPerYear = null,
     double? WidthMPerYear = null,
     string? Error = null,
-    string? Note = null)
+    string? Note = null,
+    bool FromRevitType = false)
 {
     public string InputsText => $"{Condition}, exposure {CrownExposure}{(UsesDefaultInputs ? " (default)" : string.Empty)}";
 
@@ -314,9 +315,61 @@ public static class GrowthRatesFromITree
             .ToList();
     }
 
-    /// <summary>The type writes for every rate i-Tree gave, as the Importer would make them.</summary>
+    /// <summary>
+    /// A write of every growth rate parameter on each type, for a preview to read what the types
+    /// have now (a preview's current value; it changes nothing).
+    /// </summary>
+    public static IReadOnlyList<ParameterWriteItem> TypeRateProbe(IEnumerable<TypeGrowthRates> types) =>
+        types
+            .SelectMany(type => new[] { TrunkParameter, HeightParameter, WidthParameter }.Select(parameter => new ParameterWriteItem(
+                type.TypeId, type.TypeName, "Revit type", parameter, "Type", "Number (no conversion)", "0")))
+            .ToList();
+
+    /// <summary>
+    /// Types the project has no i-Tree rates saved for take the rates their Revit type has now (from a
+    /// preview of <see cref="TypeRateProbe"/>), marked as such: Get rates checks them against i-Tree.
+    /// </summary>
+    public static IReadOnlyList<TypeGrowthRates> FillFromTypes(
+        IReadOnlyList<TypeGrowthRates> rated,
+        IReadOnlyList<ParameterWriteItem> probe,
+        IReadOnlyList<ParameterWritePreviewRow> preview)
+    {
+        var current = preview
+            .Where(row => row.ItemIndex >= 0 && row.ItemIndex < probe.Count)
+            .GroupBy(row => probe[row.ItemIndex].TypeId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.ToDictionary(row => probe[row.ItemIndex].RevitParameter, row => ParseRate(row.CurrentValue)));
+        return rated
+            .Select(type =>
+            {
+                if (type.HasRates || type.Error is not null || !current.TryGetValue(type.TypeId, out var values))
+                {
+                    return type;
+                }
+
+                double? Value(string parameter) => values.GetValueOrDefault(parameter);
+                var fromType = type with
+                {
+                    TrunkCmPerYear = Value(TrunkParameter),
+                    HeightMPerYear = Value(HeightParameter),
+                    WidthMPerYear = Value(WidthParameter)
+                };
+                return fromType.HasRates
+                    ? fromType with { FromRevitType = true, Note = "From the Revit type: Get rates checks it against i-Tree" }
+                    : type;
+            })
+            .ToList();
+    }
+
+    /// <summary>A rate as a preview shows it ("0.339"); null when it's empty or 0.</summary>
+    private static double? ParseRate(string text) =>
+        double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value > 0 ? value : null;
+
+    /// <summary>The type writes for every rate i-Tree gave, as the Importer would make them (rates read from the types are already there).</summary>
     public static IReadOnlyList<ParameterWriteItem> BuildTypeWrites(IEnumerable<TypeGrowthRates> rated) =>
         rated
+            .Where(type => !type.FromRevitType)
             .SelectMany(type => Rates(type).Select(rate => new ParameterWriteItem(
                 type.TypeId,
                 type.TypeName,

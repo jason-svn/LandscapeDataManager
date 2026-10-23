@@ -660,21 +660,34 @@ public sealed partial class MainPage : Page
 
         var saved = (await ProjectSettingsSync.PullAsync(GetClient()))?.GrowthRates;
         var rated = GrowthRatesFromITree.FromSaved(plan, saved, DesignYear(), latitude, longitude);
-        ShowGrowthRates(rated);
-        var loaded = rated.Count(type => type.HasRates);
-        if (loaded == 0)
+
+        // Types without saved i-Tree rates show what their Revit type has now.
+        var unrated = rated.Where(type => !type.HasRates && type.Error is null).ToList();
+        if (unrated.Count > 0)
         {
-            GrowthRatesStatusText.Text = "No i-Tree rates saved on this project for these types yet: select Get rates to ask i-Tree.";
+            var probe = GrowthRatesFromITree.TypeRateProbe(unrated);
+            var current = await GetClient().SendAsync<ParameterWriteResult>(
+                PipeCommands.PreviewParameterWrites, new ParameterWriteBatch(new ModelScanOptions(PrimaryDesignOptionsOnly: false), probe));
+            rated = GrowthRatesFromITree.FillFromTypes(rated, probe, current.Rows);
+        }
+
+        ShowGrowthRates(rated);
+        var fromITree = rated.Count(type => type.HasRates && !type.FromRevitType);
+        var fromTypes = rated.Count(type => type.FromRevitType);
+        var none = rated.Count(type => !type.HasRates);
+        if (fromITree + fromTypes == 0)
+        {
+            GrowthRatesStatusText.Text = "No growth rates on these types yet: select Get rates to ask i-Tree.";
             SetStep(2, StepState.Attention);
             return;
         }
 
-        var toAsk = rated.Count - loaded;
         GrowthRatesStatusText.Text =
-            $"Loaded the i-Tree rates saved on the project for {loaded:N0} type(s)" +
-            (toAsk > 0 ? $"; {toAsk:N0} need Get rates (see Note)" : string.Empty) + ". " +
+            (fromITree > 0 ? $"{fromITree:N0} type(s) with the i-Tree rates saved on the project. " : string.Empty) +
+            (fromTypes > 0 ? $"{fromTypes:N0} with the rates their Revit type has (Get rates checks them against i-Tree). " : string.Empty) +
+            (none > 0 ? $"{none:N0} without rates: Get rates. " : string.Empty) +
             await CheckSavedRatesAsync();
-        if (toAsk > 0)
+        if (none > 0)
         {
             SetStep(2, StepState.Attention);
         }
@@ -774,9 +787,14 @@ public sealed partial class MainPage : Page
     {
         var rated = _growthRates.Where(type => type.HasRates).ToList();
         var writes = GrowthRatesFromITree.BuildTypeWrites(rated);
-        var preview = await GetClient().SendAsync<ParameterWriteResult>(
-            PipeCommands.PreviewParameterWrites, new ParameterWriteBatch(new ModelScanOptions(PrimaryDesignOptionsOnly: false), writes));
-        _typeRateStatus = GrowthRatesFromITree.TypeStatuses(writes, preview.Rows);
+        IReadOnlyList<ParameterWritePreviewRow> previewRows = writes.Count == 0
+            ? []
+            : (await GetClient().SendAsync<ParameterWriteResult>(
+                PipeCommands.PreviewParameterWrites, new ParameterWriteBatch(new ModelScanOptions(PrimaryDesignOptionsOnly: false), writes))).Rows;
+        // Rates read from the types are what the types have.
+        _typeRateStatus = GrowthRatesFromITree.TypeStatuses(writes, previewRows)
+            .Concat(rated.Where(type => type.FromRevitType).Select(type => KeyValuePair.Create(type.TypeId, new RateStatus(RateStatus.UpToDate, null))))
+            .ToDictionary(entry => entry.Key, entry => entry.Value);
 
         var sheet = await LoadSheetMatchesAsync();
         _sheetRateStatus = sheet is null

@@ -237,6 +237,23 @@ public sealed class GrowthRatesFromITreeTests
         Assert.Equal([("Acer_Campestre", 0.5), ("Quercus_Robur", 0.58)], second.Select(entry => (entry.TypeName, entry.HeightMPerYear!.Value)));
     }
 
+    [Fact]
+    public void Types_without_saved_rates_show_what_their_revit_type_has_and_are_never_written_back()
+    {
+        var plan = GrowthRatesFromITree.Plan([Type(1, "Acer_Campestre"), Type(2, "Sorbus_Aria", "SOAR")], []);
+        var probe = GrowthRatesFromITree.TypeRateProbe(plan);
+        ParameterWritePreviewRow Row(int index, string current) =>
+            new(index, probe[index].TypeName, probe[index].RevitParameter, "Type", current, "0", 1, "Ready", null, true);
+        // Acer has its rates; Sorbus's are all empty.
+        var preview = new[] { Row(0, "0.339"), Row(1, "0.41"), Row(2, "0.24"), Row(3, ""), Row(4, "0"), Row(5, "") };
+
+        var filled = GrowthRatesFromITree.FillFromTypes(plan, probe, preview);
+
+        Assert.Equal((0.339, 0.41, 0.24, true), (filled[0].TrunkCmPerYear!.Value, filled[0].HeightMPerYear!.Value, filled[0].WidthMPerYear!.Value, filled[0].FromRevitType));
+        Assert.False(filled[1].HasRates);
+        Assert.Empty(GrowthRatesFromITree.BuildTypeWrites(filled));
+    }
+
     [Theory]
     [InlineData(GrowthRatesFromITree.TrunkSheetColumn, GrowthRatesFromITree.TrunkParameter)]
     [InlineData(GrowthRatesFromITree.HeightSheetColumn, GrowthRatesFromITree.HeightParameter)]
