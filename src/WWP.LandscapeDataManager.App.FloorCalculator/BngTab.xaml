@@ -254,6 +254,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <SelectorBar x:Name="BngSteps" SelectionChanged="BngSteps_SelectionChanged">
                 <SelectorBarItem x:Name="ExistingStepItem" Text="1  Existing habitat (A-1)" IsSelected="True" />
@@ -268,7 +269,10 @@
                       IsEnabled="False"
                       PlaceholderText="Design scenario"
                       SelectionChanged="DesignOptionFilterBox_SelectionChanged"
-                      ToolTipService.ToolTip="Show one design scenario: the main model plus the option it chooses in every set (saved in the Dashboard). The counts and the baseline → post-intervention total follow this choice; Write to Revit still writes every loaded floor." />
+                      ToolTipService.ToolTip="Set floors up scheme by scheme: the main model plus the option the scheme chooses in every set. Each scheme shows how many of its floors are still to do. The schemes are the Dashboard's: Edit… makes or changes one for both. All design options shows every floor, with each scheme's total. Write to Revit writes every loaded floor." />
+            <Button Grid.Column="4" x:Name="EditScenarioButton" Content="Edit…" Click="EditScenario_Click" IsEnabled="False" VerticalAlignment="Center"
+                    Style="{StaticResource LimSecondaryButtonStyle}"
+                    ToolTipService.ToolTip="New scheme, or change or delete the one shown: pick an option per design option set. Saved on the project, so the Dashboard offers it too." />
         </Grid>
 
         <!-- Toolbar, with a banner above it when the project lacks the BNG parameters -->

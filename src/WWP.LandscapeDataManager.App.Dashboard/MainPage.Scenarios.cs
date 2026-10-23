@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
+using WWP.LandscapeDataManager.SharedUI;
 
 namespace WWP.LandscapeDataManager.App.Dashboard;
 
@@ -148,128 +149,30 @@ public sealed partial class MainPage
         }
 
         var editingSaved = IsSaved(_scenario);
-        var nameBox = new TextBox
+        var edit = await DesignScenarioDialog.ShowAsync(
+            XamlRoot,
+            _scenario,
+            editingSaved,
+            _sets,
+            _unsavedScenario == _scenario ? _scenario.Name : NextScenarioName(),
+            TryGetViewScenarioAsync);
+        switch (edit.Action)
         {
-            Header = "Scenario name",
-            Text = editingSaved || _unsavedScenario == _scenario ? _scenario.Name : NextScenarioName(),
-            PlaceholderText = "e.g. Scheme A"
-        };
-        var preview = new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.75, FontSize = 12 };
-        var optionBoxes = new List<(DesignOptionSetItem Set, ComboBox Box)>();
-        var content = new StackPanel { Spacing = 12, MinWidth = 420 };
-        content.Children.Add(nameBox);
-
-        void UpdatePreview() => preview.Text = DesignScenarios.Describe(Picked(), _sets);
-        DesignScenario Picked() => new(
-            string.IsNullOrWhiteSpace(nameBox.Text) ? "Unnamed scenario" : nameBox.Text.Trim(),
-            optionBoxes.ToDictionary(pair => pair.Set.SetName, pair => pair.Box.SelectedItem as string ?? DesignScenarios.PrimaryOptionOf(pair.Set), StringComparer.Ordinal));
-
-        if (_sets.Count == 0)
-        {
-            content.Children.Add(new TextBlock
-            {
-                Text = "This model has no design options, so there is one scenario: the main model.",
-                TextWrapping = TextWrapping.Wrap
-            });
-        }
-
-        foreach (var set in _sets)
-        {
-            var box = new ComboBox { Header = set.SetName, HorizontalAlignment = HorizontalAlignment.Stretch };
-            foreach (var option in set.Options)
-            {
-                box.Items.Add(option.Name);
-            }
-
-            box.SelectedItem = DesignScenarios.ChosenOption(_scenario, set);
-            box.SelectionChanged += (_, _) => UpdatePreview();
-            optionBoxes.Add((set, box));
-            content.Children.Add(box);
-        }
-
-        var viewButton = new Button { Content = "Fill from Revit's active view", IsEnabled = _sets.Count > 0 };
-        ToolTipService.SetToolTip(viewButton, "Choose, for every set, the option the active view shows.");
-        viewButton.Click += async (_, _) =>
-        {
-            if (await TryGetViewScenarioAsync() is not { } view)
-            {
-                preview.Text = "Couldn't read the active view from Revit.";
+            case DesignScenarioDialogAction.Delete:
+                await SaveScenariosAsync(DesignScenarios.Remove(_savedScenarios, _scenario.Name), $"Deleted scenario \"{_scenario.Name}\".");
+                _scenarioExplicitlyChosen = false;
+                RebuildScenarioOptions();
+                RebuildRows();
                 return;
-            }
-
-            foreach (var (set, box) in optionBoxes)
-            {
-                if (view.Choices.TryGetValue(set.SetName, out var option) && box.Items.Contains(option))
-                {
-                    box.SelectedItem = option;
-                }
-            }
-
-            UpdatePreview();
-            if (view.Notes.Count > 0)
-            {
-                preview.Text += Environment.NewLine + string.Join(Environment.NewLine, view.Notes);
-            }
-        };
-        content.Children.Add(viewButton);
-        content.Children.Add(preview);
-
-        var deleteRequested = false;
-        ContentDialog? dialog = null;
-        if (editingSaved)
-        {
-            var deleteButton = new HyperlinkButton { Content = $"Delete saved scenario \"{_scenario.Name}\"" };
-            deleteButton.Click += (_, _) =>
-            {
-                deleteRequested = true;
-                dialog?.Hide();
-            };
-            content.Children.Add(deleteButton);
+            case DesignScenarioDialogAction.Save:
+                await SaveScenariosAsync(DesignScenarios.Upsert(_savedScenarios, edit.Scenario), $"Saved scenario \"{edit.Scenario.Name}\" on the project.");
+                Show(edit.Scenario);
+                return;
+            case DesignScenarioDialogAction.ShowWithoutSaving:
+                _unsavedScenario = edit.Scenario;
+                Show(edit.Scenario);
+                return;
         }
-
-        UpdatePreview();
-        dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = "Design scenario",
-            Content = new ScrollViewer { Content = content, MaxHeight = 520 },
-            PrimaryButtonText = "Save and show",
-            SecondaryButtonText = "Show without saving",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Primary
-        };
-
-        var result = await dialog.ShowAsync();
-        if (deleteRequested)
-        {
-            await SaveScenariosAsync(DesignScenarios.Remove(_savedScenarios, _scenario.Name), $"Deleted scenario \"{_scenario.Name}\".");
-            _scenarioExplicitlyChosen = false;
-            RebuildScenarioOptions();
-            RebuildRows();
-            return;
-        }
-
-        if (result == ContentDialogResult.None)
-        {
-            return;
-        }
-
-        var picked = Picked();
-        if (result == ContentDialogResult.Primary)
-        {
-            if (string.Equals(picked.Name, DesignScenarios.PrimaryScenarioName, StringComparison.CurrentCultureIgnoreCase))
-            {
-                picked = picked with { Name = NextScenarioName() };
-            }
-
-            await SaveScenariosAsync(DesignScenarios.Upsert(_savedScenarios, picked), $"Saved scenario \"{picked.Name}\" on the project.");
-        }
-        else
-        {
-            _unsavedScenario = picked;
-        }
-
-        Show(picked);
     }
 
     private async void UseCurrentView_Click(object sender, RoutedEventArgs e)
@@ -326,17 +229,7 @@ public sealed partial class MainPage
         RebuildRows();
     }
 
-    private string NextScenarioName()
-    {
-        for (var index = 1; ; index++)
-        {
-            var name = $"Scheme {(char)('A' + (index - 1) % 26)}{(index > 26 ? (index / 26).ToString() : string.Empty)}";
-            if (!IsSaved(new DesignScenario(name, new Dictionary<string, string>())))
-            {
-                return name;
-            }
-        }
-    }
+    private string NextScenarioName() => DesignScenarioDialog.NextSchemeName(_savedScenarios);
 
     private async Task SaveScenariosAsync(IReadOnlyList<DesignScenario> scenarios, string message)
     {

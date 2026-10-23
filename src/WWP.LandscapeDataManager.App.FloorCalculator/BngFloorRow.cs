@@ -228,26 +228,7 @@ public sealed class BngFloorRow : INotifyPropertyChanged
             }
         }
 
-        if (IsBaselineRow && source.IsBaselineRow)
-        {
-            if (!ReferenceEquals(_baselineHabitat, source._baselineHabitat) || _baselineQuery != source._baselineQuery)
-            {
-                SetBaselineHabitatCore(source._baselineHabitat, source._baselineQuery);
-            }
-
-            if (_baselineCondition != source._baselineCondition)
-            {
-                _baselineCondition = source._baselineCondition;
-                OnPropertyChanged(nameof(BaselineCondition));
-                OnPropertyChanged(nameof(BaselineConditionSelection));
-            }
-
-            if (_irreplaceable != source._irreplaceable)
-            {
-                _irreplaceable = source._irreplaceable;
-                OnPropertyChanged(nameof(IrreplaceableSelection));
-            }
-        }
+        CopyBaselineCore(source);
 
         if (_strategicSignificance != source._strategicSignificance)
         {
@@ -265,6 +246,52 @@ public sealed class BngFloorRow : INotifyPropertyChanged
 
         IsAutoMatched = source.IsAutoMatched;
         Recalculate();
+    }
+
+    /// <summary>
+    /// The baseline inputs every existing floor of a type shares, whatever a scheme does with it:
+    /// the same existing floor is retained in one design option and lost in another, but its habitat
+    /// before development is one. See <see cref="BaselineLinkTypeId"/>.
+    /// </summary>
+    public static readonly IReadOnlySet<string> BaselineInputProperties = new HashSet<string>(StringComparer.Ordinal)
+    {
+        nameof(BaselineHabitat), nameof(BaselineCondition), nameof(IrreplaceableSelection)
+    };
+
+    /// <summary>Existing floors (retained, enhanced or lost) of one type share <see cref="BaselineInputProperties"/>, unless Unique.</summary>
+    public long? BaselineLinkTypeId => _unique || TypeId < 0 || !IsBaselineRow ? null : TypeId;
+
+    /// <summary>Takes the baseline habitat, condition and irreplaceable status of an existing floor of the same type, recalculating once.</summary>
+    public void CopyBaselineInputsFrom(BngFloorRow source)
+    {
+        CopyBaselineCore(source);
+        Recalculate();
+    }
+
+    private void CopyBaselineCore(BngFloorRow source)
+    {
+        if (!IsBaselineRow || !source.IsBaselineRow)
+        {
+            return;
+        }
+
+        if (!ReferenceEquals(_baselineHabitat, source._baselineHabitat) || _baselineQuery != source._baselineQuery)
+        {
+            SetBaselineHabitatCore(source._baselineHabitat, source._baselineQuery);
+        }
+
+        if (_baselineCondition != source._baselineCondition)
+        {
+            _baselineCondition = source._baselineCondition;
+            OnPropertyChanged(nameof(BaselineCondition));
+            OnPropertyChanged(nameof(BaselineConditionSelection));
+        }
+
+        if (_irreplaceable != source._irreplaceable)
+        {
+            _irreplaceable = source._irreplaceable;
+            OnPropertyChanged(nameof(IrreplaceableSelection));
+        }
     }
 
     // ---- Proposed habitat (A-2 new floor, or A-3 enhancement target) ----

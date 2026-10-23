@@ -32,9 +32,11 @@ public sealed partial class BngTab : UserControl
     private bool _syncingLinkedRows;
     private int _highlightVersion;
     private string _optionFilter = AllOptions;
+    private bool _optionFilterChosen;
     private bool _populatingOptionFilter;
     private IReadOnlyList<DesignOptionSetItem> _sets = [];
     private IReadOnlyList<DesignScenario> _savedScenarios = [];
+    private DesignScenario? _unsavedScenario;
     private readonly Dictionary<string, DesignScenario> _scenarioByLabel = new(StringComparer.Ordinal);
 
     private const string AllOptions = "All design options";
@@ -353,7 +355,9 @@ public sealed partial class BngTab : UserControl
         }
 
         var siblings = LinkedSiblings(row).ToList();
-        if (siblings.Count == 0)
+        // The baseline also reaches the type's existing floors in other roles (lost in one scheme, retained in another).
+        var baselineSiblings = BngFloorRow.BaselineInputProperties.Contains(e.PropertyName) ? BaselineSiblings(row).ToList() : [];
+        if (siblings.Count == 0 && baselineSiblings.Count == 0)
         {
             return;
         }
@@ -365,6 +369,11 @@ public sealed partial class BngTab : UserControl
             {
                 sibling.CopyInputsFrom(row);
             }
+
+            foreach (var sibling in baselineSiblings)
+            {
+                sibling.CopyBaselineInputsFrom(row);
+            }
         }
         finally
         {
@@ -373,6 +382,12 @@ public sealed partial class BngTab : UserControl
 
         UpdateCounts();
     }
+
+    /// <summary>Existing floors of the same type in another role (see <see cref="BngFloorRow.BaselineLinkTypeId"/>); same-role ones are <see cref="LinkedSiblings"/>.</summary>
+    private IEnumerable<BngFloorRow> BaselineSiblings(BngFloorRow row) =>
+        row.BaselineLinkTypeId is { } typeId
+            ? AllRows.Where(other => !ReferenceEquals(other, row) && other.BaselineLinkTypeId == typeId && other.LinkKey != row.LinkKey)
+            : [];
 
     /// <summary>Copies the inputs of a linked floor that has any into <paramref name="row"/>; false when its group has none to give.</summary>
     private bool AdoptLinkedInputs(BngFloorRow row)
@@ -415,6 +430,24 @@ public sealed partial class BngTab : UserControl
             foreach (var row in group.Where(row => !row.HadStoredInputs))
             {
                 row.CopyInputsFrom(source);
+                filled++;
+            }
+        }
+
+        // An existing floor still without a baseline takes it from the type's existing floors in another role.
+        foreach (var group in AllRows.Where(row => row.BaselineLinkTypeId is not null).GroupBy(row => row.BaselineLinkTypeId))
+        {
+            var source = group.Where(row => row.HadStoredInputs && row.BaselineHabitat is not null)
+                .OrderByDescending(row => row.Status == BngFloorStatus.Calculated)
+                .FirstOrDefault();
+            if (source is null)
+            {
+                continue;
+            }
+
+            foreach (var row in group.Where(row => !row.HadStoredInputs && row.BaselineHabitat is null))
+            {
+                row.CopyBaselineInputsFrom(source);
                 filled++;
             }
         }
@@ -909,12 +942,15 @@ public sealed partial class BngTab : UserControl
     /// every set (the same rule as the Dashboard), so counts and the baseline → post-intervention
     /// total add up to one scenario instead of every alternative at once.
     /// </summary>
-    private IEnumerable<BngFloorRow> OptionRows => AllRows.Where(row => _optionFilter switch
+    private IEnumerable<BngFloorRow> OptionRows => AllRows.Where(row => InFilter(row, _optionFilter));
+
+    /// <summary>Whether a floor is in the scenario (or "All design options" / "Main model only") named by <paramref name="key"/>.</summary>
+    private bool InFilter(BngFloorRow row, string key) => key switch
     {
         AllOptions => true,
         MainModelOnly => row.DesignOption.SetName is null,
-        _ => !_scenarioByLabel.TryGetValue(_optionFilter, out var scenario) || DesignScenarios.Includes(scenario, row.DesignOption, _sets)
-    });
+        _ => !_scenarioByLabel.TryGetValue(key, out var scenario) || DesignScenarios.Includes(scenario, row.DesignOption, _sets)
+    };
 
     /// <summary>The scenarios saved on the project (Dashboard › Edit…); none when Revit can't be asked.</summary>
     private async Task<IReadOnlyList<DesignScenario>> TryPullSavedScenariosAsync()
@@ -929,37 +965,52 @@ public sealed partial class BngTab : UserControl
         }
     }
 
+    /// <summary>
+    /// The scenarios to set floors up by: the primary one and every saved scheme (shared with the
+    /// Dashboard), then all design options at once or the main model alone. The first time floors
+    /// load it opens on the first saved scheme, else the primary one, so floors are set up scheme by scheme.
+    /// </summary>
     private void PopulateDesignOptionFilter()
     {
         _scenarioByLabel.Clear();
         if (_sets.Count > 0)
         {
-            foreach (var scenario in DesignScenarios.WithPrimary(_savedScenarios, _sets))
+            var offered = DesignScenarios.WithPrimary(_savedScenarios, _sets).ToList();
+            if (_unsavedScenario is { } unsaved && !offered.Any(scenario => DesignScenarios.SameChoices(scenario, unsaved, _sets)))
+            {
+                offered.Add(unsaved);
+            }
+
+            foreach (var scenario in offered)
             {
                 _scenarioByLabel[DesignScenarios.Label(scenario, _sets)] = scenario;
             }
         }
 
         var options = _scenarioByLabel.Keys.ToList();
+        if (!_optionFilterChosen && options.Count > 0)
+        {
+            var firstSaved = _savedScenarios.Count > 0 ? options.FirstOrDefault(label => _scenarioByLabel[label].Name == _savedScenarios[0].Name) : null;
+            _optionFilter = firstSaved ?? options[0];
+        }
+
+        if (_optionFilter != AllOptions && _optionFilter != MainModelOnly && !options.Contains(_optionFilter))
+        {
+            _optionFilter = options.Count > 0 ? options[0] : AllOptions;
+        }
 
         _populatingOptionFilter = true;
         try
         {
             DesignOptionFilterBox.Items.Clear();
-            DesignOptionFilterBox.Items.Add(AllOptions);
-            DesignOptionFilterBox.Items.Add(MainModelOnly);
-            foreach (var option in options)
+            foreach (var key in options.Append(AllOptions).Append(MainModelOnly))
             {
-                DesignOptionFilterBox.Items.Add(option);
+                DesignOptionFilterBox.Items.Add(new ComboBoxItem { Content = key, Tag = key });
             }
 
-            if (_optionFilter != AllOptions && _optionFilter != MainModelOnly && !options.Contains(_optionFilter))
-            {
-                _optionFilter = AllOptions;
-            }
-
-            DesignOptionFilterBox.SelectedItem = _optionFilter;
+            DesignOptionFilterBox.SelectedItem = FilterItem(_optionFilter);
             DesignOptionFilterBox.IsEnabled = options.Count > 0;
+            EditScenarioButton.IsEnabled = _sets.Count > 0;
         }
         finally
         {
@@ -967,16 +1018,129 @@ public sealed partial class BngTab : UserControl
         }
     }
 
+    private ComboBoxItem? FilterItem(string key) =>
+        DesignOptionFilterBox.Items.OfType<ComboBoxItem>().FirstOrDefault(item => (string)item.Tag == key);
+
     private void DesignOptionFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_populatingOptionFilter || DesignOptionFilterBox.SelectedItem is not string option)
+        if (_populatingOptionFilter || DesignOptionFilterBox.SelectedItem is not ComboBoxItem { Tag: string option })
         {
             return;
         }
 
         _optionFilter = option;
+        _optionFilterChosen = true;
         ApplyFilter();
         UpdateCounts();
+    }
+
+    /// <summary>Each scenario's floors still to set up (not written as calculated), on its line in the list.</summary>
+    private void UpdateScenarioProgress()
+    {
+        var changed = false;
+        foreach (var item in DesignOptionFilterBox.Items.OfType<ComboBoxItem>())
+        {
+            var key = (string)item.Tag;
+            var rows = AllRows.Where(row => InFilter(row, key) && row.Role != BngPhaseRoles.Excluded).ToList();
+            var toDo = rows.Count(row => row.Status != BngFloorStatus.Calculated);
+            var content = AllRows.Count == 0 || rows.Count == 0 ? key : toDo == 0 ? $"{key}  ·  ✓ done" : $"{key}  ·  {toDo:N0} to do";
+            if (!Equals(item.Content, content))
+            {
+                item.Content = content;
+                changed |= ReferenceEquals(item, DesignOptionFilterBox.SelectedItem);
+            }
+        }
+
+        if (changed)
+        {
+            // The closed box shows the selected item as it was when picked: pick it again.
+            _populatingOptionFilter = true;
+            try
+            {
+                var selected = DesignOptionFilterBox.SelectedItem;
+                DesignOptionFilterBox.SelectedItem = null;
+                DesignOptionFilterBox.SelectedItem = selected;
+            }
+            finally
+            {
+                _populatingOptionFilter = false;
+            }
+        }
+    }
+
+    /// <summary>New, change or delete a scheme: saved on the project, so the Dashboard offers it too.</summary>
+    private async void EditScenario_Click(object sender, RoutedEventArgs e)
+    {
+        var current = _scenarioByLabel.GetValueOrDefault(_optionFilter) ?? DesignScenarios.WithPrimary(_savedScenarios, _sets).First();
+        var editingSaved = _savedScenarios.Any(saved => string.Equals(saved.Name, current.Name, StringComparison.CurrentCultureIgnoreCase));
+        var edit = await DesignScenarioDialog.ShowAsync(
+            XamlRoot, current, editingSaved, _sets, DesignScenarioDialog.NextSchemeName(_savedScenarios), ReadActiveViewScenarioAsync);
+        try
+        {
+            switch (edit.Action)
+            {
+                case DesignScenarioDialogAction.Save:
+                    _savedScenarios = DesignScenarios.Upsert(_savedScenarios, edit.Scenario);
+                    await ProjectSettingsSync.PushAsync(GetClient(), designScenarios: _savedScenarios);
+                    StatusText.Text = $"Saved scenario \"{edit.Scenario.Name}\" on the project — the Dashboard offers it too.";
+                    break;
+                case DesignScenarioDialogAction.Delete:
+                    _savedScenarios = DesignScenarios.Remove(_savedScenarios, current.Name);
+                    await ProjectSettingsSync.PushAsync(GetClient(), designScenarios: _savedScenarios);
+                    StatusText.Text = $"Deleted scenario \"{current.Name}\".";
+                    break;
+                case DesignScenarioDialogAction.ShowWithoutSaving:
+                    _unsavedScenario = edit.Scenario;
+                    break;
+                default:
+                    return;
+            }
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException)
+        {
+            StatusText.Text = $"Couldn't save to the project ({exception.Message}). The scenario is shown but not saved.";
+        }
+
+        _optionFilter = edit.Action == DesignScenarioDialogAction.Delete ? AllOptions : DesignScenarios.Label(edit.Scenario, _sets);
+        _optionFilterChosen = edit.Action != DesignScenarioDialogAction.Delete;
+        PopulateDesignOptionFilter();
+        ApplyFilter();
+    }
+
+    private async Task<ViewDesignScenarioResult?> ReadActiveViewScenarioAsync()
+    {
+        try
+        {
+            return await GetClient().SendAsync<ViewDesignScenarioResult>(PipeCommands.GetViewDesignScenario);
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Baseline → post-intervention for one set of floors; empty when none of them has a result yet.</summary>
+    private static string Headline(IReadOnlyList<BngFloorRow> rows, bool compact)
+    {
+        var baseline = rows.Where(row => row.IsBaselineRow).Sum(row => row.Result.BaselineUnits ?? 0);
+        var post = rows.Sum(row => row.Result.HabitatUnits ?? 0);
+        var hasBaseline = rows.Any(row => row.IsBaselineRow && row.Result.BaselineUnits is not null);
+        if (!hasBaseline && !rows.Any(row => row.Result.HabitatUnits is not null))
+        {
+            return string.Empty;
+        }
+
+        if (compact)
+        {
+            return hasBaseline && baseline > 0
+                ? string.Format(CultureInfo.InvariantCulture, "{0:0.00} → {1:0.00} HU ({2:+0.0;-0.0}%)", baseline, post, (post - baseline) / baseline * 100d)
+                : string.Format(CultureInfo.InvariantCulture, "{0:0.00} HU, no baseline", post);
+        }
+
+        return hasBaseline && baseline > 0
+            ? string.Format(CultureInfo.InvariantCulture, "Baseline {0:0.00} → post-intervention {1:0.00} habitat units ({2:+0.00;-0.00} units, {3:+0.00;-0.00}%)",
+                baseline, post, post - baseline, (post - baseline) / baseline * 100d)
+            : string.Format(CultureInfo.InvariantCulture, "{0:0.00} post-intervention habitat units — no baseline (Existing-phase) floors loaded", post);
     }
 
     private void UpdateCounts()
@@ -993,18 +1157,17 @@ public sealed partial class BngTab : UserControl
         StaleCountText.Text = Count(BngFloorStatus.Stale).ToString("N0");
         FailedCountText.Text = Count(BngFloorStatus.Failed).ToString("N0");
 
-        // The metric's on-site headline over the loaded rows: baseline = A-1 totals, post-intervention
-        // = retained + enhanced + created units. Rows still missing inputs contribute nothing yet.
-        var baseline = optionRows.Where(row => row.IsBaselineRow).Sum(row => row.Result.BaselineUnits ?? 0);
-        var post = optionRows.Sum(row => row.Result.HabitatUnits ?? 0);
-        var hasBaseline = optionRows.Any(row => row.IsBaselineRow && row.Result.BaselineUnits is not null);
-        var hasAny = optionRows.Any(row => row.Result.HabitatUnits is not null) || hasBaseline;
-        TotalUnitsText.Text = !hasAny
-            ? string.Empty
-            : hasBaseline && baseline > 0
-                ? string.Format(CultureInfo.InvariantCulture, "Baseline {0:0.00} → post-intervention {1:0.00} habitat units ({2:+0.00;-0.00} units, {3:+0.00;-0.00}%)",
-                    baseline, post, post - baseline, (post - baseline) / baseline * 100d)
-                : string.Format(CultureInfo.InvariantCulture, "{0:0.00} post-intervention habitat units — no baseline (Existing-phase) floors loaded", post);
+        // The metric's on-site headline over the scenario's rows: baseline = A-1 totals, post-intervention
+        // = retained + enhanced + created units. Rows still missing inputs contribute nothing yet. With
+        // every design option shown, a total would count the existing site once per option: each
+        // scenario gets its own instead.
+        TotalUnitsText.Text = _optionFilter == AllOptions && _scenarioByLabel.Count > 0
+            ? string.Join("  ·  ", _scenarioByLabel
+                .Select(pair => (Name: pair.Value.Name, Text: Headline([.. AllRows.Where(row => InFilter(row, pair.Key))], compact: true)))
+                .Where(entry => entry.Text.Length > 0)
+                .Select(entry => $"{entry.Name}: {entry.Text}"))
+            : Headline(optionRows, compact: false);
+        UpdateScenarioProgress();
 
         var existing = optionRows.Count(InExistingStep);
         var proposed = optionRows.Count(row => row.UsesProposedHabitat);
