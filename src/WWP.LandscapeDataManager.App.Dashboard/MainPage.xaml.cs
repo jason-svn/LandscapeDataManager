@@ -136,8 +136,49 @@ public sealed partial class MainPage : Page
             _cachedSnapshotSavedAt = cached.SavedAt;
             CacheStatusText.Text = $"Cached {cached.SavedAt.LocalDateTime:g}";
             StatusText.Text = $"Showing cached snapshot from {cached.SavedAt.LocalDateTime:g}. Select Refresh model for current Revit data.";
+            if (cached.Settings is { } settings)
+            {
+                ApplySettings(settings);
+            }
+
             await ApplyReportAsync(cached.Report);
         });
+
+        await PullSettingsAfterCacheAsync();
+    }
+
+    /// <summary>
+    /// The saved schemes and the Dashboard's other settings live on the project, and a snapshot
+    /// opened from the cache doesn't ask Revit for them: ask now, without the full refresh, so a
+    /// scheme saved last time is offered again. Quietly nothing when Revit isn't there.
+    /// </summary>
+    private async Task PullSettingsAfterCacheAsync()
+    {
+        if (await TryPullProjectSettingsAsync() is not { } settings || _lastReport is null)
+        {
+            return;
+        }
+
+        ApplySettings(ToCachedSettings(settings));
+        RebuildFilterOptions();
+        RebuildSiteBoundaryOptions();
+        RebuildRows();
+        await DashboardSnapshotCache.SaveSettingsAsync(CurrentSettings());
+    }
+
+    private static CachedDashboardSettings ToCachedSettings(ProjectSettingsSnapshot settings) =>
+        new(settings.DesignScenarios, settings.ReferenceScenario, settings.ConnectivityResults, settings.SiteBoundary, settings.GrowthDesignYear);
+
+    private CachedDashboardSettings CurrentSettings() =>
+        new(_savedScenarios, _referenceScenarioName, _connectivityResults, _savedSiteBoundaryKey, _designYear);
+
+    private void ApplySettings(CachedDashboardSettings settings)
+    {
+        _savedSiteBoundaryKey = settings.SiteBoundary ?? _savedSiteBoundaryKey;
+        _savedScenarios = settings.DesignScenarios ?? [];
+        _connectivityResults = settings.ConnectivityResults ?? [];
+        _referenceScenarioName = settings.ReferenceScenario;
+        _designYear = settings.GrowthDesignYear ?? _designYear;
     }
 
     private async Task RefreshAsync()
@@ -155,16 +196,12 @@ public sealed partial class MainPage : Page
             _preferredCurrency = catalog.PreferredCurrency;
             if (await TryPullProjectSettingsAsync() is { } settings)
             {
-                _savedSiteBoundaryKey = settings.SiteBoundary ?? _savedSiteBoundaryKey;
-                _savedScenarios = settings.DesignScenarios ?? [];
-                _connectivityResults = settings.ConnectivityResults ?? [];
-                _referenceScenarioName = settings.ReferenceScenario;
-                _designYear = settings.GrowthDesignYear ?? _designYear;
+                ApplySettings(ToCachedSettings(settings));
             }
 
             _cachedSnapshotSavedAt = null;
             await ApplyReportAsync(report);
-            await DashboardSnapshotCache.SaveAsync(report);
+            await DashboardSnapshotCache.SaveAsync(report, CurrentSettings());
 
             CacheStatusText.Text = $"Updated {DateTime.Now:t}";
             StatusText.Text = $"{report.Trees.Count:N0} tree(s), {report.Floors.Count:N0} planting area(s) — {EffectiveUnitSystem()} / {_preferredCurrency}. Snapshot cached.";
@@ -181,6 +218,11 @@ public sealed partial class MainPage : Page
             _cachedSnapshotSavedAt = cached.SavedAt;
             CacheStatusText.Text = $"Cached {cached.SavedAt.LocalDateTime:g}";
             StatusText.Text = $"Revit refresh failed ({liveException.Message}). Showing cached snapshot from {cached.SavedAt.LocalDateTime:g}.";
+            if (cached.Settings is { } settings)
+            {
+                ApplySettings(settings);
+            }
+
             await ApplyReportAsync(cached.Report);
         }
     }
@@ -1510,6 +1552,7 @@ public sealed partial class MainPage : Page
         try
         {
             await ProjectSettingsSync.PushAsync(GetClient(), siteBoundary: option.Key);
+            await DashboardSnapshotCache.SaveSettingsAsync(CurrentSettings());
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException)
         {

@@ -345,6 +345,7 @@ public sealed partial class MainPage
             await ProjectSettingsSync.PushAsync(GetClient(), designScenarios: scenarios);
             _savedScenarios = scenarios;
             StatusText.Text = message;
+            await DashboardSnapshotCache.SaveSettingsAsync(CurrentSettings());
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException)
         {
@@ -371,6 +372,7 @@ public sealed partial class MainPage
         try
         {
             await ProjectSettingsSync.PushAsync(GetClient(), referenceScenario: choice.Scenario.Name);
+            await DashboardSnapshotCache.SaveSettingsAsync(CurrentSettings());
         }
         catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException)
         {

@@ -152,6 +152,7 @@ Dashboard 上的每一个数字都取决于选对方案，所以这一步排在�
 - [x] **Connectivity 热力图视图（2026-10-23，你的决定）：** Connectivity 的 **Heatmap view** 按钮会新建或更新 `Connectivity_Heatmap` 三维视图，设置和手工做的 Avoided_Water、Pollution 视图一样（轴测、Flat Colors、最后一个阶段、Show Complete），对树和种植区按 `!_S_PLT_ConnectivityResult_Score_Number` 加视图过滤器：每 0.1 一档共十档，从冷蓝（对网络连通贡献最小）到红（最大），没有分数的元素是浅灰（`WWP_Connectivity not assessed`），生长年份副本隐藏（`WWP_Growth-year copies`）。再运行会就地更新过滤器和视图。沙盒里已经生成（1,010 棵树有分数；floor 要等 Connectivity 写入后才有分数）。Revit 端插件有改动：按钮要装下一版才能用。
 - [x] **网页版仪表板的生长曲线是平的（2026-10-23 修复，schema 8）：** 原来每个生长年份的 lifetime 数值都是每棵树完整的 i-Tree 预测，5、10、25 年都一样（每个阶段径流都是 1,130 m³），所以网页版的 "Growth curve" 是一条直线。现在有生长年份时，每个场景的树 lifetime 数值（合计和按树种）改为从种植到该年份累计的效益，也就是 Dashboard 的展望期合计，所以会逐年上升。没有生长年份时不变。需要重新导出 JSON。
 - [x] **Connectivity 分成两个页签（2026-10-23，你的决定）：** **1 Scenario & results**（设置、本次计算的卡片、按方案的连通生境）和 **2 Elements**（打分的树和种植区，占满窗口高度）。按钮放在两个页签上方，状态文字单独一行；很长的介绍收进了 ⓘ。
+- [x] **重新打开 Dashboard 后保存的方案不见了（2026-10-23 修复）：** 方案其实保存在项目里，但 Dashboard 从本地缓存的快照打开时，要等点 Refresh model 才读项目设置，所以 Scheme A、Scheme B 等方案看起来没了。现在快照里会保存一份 Dashboard 的设置（方案、参照方案、连通性结果、场地边界、设计年），打开时也会向 Revit 读取最新的；保存或删除方案时会同步更新这份副本。
 - [x] **Check for Updates** 移到功能区最后，单独一个面板（Updates），放在工作流程之后。
 - [x] **Site & Biodiversity 的文字：** Lighting Impact Reduction 在场景里完全没有 Lighting Fixture 时会直接说明（"—" 是这个意思，不是灯具没标记）；页面顶部说明 Habitat Connectivity 优先来自 Connectivity 工具。
 
