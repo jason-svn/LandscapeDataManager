@@ -179,6 +179,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel VerticalAlignment="Center" Spacing="2">
                 <TextBlock x:Name="StatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
@@ -193,6 +194,8 @@
             <Button Grid.Column="6" Content="Reset isolate" Click="ResetIsolate_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
             <Button Grid.Column="7" Content="Apply view colours" Click="ApplyColours_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
             <Button Grid.Column="8" Content="Reset view colours" Click="ResetColours_Click" Style="{StaticResource LimSecondaryButtonStyle}" />
+            <Button Grid.Column="9" Content="Heatmap view" Click="HeatmapView_Click" Style="{StaticResource LimSecondaryButtonStyle}"
+                    ToolTipService.ToolTip="Make (or update) the Connectivity_Heatmap 3D view, like the Avoided_Water and Pollution views: view filters colour every tree and planting area by the score written to Revit, ten steps from cool blue (holds the network together least) to red (most). Unscored elements are grey; growth-year copies are hidden. Write to Revit first." />
         </Grid>
 
         <ProgressBar Grid.Row="5" x:Name="CalculationProgress" Maximum="1" Margin="0,0,0,6" Visibility="Collapsed" />

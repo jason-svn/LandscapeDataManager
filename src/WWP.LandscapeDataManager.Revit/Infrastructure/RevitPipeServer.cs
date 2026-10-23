@@ -143,6 +143,7 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.GetDashboardReport => await GetDashboardReportAsync(request).ConfigureAwait(false),
                 PipeCommands.GetConnectivityPatches => await GetConnectivityPatchesAsync(request).ConfigureAwait(false),
                 PipeCommands.WriteConnectivityResults => await WriteConnectivityResultsAsync(request).ConfigureAwait(false),
+                PipeCommands.CreateConnectivityHeatmapView => await CreateConnectivityHeatmapViewAsync(request).ConfigureAwait(false),
                 PipeCommands.GetGrowthProjectionStatus => await GetGrowthProjectionStatusAsync(request).ConfigureAwait(false),
                 PipeCommands.RunGrowthProjection => await RunGrowthProjectionAsync(request).ConfigureAwait(false),
                 PipeCommands.GetViewDesignScenario => await GetViewDesignScenarioAsync(request).ConfigureAwait(false),
@@ -429,6 +430,12 @@ internal sealed class RevitPipeServer : IDisposable
                       ?? throw new InvalidDataException("The connectivity write request was empty.");
         var result = await _dispatcher.RunAsync(application =>
             ConnectivityService.Write(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> CreateConnectivityHeatmapViewAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(ConnectivityHeatmapViewService.Ensure).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

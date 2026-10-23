@@ -418,6 +418,14 @@ public sealed partial class MainPage : Page
         StatusText.Text = result.Message ?? "Band colours applied.";
     });
 
+    private async void HeatmapView_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
+    {
+        var result = await GetClient().SendAsync<ConnectivityHeatmapViewResult>(PipeCommands.CreateConnectivityHeatmapView, null);
+        StatusText.Text = $"{(result.ViewCreated ? "Made" : "Updated")} the {result.ViewName} view and opened it: {result.Scored:N0} trees and planting areas coloured by score" +
+                          (result.NotAssessed > 0 ? $", {result.NotAssessed:N0} without a score in grey." : ".") +
+                          (result.FiltersCreated > 0 ? $" Added {result.FiltersCreated:N0} view filters (WWP_Connectivity …)." : string.Empty);
+    });
+
     private async void ResetColours_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(async () =>
     {
         var allIds = ResultRows.Select(row => row.UniqueId).ToList();

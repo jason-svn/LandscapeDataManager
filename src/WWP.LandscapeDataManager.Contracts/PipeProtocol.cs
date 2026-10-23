@@ -40,6 +40,7 @@ public static class PipeCommands
     public const string GetDashboardReport = "get-dashboard-report";
     public const string GetConnectivityPatches = "get-connectivity-patches";
     public const string WriteConnectivityResults = "write-connectivity-results";
+    public const string CreateConnectivityHeatmapView = "create-connectivity-heatmap-view";
     public const string GetGrowthProjectionStatus = "get-growth-projection-status";
     public const string RunGrowthProjection = "run-growth-projection";
     public const string GetViewDesignScenario = "get-view-design-scenario";
@@ -898,6 +899,57 @@ public sealed record WriteConnectivityResultsResult(
     IReadOnlyList<string> SkippedLocked,
     IReadOnlyList<ConnectivityWriteFailure> Failures,
     string LastUpdated);
+
+/// <summary>
+/// The Connectivity_Heatmap view and its filters, made or brought up to date. <see cref="Scored"/>
+/// and <see cref="NotAssessed"/> count the trees and floors with and without a score (growth-year
+/// copies, which the view hides, aren't counted).
+/// </summary>
+public sealed record ConnectivityHeatmapViewResult(
+    string DocumentTitle,
+    string ViewName,
+    bool ViewCreated,
+    int FiltersCreated,
+    int Scored,
+    int NotAssessed);
+
+/// <summary>
+/// The heatmap's steps over <c>!_S_PLT_ConnectivityResult_Score_Number</c> (0–1, the percentile rank by
+/// dPC): ten equal steps, so each holds about a tenth of the scored elements, from cool blue (holds the
+/// network together least) to red (most). Colours: Moreland's cool-warm map, without its grey middle.
+/// </summary>
+public static class ConnectivityHeatmap
+{
+    public const string ViewName = "Connectivity_Heatmap";
+    public const string NotAssessedFilterName = "WWP_Connectivity not assessed";
+    public const string GrowthCopiesFilterName = "WWP_Growth-year copies";
+
+    public sealed record Step(double From, double To, byte Red, byte Green, byte Blue)
+    {
+        public string FilterName => FormattableString.Invariant($"WWP_Connectivity {From:0.0}-{To:0.0} score");
+
+        /// <summary>The top step takes everything from <see cref="From"/> up, so a score of exactly 1 is in it.</summary>
+        public bool IsTop => To >= 1;
+    }
+
+    public static readonly IReadOnlyList<Step> Steps =
+    [
+        new(0.0, 0.1, 0x3B, 0x4C, 0xC0),
+        new(0.1, 0.2, 0x59, 0x77, 0xE3),
+        new(0.2, 0.3, 0x7B, 0x9F, 0xF9),
+        new(0.3, 0.4, 0x9E, 0xBE, 0xFF),
+        new(0.4, 0.5, 0xC0, 0xD4, 0xF5),
+        new(0.5, 0.6, 0xF2, 0xCB, 0xB7),
+        new(0.6, 0.7, 0xF7, 0xAC, 0x8E),
+        new(0.7, 0.8, 0xEE, 0x84, 0x68),
+        new(0.8, 0.9, 0xD6, 0x52, 0x44),
+        new(0.9, 1.0, 0xB4, 0x04, 0x26)
+    ];
+
+    /// <summary>The step a score falls in.</summary>
+    public static Step StepOf(double score) =>
+        Steps.FirstOrDefault(step => score >= step.From && (score < step.To || step.IsTop)) ?? (score < 0 ? Steps[0] : Steps[^1]);
+}
 
 public static class JsonDefaults
 {
