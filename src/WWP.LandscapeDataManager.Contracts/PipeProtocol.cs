@@ -49,6 +49,7 @@ public static class PipeCommands
     public const string GetOrganizerTrees = "get-organizer-trees";
     public const string SortTreesIntoWorksets = "sort-trees-into-worksets";
     public const string DeleteTrees = "delete-trees";
+    public const string GetSceneGeometry = "get-scene-geometry";
 }
 
 public sealed record PipeRequest(string RequestId, string Command, JsonElement? Payload);
@@ -912,6 +913,57 @@ public sealed record ConnectivityHeatmapViewResult(
     int FiltersCreated,
     int Scored,
     int NotAssessed);
+
+/// <summary>
+/// One Planting instance for the 3D view: its trunk base (metres, Revit internal coordinates), its
+/// size as the family draws it now, and what the family grows it from (see <c>TreeSizeForecast</c>):
+/// age at planting, projected year and the i-Tree size stored on it (0 without one). A family
+/// without LIM's size parameters gets its size from its bounding box.
+/// </summary>
+public sealed record SceneTreeItem(
+    string UniqueId,
+    string FamilyName,
+    string TypeName,
+    double X,
+    double Y,
+    double Z,
+    double TrunkHeightM,
+    double CrownHeightM,
+    double CrownRadiusM,
+    double TrunkRadiusM,
+    double AgeAtPlanting,
+    int? ProjectedYears,
+    double ITreeHeightM,
+    double ITreeCrownWidthM);
+
+/// <summary>A planting type's growth: the family's yearly rates, its maximum size and <c>Mature Age</c> (0 when the family can't work one out).</summary>
+public sealed record TreeGrowthType(
+    string FamilyName,
+    string TypeName,
+    double MaxHeightM,
+    double MaxWidthM,
+    double HeightRateMPerYear,
+    double WidthRateMPerYear,
+    double TrunkRateCmPerYear,
+    int MatureAge);
+
+/// <summary>
+/// A floor's top face triangulated, holes cut out: <see cref="Positions"/> holds x, y, z per vertex
+/// (metres, Revit internal coordinates), <see cref="Indices"/> three vertex indices per triangle.
+/// <see cref="HoleCount"/> is the face's inner loops.
+/// </summary>
+public sealed record SceneFloorItem(
+    string UniqueId,
+    IReadOnlyList<double> Positions,
+    IReadOnlyList<int> Indices,
+    int HoleCount);
+
+/// <summary>Every tree and floor in the model, in every design option and phase: the JSON export picks each scenario's.</summary>
+public sealed record SceneGeometryResult(
+    string DocumentTitle,
+    IReadOnlyList<SceneTreeItem> Trees,
+    IReadOnlyList<TreeGrowthType> TreeTypes,
+    IReadOnlyList<SceneFloorItem> Floors);
 
 /// <summary>
 /// The heatmap's steps over <c>!_S_PLT_ConnectivityResult_Score_Number</c> (0–1, the percentile rank by

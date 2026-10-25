@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
 
@@ -164,6 +165,11 @@ internal sealed record DashboardJsonBng(
 /// Schema v8: with growth years, a scenario's tree lifetime figures (totals and species) are the
 /// benefits from planting to its growth year, so they rise year by year; before v8 they were each
 /// tree's whole forecast, the same at every growth year. Without growth years, nothing changes.
+/// Schema v9 adds the 3D scene (<see cref="DashboardJsonExport.Scene"/>) and, on each entry, the
+/// scene's trees (<see cref="SceneTrees"/>) and floors (<see cref="SceneFloors"/>) it's built from;
+/// both are left out when Revit couldn't give the geometry. Without Growth Projections copies, a model
+/// that can grow its trees (growth rates or i-Tree forecasts with sizes) now has growth years too:
+/// every tree grown by the planting family's formulas, the canopy figures from the same sizes.
 /// </remarks>
 internal sealed record DashboardJsonScenario(
     string Label,
@@ -177,18 +183,24 @@ internal sealed record DashboardJsonScenario(
     string? DesignOption = null,
     IReadOnlyDictionary<string, string>? Choices = null,
     bool BenefitsFromForecast = false,
-    bool IsExistingSite = false);
+    bool IsExistingSite = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<int>? SceneTrees = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<int>? SceneFloors = null);
 
 /// <summary>The full payload written by "Export JSON" — a standalone snapshot meant to be loaded into another (e.g. browser-based) dashboard, independent of this app's own unit/currency toggles.</summary>
 internal sealed record DashboardJsonExport(
     int SchemaVersion,
     DashboardJsonProject Project,
-    IReadOnlyList<DashboardJsonScenario> Scenarios);
+    IReadOnlyList<DashboardJsonScenario> Scenarios,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DashboardJsonScene? Scene = null);
 
 internal static class DashboardJsonExportService
 {
-    private const int SchemaVersion = 8;
+    private const int SchemaVersion = 9;
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+
+    /// <summary>With a 3D scene the file is mostly coordinates: indenting them would double its size.</summary>
+    private static readonly JsonSerializerOptions CompactOptions = new(JsonSerializerDefaults.Web) { WriteIndented = false };
 
     /// <summary>
     /// Builds the export DTO with one entry per design scenario (one option per design option set,
@@ -198,6 +210,10 @@ internal static class DashboardJsonExportService
     /// scenario by scenario so each forms its own timeline in the web dashboard. Always normalized onto
     /// Metric so the JSON is self-describing whatever the dashboard is displaying. A model without
     /// design options has the single "Primary options" scenario.
+    /// With <paramref name="geometry"/> (Revit's trees and floors) the export carries the 3D scene, and
+    /// without Growth Projections copies a model that can grow its trees gets growth years 0–25 (see
+    /// <see cref="DashboardJsonSceneBuilder.CanForecast"/>): every tree grown by the planting family's
+    /// formulas, its canopy figures from the same sizes the 3D view draws.
     /// </summary>
     public static DashboardJsonExport Build(
         DashboardReportResult report,
@@ -207,15 +223,26 @@ internal static class DashboardJsonExportService
         IReadOnlyList<DesignOptionSetItem> sets,
         IReadOnlyList<DesignScenario> scenarios,
         int designYear = GrowthYearNames.DefaultDesignYear,
-        IReadOnlyList<ConnectivityScenarioResult>? connectivity = null)
+        IReadOnlyList<ConnectivityScenarioResult>? connectivity = null,
+        SceneGeometryResult? geometry = null)
     {
         var project = new DashboardJsonProject(report.DocumentTitle, currency, location, DateTimeOffset.Now);
         var hasAlternatives = scenarios.Count > 1;
         var defaultScenario = DesignScenarios.Find(scenarios, null);
 
         var worksetYears = GrowthYears.InModel(report.Trees);
+        var forecast = geometry is not null && DashboardJsonSceneBuilder.CanForecast(geometry, report);
+        var growthYears = forecast ? DashboardJsonSceneBuilder.ForecastYears(designYear) : worksetYears;
+        var scene = geometry is null
+            ? null
+            : new DashboardJsonSceneBuilder(
+                geometry,
+                report,
+                forecast ? SceneGrowth.Forecast : worksetYears.Count > 0 ? SceneGrowth.Worksets : SceneGrowth.Drawn,
+                growthYears.Count > 0 ? growthYears.Max() : 0);
+
         // The file opens on the default scenario at the design year (new trees are drawn at it), or the year nearest it.
-        var defaultYear = worksetYears.OrderBy(year => Math.Abs(year - designYear)).ThenByDescending(year => year).FirstOrDefault();
+        var defaultYear = growthYears.OrderBy(year => Math.Abs(year - designYear)).ThenByDescending(year => year).FirstOrDefault();
         var entries = scenarios.SelectMany(scenario =>
         {
             // Benefits count what stands after development (the existing site: what stood before);
@@ -228,11 +255,13 @@ internal static class DashboardJsonExportService
             var floors = bngFloors.Where(floor => SitePhases.Counts(SitePhases.RoleOf(floor), scenario)).ToList();
             var lighting = DesignScenarios.Filter(report.Lighting, fixture => fixture.DesignOption, scenario, sets);
             var label = hasAlternatives ? DesignScenarios.Label(scenario, sets) : scenario.Name;
-            if (worksetYears.Count == 0)
+            var sceneFloors = scene?.FloorIndices(floors);
+            if (growthYears.Count == 0)
             {
                 return new[] { BuildScenario(label, scenario == defaultScenario, trees, trees, floors, bngFloors, lighting, report,
                     designOption: hasAlternatives ? scenario.Name : null, choices: scenario.Choices, isExistingSite: scenario.IsExistingSite,
-                    connectivity: ConnectivityScenarios.For(connectivity, scenario)) };
+                    connectivity: ConnectivityScenarios.For(connectivity, scenario),
+                    sceneTrees: scene?.TreeIndices(trees), sceneFloors: sceneFloors) };
             }
 
             // As in the Dashboard: with i-Tree forecasts in the model, a growth year's benefits are each
@@ -247,9 +276,12 @@ internal static class DashboardJsonExportService
                     ? cached
                     : speciesOutlooks[species] = new TreeOutlook(
                         [.. trees.Where(tree => (tree.Source.SpeciesCode ?? "Unassigned") == species)], worksetYears, report.TreeTimelines, "Metric", usdToTargetRate);
-            return worksetYears.Select(year =>
+            return growthYears.Select(year =>
             {
-                var geometryTrees = trees.Where(tree => GrowthYears.CountsIn(tree.Source, year)).ToList();
+                // Forecast growth: every tree, grown to the year; with copies: that year's trees as drawn.
+                var geometryTrees = forecast
+                    ? trees.Select(tree => scene!.Grown(tree, year)).ToList()
+                    : trees.Where(tree => GrowthYears.CountsIn(tree.Source, year)).ToList();
                 return BuildScenario(
                     hasAlternatives ? $"{scenario.Name} · {year} years" : $"{year} years",
                     scenario == defaultScenario && year == defaultYear,
@@ -265,11 +297,13 @@ internal static class DashboardJsonExportService
                     benefitsFromForecast: fromForecast,
                     isExistingSite: scenario.IsExistingSite,
                     connectivity: ConnectivityScenarios.For(connectivity, scenario),
-                    sincePlanting: (species, metric) => OutlookOf(species).Accumulate(metric, year));
+                    sincePlanting: (species, metric) => OutlookOf(species).Accumulate(metric, year),
+                    sceneTrees: scene?.TreeIndices(geometryTrees),
+                    sceneFloors: sceneFloors);
             });
         }).ToList();
 
-        return new DashboardJsonExport(SchemaVersion, project, entries);
+        return new DashboardJsonExport(SchemaVersion, project, entries, scene?.ToJson());
     }
 
     /// <param name="normalizedTrees">The trees whose benefits count (normalized onto Metric and the export currency).</param>
@@ -294,7 +328,9 @@ internal static class DashboardJsonExportService
         bool benefitsFromForecast = false,
         bool isExistingSite = false,
         ConnectivityScenarioResult? connectivity = null,
-        Func<string?, Func<DashboardGrandTotal, double>, double>? sincePlanting = null)
+        Func<string?, Func<DashboardGrandTotal, double>, double>? sincePlanting = null,
+        IReadOnlyList<int>? sceneTrees = null,
+        IReadOnlyList<int>? sceneFloors = null)
     {
         var grandTotal = DashboardAggregationService.BuildGrandTotal(normalizedTrees, floors);
         var speciesSubtotals = DashboardAggregationService.AggregateTreesBySpecies(normalizedTrees);
@@ -392,12 +428,12 @@ internal static class DashboardJsonExportService
 
         return new DashboardJsonScenario(
             label, years ?? DashboardUnitLabels.ExtractProjectionYears(label), isPrimary, totals, siteKpiJson, bngJson, species, floorTypes, designOption,
-            choices is { Count: > 0 } ? choices : null, benefitsFromForecast, isExistingSite);
+            choices is { Count: > 0 } ? choices : null, benefitsFromForecast, isExistingSite, sceneTrees, sceneFloors);
     }
 
     public static async Task ExportAsync(string path, DashboardJsonExport export)
     {
-        var json = JsonSerializer.Serialize(export, Options);
+        var json = JsonSerializer.Serialize(export, export.Scene is null ? Options : CompactOptions);
         await File.WriteAllTextAsync(path, json, new UTF8Encoding(false));
     }
 }

@@ -1778,10 +1778,31 @@ public sealed partial class MainPage : Page
         await RunBusyAsync(async () =>
         {
             var location = await ResolveLocationAsync();
-            var export = DashboardJsonExportService.Build(ReportForJsonExport(), _preferredCurrency, _usdExchangeRate, location, _sets, OfferedScenarios(), _designYear, _connectivityResults);
+            var geometry = await TryGetSceneGeometryAsync();
+            var export = DashboardJsonExportService.Build(ReportForJsonExport(), _preferredCurrency, _usdExchangeRate, location, _sets, OfferedScenarios(), _designYear, _connectivityResults, geometry);
             await DashboardJsonExportService.ExportAsync(file.Path, export);
-            StatusText.Text = $"Exported dashboard data to {file.Name}.";
+            StatusText.Text = geometry is null
+                ? $"Exported dashboard data to {file.Name}, without the 3D view (it needs the model open in Revit and the latest LIM connector)."
+                : $"Exported dashboard data to {file.Name}, with the 3D view.";
         });
+    }
+
+    /// <summary>Best-effort, like the location: null when Revit isn't reachable or its connector predates the 3D view.</summary>
+    private async Task<SceneGeometryResult?> TryGetSceneGeometryAsync()
+    {
+        if (_revitClient is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await _revitClient.SendAsync<SceneGeometryResult>(PipeCommands.GetSceneGeometry);
+        }
+        catch (Exception exception) when (exception is IOException or TimeoutException or OperationCanceledException or InvalidOperationException or InvalidDataException)
+        {
+            return null;
+        }
     }
 
     /// <summary>Best-effort — the pipe may be unavailable (e.g. viewing a cached snapshot with Revit closed), in which case the export simply ships without a location.</summary>

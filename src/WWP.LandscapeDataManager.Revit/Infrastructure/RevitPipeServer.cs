@@ -152,6 +152,7 @@ internal sealed class RevitPipeServer : IDisposable
                 PipeCommands.GetOrganizerTrees => await GetOrganizerTreesAsync(request).ConfigureAwait(false),
                 PipeCommands.SortTreesIntoWorksets => await SortTreesIntoWorksetsAsync(request).ConfigureAwait(false),
                 PipeCommands.DeleteTrees => await DeleteTreesAsync(request).ConfigureAwait(false),
+                PipeCommands.GetSceneGeometry => await GetSceneGeometryAsync(request).ConfigureAwait(false),
                 _ => new PipeResponse(request.RequestId, false, Error: $"Unknown command: {request.Command}")
             };
         }
@@ -412,6 +413,12 @@ internal sealed class RevitPipeServer : IDisposable
         var options = request.Payload?.Deserialize<SaveTreeTimelinesRequest>(JsonDefaults.Options)
                       ?? throw new InvalidDataException("The timeline save request was empty.");
         var result = await _dispatcher.RunAsync(application => TreeTimelineStore.Save(application, options)).ConfigureAwait(false);
+        return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
+    }
+
+    private async Task<PipeResponse> GetSceneGeometryAsync(PipeRequest request)
+    {
+        var result = await _dispatcher.RunAsync(SceneGeometryService.Get).ConfigureAwait(false);
         return new PipeResponse(request.RequestId, true, JsonDefaults.ToElement(result));
     }
 

@@ -14,6 +14,8 @@ LIM（Landscape Information Manager）的计划、已完成的工作，以及修
 - **KPI Schedules 在有生长年份时按 workset 给种植明细表分组**，每年一个小计，这样一棵树不会每个生长年份都被计一次。（从 Phase 3 起，再次运行 KPI Schedules 会把新增的列加到已有明细表里；只有要改分组时才需要删掉明细表。）
 - Dashboard 卡片计入种植区（Airtable）的碳、径流、污染物和节省费用。BNG 标签不再重复显示两次 "primary"。
 
+**v1.7.0**（2026-10-24 推送到 `roadmap-phases-2-5`，尚未发布）：网页 Dashboard 的 3D 视图——connector 导出场景几何、用 C# 实现 family 的尺寸公式、JSON 导出 schema 9（自动生成生长年份），以及没有尺寸的旧 i-Tree 预测会重新请求。详见下面的"网页 Dashboard 的 3D 视图"。还没在 Revit 里实测。
+
 **v1.6.2**（2026-10-23 发布）：BNG 页按 Dashboard 的方案逐个设置（也能新建方案），现状 floor 的基线由同类型的所有现状 floor 共享。
 
 **v1.6.1**（2026-10-23 发布）：修复：重新打开 Dashboard 时，保存的方案（Scheme A、Scheme B 等）会重新出现。
@@ -54,6 +56,20 @@ LIM（Landscape Information Manager）的计划、已完成的工作，以及修
 - **Dashboard：**
   - "Embodied carbon"（隐含碳）及碳回收期。
   - 软质比例在没有数据时退回使用 floor 类型名判断。
+
+## 网页 Dashboard 的 3D 视图（进行中，2026-10-24）
+
+网页 Dashboard 用 3D 显示场地：所选方案和生长年份下的树和种植区，和页面上的数字一致。先做了调研（Speckle、Autodesk Data Exchange 和 APS Viewer、Sketchfab、Cesium、iTwin、Twinmotion 等）：由 LIM 导出精简的场景数据，网页用 three.js 绘制，免费，看的人不需要任何账号。
+
+- **范围（你的决定）：** 只有树和 floor；floor 只显示顶面，要能看到洞；Proposed 方案里不显示拆除的元素；Existing site 和 Dashboard 现在的定义一样（primary option，第一个 phase）；第一版就做自动生长；3D 始终和方案的数字一致。
+- [x] **在 sandbox 上做第 0 步验证（脚本，只读）：** 930 棵树全部符合 family 公式，误差在 1 cm 以内；21 块带洞的 floor，最多 59 个洞，每块三角化后的顶面面积和 Revit 面积相差不到 0.3%。
+- [x] **旧的 i-Tree 预测会重新请求：** 2026-10-23 之前存下的预测没有树高和冠幅，而 Tree Calculator 从不重算已经存了的预测。现在没有尺寸的预测算作缺失（`TreeTimelines.HasSizes`）。
+- [x] **Connector `get-scene-geometry`**（`SceneGeometryService`）：每棵树的树干底部位置、画出来的尺寸和生长依据（种植时年龄、projected year、存下的 i-Tree 尺寸）；每个种植类型的生长率、最大尺寸和 `Mature Age`；每块 floor 的顶面三角化并扣掉洞。包含所有 design option 和 phase。Connector 改动：需要下次安装。
+- [x] **`TreeSizeForecast`：** 用 C# 实现 family 的尺寸公式（树干 H/3、树冠 2H/3、半径 W/2；有 i-Tree 尺寸就用 i-Tree 的，和 family 一样不截到最大值；没有就按类型的生长率和生长年数算，并截到最大值）。
+- [x] **JSON 导出 schema 9：** 加入 `scene`（树、floor、生长曲线），每个条目带 `sceneTrees` / `sceneFloors`，正好是它的数字所用的元素。没有 Growth Projections 副本时，能长的模型会有 0/5/10/15/20/25 年（以及设计年）的生长年份，每棵树按 family 公式长到那一年，树冠数字也用同一套尺寸。用紧凑格式写出。用导出代码在 sandbox 数据上验证：930 棵树、56 块 floor、1.3 MB；Scheme A 的树冠面积从第 0 年的 12 m² 到第 25 年的 7,223 m²。
+- [x] **网页 Dashboard（LandscapeCoBenefitsDashboard，尚未推送）：** 跟随方案和生长年份的 "3D site" 面板（three.js 从 jsDelivr 加载，只有带 scene 的文件才会下载），以及用表格规范（泳道）的结果面板：按树种列树，按景观类型列种植区，选中的行会筛选 3D；点击树或种植区会显示信息卡片并让对应的行闪一下。每个树种在所有方案和年份里颜色固定（每个文件排名一次），图表、结果面板和 3D 一致。旧的导出文件照常打开。在无头 Edge 里用上面的导出文件验证：没有脚本错误。
+- [ ] **实测：** 安装（关闭 Revit）、跑 Tree Calculator（重算旧的预测）、Export JSON、在网页 Dashboard 里打开。
+- [ ] Dashboard 没有明显的新建方案入口（只能在未保存的方案上点 Edit…）：加一个 "+ New scenario…"。
 
 ## 族里的树木生长（进行中）
 

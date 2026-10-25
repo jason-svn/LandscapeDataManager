@@ -29,6 +29,14 @@ public static class TreeTimelines
             : DefaultHorizonYears;
 
     /// <summary>
+    /// True when the forecast carries the tree's size (height and crown area) as well as its benefits.
+    /// Forecasts stored before LIM kept i-Tree's sizes have none, and the 3D view and the growth-year
+    /// canopy need them, so such a forecast is requested again rather than reused.
+    /// </summary>
+    public static bool HasSizes(TreeBenefitTimeline timeline) =>
+        timeline.Years.Any(year => year.HeightM > 0 && year.CrownAreaM2 > 0);
+
+    /// <summary>
     /// A planted tree: an original, not a Growth Projections copy and not in a group — whichever year
     /// it's drawn at (an existing tree today, a new one at the design year).
     /// </summary>
@@ -158,7 +166,7 @@ public static class ITreeTimelineCalculator
 
         var timelines = stored.ToDictionary(timeline => timeline.Key, StringComparer.Ordinal);
         var unique = planted.GroupBy(pair => pair.Key, StringComparer.Ordinal).Select(group => group.First()).ToList();
-        var missing = unique.Where(pair => !timelines.ContainsKey(pair.Key)).ToList();
+        var missing = unique.Where(pair => !timelines.TryGetValue(pair.Key, out var stored) || !TreeTimelines.HasSizes(stored)).ToList();
         var fresh = new System.Collections.Concurrent.ConcurrentBag<TreeBenefitTimeline>();
         var failed = 0;
         using (var throttle = new SemaphoreSlim(3))

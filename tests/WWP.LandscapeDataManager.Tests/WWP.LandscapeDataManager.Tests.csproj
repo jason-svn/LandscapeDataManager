@@ -25,5 +25,7 @@
     <!-- Exercise the connector's pure migration policy without loading the Revit API. -->
     <Compile Include="..\..\src\WWP.LandscapeDataManager.Revit\Services\InstanceToTypeMigrationPlanner.cs" Link="InstanceToTypeMigrationPlanner.cs" />
     <Compile Include="..\..\src\WWP.LandscapeDataManager.Revit\Services\ResultParameterReusePolicy.cs" Link="ResultParameterReusePolicy.cs" />
+    <!-- The Dashboard's 3D scene builder depends only on Contracts and Shared. -->
+    <Compile Include="..\..\src\WWP.LandscapeDataManager.App.Dashboard\DashboardJsonSceneBuilder.cs" Link="DashboardJsonSceneBuilder.cs" />
   </ItemGroup>
 </Project>

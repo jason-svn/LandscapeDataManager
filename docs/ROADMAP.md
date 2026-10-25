@@ -12,6 +12,8 @@ Not released yet (branch `dashboard-include-floors`):
 - **KPI Schedules group the planting schedule by workset** when growth years exist, with a subtotal per year, so a tree isn't counted once per growth year. (Since Phase 3, running KPI Schedules again adds newer columns to existing schedules; delete one only to change its grouping.)
 - Dashboard cards include planting-area (Airtable) carbon, runoff, pollution and cost. BNG labels no longer say "primary" twice.
 
+**v1.7.0** (pushed 2026-10-24 on `roadmap-phases-2-5`, not released yet): the 3D view in the web dashboard — the connector's scene geometry, the family's size formulas in C#, JSON export schema 9 with automatic growth years, and old i-Tree forecasts without sizes requested again. See "3D view in the web dashboard" below. Not yet tested live in Revit.
+
 **v1.6.2** (released 2026-10-23): the BNG tab works scheme by scheme with the Dashboard's schemes (and can make them), and an existing floor's baseline is shared by every existing floor of its type.
 
 **v1.6.1** (released 2026-10-23): a fix: the Dashboard's saved schemes (Scheme A, Scheme B, …) are offered again when it's reopened.
@@ -52,6 +54,20 @@ Shipped in **v1.3.0 / v1.3.1**:
 - **Dashboard:**
   - "Embodied carbon" with carbon payback.
   - Softscape ratio falls back to the floor type name.
+
+## 3D view in the web dashboard (in progress, 2026-10-24)
+
+The web dashboard shows the site in 3D: the trees and planting areas of the chosen scenario and growth year, matching its figures. Researched first (Speckle, Autodesk Data Exchange and APS Viewer, Sketchfab, Cesium, iTwin, Twinmotion and others): LIM exports a compact scene and the page draws it with three.js, free and with no viewer accounts.
+
+- **Scope (your call):** trees and floors only; floors as their top face, holes shown; proposed scenarios leave demolished elements out; the existing site as the Dashboard has it (primary options, first phase); automatic growth in the first version; the 3D view always matches the scenario's figures.
+- [x] **Phase 0 on the sandbox (by script, read-only):** all 930 trees match the planting family's formulas within 1 cm; 21 floors with up to 59 holes, each triangulated top face within 0.3% of Revit's area.
+- [x] **Old i-Tree forecasts are requested again:** forecasts stored before 2026-10-23 carry no height or crown, and Tree Calculator never recalculated a stored forecast. A forecast without sizes now counts as missing (`TreeTimelines.HasSizes`).
+- [x] **Connector `get-scene-geometry`** (`SceneGeometryService`): every tree's trunk base, drawn size and what it grows from (age at planting, projected year, stored i-Tree size); each planting type's growth rates, maximum size and `Mature Age`; every floor's top face triangulated with its holes cut out. All design options and phases. Connector change: needs the next install.
+- [x] **`TreeSizeForecast`:** the family's size formulas in C# (trunk H/3, crown 2H/3, radius W/2; i-Tree's size when there is one, not capped at the maximum, as in the family; else the type's rates over its growth years, capped).
+- [x] **JSON export schema 9:** a `scene` (trees, floors, growth profiles) and, on every entry, `sceneTrees` / `sceneFloors`: exactly the elements its figures come from. Without Growth Projections copies, a model that can grow its trees gets growth years 0/5/10/15/20/25 (and the design year), every tree grown by the family's formulas and the canopy figures from the same sizes. Written compact. Checked with the export code on the sandbox's data: 930 trees, 56 floors, 1.3 MB; Scheme A's canopy 12 → 7,223 m² from year 0 to 25.
+- [x] **Web dashboard (LandscapeCoBenefitsDashboard, not pushed yet):** a "3D site" panel following the scenario and growth year (three.js from jsDelivr, fetched only for a file with a scene), and a result board in the table language — trees by species, planting areas by landscape type — whose selected rows filter the 3D view; clicking a tree or area shows its card and flashes its row. A species keeps one colour in every scenario and year (ranked once per file), in the charts, the board and the 3D. Older exports load as before. Checked in headless Edge on the export above: no script errors.
+- [ ] **Test live:** install (Revit closed), Tree Calculator (refreshes the old forecasts), Export JSON, open it in the web dashboard.
+- [ ] The Dashboard has no obvious way to add a scenario (only Edit… on an unsaved one): offer "+ New scenario…".
 
 ## Tree growth in the family (in progress)
 
