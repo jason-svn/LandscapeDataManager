@@ -4,8 +4,9 @@ Read `HANDOFF.md` next: it has the current state, what still needs checking in R
 steps. `docs/ROADMAP.md` (Chinese copy `docs/ROADMAP.zh-CN.md`, kept in step) is the source of truth
 for the plan. `CONTEXT.md` is an older session summary (2026-10-22), background only.
 
-Before you end a session, update `HANDOFF.md` (what changed, what was checked, next steps) and
-commit it with your work, so the next agent can carry on from any machine.
+Before you end a session, update `HANDOFF.md` (what changed, what was checked, next steps), then
+ask the user whether to commit and push it. That push is how the next agent, on any machine, picks
+the work up; like every commit, it happens only when the user says so.
 
 ## Working with the user
 

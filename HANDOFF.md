@@ -70,8 +70,8 @@
 4. Re-export the web sample (schema 11) from the Dashboard into
    `LandscapeCoBenefitsDashboard/sample-data/example-export.json` (it is schema 10 now), then check
    the web phenology panel with the new colours.
-5. When the user is happy, merge the web branch into `master` (this publishes the site) and,
-   if they ask, release LIM.
+5. Only when the user asks: merge the web branch into `master` (this publishes the site), and
+   release LIM.
 
 ## Open questions for the user (Revit template "LIM Project")
 
