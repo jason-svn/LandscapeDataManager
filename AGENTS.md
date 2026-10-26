@@ -26,7 +26,7 @@ the work up; like every commit, it happens only when the user says so.
   `WWP.LandscapeDataManager.{RevitPID}`); 11 WinUI 3 tool exes `src/WWP.LandscapeDataManager.App.*`;
   shared code `src/WWP.LandscapeDataManager.Shared`; pipe contracts
   `src/WWP.LandscapeDataManager.Contracts/PipeProtocol.cs`.
-- Tests: `dotnet test tests/WWP.LandscapeDataManager.Tests` (566 pass at v1.9.1).
+- Tests: `dotnet test tests/WWP.LandscapeDataManager.Tests` (566 pass at v1.9.2).
 - One tool: `dotnet build src/WWP.LandscapeDataManager.App.<Name>`.
 - Deploy everything: `./Install-Addin.ps1`. It needs Revit 2025 installed, and Revit must be closed
   (Revit locks the connector DLL). Check with `tasklist /FI "IMAGENAME eq Revit.exe"` (exact match:
@@ -37,7 +37,7 @@ the work up; like every commit, it happens only when the user says so.
 
 ## Versions and releases
 
-- Every push: bump `<Version>` in `Directory.Build.props` first. Minor by default (1.9.1 → 1.10.0),
+- Every push: bump `<Version>` in `Directory.Build.props` first. Minor by default (1.9.2 → 1.10.0),
   patch for a fix-only push. Add a version line to both ROADMAP files.
 - Releases go out from `main` (fast-forwarded from `roadmap-phases-2-5`): tag, GitHub release with
   the `Package-Addin.ps1` zip and `Shared_Parameters_WWP.txt`. Only when the user asks.
@@ -57,8 +57,11 @@ the work up; like every commit, it happens only when the user says so.
   into the project currency (`Money`, `CurrencyFactors`, `ImportMoney`). Maintenance costs are
   annual rates per m². The user confirmed this, so don't flag big maintenance totals.
 - Trees are never put in Revit groups. Add no vary-by-group logic; warn when a tree is grouped.
-- Airtable: project source base `app0VdTm2LthasJQK` ("LIM-DATASET"), table `tblp9DhoXaKkYKYYp`,
-  view "Dataset". Company sheet base `apptELCzLzMbmrk54`, table `tblAwGKQjNQJ9XsKM`.
+- Airtable: "LIM-DATASET" (base `app0VdTm2LthasJQK`, table `tblp9DhoXaKkYKYYp` "Imported table", view
+  "Dataset") is the one source of truth: the Importer's planting data and the WWP landscape data sheet
+  that Floor Calculator, Tree Calculator and Tree Searcher read (also the code default,
+  `WwpLdsAirtableSettings.CompanyDefault`). The older "LIM" base (`apptELCzLzMbmrk54`) is out of date;
+  don't use it. LIM-DATASET's `Maintenance Costs` and `COST_SAVED` are single-select "£xx.xx" text.
 
 ## UI
 

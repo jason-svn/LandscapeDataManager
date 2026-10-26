@@ -14,6 +14,8 @@ LIM（Landscape Information Manager）的计划、已完成的工作，以及修
 - **KPI Schedules 在有生长年份时按 workset 给种植明细表分组**，每年一个小计，这样一棵树不会每个生长年份都被计一次。（从 Phase 3 起，再次运行 KPI Schedules 会把新增的列加到已有明细表里；只有要改分组时才需要删掉明细表。）
 - Dashboard 卡片计入种植区（Airtable）的碳、径流、污染物和节省费用。BNG 标签不再重复显示两次 "primary"。
 
+**v1.9.2**（2026-10-26 推送到 `roadmap-phases-2-5`，尚未发布）：没有保存过景观数据表来源的项目，现在改读团队一直在更新的 **LIM-DATASET**。以前读的是旧的 "LIM" base，它已经过时。已经保存过来源的项目（sandbox、LIM Project 模板）不受影响。
+
 **v1.9.1**（2026-10-26 推送到 `roadmap-phases-2-5`，尚未发布）：没有代码改动。供在另一台电脑上接手工作的 agent 说明（`AGENTS.md`、`HANDOFF.md`）现在写明：提交、推送和发布网页 Dashboard 都要等用户同意。
 
 **v1.9.0**（2026-10-26 推送到 `roadmap-phases-2-5`，尚未发布；还没安装，也没在 Revit 里试过，因为当时 Revit 开着）：Airtable 里的金额在所有地方都换算成项目货币。Importer、Floor Calculator 和 Tree Calculator 读取单元格写明的币种（"£20"、"US$10"、"€8"）或 Airtable 货币字段的币种，按项目汇率换算；没有汇率的值会跳过，不会未经换算就写入。植物颜色：八个新的类型参数（花色、果期、果色和果实类型、四季颜色）填充 Dashboard 的物候表（花色圆点、果实标记、每个月按季节颜色着色），也进入网页导出（schema 11）。Importer 会把 Airtable 表里还没有的 Revit 树类型添加为新行，并让每种 floor 类型保持 Floor Calculator 匹配到的那一行。

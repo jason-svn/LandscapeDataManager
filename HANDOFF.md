@@ -3,7 +3,7 @@
 ## Setting up on another PC
 
 1. Clone these repos side by side:
-   - `jason-svn/LandscapeDataManager`, branch `roadmap-phases-2-5` (v1.9.1).
+   - `jason-svn/LandscapeDataManager`, branch `roadmap-phases-2-5` (v1.9.2).
    - `jason-svn/LandscapeCoBenefitsDashboard`, branch `handoff-2026-10-26`.
    - `jason-svn/LIM-agent-context` (private): Claude's working notes on the user's rules and past
      decisions, plus scratch tools (export harness for the web sample, headless web test, Revit
@@ -24,14 +24,14 @@
 
 ## Where things stand
 
-- **LIM v1.9.1** is pushed on `roadmap-phases-2-5` but not released. It builds and all 566 tests
+- **LIM v1.9.2** is pushed on `roadmap-phases-2-5` but not released. It builds and all 566 tests
   pass. It has **not been installed or tried in Revit**: Revit was open, so the connector couldn't
   be deployed.
 - **Web dashboard**: branch `handoff-2026-10-26` holds commit `462a07e` (3D across the panel, result
   board under it) and the phenology panel with the sample. **`master` (the live GitHub Pages site)
   is unchanged.** Merge to `master` only when the user asks.
 
-## What v1.9.0 adds (v1.9.1 only tightened these handoff notes)
+## What v1.9.0 adds (v1.9.1 and v1.9.2 changed only these notes and the default sheet source)
 
 1. **New Revit tree types → Airtable.** An Importer card, "ADD NEW TREE TYPES TO AIRTABLE", creates
    sheet rows for tree types the sheet doesn't have yet, so people can add the non-i-Tree data.
@@ -61,7 +61,7 @@
 ## Next steps, in order
 
 1. On the PC with Revit: close Revit and run `./Install-Addin.ps1` (connector plus every tool; the
-   window titles should say 1.9.1).
+   window titles should say 1.9.2).
 2. In Revit: in the LIM Parameters tool, add the 8 plant-colour params; in the Importer, sync from
    Airtable; check the desktop Dashboard phenology table.
 3. Check the currency conversion in a USD project. The Importer should turn a maintenance cost of
@@ -72,6 +72,18 @@
    the web phenology panel with the new colours.
 5. Only when the user asks: merge the web branch into `master` (this publishes the site), and
    release LIM.
+
+## Airtable
+
+- **LIM-DATASET is the only source** (base `app0VdTm2LthasJQK`, Imported table, Dataset view). It
+  feeds the Importer and the WWP landscape data sheet read by Floor Calculator, Tree Calculator and
+  Tree Searcher. The older "LIM" base is out of date. The sandbox and the template already save
+  LIM-DATASET, and since v1.9.2 it is also the code default for projects that saved no source.
+- **Before a release, make sure the team can open LIM-DATASET.** It is the user's own base;
+  colleagues without access get an error when Floor Calculator syncs the sheet.
+- **Money columns:** `Maintenance Costs` and `COST_SAVED` are single-select "£xx.xx" text. The user
+  was advised to turn them into Currency fields with £. That can only be done in the Airtable UI;
+  try it on a duplicated field first. LIM reads either form.
 
 ## Open questions for the user (Revit template "LIM Project")
 
