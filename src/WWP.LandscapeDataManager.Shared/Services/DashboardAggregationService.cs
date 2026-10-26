@@ -477,10 +477,11 @@ public static class DashboardAggregationService
             ? (double)nativeTreeCount / treesWithNativeStatusCount * 100d
             : (double?)null;
 
+        // Months something is in flower, or carries ripe fruit or seed.
         var distinctBloomMonths = new HashSet<int>();
         foreach (var tree in trees)
         {
-            foreach (var month in ParseMonthList(tree.Source.BloomMonths))
+            foreach (var month in ParseMonthList(tree.Source.BloomMonths).Concat(PlantColours.FruitMonths(tree.Source.Appearance)))
             {
                 distinctBloomMonths.Add(month);
             }

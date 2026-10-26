@@ -16,6 +16,7 @@ public sealed partial class MainPage : Page
     private readonly AirtableApiClient _airtableApiClient = new();
     private readonly AirtableCredentialStore _airtableCredentialStore = new();
     private readonly SyncedValueHistoryStore _historyStore = new();
+    private readonly ExchangeRateService _exchangeRateService = new();
 
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
@@ -29,9 +30,17 @@ public sealed partial class MainPage : Page
     private ParameterWriteBatch? _pendingTypeBatch;
     private InstanceParameterWriteBatch? _pendingInstanceBatch;
     private IReadOnlyList<TypeAlias> _typeAliases = [];
+
+    /// <summary>Floor types pinned to the sheet row Floor Calculator matched them to (<see cref="FloorMatchAliases"/>).</summary>
+    private IReadOnlyList<TypeAlias> _floorMatchAliases = [];
     private IReadOnlyList<ParameterMappingDefinition> _savedMappings = [];
     private AirtableApiSettings _airtableSettings = new(string.Empty, string.Empty, null);
     private InstanceMatchKeySettings? _instanceMatchKey;
+    private bool _addingTreeTypes;
+
+    // Money from the source goes into the project currency (see LoadMoneyContextAsync).
+    private IReadOnlyDictionary<string, string> _fieldCurrencies = new Dictionary<string, string>();
+    private CurrencyFactors? _currencyFactors;
 
     private const string SourceRecordIdParameter = "!_S_PLT_DataSync_SourceRecordId_Text";
 
@@ -43,6 +52,7 @@ public sealed partial class MainPage : Page
     public ObservableCollection<MappingRow> MappingRows { get; } = [];
     public ObservableCollection<TypeSyncRow> TypeSyncRows { get; } = [];
     public ObservableCollection<InstanceSyncRow> InstanceSyncRows { get; } = [];
+    public ObservableCollection<NewTreeTypeRow> NewTreeTypeRows { get; } = [];
 
     // Everything the last preview/apply reported, split into real changes and the unmatched/skipped
     // rows that would otherwise bury them. Only changes are shown unless "Show unmatched" is ticked.
@@ -172,17 +182,22 @@ public sealed partial class MainPage : Page
     {
         _sourceRecords = await LoadSourceRecordsAsync();
 
-        var options = new ModelScanOptions();
+        // Every design option: a type's data is the type's, whichever scheme places it (a species only
+        // in a secondary option would otherwise never be synced).
+        var options = new ModelScanOptions(PrimaryDesignOptionsOnly: false);
         var typeScanTask = GetClient().SendAsync<ModelScanResult>(PipeCommands.ScanModel, options);
         var instanceScanTask = GetClient().SendAsync<PlantingInstanceScanResult>(PipeCommands.ScanPlantingInstances);
         var catalogTask = GetClient().SendAsync<ParameterCatalogResult>(PipeCommands.GetParameterCatalog, options);
-        await Task.WhenAll(typeScanTask, instanceScanTask, catalogTask);
+        var floorsTask = GetFloorMatchesAsync();
+        await Task.WhenAll(typeScanTask, instanceScanTask, catalogTask, floorsTask);
 
         _typeScan = await typeScanTask;
         _instanceScan = await instanceScanTask;
         var catalog = await catalogTask;
         _parameterCatalog = catalog.Parameters;
         _preferredUnitSystem = catalog.PreferredUnitSystem;
+        _floorMatchAliases = FloorMatchAliases.Build(await floorsTask, _sourceRecords, TypeKeyFields);
+        await LoadMoneyContextAsync(catalog.PreferredCurrency);
 
         var dataSourceSettings = SourceKindBox.SelectedIndex == 1
             ? new DataSourceSettings(DataSourceKind.Excel, string.Empty, ExcelPathBox.Text.Trim())
@@ -195,7 +210,191 @@ public sealed partial class MainPage : Page
 
         ConnectStatusText.Text =
             $"{_sourceRecords.Count:N0} source records · {_typeScan.Items.Count:N0} Revit types · " +
-            $"{_instanceScan.Items.Count:N0} planting instances · {catalog.Parameters.Count(p => p.IsWritable):N0} writable parameters.";
+            $"{_instanceScan.Items.Count:N0} planting instances · {catalog.Parameters.Count(p => p.IsWritable):N0} writable parameters" +
+            (_floorMatchAliases.Count > 0 ? $" · {_floorMatchAliases.Count:N0} floor type(s) matched to the row Floor Calculator gave them." : ".");
+        await RefreshNewTreeTypesAsync();
+    }
+
+    /// <summary>
+    /// What currency each money column is in (an Airtable currency field's symbol; none for Excel)
+    /// and the rates into the project currency for every currency the source names. Best-effort:
+    /// without a column's currency its bare numbers import as they stand, as before.
+    /// </summary>
+    private async Task LoadMoneyContextAsync(string projectCurrency)
+    {
+        _fieldCurrencies = new Dictionary<string, string>();
+        if (SourceKindBox.SelectedIndex != 1)
+        {
+            try
+            {
+                _fieldCurrencies = await _airtableApiClient.GetFieldCurrenciesAsync(_airtableSettings, _airtableCredentialStore.Load().Trim());
+            }
+            catch (Exception exception) when (exception is AirtableInsufficientScopeException or HttpRequestException or InvalidOperationException)
+            {
+                // No schema scope on the token: money columns are read from their cells alone.
+            }
+        }
+
+        var currencies = _fieldCurrencies.Values
+            .Concat(_sourceRecords.SelectMany(record => record.Fields.Values)
+                .Select(value => Money.CurrencyOf(ParameterSyncPlanBuilder.ReadSourceValue(value)))
+                .OfType<string>())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        _currencyFactors = await CurrencyFactors.LoadAsync(GetClient(), _exchangeRateService, projectCurrency, currencies);
+    }
+
+    /// <summary>Every floor with the sheet row Floor Calculator saved on it; none when the model has no floors.</summary>
+    private async Task<IReadOnlyList<SelectedFloorItem>> GetFloorMatchesAsync()
+    {
+        try
+        {
+            return (await GetClient().SendAsync<SelectedFloorsResult>(PipeCommands.GetSelectedFloors, new SelectedFloorsRequest(AllFloors: true))).Items;
+        }
+        catch (InvalidOperationException)
+        {
+            return [];
+        }
+    }
+
+    // ---- Revit tree types the Airtable source has no row for ----
+
+    /// <summary>Lists the tree types placed in Revit with no row in the Airtable source, ticking every one that can be added.</summary>
+    private async Task RefreshNewTreeTypesAsync()
+    {
+        NewTreeTypeRows.Clear();
+        var airtable = SourceKindBox.SelectedIndex != 1 && !string.IsNullOrWhiteSpace(_airtableSettings.BaseId);
+        NewTreeTypesCard.Visibility = airtable ? Visibility.Visible : Visibility.Collapsed;
+        NewTreeTypesTable.Visibility = Visibility.Collapsed;
+        UpdateAddNewTreeTypesButton();
+        if (!airtable)
+        {
+            return;
+        }
+
+        // Its own status: a problem here shouldn't stop the sync the rest of the page is for.
+        try
+        {
+            var (_, types) = await FindNewTreeTypesAsync();
+            foreach (var type in types)
+            {
+                NewTreeTypeRows.Add(new NewTreeTypeRow(type));
+            }
+
+            foreach (var row in NewTreeTypeRows.Where(row => row.Type.Conflict is null))
+            {
+                NewTreeTypesList.SelectedItems.Add(row);
+            }
+
+            NewTreeTypesTable.Visibility = types.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            NewTreeTypesStatusText.Text = types.Count == 0
+                ? "Every tree type placed in Revit has a row in Airtable."
+                : $"{types.Count:N0} tree type(s) placed in Revit have no row in Airtable.";
+        }
+        catch (Exception exception)
+        {
+            NewTreeTypesStatusText.Text = $"Couldn't check Airtable for new tree types: {exception.Message}";
+        }
+
+        UpdateAddNewTreeTypesButton();
+    }
+
+    /// <summary>
+    /// The whole source table — not just the view the sync reads, so a row the view hides isn't added
+    /// again — and the tree types it's missing from every design option.
+    /// </summary>
+    private async Task<(IReadOnlyList<AirtableRecord> Records, IReadOnlyList<NewTreeType> Types)> FindNewTreeTypesAsync()
+    {
+        var recordsTask = _airtableApiClient.GetRecordsAsync(_airtableSettings with { ViewName = null }, _airtableCredentialStore.Load().Trim());
+        var scanTask = GetClient().SendAsync<ModelScanResult>(PipeCommands.ScanModel, new ModelScanOptions(PrimaryDesignOptionsOnly: false));
+        await Task.WhenAll(recordsTask, scanTask);
+        var records = await recordsTask;
+        return (records, NewTreeTypes.Find((await scanTask).Items, records, TypeKeyFields, _typeAliases));
+    }
+
+    private void NewTreeTypesList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateAddNewTreeTypesButton();
+
+    private List<NewTreeType> SelectedNewTreeTypes() =>
+        NewTreeTypesList.SelectedItems.Cast<NewTreeTypeRow>().Select(row => row.Type).Where(type => type.Conflict is null).ToList();
+
+    private void UpdateAddNewTreeTypesButton()
+    {
+        var count = SelectedNewTreeTypes().Count;
+        AddNewTreeTypesButton.Content = count == 1 ? "Add 1 type to Airtable" : $"Add {count:N0} types to Airtable";
+        AddNewTreeTypesButton.IsEnabled = count > 0 && !_addingTreeTypes;
+    }
+
+    private async void AddNewTreeTypes_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = SelectedNewTreeTypes();
+        if (selected.Count == 0 || _addingTreeTypes)
+        {
+            return;
+        }
+
+        // A second click while rows are being added would add them twice.
+        _addingTreeTypes = true;
+        AddNewTreeTypesButton.IsEnabled = false;
+        try
+        {
+            await AddNewTreeTypesAsync(selected);
+        }
+        finally
+        {
+            _addingTreeTypes = false;
+            UpdateAddNewTreeTypesButton();
+        }
+    }
+
+    private async Task AddNewTreeTypesAsync(List<NewTreeType> selected)
+    {
+        var confirmation = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Add tree types to Airtable?",
+            Content = $"This adds {selected.Count:N0} row(s) to the Airtable table {_airtableSettings.TableIdOrName}, each with only the type name, \"Tree\" and its species code, for you to fill in. Nothing in Revit changes.",
+            PrimaryButtonText = "Add to Airtable",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close
+        };
+        if (await confirmation.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        await RunBusyAsync(async () =>
+        {
+            string status;
+            try
+            {
+                // Checked again against the table as it is now, so a row someone just added isn't added twice.
+                var (records, missing) = await FindNewTreeTypesAsync();
+                var wanted = selected.Select(type => (type.FamilyName, type.TypeName)).ToHashSet();
+                var toAdd = missing.Where(type => type.Conflict is null && wanted.Contains((type.FamilyName, type.TypeName))).ToList();
+                var added = toAdd.Count == 0
+                    ? []
+                    : await _airtableApiClient.CreateRecordsAsync(
+                        _airtableSettings, _airtableCredentialStore.Load().Trim(), [.. toAdd.Select(type => NewTreeTypes.Fields(type, records))]);
+                status = $"Added {added.Count:N0} row(s) to Airtable{(toAdd.Count > 0 ? $" ({string.Join(", ", toAdd.Select(type => type.TypeName))})" : string.Empty)}" +
+                         $"{(selected.Count > toAdd.Count ? $"; {selected.Count - toAdd.Count:N0} already had one" : string.Empty)}. Fill them in there, then reload and preview.";
+            }
+            catch (Exception exception)
+            {
+                status = $"Couldn't add to Airtable: {exception.Message}";
+            }
+
+            // What was added stays on screen even if reloading fails.
+            try
+            {
+                await ConnectAsync();
+            }
+            catch (Exception exception)
+            {
+                status += $" Reloading failed: {exception.Message}";
+            }
+
+            NewTreeTypesStatusText.Text = status;
+        });
     }
 
     private async Task<IReadOnlyList<AirtableRecord>> LoadSourceRecordsAsync()
@@ -389,7 +588,7 @@ public sealed partial class MainPage : Page
             ApplyButton.IsEnabled = false;
             var hiddenUnchanged = 0;
 
-            var typeMatches = StableTypeMatcher.Build(_typeScan.Items, _sourceRecords, TypeKeyFields, _typeAliases);
+            var typeMatches = StableTypeMatcher.Build(_typeScan.Items, _sourceRecords, TypeKeyFields, FloorMatchAliases.Merge(_typeAliases, _floorMatchAliases));
             var (typeWriteItems, skippedTypeFields) = BuildTypeWriteItems(typeMatches);
             foreach (var match in typeMatches.Where(m => m.Status != "Matched"))
             {
@@ -478,10 +677,8 @@ public sealed partial class MainPage : Page
                     continue;
                 }
 
-                var raw = ParameterSyncPlanBuilder.ReadSourceValue(sourceValue);
-                var normalized = ImportUnitNormalizer.Normalize(
-                    raw, mapping.SelectedAirtableField!, target, mapping.SelectedConversion,
-                    _preferredUnitSystem, ParameterSyncPlanBuilder.ReadRecordUnitSystem(match.Record));
+                var normalized = NormalizeSourceValue(
+                    ParameterSyncPlanBuilder.ReadSourceValue(sourceValue), mapping.SelectedAirtableField!, target, mapping.SelectedConversion, match.Record);
                 if (!normalized.Success)
                 {
                     skipped.Add(TypeSyncRow.FromNormalizationFailure(
@@ -496,6 +693,26 @@ public sealed partial class MainPage : Page
         }
 
         return (items, skipped);
+    }
+
+    /// <summary>
+    /// A source value as its target takes it: money put into the project currency
+    /// (<see cref="ImportMoney"/>), then units normalized (<see cref="ImportUnitNormalizer"/>).
+    /// </summary>
+    private ImportUnitNormalizationResult NormalizeSourceValue(
+        string raw, string sourceField, RevitParameterDescriptor target, string conversion, AirtableRecord record)
+    {
+        var money = ImportMoney.Convert(raw, sourceField, target, _fieldCurrencies, _currencyFactors);
+        if (!money.Success)
+        {
+            return new ImportUnitNormalizationResult(false, raw, money.Message);
+        }
+
+        var normalized = ImportUnitNormalizer.Normalize(
+            money.Value, sourceField, target, conversion, _preferredUnitSystem, ParameterSyncPlanBuilder.ReadRecordUnitSystem(record));
+        return money.Message is null || !normalized.Success
+            ? normalized
+            : normalized with { Message = normalized.Message is null ? money.Message : $"{money.Message} {normalized.Message}" };
     }
 
     /// <summary>
@@ -556,10 +773,8 @@ public sealed partial class MainPage : Page
                     continue;
                 }
 
-                var raw = ParameterSyncPlanBuilder.ReadSourceValue(sourceValue);
-                var normalized = ImportUnitNormalizer.Normalize(
-                    raw, mapping.SelectedAirtableField!, target, mapping.SelectedConversion,
-                    _preferredUnitSystem, ParameterSyncPlanBuilder.ReadRecordUnitSystem(match.Record));
+                var normalized = NormalizeSourceValue(
+                    ParameterSyncPlanBuilder.ReadSourceValue(sourceValue), mapping.SelectedAirtableField!, target, mapping.SelectedConversion, match.Record);
                 if (!normalized.Success)
                 {
                     skipped.Add(InstanceSyncRow.FromNormalizationFailure(

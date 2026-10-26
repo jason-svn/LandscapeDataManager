@@ -332,6 +332,56 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Tree types placed in Revit that the Airtable source has no row for: added there as rows to complete. -->
+                        <Border x:Name="NewTreeTypesCard" Style="{StaticResource LimCardStyle}" Visibility="Collapsed">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="ADD NEW TREE TYPES TO AIRTABLE" Style="{StaticResource LimSectionHeaderStyle}" />
+                                <TextBlock Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap"
+                                    Text="Tree types placed in Revit (in any design option) that the Airtable source has no row for. Adding one creates a row with just its type name, &quot;Tree&quot; and its species code, for you to fill in what i-Tree doesn't give — native status, bloom months, maintenance, growth rates; then reload and preview to bring it into Revit. Click rows to tick them; Shift+click ticks a range." />
+                                <Grid x:Name="NewTreeTypesTable" Visibility="Collapsed">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                    <Grid Grid.RowSpan="3" Style="{StaticResource LimTableLanesStyle}" ui:TableLanes.FollowRows="True" Margin="{StaticResource LimTableCheckOffset}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="90" /><ColumnDefinition Width="110" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <Border Grid.ColumnSpan="3" Style="{StaticResource LimTableLaneStyle}" Background="{ThemeResource LimLaneBlueBrush}" />
+                                    </Grid>
+                                    <Grid Style="{StaticResource LimTableGroupRowStyle}" Margin="{StaticResource LimTableCheckOffset}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="90" /><ColumnDefinition Width="110" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.ColumnSpan="3" Text="REVIT" Style="{StaticResource LimTableGroupStyle}" Foreground="{ThemeResource LimLaneBlueTextBrush}" />
+                                    </Grid>
+                                    <Grid Grid.Row="1" Style="{StaticResource LimTableHeaderRowStyle}" Margin="{StaticResource LimTableCheckOffset}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="90" /><ColumnDefinition Width="110" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="Family : Type" Style="{StaticResource LimTableHeaderStyle}" />
+                                        <TextBlock Grid.Column="1" Text="Trees&#x0a;placed" Style="{StaticResource LimTableNumberHeaderStyle}" />
+                                        <TextBlock Grid.Column="2" Text="Species&#x0a;code" Style="{StaticResource LimTableHeaderStyle}" />
+                                        <TextBlock Grid.Column="3" Text="Airtable" Style="{StaticResource LimTableHeaderStyle}" />
+                                    </Grid>
+                                    <ListView Grid.Row="2" x:Name="NewTreeTypesList" AutomationProperties.Name="Tree types to add to Airtable" ItemsSource="{x:Bind NewTreeTypeRows}"
+                                        SelectionMode="Multiple" MaxHeight="320" ItemContainerStyle="{StaticResource LimTableCheckItemStyle}" SelectionChanged="NewTreeTypesList_SelectionChanged">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate x:DataType="local:NewTreeTypeRow">
+                                                <Grid Style="{StaticResource LimTableRowStyle}">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="90" /><ColumnDefinition Width="110" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{x:Bind FamilyType}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind FamilyType}" />
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind TreeCountText}" TextAlignment="Right" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind SpeciesCodeText}" />
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind AirtableText}" Opacity="0.75" TextWrapping="Wrap" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </Grid>
+                                <Grid ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="AddNewTreeTypesButton" Content="Add to Airtable" Click="AddNewTreeTypes_Click" IsEnabled="False"
+                                        Style="{StaticResource LimSecondaryButtonStyle}" />
+                                    <TextBlock Grid.Column="1" x:Name="NewTreeTypesStatusText" Style="{StaticResource LimMutedTextStyle}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
                         <Border Style="{StaticResource LimCardStyle}">
                             <StackPanel Spacing="10">
                                 <TextBlock Text="INSTANCE PAIRING" Style="{StaticResource LimSectionHeaderStyle}" />

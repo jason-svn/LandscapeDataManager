@@ -128,7 +128,7 @@ public sealed class WwpSheetTreeEstimatesTests
     [Fact]
     public void An_estimate_stores_the_sheets_per_tree_figures_and_no_signature()
     {
-        var writes = WwpSheetTreeEstimates.BuildEstimateWrites("uid", Sheet[0], SheetRowMatch.SpeciesCode, "Missing: TreeTrunk_DBH", "Metric", "GBP", 1.25, 0.8)
+        var writes = WwpSheetTreeEstimates.BuildEstimateWrites("uid", Sheet[0], SheetRowMatch.SpeciesCode, "Missing: TreeTrunk_DBH", "Metric", "USD", new CurrencyFactors("USD", new Dictionary<string, double> { ["GBP"] = 1.25 }), 0.8)
             .ToDictionary(write => write.RevitParameter, write => write.SourceValue);
         double Value(string parameter) => double.Parse(writes[parameter], CultureInfo.InvariantCulture);
 
@@ -153,7 +153,7 @@ public sealed class WwpSheetTreeEstimatesTests
             Tree("Shrub", "Box", null)
         };
 
-        var (writes, summary) = WwpSheetTreeEstimates.Plan(trees, [Sheet[0], Sheet[1]], "Metric", "GBP", 1, 1);
+        var (writes, summary) = WwpSheetTreeEstimates.Plan(trees, [Sheet[0], Sheet[1]], "Metric", "GBP", new CurrencyFactors("GBP", new Dictionary<string, double>()), 1);
 
         Assert.Equal(1, summary.Estimated);
         Assert.Equal(2, summary.PollenWritten);

@@ -26,8 +26,9 @@ public sealed partial class MainPage : Page
     private string _preferredCurrency = "USD";
     private double _preferredCurrencyFactor = 1d;
     private string _preferredUnitSystem = "Metric";
-    // Project-currency units per sheet pound: the WWP sheet's money is in GBP ("£15.80").
-    private double _sheetCurrencyFactor = 1d;
+    // Rates into the project currency for the sheet's money (pounds, or the currency a cell names);
+    // null until loaded, when costs are taken as they stand.
+    private CurrencyFactors? _sheetCurrencies;
 
     // Set when the live rate lookup failed at load: costs can't be written in the project's
     // currency, so Calculate is refused rather than storing US-dollar figures labelled as it.
@@ -172,9 +173,7 @@ public sealed partial class MainPage : Page
             _rateUnavailableMessage = rate.Success ? null : ProjectExchangeRate.UnavailableMessage(rate);
             if (_rateUnavailableMessage is null)
             {
-                var sheetFactor = await WwpLdsSheet.CurrencyFactorAsync(GetClient(), _exchangeRateService, rate.CurrencyCode);
-                _sheetCurrencyFactor = sheetFactor ?? 1d;
-                _rateUnavailableMessage = sheetFactor is null ? $"No GBP → {rate.CurrencyCode} exchange rate available for the sheet's £ values." : null;
+                await LoadSheetCurrenciesAsync();
             }
 
             if (_rateUnavailableMessage is not null)
@@ -226,8 +225,26 @@ public sealed partial class MainPage : Page
             var coefficients = await WwpLdsSheet.SyncAsync(_wwpLdsSettings, token, _airtableClient, _coefficientDatabase);
 
             await RefreshCatalogueStatusAsync();
-            StatusText.Text = $"Synced {coefficients.Count:N0} landscape data sheet rows from Airtable.";
+            if (_sheetCurrencies is not null)
+            {
+                // The new rows may name a currency the last load had no rate for.
+                await LoadSheetCurrenciesAsync();
+            }
+
+            StatusText.Text = $"Synced {coefficients.Count:N0} landscape data sheet rows from Airtable." +
+                (_rateUnavailableMessage is null ? string.Empty : " " + _rateUnavailableMessage);
         });
+    }
+
+    /// <summary>
+    /// Rates for the sheet's money into the project currency; Calculate is refused (see
+    /// <see cref="_rateUnavailableMessage"/>) while any currency the sheet uses has none.
+    /// </summary>
+    private async Task LoadSheetCurrenciesAsync()
+    {
+        var (factors, missing) = await WwpLdsSheet.CurrencyFactorsAsync(GetClient(), _exchangeRateService, _preferredCurrency, _allCoefficients);
+        _sheetCurrencies = factors;
+        _rateUnavailableMessage = missing is null ? null : $"No {missing} → {_preferredCurrency} exchange rate available for the sheet's {missing} values.";
     }
 
     private async void LoadSelectedFloors_Click(object sender, RoutedEventArgs e) => await RunBusyAsync(() => LoadFloorsAsync(allFloors: false));
@@ -312,8 +329,8 @@ public sealed partial class MainPage : Page
     /// <summary>
     /// Recomputes each metric's coefficient-derived default (coefficient × area, or as-is for the
     /// two intrinsic temperature metrics) without touching any metric already flagged Manual. The
-    /// cost-saved coefficient is the WWP landscape data sheet's figure in pounds ("£15.80"), so it's
-    /// converted to the project's preferred currency here — the same point i-Tree Calculator applies
+    /// cost-saved coefficient is the WWP landscape data sheet's figure in pounds ("£15.80") or the
+    /// currency its cell names, so it's converted to the project's preferred currency here — the same point i-Tree Calculator applies
     /// its rate — so a manual override afterward starts from (and edits) the already-converted number.
     /// </summary>
     private void UpdateComputedValues(FloorAssignmentRow row)
@@ -325,12 +342,18 @@ public sealed partial class MainPage : Page
         metrics[FloorAssignmentRow.Co2Index].ComputedValue = (record?.Co2SequesteredAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.RunoffIndex].ComputedValue = (record?.RunoffAvoidedAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.PollutionIndex].ComputedValue = (record?.PollutionMassRemovedAnnual ?? 0) * area;
-        metrics[FloorAssignmentRow.CostSavedIndex].ComputedValue = (record?.CostSavedAnnual ?? 0) * area * _sheetCurrencyFactor;
+        metrics[FloorAssignmentRow.CostSavedIndex].ComputedValue = CostSaved(record) * area;
         metrics[FloorAssignmentRow.OxygenIndex].ComputedValue = (record?.OxygenProducedAnnual ?? 0) * area;
         metrics[FloorAssignmentRow.GwpIndex].ComputedValue = (record?.TotalGwp ?? 0) * area;
         metrics[FloorAssignmentRow.SurfaceTempIndex].ComputedValue = record?.SurfaceTempReduction ?? 0;
         metrics[FloorAssignmentRow.AirTempIndex].ComputedValue = record?.AirTempReduction ?? 0;
     }
+
+    /// <summary>A sheet row's cost saved per m² in the project currency (as it stands until the rates load).</summary>
+    private double CostSaved(WwpLdsCoefficientRecord? record) =>
+        record is null ? 0
+        : _sheetCurrencies is null ? record.CostSavedAnnual ?? 0
+        : WwpLdsSheet.CostSavedIn(_sheetCurrencies, record) ?? 0;
 
     private FloorLdsValues BuildValues(FloorAssignmentRow row)
     {
@@ -558,8 +581,10 @@ public sealed partial class MainPage : Page
     /// </summary>
     private async Task<string> FillTreesAsync()
     {
+        var currencies = _sheetCurrencies ??
+            (await WwpLdsSheet.CurrencyFactorsAsync(GetClient(), _exchangeRateService, _preferredCurrency, _allCoefficients)).Factors;
         var summary = await WwpSheetTreeEstimates.RunAsync(
-            GetClient(), _allCoefficients, _preferredUnitSystem, _preferredCurrency, _sheetCurrencyFactor, _preferredCurrencyFactor);
+            GetClient(), _allCoefficients, _preferredUnitSystem, _preferredCurrency, currencies, _preferredCurrencyFactor);
         return summary.Describe();
     }
 

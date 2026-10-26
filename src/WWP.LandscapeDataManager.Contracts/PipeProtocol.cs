@@ -377,7 +377,8 @@ public sealed record WwpLdsCoefficientRecord(
     string? SpeciesCode = null,
     double? PollenRate = null,
     double? IrrigationDemandFactor = null,
-    string? Allergenic = null);
+    string? Allergenic = null,
+    string? CostSavedCurrency = null);
 
 /// <summary>One distinct selected Floor instance, with whatever WWP landscape data sheet type is already assigned (if any).</summary>
 public sealed record SelectedFloorItem(
@@ -686,7 +687,36 @@ public sealed record DashboardTreeItem(
     string? Allergenic = null,
     PlantingInstanceValidationItem? Inputs = null,
     string? PhaseRole = null,
-    bool IsGrowthCopy = false);
+    bool IsGrowthCopy = false,
+    PlantAppearance? Appearance = null);
+
+/// <summary>
+/// A species' year in colour, from the WWP sheet through the Importer (Planting Type scope): its
+/// flower colour, the months it carries ripe fruit or seed with the fruit's colour and kind, and its
+/// dominant colour each season (winter: bark or twigs when deciduous). Colours read "Name #RRGGBB".
+/// Null on a tree whose type has none of it, and from a connector before v1.9.
+/// </summary>
+public sealed record PlantAppearance(
+    string? FlowerColour,
+    string? FruitMonths,
+    string? FruitColour,
+    string? FruitType,
+    string? SpringColour,
+    string? SummerColour,
+    string? AutumnColour,
+    string? WinterColour)
+{
+    public const string FlowerColourParameter = "!_S_PLT_iTreeSpecies_FlowerColour_Text";
+    public const string FruitMonthsParameter = "!_S_PLT_iTreeSpecies_FruitMonths_Text";
+    public const string FruitColourParameter = "!_S_PLT_iTreeSpecies_FruitColour_Text";
+    public const string FruitTypeParameter = "!_S_PLT_iTreeSpecies_FruitType_Text";
+    public const string SpringColourParameter = "!_S_PLT_iTreeSpecies_SpringColour_Text";
+    public const string SummerColourParameter = "!_S_PLT_iTreeSpecies_SummerColour_Text";
+    public const string AutumnColourParameter = "!_S_PLT_iTreeSpecies_AutumnColour_Text";
+    public const string WinterColourParameter = "!_S_PLT_iTreeSpecies_WinterColour_Text";
+
+    public bool IsEmpty => new[] { FlowerColour, FruitMonths, FruitColour, FruitType, SpringColour, SummerColour, AutumnColour, WinterColour }.All(string.IsNullOrWhiteSpace);
+}
 
 /// <summary>
 /// One Floor (planted/paved landscape area) instance's identity, placement, and stored LDS/i-Tree

@@ -14,6 +14,8 @@ LIM（Landscape Information Manager）的计划、已完成的工作，以及修
 - **KPI Schedules 在有生长年份时按 workset 给种植明细表分组**，每年一个小计，这样一棵树不会每个生长年份都被计一次。（从 Phase 3 起，再次运行 KPI Schedules 会把新增的列加到已有明细表里；只有要改分组时才需要删掉明细表。）
 - Dashboard 卡片计入种植区（Airtable）的碳、径流、污染物和节省费用。BNG 标签不再重复显示两次 "primary"。
 
+**v1.9.0**（2026-10-26 推送到 `roadmap-phases-2-5`，尚未发布；还没安装，也没在 Revit 里试过，因为当时 Revit 开着）：Airtable 里的金额在所有地方都换算成项目货币。Importer、Floor Calculator 和 Tree Calculator 读取单元格写明的币种（"£20"、"US$10"、"€8"）或 Airtable 货币字段的币种，按项目汇率换算；没有汇率的值会跳过，不会未经换算就写入。植物颜色：八个新的类型参数（花色、果期、果色和果实类型、四季颜色）填充 Dashboard 的物候表（花色圆点、果实标记、每个月按季节颜色着色），也进入网页导出（schema 11）。Importer 会把 Airtable 表里还没有的 Revit 树类型添加为新行，并让每种 floor 类型保持 Floor Calculator 匹配到的那一行。
+
 **v1.8.0**（2026-10-25 推送到 `roadmap-phases-2-5`，尚未发布）：网页 Dashboard 的 3D 可以按模型里 Revit 视图的过滤器给树和 floor 上色（JSON 导出 schema 10，"Colour by"）。BNG 页的 floor 列表又能滚动了：窗口边缘加了一条滚动条（列表自己的滚动条在很宽的表格最右边，看不到），鼠标滚轮也能滚。所有能多选的列表都支持 Shift+点击选一段——现在 Parameters 的勾选框和网页 Dashboard 的结果面板也支持——并在列表上方写明。
 
 **v1.7.0**（2026-10-24 推送到 `roadmap-phases-2-5`，尚未发布）：网页 Dashboard 的 3D 视图——connector 导出场景几何、用 C# 实现 family 的尺寸公式、JSON 导出 schema 9（自动生成生长年份），以及没有尺寸的旧 i-Tree 预测会重新请求。详见下面的"网页 Dashboard 的 3D 视图"。2026-10-25 已在 sandbox 上实测。

@@ -954,6 +954,25 @@ internal static class SharedParameterSetupService
                 "Comma-separated calendar months (1-12) this species blooms or seeds in, used to compute phenological resilience."),
             PlantingType("!_S_PLT_iTreeSpecies_EcologicalFunctions_Text", GroupTypeId.General,
                 "Comma-separated ecological function tags for this species (e.g. Pollinator, BirdFood, ErosionControl), used to compute the functional diversity index."),
+            // A species' year in colour, for the Dashboard's phenology table: its flowers, its fruit
+            // (when, what colour, what kind) and its colour each season — "Name #RRGGBB" — from the
+            // WWP sheet through the Importer.
+            PlantingType("!_S_PLT_iTreeSpecies_FlowerColour_Text", GroupTypeId.General,
+                "This species' flower colour (colour name and hex, e.g. \"Creamy white #F3EFD9\"), from the WWP landscape data sheet, for the Dashboard's year at a glance."),
+            PlantingType("!_S_PLT_iTreeSpecies_FruitMonths_Text", GroupTypeId.General,
+                "Comma-separated calendar months (1-12) this species carries ripe fruit or seed, from the WWP landscape data sheet; with the bloom months, used to compute phenological resilience."),
+            PlantingType("!_S_PLT_iTreeSpecies_FruitColour_Text", GroupTypeId.General,
+                "This species' ripe fruit colour (colour name and hex, e.g. \"Creamy white #F3EFD9\"), from the WWP landscape data sheet."),
+            PlantingType("!_S_PLT_iTreeSpecies_FruitType_Text", GroupTypeId.General,
+                "This species' kind of fruit (Berry, Drupe, Pome, Nut, Acorn, Samara, Cone, Pod, Capsule, Fig, Catkin, Seed head or None), from the WWP landscape data sheet; picks its mark in the Dashboard."),
+            PlantingType("!_S_PLT_iTreeSpecies_SpringColour_Text", GroupTypeId.General,
+                "This species' dominant colour in spring, March to May (colour name and hex, e.g. \"Creamy white #F3EFD9\"), from the WWP landscape data sheet."),
+            PlantingType("!_S_PLT_iTreeSpecies_SummerColour_Text", GroupTypeId.General,
+                "This species' dominant colour in summer, June to August (colour name and hex, e.g. \"Creamy white #F3EFD9\"), from the WWP landscape data sheet."),
+            PlantingType("!_S_PLT_iTreeSpecies_AutumnColour_Text", GroupTypeId.General,
+                "This species' dominant colour in autumn, September to November (colour name and hex, e.g. \"Creamy white #F3EFD9\"), from the WWP landscape data sheet."),
+            PlantingType("!_S_PLT_iTreeSpecies_WinterColour_Text", GroupTypeId.General,
+                "This species' dominant colour in winter, December to February: its bark or twigs when deciduous (colour name and hex, e.g. \"Creamy white #F3EFD9\"), from the WWP landscape data sheet."),
             LightingFixtureType("!_S_PLT_Lighting_DarkSkyCompliant_Text", GroupTypeId.General,
                 "Yes or No: whether this lighting fixture type is shielded/full-cutoff and compliant with dark-sky standards, used to compute lighting impact reduction."),
 

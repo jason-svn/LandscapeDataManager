@@ -93,4 +93,27 @@ public class StableTypeMatcherTests
 
         Assert.Equal("Missing", Assert.Single(results).Status);
     }
+
+    private static AirtableRecord SpeciesRecord(string id, string typeValue, string code) =>
+        new(id, new Dictionary<string, JsonElement>
+        {
+            ["Types"] = JsonSerializer.SerializeToElement(typeValue),
+            ["Species Code"] = JsonSerializer.SerializeToElement(code)
+        });
+
+    [Fact]
+    public void A_species_code_several_records_share_is_settled_by_the_type_name()
+    {
+        var records = new[] { SpeciesRecord("recWild", "Prunus_Avium", "PRAV"), SpeciesRecord("recPlena", "Prunus_Avium_Plena", "PRAV") };
+        var revitTypes = new[]
+        {
+            RevitType("Trees", "Prunus_Avium_Plena") with { SpeciesCode = "PRAV" },
+            RevitType("Trees", "Prunus_Avium_Stella", 2) with { SpeciesCode = "PRAV" }
+        };
+
+        var results = StableTypeMatcher.Build(revitTypes, records, KeyFields, []);
+
+        Assert.Equal(("Matched", "recPlena"), (results[0].Status, results[0].Record!.Id));
+        Assert.Equal("Duplicate", results[1].Status);
+    }
 }

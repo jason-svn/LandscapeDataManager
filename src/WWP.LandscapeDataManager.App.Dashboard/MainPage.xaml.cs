@@ -910,7 +910,7 @@ public sealed partial class MainPage : Page
             high: 80d, medium: 60d);
 
         PhenologicalResilienceText.Text = $"{summary.DistinctBloomMonthsCount} months";
-        PhenologicalResilienceDetailText.Text = "Distinct calendar months with a bloom/seed source, from !_S_PLT_iTreeSpecies_BloomMonths_Text.";
+        PhenologicalResilienceDetailText.Text = "Distinct calendar months with something in flower or in fruit, from the WWP sheet's bloom and fruit months.";
         PhenologicalResilienceText.Foreground = Tier(summary.DistinctBloomMonthsCount, high: 9d, medium: 6d);
 
         FunctionalDiversityText.Text = $"{summary.DistinctEcologicalFunctionsCount} function{(summary.DistinctEcologicalFunctionsCount == 1 ? "" : "s")}";

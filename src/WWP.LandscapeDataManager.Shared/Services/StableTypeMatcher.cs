@@ -8,7 +8,8 @@ namespace WWP.LandscapeDataManager.Shared.Services;
 /// <summary>
 /// Matches Revit types to source records, preferring a species code (an exact, unambiguous
 /// identity) over Family + Type display name. The source's "Species Code" column is checked
-/// first when the Revit type has one; the type-name column is still the fallback signal for
+/// first when the Revit type has one (when several records share the code, the type's name picks
+/// one of them); the type-name column is still the fallback signal for
 /// types with no species code assigned (e.g. non-planting Floor types), or when the source has
 /// no Species Code column at all. When two Revit types of different Families normalize to the
 /// same name, name-based matching reports the collision as ambiguous rather than guessing —
@@ -57,10 +58,19 @@ public static class StableTypeMatcher
             var normalizedCode = Normalize(revitType.SpeciesCode);
             if (speciesCodeIndex.TryGetValue(normalizedCode, out var codeMatches) && codeMatches.Count > 0)
             {
-                return codeMatches.Count == 1
-                    ? new TypeMatch(revitType, codeMatches[0], "Matched", null)
+                if (codeMatches.Count == 1)
+                {
+                    return new TypeMatch(revitType, codeMatches[0], "Matched", null);
+                }
+
+                // Varieties of one species share its code (Prunus_Avium, Prunus_Avium_Plena): the type's name picks between them.
+                var byName = sourceIndex.TryGetValue(Normalize(revitType.TypeName), out var nameMatches)
+                    ? codeMatches.Where(nameMatches.Contains).ToList()
+                    : [];
+                return byName.Count == 1
+                    ? new TypeMatch(revitType, byName[0], "Matched", null)
                     : new TypeMatch(revitType, null, "Duplicate",
-                        $"More than one source record has Species Code '{revitType.SpeciesCode}'.");
+                        $"More than one source record has Species Code '{revitType.SpeciesCode}', and its type name doesn't single one out.");
             }
         }
 
@@ -153,7 +163,8 @@ public static class StableTypeMatcher
         }
     }
 
-    private static string Normalize(string value)
+    /// <summary>A name as matching compares it: letters and digits only, accents dropped, upper case.</summary>
+    internal static string Normalize(string value)
     {
         var builder = new StringBuilder(value.Length);
         foreach (var character in value.Normalize(NormalizationForm.FormD))

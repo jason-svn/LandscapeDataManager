@@ -277,12 +277,13 @@ public sealed partial class MainPage : Page
             return "WWP sheet: " + ProjectExchangeRate.UnavailableMessage(rate);
         }
 
-        if (await WwpLdsSheet.CurrencyFactorAsync(GetClient(), _exchangeRateService, rate.CurrencyCode) is not { } sheetFactor)
+        var (sheetCurrencies, missing) = await WwpLdsSheet.CurrencyFactorsAsync(GetClient(), _exchangeRateService, rate.CurrencyCode, rows);
+        if (missing is not null)
         {
-            return $"WWP sheet: no GBP → {rate.CurrencyCode} exchange rate for the sheet's £ values.";
+            return $"WWP sheet: no {missing} → {rate.CurrencyCode} exchange rate for the sheet's {missing} values.";
         }
 
-        var summary = await WwpSheetTreeEstimates.RunAsync(GetClient(), rows, _preferredUnitSystem, rate.CurrencyCode, sheetFactor, rate.UsdRate);
+        var summary = await WwpSheetTreeEstimates.RunAsync(GetClient(), rows, _preferredUnitSystem, rate.CurrencyCode, sheetCurrencies, rate.UsdRate);
         return summary.Describe();
     }
 

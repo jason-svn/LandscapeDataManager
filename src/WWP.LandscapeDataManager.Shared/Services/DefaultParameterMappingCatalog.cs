@@ -1,3 +1,4 @@
+using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Models;
 
 namespace WWP.LandscapeDataManager.Shared.Services;
@@ -159,6 +160,15 @@ public static class DefaultParameterMappingCatalog
         "Native_Status" => ["!_S_PLT_iTreeSpecies_NativeStatus_Text", header],
         "Bloom_Months" => ["!_S_PLT_iTreeSpecies_BloomMonths_Text", header],
         "Ecological_Functions" => ["!_S_PLT_iTreeSpecies_EcologicalFunctions_Text", header],
+        // A species' year in colour, for the Dashboard's phenology table (PlantAppearance).
+        "Flower_Colour" => [PlantAppearance.FlowerColourParameter, header],
+        "Fruit_Months" => [PlantAppearance.FruitMonthsParameter, header],
+        "Fruit_Colour" => [PlantAppearance.FruitColourParameter, header],
+        "Fruit_Type" => [PlantAppearance.FruitTypeParameter, header],
+        "Spring_Colour" => [PlantAppearance.SpringColourParameter, header],
+        "Summer_Colour" => [PlantAppearance.SummerColourParameter, header],
+        "Autumn_Colour" => [PlantAppearance.AutumnColourParameter, header],
+        "Winter_Colour" => [PlantAppearance.WinterColourParameter, header],
         "Max_Height" => ["!_S_PLT_LDS_MaxHeight_Length", header],
         "Max_Width" => ["!_S_PLT_LDS_MaxWidth_Length", header],
         // The growth rates: filled from i-Tree's forecast by Growth Projections (Growth rates from

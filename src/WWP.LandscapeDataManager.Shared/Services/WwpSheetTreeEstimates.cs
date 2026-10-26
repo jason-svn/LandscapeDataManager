@@ -130,7 +130,7 @@ public static class WwpSheetTreeEstimates
     }
 
     /// <summary>The estimate's writes: status and tracking, the sheet's per-tree figures, and zeros for i-Tree-only results.</summary>
-    /// <param name="sheetCurrencyFactor">Project-currency units per sheet pound (see <see cref="WwpLdsSheet.CurrencyFactorAsync"/>).</param>
+    /// <param name="sheetCurrencies">Rates into the project currency for the sheet's money (see <see cref="WwpLdsSheet.CurrencyFactorsAsync"/>).</param>
     /// <param name="usdRate">USD→project-currency rate, stored like an i-Tree result's so the Dashboard can convert it.</param>
     public static IReadOnlyList<InstanceParameterWriteItem> BuildEstimateWrites(
         string uniqueId,
@@ -139,7 +139,7 @@ public static class WwpSheetTreeEstimates
         string reason,
         string unitSystem,
         string currency,
-        double sheetCurrencyFactor,
+        CurrencyFactors sheetCurrencies,
         double usdRate)
     {
         var co2Equivalent = row.Co2SequesteredAnnual ?? 0d;
@@ -160,7 +160,7 @@ public static class WwpSheetTreeEstimates
             Mass(uniqueId, "!_S_PLT_Result_OxygenProducedAnnual_Mass", row.OxygenProducedAnnual ?? co2Equivalent * UnitConversions.OxygenToCo2MassRatio),
             Volume(uniqueId, "!_S_PLT_iTreeResult_RunoffAvoidedAnnual_Volume", row.RunoffAvoidedAnnual ?? 0d),
             Mass(uniqueId, "!_S_PLT_Result_PollutantsRemovedAnnual_Mass", row.PollutionMassRemovedAnnual ?? 0d),
-            Number(uniqueId, "!_S_PLT_iTreeResult_CostSavedAnnual_Currency", (row.CostSavedAnnual ?? 0d) * sheetCurrencyFactor)
+            Number(uniqueId, "!_S_PLT_iTreeResult_CostSavedAnnual_Currency", WwpLdsSheet.CostSavedIn(sheetCurrencies, row) ?? 0d)
         };
 
         // What only i-Tree gives (each pollutant, rainfall, the money split, lifetime totals): zero,
@@ -193,7 +193,7 @@ public static class WwpSheetTreeEstimates
         IReadOnlyList<WwpLdsCoefficientRecord> rows,
         string unitSystem,
         string currency,
-        double sheetCurrencyFactor,
+        CurrencyFactors sheetCurrencies,
         double usdRate)
     {
         var writes = new List<InstanceParameterWriteItem>();
@@ -213,7 +213,7 @@ public static class WwpSheetTreeEstimates
             pollen++;
             if (NeedsEstimate(tree))
             {
-                writes.AddRange(BuildEstimateWrites(tree.UniqueId, row, how, Reason(tree), unitSystem, currency, sheetCurrencyFactor, usdRate));
+                writes.AddRange(BuildEstimateWrites(tree.UniqueId, row, how, Reason(tree), unitSystem, currency, sheetCurrencies, usdRate));
                 estimated++;
             }
         }
@@ -227,7 +227,7 @@ public static class WwpSheetTreeEstimates
         IReadOnlyList<WwpLdsCoefficientRecord> rows,
         string unitSystem,
         string currency,
-        double sheetCurrencyFactor,
+        CurrencyFactors sheetCurrencies,
         double usdRate)
     {
         if (!rows.Any(IsTreeRow))
@@ -236,7 +236,7 @@ public static class WwpSheetTreeEstimates
         }
 
         var scan = await client.SendAsync<ValidatePlantingInstancesResult>(PipeCommands.ValidatePlantingInstances, new ValidatePlantingInstancesRequest());
-        var (writes, summary) = Plan(scan.Items, rows, unitSystem, currency, sheetCurrencyFactor, usdRate);
+        var (writes, summary) = Plan(scan.Items, rows, unitSystem, currency, sheetCurrencies, usdRate);
         // One transaction per batch keeps a large model's write responsive.
         foreach (var batch in writes.Chunk(20000))
         {

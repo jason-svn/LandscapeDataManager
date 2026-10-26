@@ -16,11 +16,12 @@ public sealed record AirtableTableSummary(string Id, string Name, IReadOnlyList<
 public sealed record AirtableViewSummary(string Id, string Name);
 
 /// <summary>
-/// Thrown when the Airtable Metadata API rejects a request with 403 Forbidden — almost always
+/// Thrown when Airtable rejects a request with 403 Forbidden — for the Metadata API almost always
 /// because the personal access token was created without the <c>schema.bases:read</c> scope that
 /// listing bases/tables/views requires (records-only tokens predate this browsing feature and
-/// commonly lack it). Kept distinct from a generic <see cref="HttpRequestException"/> so callers
-/// can show a scope-specific message instead of a generic network error.
+/// commonly lack it); for adding records, a token without <c>data.records:write</c> or edit access.
+/// Kept distinct from a generic <see cref="HttpRequestException"/> so callers can show a
+/// scope-specific message instead of a generic network error.
 /// </summary>
 public sealed class AirtableInsufficientScopeException(string message) : Exception(message);
 
@@ -126,6 +127,67 @@ public sealed class AirtableApiClient
     }
 
     /// <summary>
+    /// Adds records to the table, ten per request (Airtable's limit) with a pause between requests to
+    /// stay under its five requests a second; select values are typecast. Returns the added records,
+    /// with their new IDs, in order. A failed request stops there: the earlier requests' records are
+    /// already added, and the exception says how many. A 403 means the token can't write records.
+    /// </summary>
+    public async Task<IReadOnlyList<AirtableRecord>> CreateRecordsAsync(
+        AirtableApiSettings settings,
+        string apiToken,
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> records,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(apiToken))
+        {
+            throw new ArgumentException("An Airtable personal access token is required.", nameof(apiToken));
+        }
+
+        if (string.IsNullOrWhiteSpace(settings.BaseId) || string.IsNullOrWhiteSpace(settings.TableIdOrName))
+        {
+            throw new ArgumentException("An Airtable base ID and table name (or ID) are required.");
+        }
+
+        var created = new List<AirtableRecord>();
+        var relative = $"{Uri.EscapeDataString(settings.BaseId)}/{Uri.EscapeDataString(settings.TableIdOrName)}";
+        foreach (var batch in records.Chunk(MaxRecordsPerRequest))
+        {
+            if (created.Count > 0)
+            {
+                await Task.Delay(RequestSpacing, cancellationToken).ConfigureAwait(false);
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(relative, UriKind.Relative))
+            {
+                Content = JsonContent.Create(new AirtableRecordsCreate([.. batch.Select(fields => new AirtableFieldUpdate(fields))], true), options: JsonOptions)
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiToken.Trim());
+
+            using var response = await HttpClientInstance.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                var added = created.Count > 0 ? $" {created.Count:N0} record(s) were added before this." : string.Empty;
+                if (response.StatusCode == HttpStatusCode.Forbidden)
+                {
+                    throw new AirtableInsufficientScopeException(
+                        "Airtable refused to add records (403 Forbidden): the token needs the 'data.records:write' scope and edit access to this base." + added);
+                }
+
+                throw new HttpRequestException(
+                    $"Airtable returned {(int)response.StatusCode} {response.ReasonPhrase}: {Truncate(body)}{added}");
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            var page = await JsonSerializer.DeserializeAsync<AirtablePage>(stream, JsonOptions, cancellationToken).ConfigureAwait(false)
+                       ?? throw new InvalidDataException("Airtable returned an empty response.");
+            created.AddRange(page.Records.Select(record => new AirtableRecord(record.Id, record.Fields)));
+        }
+
+        return created;
+    }
+
+    /// <summary>
     /// Makes sure the source table has a number column called <paramref name="fieldName"/>, adding
     /// it when it's missing. True if it was added. Adding needs the token's 'schema.bases:write'
     /// scope and creator access to the base.
@@ -173,6 +235,36 @@ public sealed class AirtableApiClient
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// The currency of each of the table's Airtable currency fields, by field name ("£" → GBP; see
+    /// <see cref="Money.CodeForSymbol"/>): their cells arrive as bare numbers, the symbol only in the
+    /// field's settings. Needs the token's 'schema.bases:read' scope.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, string>> GetFieldCurrenciesAsync(
+        AirtableApiSettings settings,
+        string apiToken,
+        CancellationToken cancellationToken = default)
+    {
+        var page = await SendMetadataRequestAsync<AirtableTablesPage>(
+            $"meta/bases/{Uri.EscapeDataString(settings.BaseId)}/tables", apiToken, cancellationToken).ConfigureAwait(false);
+        var table = page.Tables.FirstOrDefault(table =>
+            string.Equals(table.Id, settings.TableIdOrName, StringComparison.Ordinal) ||
+            string.Equals(table.Name.Trim(), settings.TableIdOrName.Trim(), StringComparison.OrdinalIgnoreCase));
+        var currencies = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var field in table?.Fields ?? [])
+        {
+            if (field.Type == "currency" &&
+                field.Options is { ValueKind: JsonValueKind.Object } options &&
+                options.TryGetProperty("symbol", out var symbol) &&
+                Money.CodeForSymbol(symbol.GetString()) is { } code)
+            {
+                currencies[field.Name] = code;
+            }
+        }
+
+        return currencies;
     }
 
     /// <summary>Lists every base the token can access — the first step of the base/table/view browser in Settings.</summary>
@@ -280,6 +372,13 @@ public sealed class AirtableApiClient
 
     private sealed record AirtableFieldUpdate(IReadOnlyDictionary<string, object?> Fields);
 
+    private sealed record AirtableRecordsCreate(IReadOnlyList<AirtableFieldUpdate> Records, bool Typecast);
+
+    /// <summary>Airtable takes at most ten records per create request, and five requests a second per base.</summary>
+    private const int MaxRecordsPerRequest = 10;
+
+    private static readonly TimeSpan RequestSpacing = TimeSpan.FromMilliseconds(210);
+
     private sealed record AirtablePage(IReadOnlyList<AirtableApiRecord> Records, string? Offset);
 
     private sealed record AirtableApiRecord(string Id, Dictionary<string, JsonElement> Fields);
@@ -292,7 +391,7 @@ public sealed class AirtableApiClient
 
     private sealed record AirtableApiTable(string Id, string Name, IReadOnlyList<AirtableApiView> Views, IReadOnlyList<AirtableApiField>? Fields = null);
 
-    private sealed record AirtableApiField(string Id, string Name, string Type);
+    private sealed record AirtableApiField(string Id, string Name, string Type, JsonElement? Options = null);
 
     private sealed record AirtableApiView(string Id, string Name);
 }

@@ -246,7 +246,25 @@ internal static class DashboardReportService
             PlantingInstanceValidationScanner.ReadItem(document, element, siteLocation.Latitude, siteLocation.Longitude),
             // Retained, lost (demolished), created or excluded, from its phases (see BngPhaseRoles).
             BngFloorService.GetPhaseRole(document, element).Role,
-            GrowthProjectionService.LinkOf(element) is not null);
+            GrowthProjectionService.LinkOf(element) is not null,
+            elementType is null ? null : ReadAppearance(elementType));
+    }
+
+    /// <summary>The type's year in colour (flowers, fruit, seasons); null when it has none of it.</summary>
+    private static PlantAppearance? ReadAppearance(Element elementType)
+    {
+        string? Text(string name) => GetNullableText(elementType, name) is { } value && !string.IsNullOrWhiteSpace(value) ? value.Trim() : null;
+
+        var appearance = new PlantAppearance(
+            Text(PlantAppearance.FlowerColourParameter),
+            Text(PlantAppearance.FruitMonthsParameter),
+            Text(PlantAppearance.FruitColourParameter),
+            Text(PlantAppearance.FruitTypeParameter),
+            Text(PlantAppearance.SpringColourParameter),
+            Text(PlantAppearance.SummerColourParameter),
+            Text(PlantAppearance.AutumnColourParameter),
+            Text(PlantAppearance.WinterColourParameter));
+        return appearance.IsEmpty ? null : appearance;
     }
 
     private static DashboardFloorItem CreateFloorItem(Document document, Element element)

@@ -65,13 +65,14 @@ public sealed class SiteKpiDetailsTests
     public void Phenology_marks_each_species_months_and_counts_species_per_month()
     {
         var table = SiteKpiDetails.Build("Phenology", Inputs());
-        var oak = table.Rows.Single(row => row[0].StartsWith("QURO", StringComparison.Ordinal));
+        var oakIndex = table.Rows.Select((row, index) => (row, index)).Single(pair => pair.row[0].StartsWith("QURO", StringComparison.Ordinal)).index;
+        var oak = table.Looks![oakIndex];
 
-        Assert.Equal(14, table.Columns.Count);
-        Assert.Equal("●", oak[2 + 3]);
-        Assert.Equal(string.Empty, oak[2 + 0]);
-        Assert.Equal("1", table.Total![2 + 3]);
-        Assert.Equal("0", table.Total![2 + 0]);
+        Assert.Equal(15, table.Columns.Count);
+        Assert.Equal(SiteDetailMark.FlowerKind, Assert.Single(oak[2 + 3]!.Marks).Kind);
+        Assert.Null(oak[2 + 0]);
+        Assert.Equal("1 / 0", table.Total![2 + 3]);
+        Assert.Equal("0 / 0", table.Total![2 + 0]);
     }
 
     [Fact]

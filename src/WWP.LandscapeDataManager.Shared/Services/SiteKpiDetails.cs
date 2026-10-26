@@ -31,9 +31,23 @@ public sealed record SiteDetailTable(
     IReadOnlyList<SiteDetailLane> Lanes,
     IReadOnlyList<IReadOnlyList<string>> Rows,
     IReadOnlyList<string>? Total = null,
-    string? EmptyText = null)
+    string? EmptyText = null,
+    IReadOnlyList<IReadOnlyList<SiteDetailCellLook?>>? Looks = null)
 {
     public IReadOnlyList<SiteDetailColumn> Columns => [.. Lanes.SelectMany(lane => lane.Columns)];
+}
+
+/// <summary>
+/// How a cell of <see cref="SiteDetailTable.Rows"/> is drawn beyond its text (<see cref="SiteDetailTable.Looks"/>
+/// matches the rows cell for cell; null is plain text): a tint behind it, small marks before the
+/// text, and a tooltip. Colours are "#RRGGBB".
+/// </summary>
+public sealed record SiteDetailCellLook(string? Background, IReadOnlyList<SiteDetailMark> Marks, string? ToolTip);
+
+/// <summary>A small symbol in a cell, in its colour: <see cref="FlowerKind"/>, or a kind of fruit (see <see cref="PlantAppearance.FruitType"/>).</summary>
+public sealed record SiteDetailMark(string Kind, string Colour)
+{
+    public const string FlowerKind = "Flower";
 }
 
 /// <summary>
@@ -201,23 +215,85 @@ public static class SiteKpiDetails
             "No trees in this scenario.");
     }
 
+    /// <summary>Marks for a species with no colours in the sheet yet: the lane's violet for flowers, a neutral brown for fruit.</summary>
+    private const string DefaultFlowerColour = "#8C7BC4";
+    private const string DefaultFruitColour = "#8C6B4A";
+
+    /// <summary>
+    /// Each species' year at a glance: every month tinted with its colour that season, a flower in
+    /// the flowers' colour in the months it's in flower, and its kind of fruit in the fruit's colour
+    /// in the months it carries ripe fruit or seed (<see cref="PlantAppearance"/>).
+    /// </summary>
     private static SiteDetailTable Phenology(string title, SiteKpiDetailInputs inputs)
     {
-        var groups = BySpecies(inputs.Trees).OrderByDescending(group => group.Count()).ToList();
-        var monthsBySpecies = groups.Select(group => DashboardAggregationService.ParseMonthList(group.First().Source.BloomMonths).ToHashSet()).ToList();
-        var rows = groups
-            .Select((group, index) => Row([SpeciesLabel(group), Count(group.Count()), .. Enumerable.Range(1, 12).Select(month => monthsBySpecies[index].Contains(month) ? "●" : string.Empty)]))
+        var species = BySpecies(inputs.Trees)
+            .OrderByDescending(group => group.Count())
+            .Select(group =>
+            {
+                var appearance = group.Select(tree => tree.Source.Appearance).FirstOrDefault(found => found is not null);
+                return (
+                    Group: group,
+                    Appearance: appearance,
+                    Flowers: DashboardAggregationService.ParseMonthList(group.First().Source.BloomMonths).ToHashSet(),
+                    Fruit: PlantColours.FruitMonths(appearance).ToHashSet());
+            })
             .ToList();
-        var covered = Enumerable.Range(1, 12).Count(month => monthsBySpecies.Any(months => months.Contains(month)));
+
+        var rows = new List<IReadOnlyList<string>>();
+        var looks = new List<IReadOnlyList<SiteDetailCellLook?>>();
+        foreach (var (group, appearance, flowers, fruit) in species)
+        {
+            var flowerColour = PlantColours.Parse(appearance?.FlowerColour);
+            var fruitColour = PlantColours.Parse(appearance?.FruitColour);
+            var fruitType = PlantColours.FruitType(appearance) ?? (fruit.Count > 0 ? "Fruit" : null);
+            rows.Add([SpeciesLabel(group), Count(group.Count()), .. Enumerable.Repeat(string.Empty, 12), fruitType ?? "—"]);
+            looks.Add(
+            [
+                null,
+                null,
+                .. Enumerable.Range(1, 12).Select(month => MonthLook(month, appearance, flowers.Contains(month) ? flowerColour : null, flowers.Contains(month),
+                    fruit.Contains(month) ? fruitColour : null, fruit.Contains(month) ? fruitType : null)),
+                fruitType is null ? null : new SiteDetailCellLook(null, [new SiteDetailMark(fruitType, fruitColour?.Hex ?? DefaultFruitColour)], fruitColour?.Name)
+            ]);
+        }
+
+        bool Active(int month) => species.Any(entry => entry.Flowers.Contains(month) || entry.Fruit.Contains(month));
+        var covered = Enumerable.Range(1, 12).Count(Active);
         return new SiteDetailTable("Phenology", title,
-            $"Months in which at least one species flowers or carries fruit or seed: {covered} of 12. From the WWP sheet's Bloom_Months column (imported onto !_S_PLT_iTreeSpecies_BloomMonths_Text).",
+            $"Months in which at least one species is in flower or carries ripe fruit or seed: {covered} of 12. Each month is tinted with the species' colour that season; " +
+            "the flower mark is in the flowers' colour, the fruit mark (its shape the kind of fruit) in the fruit's. Hover a month for its colours. " +
+            "From the WWP sheet: Bloom_Months, Fruit_Months, Flower_Colour, Fruit_Colour, Fruit_Type and Spring/Summer/Autumn/Winter_Colour.",
             [
                 new(null, null, [SpeciesColumn, CountColumn("Trees")]),
-                new("IN FLOWER, FRUIT OR SEED", "Violet", [.. MonthNames.Select(name => new SiteDetailColumn(name, string.Empty, 34, SiteDetailAlign.Center))])
+                new("YEAR AT A GLANCE: FLOWER, FRUIT AND SEASON", "Violet",
+                    [.. MonthNames.Select(name => new SiteDetailColumn(name, string.Empty, 40, SiteDetailAlign.Center)), new SiteDetailColumn("Fruit", string.Empty, 110)])
             ],
             rows,
-            Row(["Species per month", string.Empty, .. Enumerable.Range(1, 12).Select(month => Count(monthsBySpecies.Count(months => months.Contains(month))))]),
-            "No trees in this scenario.");
+            Row(["In flower / in fruit", string.Empty, .. Enumerable.Range(1, 12).Select(month =>
+                $"{species.Count(entry => entry.Flowers.Contains(month))} / {species.Count(entry => entry.Fruit.Contains(month))}"), string.Empty]),
+            "No trees in this scenario.",
+            looks);
+    }
+
+    /// <summary>One month of a species: its season's colour behind, then its flower and fruit marks.</summary>
+    private static SiteDetailCellLook? MonthLook(int month, PlantAppearance? appearance, PlantColour? flowerColour, bool inFlower, PlantColour? fruitColour, string? fruitType)
+    {
+        var season = PlantColours.SeasonColour(appearance, month);
+        var marks = new List<SiteDetailMark>();
+        var tip = new List<string> { $"{MonthNames[month - 1]} · {PlantColours.SeasonNames[PlantColours.SeasonOf(month)].ToLowerInvariant()}{(season is null ? string.Empty : $": {season.Name}")}" };
+        if (inFlower)
+        {
+            marks.Add(new SiteDetailMark(SiteDetailMark.FlowerKind, flowerColour?.Hex ?? DefaultFlowerColour));
+            tip.Add($"In flower{(flowerColour is null ? string.Empty : $": {flowerColour.Name}")}");
+        }
+
+        if (fruitType is not null)
+        {
+            marks.Add(new SiteDetailMark(fruitType, fruitColour?.Hex ?? DefaultFruitColour));
+            tip.Add($"{fruitType}{(fruitColour is null ? string.Empty : $": {fruitColour.Name}")}");
+        }
+
+        return season is null && marks.Count == 0 ? null : new SiteDetailCellLook(season?.Hex, marks, string.Join("\n", tip));
     }
 
     private static SiteDetailTable Functions(string title, SiteKpiDetailInputs inputs)

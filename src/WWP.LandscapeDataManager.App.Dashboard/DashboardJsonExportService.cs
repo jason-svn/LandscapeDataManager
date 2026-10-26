@@ -65,7 +65,24 @@ internal sealed record DashboardJsonSpecies(
     double StormWaterCostSavedLifetime,
     double AirPollutionCostSavedAnnual,
     double AirPollutionCostSavedLifetime,
-    double MaintenanceCostAnnual = 0);
+    double MaintenanceCostAnnual = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DashboardJsonPhenology? Phenology = null);
+
+/// <summary>A colour as the sheet names it, with its "#RRGGBB".</summary>
+internal sealed record DashboardJsonColour(string Name, string Hex);
+
+/// <summary>
+/// A species' year at a glance (schema 11, see <see cref="PlantAppearance"/>): the months it's in
+/// flower and in fruit, its flowers' and fruit's colours, its kind of fruit, and its colour in
+/// <see cref="Seasons"/> — spring, summer, autumn, winter (null where the sheet has none).
+/// </summary>
+internal sealed record DashboardJsonPhenology(
+    IReadOnlyList<int> FlowerMonths,
+    IReadOnlyList<int> FruitMonths,
+    DashboardJsonColour? Flower,
+    DashboardJsonColour? Fruit,
+    string? FruitType,
+    IReadOnlyList<DashboardJsonColour?> Seasons);
 
 /// <summary><see cref="CostSavedAnnual"/> is "as calculated" — Floor Calculator never records which currency it used (see <see cref="FloorTypeSubtotal"/>).</summary>
 internal sealed record DashboardJsonFloorType(
@@ -172,6 +189,9 @@ internal sealed record DashboardJsonBng(
 /// every tree grown by the planting family's formulas, the canopy figures from the same sizes.
 /// Schema v10 adds the scene's colour schemes (<see cref="DashboardJsonScene.ColourSchemes"/>): the
 /// model's views that colour trees or floors with filters, each element's colour decided by Revit.
+/// Schema v11 adds each species' year at a glance (<see cref="DashboardJsonSpecies.Phenology"/>):
+/// its months in flower and in fruit, and its flower, fruit and seasonal colours from the WWP sheet.
+/// The site's phenological resilience now counts fruit months too.
 /// </remarks>
 internal sealed record DashboardJsonScenario(
     string Label,
@@ -198,7 +218,7 @@ internal sealed record DashboardJsonExport(
 
 internal static class DashboardJsonExportService
 {
-    private const int SchemaVersion = 10;
+    private const int SchemaVersion = 11;
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     /// <summary>With a 3D scene the file is mostly coordinates: indenting them would double its size.</summary>
@@ -388,7 +408,8 @@ internal static class DashboardJsonExportService
             s.CarbonCostSavedAnnual, Lifetime(s.SpeciesCode, t => t.CarbonCostSavedAnnual, s.CarbonCostSavedLifetimeTotal),
             s.StormWaterCostSavedAnnual, Lifetime(s.SpeciesCode, t => t.StormWaterCostSavedAnnual, s.StormWaterCostSavedLifetimeTotal),
             s.AirPollutionCostSavedAnnual, Lifetime(s.SpeciesCode, t => t.AirPollutionCostSavedAnnual, s.AirPollutionCostSavedLifetimeTotal),
-            s.MaintenanceCostAnnual))
+            s.MaintenanceCostAnnual,
+            Phenology(normalizedTrees.Where(tree => (tree.Source.SpeciesCode ?? "Unassigned") == s.SpeciesCode).Select(tree => tree.Source).ToList())))
             .ToList();
 
         var floorTypes = floorSubtotals.Select(f => new DashboardJsonFloorType(
@@ -431,6 +452,26 @@ internal static class DashboardJsonExportService
         return new DashboardJsonScenario(
             label, years ?? DashboardUnitLabels.ExtractProjectionYears(label), isPrimary, totals, siteKpiJson, bngJson, species, floorTypes, designOption,
             choices is { Count: > 0 } ? choices : null, benefitsFromForecast, isExistingSite, sceneTrees, sceneFloors);
+    }
+
+    /// <summary>A species' year at a glance from its trees (their type's sheet data); null when it has none of it.</summary>
+    private static DashboardJsonPhenology? Phenology(IReadOnlyList<DashboardTreeItem> trees)
+    {
+        var appearance = trees.Select(tree => tree.Appearance).FirstOrDefault(found => found is not null);
+        var flowers = PlantColours.Months(trees.Select(tree => tree.BloomMonths).FirstOrDefault(months => !string.IsNullOrWhiteSpace(months)));
+        if (appearance is null && flowers.Count == 0)
+        {
+            return null;
+        }
+
+        static DashboardJsonColour? Colour(string? text) => PlantColours.Parse(text) is { } colour ? new DashboardJsonColour(colour.Name, colour.Hex) : null;
+        return new DashboardJsonPhenology(
+            [.. flowers.Distinct().Order()],
+            [.. PlantColours.FruitMonths(appearance).Distinct().Order()],
+            Colour(appearance?.FlowerColour),
+            Colour(appearance?.FruitColour),
+            PlantColours.FruitType(appearance),
+            [Colour(appearance?.SpringColour), Colour(appearance?.SummerColour), Colour(appearance?.AutumnColour), Colour(appearance?.WinterColour)]);
     }
 
     public static async Task ExportAsync(string path, DashboardJsonExport export)

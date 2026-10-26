@@ -99,8 +99,9 @@ public sealed class WwpLdsCoefficientDatabase
         }
 
         // Migration for caches created before the tree columns (species code, pollen, irrigation,
-        // allergenic) were cached for Tree Calculator's and Floor Calculator's sheet estimates.
-        foreach (var column in new[] { "SpeciesCode TEXT NULL", "PollenRate REAL NULL", "IrrigationDemandFactor REAL NULL", "Allergenic TEXT NULL" })
+        // allergenic) were cached for Tree Calculator's and Floor Calculator's sheet estimates, and
+        // before the cost saved's currency was.
+        foreach (var column in new[] { "SpeciesCode TEXT NULL", "PollenRate REAL NULL", "IrrigationDemandFactor REAL NULL", "Allergenic TEXT NULL", "CostSavedCurrency TEXT NULL" })
         {
             await using var migrate = connection.CreateCommand();
             migrate.CommandText = $"ALTER TABLE Coefficients ADD COLUMN {column};";
@@ -135,11 +136,11 @@ public sealed class WwpLdsCoefficientDatabase
                     MatchKey, Origin, PlantingTypeCode, Category, SubCategory, TypeName,
                     CostSavedAnnual, OxygenProducedAnnual, TotalGwp,
                     Co2SequesteredAnnual, RunoffAvoidedAnnual, PollutionMassRemovedAnnual, SurfaceTempReduction, AirTempReduction,
-                    SpeciesCode, PollenRate, IrrigationDemandFactor, Allergenic)
+                    SpeciesCode, PollenRate, IrrigationDemandFactor, Allergenic, CostSavedCurrency)
                 VALUES (
                     $matchKey, $origin, $plantingTypeCode, $category, $subCategory, $typeName,
                     $costSaved, $oxygen, $gwp, $co2, $runoff, $pollution, $surfaceTemp, $airTemp,
-                    $speciesCode, $pollen, $irrigation, $allergenic);
+                    $speciesCode, $pollen, $irrigation, $allergenic, $costSavedCurrency);
                 """;
             var matchKey = upsert.CreateParameter(); matchKey.ParameterName = "$matchKey"; upsert.Parameters.Add(matchKey);
             var origin = upsert.CreateParameter(); origin.ParameterName = "$origin"; upsert.Parameters.Add(origin);
@@ -159,6 +160,7 @@ public sealed class WwpLdsCoefficientDatabase
             var pollen = upsert.CreateParameter(); pollen.ParameterName = "$pollen"; upsert.Parameters.Add(pollen);
             var irrigation = upsert.CreateParameter(); irrigation.ParameterName = "$irrigation"; upsert.Parameters.Add(irrigation);
             var allergenic = upsert.CreateParameter(); allergenic.ParameterName = "$allergenic"; upsert.Parameters.Add(allergenic);
+            var costSavedCurrency = upsert.CreateParameter(); costSavedCurrency.ParameterName = "$costSavedCurrency"; upsert.Parameters.Add(costSavedCurrency);
 
             foreach (var record in records)
             {
@@ -180,6 +182,7 @@ public sealed class WwpLdsCoefficientDatabase
                 pollen.Value = (object?)record.PollenRate ?? DBNull.Value;
                 irrigation.Value = (object?)record.IrrigationDemandFactor ?? DBNull.Value;
                 allergenic.Value = (object?)record.Allergenic ?? DBNull.Value;
+                costSavedCurrency.Value = (object?)record.CostSavedCurrency ?? DBNull.Value;
                 await upsert.ExecuteNonQueryAsync();
             }
         }
@@ -205,7 +208,7 @@ public sealed class WwpLdsCoefficientDatabase
             SELECT MatchKey, Origin, PlantingTypeCode, Category, SubCategory, TypeName,
                    CostSavedAnnual, OxygenProducedAnnual, TotalGwp,
                    Co2SequesteredAnnual, RunoffAvoidedAnnual, PollutionMassRemovedAnnual, SurfaceTempReduction, AirTempReduction,
-                   SpeciesCode, PollenRate, IrrigationDemandFactor, Allergenic
+                   SpeciesCode, PollenRate, IrrigationDemandFactor, Allergenic, CostSavedCurrency
             FROM Coefficients ORDER BY Category, SubCategory, TypeName;
             """;
         await using var reader = await select.ExecuteReaderAsync();
@@ -231,7 +234,8 @@ public sealed class WwpLdsCoefficientDatabase
                 reader.IsDBNull(14) ? null : reader.GetString(14),
                 reader.IsDBNull(15) ? null : reader.GetDouble(15),
                 reader.IsDBNull(16) ? null : reader.GetDouble(16),
-                reader.IsDBNull(17) ? null : reader.GetString(17)));
+                reader.IsDBNull(17) ? null : reader.GetString(17),
+                reader.IsDBNull(18) ? null : reader.GetString(18)));
         }
 
         return records;
