@@ -96,4 +96,35 @@ public sealed class DashboardJsonSceneBuilderTests
         Assert.Equal(new double[] { -20, -10, 0, 20, -10, 0, 20, 10, 0 }, json.Floors[0].Positions);
         Assert.Equal(1, json.Floors[0].Holes);
     }
+
+    private static SceneColourScheme OxygenView(IReadOnlyDictionary<string, int> matches) =>
+        new("O2", "!_S_PLT_Result_OxygenProducedAnnual_Mass", "kg/yr",
+            [new("0–4", "WWP_Tree O2 00-04", "#edef5d", true, false, 0, 4), new("≥ 4", "WWP_Tree O2 04+", "#245668", true, false, 4, null)],
+            matches,
+            new Dictionary<string, double> { ["a"] = 7.66789, ["b"] = 1.5 });
+
+    [Fact]
+    public void A_views_colours_follow_the_scene_order_with_each_trees_value()
+    {
+        var geometry = Geometry(Placed("a", 100), Placed("b", 120)) with { ColourSchemes = [OxygenView(new Dictionary<string, int> { ["a"] = 1 })] };
+
+        var scheme = Assert.Single(new DashboardJsonSceneBuilder(geometry, Report(Tree("a"), Tree("b")), SceneGrowth.Drawn, 0).ToJson().ColourSchemes!);
+
+        Assert.Equal("O2", scheme.Name);
+        Assert.Equal("kg/yr", scheme.Unit);
+        Assert.Equal(new[] { "0–4", "≥ 4" }, scheme.Rules.Select(rule => rule.Label));
+        Assert.Equal(new[] { 1, -1 }, scheme.Trees);
+        Assert.Null(scheme.Floors);
+        Assert.Equal(new double?[] { 7.6679, 1.5 }, scheme.TreeValues);
+        Assert.Null(scheme.FloorValues);
+    }
+
+    [Fact]
+    public void A_view_that_colours_nothing_in_the_scene_is_left_out()
+    {
+        var geometry = Geometry(Placed("a", 100)) with { ColourSchemes = [OxygenView(new Dictionary<string, int> { ["not in Revit"] = 0 })] };
+
+        Assert.Null(new DashboardJsonSceneBuilder(geometry, Report(Tree("a")), SceneGrowth.Drawn, 0).ToJson().ColourSchemes);
+        Assert.Null(new DashboardJsonSceneBuilder(Geometry(Placed("a", 100)), Report(Tree("a")), SceneGrowth.Drawn, 0).ToJson().ColourSchemes);
+    }
 }

@@ -79,7 +79,7 @@
                    x:Name="FilterStatusText"
                    Margin="0,8,0,0"
                    Style="{StaticResource LimMutedTextStyle}"
-                   Text="Showing all rows — click a card above to filter the list to just that status." />
+                   Text="Showing all rows — click a card above to filter the list to just that status. Click rows to tick them; Shift+click ticks a range." />
 
         <Grid Grid.Row="4" Margin="0,16,0,10" ColumnSpacing="10">
             <Grid.ColumnDefinitions>

@@ -175,7 +175,7 @@ public sealed partial class MainPage : Page
         UpdateFilterCardBorders();
 
         FilterStatusText.Text = _activeFilter is null
-            ? $"Showing all {ReportRows.Count:N0} row(s) — click a card above to filter the list to just that status."
+            ? $"Showing all {ReportRows.Count:N0} row(s) — click a card above to filter the list to just that status. Click rows to tick them; Shift+click ticks a range."
             : $"Showing {FilteredRows.Count:N0} {_activeFilter} row(s) — click the card again to show all.";
     }
 

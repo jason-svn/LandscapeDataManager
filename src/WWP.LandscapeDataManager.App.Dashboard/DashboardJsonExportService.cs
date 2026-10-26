@@ -170,6 +170,8 @@ internal sealed record DashboardJsonBng(
 /// both are left out when Revit couldn't give the geometry. Without Growth Projections copies, a model
 /// that can grow its trees (growth rates or i-Tree forecasts with sizes) now has growth years too:
 /// every tree grown by the planting family's formulas, the canopy figures from the same sizes.
+/// Schema v10 adds the scene's colour schemes (<see cref="DashboardJsonScene.ColourSchemes"/>): the
+/// model's views that colour trees or floors with filters, each element's colour decided by Revit.
 /// </remarks>
 internal sealed record DashboardJsonScenario(
     string Label,
@@ -196,7 +198,7 @@ internal sealed record DashboardJsonExport(
 
 internal static class DashboardJsonExportService
 {
-    private const int SchemaVersion = 9;
+    private const int SchemaVersion = 10;
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     /// <summary>With a 3D scene the file is mostly coordinates: indenting them would double its size.</summary>

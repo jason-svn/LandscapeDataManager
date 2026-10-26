@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Windows.System;
+using Windows.UI.Core;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
 
@@ -11,6 +14,7 @@ public sealed partial class MainPage : Page
     private RevitPipeClient? _revitClient;
     private nint _windowHandle;
     private string _pipeName = string.Empty;
+    private SetupRow? _lastClickedRow;
 
     public MainPage()
     {
@@ -47,6 +51,7 @@ public sealed partial class MainPage : Page
                 new PreviewSharedParametersRequest());
 
             ResultRows.Clear();
+            _lastClickedRow = null;
             foreach (var row in result.Rows
                          .OrderBy(row => StatusSortOrder(row.Status))
                          .ThenBy(row => row.Name, StringComparer.OrdinalIgnoreCase))
@@ -57,8 +62,37 @@ public sealed partial class MainPage : Page
             ApplyButton.IsEnabled = ResultRows.Count > 0;
             UpdateCounts();
             ShowStatus($"{result.DocumentTitle}: loaded {ResultRows.Count:N0} parameters. " +
-                       "Review the rows below, uncheck anything you don't want touched, then click Apply.");
+                       "Review the rows below, uncheck anything you don't want touched (Shift+click does a range), then click Apply.");
         });
+    }
+
+    /// <summary>Shift+click ticks or unticks every row from the last one clicked to this one, as in a file list.</summary>
+    private void IncludeCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox { DataContext: SetupRow row } checkBox)
+        {
+            return;
+        }
+
+        var anchor = _lastClickedRow;
+        _lastClickedRow = row;
+        if (anchor is null || !InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down))
+        {
+            return;
+        }
+
+        var from = ResultRows.IndexOf(anchor);
+        var to = ResultRows.IndexOf(row);
+        if (from < 0 || to < 0)
+        {
+            return;
+        }
+
+        var include = checkBox.IsChecked == true;
+        for (var index = Math.Min(from, to); index <= Math.Max(from, to); index++)
+        {
+            ResultRows[index].IsIncluded = include;
+        }
     }
 
     private async void Apply_Click(object sender, RoutedEventArgs e)

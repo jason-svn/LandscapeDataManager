@@ -1783,7 +1783,9 @@ public sealed partial class MainPage : Page
             await DashboardJsonExportService.ExportAsync(file.Path, export);
             StatusText.Text = geometry is null
                 ? $"Exported dashboard data to {file.Name}, without the 3D view (it needs the model open in Revit and the latest LIM connector)."
-                : $"Exported dashboard data to {file.Name}, with the 3D view.";
+                : geometry.ColourSchemes is { Count: > 0 } schemes
+                    ? $"Exported dashboard data to {file.Name}, with the 3D view and {schemes.Count:N0} view colour scheme(s) to colour it by."
+                    : $"Exported dashboard data to {file.Name}, with the 3D view.";
         });
     }
 

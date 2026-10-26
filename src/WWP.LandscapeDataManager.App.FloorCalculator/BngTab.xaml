@@ -376,9 +376,12 @@
                        Text="Load floors to start — click a chip to filter the list to just that status." />
         </Grid>
 
-        <!-- One floor per line, with the step's columns. Wide, so it scrolls horizontally with its header. -->
-        <ScrollViewer Grid.Row="3"
-                      x:Name="TableScroller"
+        <!-- One floor per line, with the step's columns. Wide, so it scrolls horizontally with its header.
+             The list scrolls its rows itself, but its scrollbar sits at the far right of the wide table,
+             out of view: RowsScrollBar, at the window's edge, shows the rows' position and drives them. -->
+        <Grid Grid.Row="3" ColumnSpacing="2">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+        <ScrollViewer x:Name="TableScroller"
                       ViewChanged="TableScroller_ViewChanged"
                       HorizontalScrollMode="Enabled"
                       HorizontalScrollBarVisibility="Visible"
@@ -493,6 +496,14 @@
                 <ListView Grid.Row="1" x:Name="RowsList" ItemsSource="{x:Bind FilteredRows}" SelectionMode="Extended" SelectionChanged="RowsList_SelectionChanged" ItemTemplate="{StaticResource ExistingRowTemplate}" ItemContainerStyle="{StaticResource LimTableItemStyle}" />
             </Grid>
         </ScrollViewer>
+        <ScrollBar Grid.Column="1"
+                   x:Name="RowsScrollBar"
+                   AutomationProperties.Name="Scroll the floor rows"
+                   Orientation="Vertical"
+                   IndicatorMode="MouseIndicator"
+                   Visibility="Collapsed"
+                   ValueChanged="RowsScrollBar_ValueChanged" />
+        </Grid>
 
         <TextBlock Grid.Row="4"
                    x:Name="StatusText"

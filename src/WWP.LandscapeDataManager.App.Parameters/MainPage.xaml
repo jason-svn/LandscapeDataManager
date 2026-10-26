@@ -116,7 +116,7 @@
                     <DataTemplate x:DataType="models:SetupRow">
                         <Grid Style="{StaticResource LimTableRowStyle}" ToolTipService.ToolTip="{x:Bind Description}">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="36" /><ColumnDefinition Width="*" /><ColumnDefinition Width="90" /><ColumnDefinition Width="110" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <CheckBox IsChecked="{x:Bind IsIncluded, Mode=TwoWay}" MinWidth="0" />
+                            <CheckBox IsChecked="{x:Bind IsIncluded, Mode=TwoWay}" MinWidth="0" Click="IncludeCheckBox_Click" AutomationProperties.Name="Include" />
                             <TextBlock Grid.Column="1" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="2" Text="{x:Bind Scope}" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="3" Text="{x:Bind Status, Mode=OneWay}" FontWeight="SemiBold" Foreground="{x:Bind StatusBrush, Mode=OneWay}" VerticalAlignment="Center" />

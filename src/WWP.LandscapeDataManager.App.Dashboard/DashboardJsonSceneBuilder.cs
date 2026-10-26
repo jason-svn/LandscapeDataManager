@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using WWP.LandscapeDataManager.Contracts;
 using WWP.LandscapeDataManager.Shared.Services;
 
@@ -28,10 +29,36 @@ internal sealed record DashboardJsonSceneFloor(
     IReadOnlyList<double> Positions,
     IReadOnlyList<int> Indices);
 
+/// <summary>One legend entry of a <see cref="DashboardJsonColourScheme"/>: the band or value, the Revit filter it comes from, its "#rrggbb" colour and, for a band, its bounds.</summary>
+internal sealed record DashboardJsonColourRule(
+    string Label,
+    string Filter,
+    string Colour,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? Min,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] double? Max);
+
+/// <summary>
+/// A 3D "Colour by" choice: one Revit view's filter colours (<see cref="SceneColourScheme"/>), named
+/// after the view. <see cref="Trees"/>/<see cref="Floors"/> give each scene tree/floor (by index) the
+/// <see cref="Rules"/> entry it takes, -1 for none; null when no rule is for trees/floors. With one
+/// number parameter behind every rule, <see cref="TreeValues"/>/<see cref="FloorValues"/> hold each
+/// element's value in <see cref="Unit"/> (null without one).
+/// </summary>
+internal sealed record DashboardJsonColourScheme(
+    string Name,
+    string? Parameter,
+    string? Unit,
+    IReadOnlyList<DashboardJsonColourRule> Rules,
+    IReadOnlyList<int>? Trees,
+    IReadOnlyList<int>? Floors,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<double?>? TreeValues,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<double?>? FloorValues);
+
 /// <summary>
 /// Schema 9's 3D scene. <see cref="Origin"/> is in Revit internal coordinates (metres, X east, Y north,
 /// Z up). <see cref="Growth"/> says how a scenario entry sizes its trees: "forecast" — a tree's
-/// <see cref="Profiles"/> row for the entry's year; "worksets" or "drawn" — as drawn.
+/// <see cref="Profiles"/> row for the entry's year; "worksets" or "drawn" — as drawn. Schema 10 adds
+/// <see cref="ColourSchemes"/>, the model's views that colour trees or floors with filters.
 /// </summary>
 internal sealed record DashboardJsonScene(
     string Units,
@@ -40,7 +67,8 @@ internal sealed record DashboardJsonScene(
     int MaxYear,
     IReadOnlyList<IReadOnlyList<IReadOnlyList<double>>> Profiles,
     IReadOnlyList<DashboardJsonSceneTree> Trees,
-    IReadOnlyList<DashboardJsonSceneFloor> Floors);
+    IReadOnlyList<DashboardJsonSceneFloor> Floors,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<DashboardJsonColourScheme>? ColourSchemes = null);
 
 /// <summary>How the export's growth years are modelled.</summary>
 internal enum SceneGrowth
@@ -90,11 +118,13 @@ internal sealed class DashboardJsonSceneBuilder
     private readonly List<DashboardJsonSceneFloor> _floors = [];
     private readonly List<IReadOnlyList<TreeSize>> _profiles = [];
     private readonly Dictionary<string, IReadOnlyList<TreeSize>> _treeProfiles = new(StringComparer.Ordinal);
+    private readonly IReadOnlyList<SceneColourScheme> _colourSchemes;
 
     public DashboardJsonSceneBuilder(SceneGeometryResult geometry, DashboardReportResult report, SceneGrowth growth, int lastYear)
     {
         _growth = growth;
         _lastYear = Math.Max(0, lastYear);
+        _colourSchemes = geometry.ColourSchemes ?? [];
         var treeGeometry = geometry.Trees.GroupBy(tree => tree.UniqueId, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         var floorGeometry = geometry.Floors.GroupBy(floor => floor.UniqueId, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         var types = geometry.TreeTypes.GroupBy(TypeKey, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
@@ -195,7 +225,30 @@ internal sealed class DashboardJsonSceneBuilder
             .Select(size => (IReadOnlyList<double>)[Round(size.TrunkHeightM, 3), Round(size.CrownHeightM, 3), Round(size.CrownRadiusM, 3), Round(size.TrunkRadiusM, 3)])
             .ToList()).ToList(),
         _trees,
-        _floors);
+        _floors,
+        _colourSchemes.Select(ToJson).OfType<DashboardJsonColourScheme>().ToList() is { Count: > 0 } schemes ? schemes : null);
+
+    /// <summary>A view's colours by scene index; null when it colours nothing in the scene.</summary>
+    private DashboardJsonColourScheme? ToJson(SceneColourScheme scheme)
+    {
+        var trees = scheme.Rules.Any(rule => rule.Trees) ? _trees.Select(tree => scheme.Matches.GetValueOrDefault(tree.Id, -1)).ToList() : null;
+        var floors = scheme.Rules.Any(rule => rule.Floors) ? _floors.Select(floor => scheme.Matches.GetValueOrDefault(floor.Id, -1)).ToList() : null;
+        if (!(trees ?? []).Concat(floors ?? []).Any(rule => rule >= 0))
+        {
+            return null;
+        }
+
+        double? Value(string id) => scheme.Values is { } values && values.TryGetValue(id, out var value) ? Round(value, 4) : null;
+        return new DashboardJsonColourScheme(
+            scheme.ViewName,
+            scheme.ParameterName,
+            scheme.Unit,
+            scheme.Rules.Select(rule => new DashboardJsonColourRule(rule.Label, rule.FilterName, rule.Colour, rule.Min, rule.Max)).ToList(),
+            trees,
+            floors,
+            scheme.Values is null || trees is null ? null : _trees.Select(tree => Value(tree.Id)).ToList(),
+            scheme.Values is null || floors is null ? null : _floors.Select(floor => Value(floor.Id)).ToList());
+    }
 
     /// <summary>The middle of the scene in plan, at its lowest point, rounded to the metre: keeps the exported numbers short.</summary>
     private static double[] Origin(IEnumerable<SceneTreeItem> trees, IEnumerable<SceneFloorItem> floors)

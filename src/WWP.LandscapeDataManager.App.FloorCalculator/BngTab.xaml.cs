@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.System;
@@ -38,7 +39,11 @@ public sealed partial class BngTab : UserControl
     private IReadOnlyList<DesignScenario> _savedScenarios = [];
     private DesignScenario? _unsavedScenario;
     private readonly Dictionary<string, DesignScenario> _scenarioByLabel = new(StringComparer.Ordinal);
+    private ScrollViewer? _rowsScroller;
+    private long _rowsScrollableToken;
+    private bool _syncingRowsScrollBar;
 
+    private const string SelectionHint = "Ctrl+click adds a row to the selection, Shift+click a range.";
     private const string AllOptions = "All design options";
     private const string MainModelOnly = "Main model only";
 
@@ -54,6 +59,8 @@ public sealed partial class BngTab : UserControl
         ToolTipService.SetToolTip(IntroIcon, $"{Intro} Metric: {_catalog.DisplayVersion}.");
         // handledEventsToo: the ListView inside consumes wheel events for its own vertical scrolling.
         TableScroller.AddHandler(PointerWheelChangedEvent, new PointerEventHandler(TableScroller_PointerWheelChanged), true);
+        // Every time: the Pivot unloads and reloads the content of the tabs it isn't showing.
+        RowsList.Loaded += (_, _) => HookRowsScroller();
         UpdateCounts();
         ThemeResources.Observe(this, () =>
         {
@@ -881,17 +888,98 @@ public sealed partial class BngTab : UserControl
         }
     }
 
-    /// <summary>Shift + mouse wheel scrolls the table sideways, as in Excel.</summary>
+    /// <summary>
+    /// Shift + mouse wheel scrolls the table sideways, as in Excel. The plain wheel scrolls the rows: the
+    /// list normally does that itself; if the wheel reaches here unhandled, it's done here instead.
+    /// </summary>
     private void TableScroller_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
     {
-        if (!e.KeyModifiers.HasFlag(VirtualKeyModifiers.Shift))
+        var delta = e.GetCurrentPoint(TableScroller).Properties.MouseWheelDelta;
+        if (e.KeyModifiers.HasFlag(VirtualKeyModifiers.Shift))
+        {
+            TableScroller.ChangeView(Math.Clamp(TableScroller.HorizontalOffset - delta, 0, TableScroller.ScrollableWidth), null, null, disableAnimation: true);
+            e.Handled = true;
+        }
+        else if (!e.Handled && _rowsScroller is { ScrollableHeight: > 0 } rows)
+        {
+            rows.ChangeView(null, Math.Clamp(rows.VerticalOffset - delta, 0, rows.ScrollableHeight), null, disableAnimation: true);
+            e.Handled = true;
+        }
+    }
+
+    // ---- Up-and-down scrolling of the rows ----
+
+    /// <summary>Ties RowsScrollBar to the list's own scroller, whose scrollbar is off to the right of the wide table.</summary>
+    private void HookRowsScroller()
+    {
+        var scroller = FindScroller(RowsList);
+        if (scroller is null || ReferenceEquals(scroller, _rowsScroller))
+        {
+            SyncRowsScrollBar();
+            return;
+        }
+
+        if (_rowsScroller is not null)
+        {
+            _rowsScroller.ViewChanged -= RowsScroller_ViewChanged;
+            _rowsScroller.SizeChanged -= RowsScroller_SizeChanged;
+            _rowsScroller.UnregisterPropertyChangedCallback(ScrollViewer.ScrollableHeightProperty, _rowsScrollableToken);
+        }
+
+        _rowsScroller = scroller;
+        scroller.ViewChanged += RowsScroller_ViewChanged;
+        scroller.SizeChanged += RowsScroller_SizeChanged;
+        _rowsScrollableToken = scroller.RegisterPropertyChangedCallback(ScrollViewer.ScrollableHeightProperty, (_, _) => SyncRowsScrollBar());
+        SyncRowsScrollBar();
+    }
+
+    private void RowsScroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e) => SyncRowsScrollBar();
+
+    private void RowsScroller_SizeChanged(object sender, SizeChangedEventArgs e) => SyncRowsScrollBar();
+
+    private void SyncRowsScrollBar()
+    {
+        if (_rowsScroller is not { } rows)
         {
             return;
         }
 
-        var delta = e.GetCurrentPoint(TableScroller).Properties.MouseWheelDelta;
-        TableScroller.ChangeView(Math.Clamp(TableScroller.HorizontalOffset - delta, 0, TableScroller.ScrollableWidth), null, null, disableAnimation: true);
-        e.Handled = true;
+        _syncingRowsScrollBar = true;
+        try
+        {
+            RowsScrollBar.Visibility = rows.ScrollableHeight > 0 ? Visibility.Visible : Visibility.Collapsed;
+            RowsScrollBar.Maximum = rows.ScrollableHeight;
+            RowsScrollBar.ViewportSize = rows.ViewportHeight;
+            RowsScrollBar.LargeChange = rows.ViewportHeight;
+            RowsScrollBar.SmallChange = 48;
+            RowsScrollBar.Value = rows.VerticalOffset;
+        }
+        finally
+        {
+            _syncingRowsScrollBar = false;
+        }
+    }
+
+    private void RowsScrollBar_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (!_syncingRowsScrollBar)
+        {
+            _rowsScroller?.ChangeView(null, e.NewValue, null, disableAnimation: true);
+        }
+    }
+
+    private static ScrollViewer? FindScroller(DependencyObject element)
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(element); index++)
+        {
+            var child = VisualTreeHelper.GetChild(element, index);
+            if ((child as ScrollViewer ?? FindScroller(child)) is { } scroller)
+            {
+                return scroller;
+            }
+        }
+
+        return null;
     }
 
     // ---- Filtering & counts ----
@@ -1177,7 +1265,7 @@ public sealed partial class BngTab : UserControl
         FilterStatusText.Text = AllRows.Count == 0
             ? "Load floors to start — click a chip to filter the list to just that status."
             : _activeFilter is null
-                ? $"Showing all {stepRows.Count:N0} floor(s){(_optionFilter == AllOptions ? string.Empty : $" in {_optionFilter}")} — click a chip to filter."
+                ? $"Showing all {stepRows.Count:N0} floor(s){(_optionFilter == AllOptions ? string.Empty : $" in {_optionFilter}")} — click a chip to filter. {SelectionHint}"
                 : $"Showing {FilteredRows.Count:N0} {DisplayStatus(_activeFilter)} floor(s) — click the chip again to show all. (The list refreshes when you click a chip, so rows you fix stay in view.)";
 
         var guessedCount = AllRows.Count(row => row.IsAutoMatched);

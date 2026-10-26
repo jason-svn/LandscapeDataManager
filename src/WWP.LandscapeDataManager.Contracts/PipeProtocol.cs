@@ -958,12 +958,49 @@ public sealed record SceneFloorItem(
     IReadOnlyList<int> Indices,
     int HoleCount);
 
-/// <summary>Every tree and floor in the model, in every design option and phase: the JSON export picks each scenario's.</summary>
+/// <summary>
+/// Every tree and floor in the model, in every design option and phase: the JSON export picks each
+/// scenario's. <see cref="ColourSchemes"/> are the model's views that colour trees or floors with
+/// filters (null from a connector before v1.8).
+/// </summary>
 public sealed record SceneGeometryResult(
     string DocumentTitle,
     IReadOnlyList<SceneTreeItem> Trees,
     IReadOnlyList<TreeGrowthType> TreeTypes,
-    IReadOnlyList<SceneFloorItem> Floors);
+    IReadOnlyList<SceneFloorItem> Floors,
+    IReadOnlyList<SceneColourScheme>? ColourSchemes = null);
+
+/// <summary>
+/// One view's filter colours on trees and floors, for the 3D view's "Colour by". Revit decides each
+/// element's colour as the view does: <see cref="Matches"/> maps an element's UniqueId to the rule it
+/// takes — the first of the view's filters (in the view's order) that passes it and sets a colour.
+/// An element in no rule's filter isn't listed. When every rule tests the same number parameter,
+/// <see cref="ParameterName"/> names it and <see cref="Values"/> holds each element's value in
+/// <see cref="Unit"/> (the project's display unit, "/yr" added for an annual figure).
+/// </summary>
+public sealed record SceneColourScheme(
+    string ViewName,
+    string? ParameterName,
+    string? Unit,
+    IReadOnlyList<SceneColourRule> Rules,
+    IReadOnlyDictionary<string, int> Matches,
+    IReadOnlyDictionary<string, double>? Values);
+
+/// <summary>
+/// One filter of a <see cref="SceneColourScheme"/>, in legend order (bands of a number low to high,
+/// otherwise the view's filter order). <see cref="Label"/> is the band ("4–8", "≥ 24") for a filter
+/// that bounds one number, the value for one that matches a text exactly, else the filter's name.
+/// <see cref="Colour"/> is "#rrggbb": the surface pattern colour, or the line colour when the filter
+/// only sets that. <see cref="Min"/>/<see cref="Max"/> are the band's bounds in the scheme's unit.
+/// </summary>
+public sealed record SceneColourRule(
+    string Label,
+    string FilterName,
+    string Colour,
+    bool Trees,
+    bool Floors,
+    double? Min,
+    double? Max);
 
 /// <summary>
 /// The heatmap's steps over <c>!_S_PLT_ConnectivityResult_Score_Number</c> (0–1, the percentile rank by

@@ -7,7 +7,8 @@ namespace WWP.LandscapeDataManager.Revit.Services;
 /// <summary>
 /// The 3D view's geometry for the JSON export: every tree's trunk base and drawn size with what the
 /// planting family grows it from, each planting type's growth, and every floor's top face
-/// triangulated with its holes cut out. Read-only, and every design option and phase: the export
+/// triangulated with its holes cut out, and the views that colour them with filters
+/// (<see cref="SceneColourSchemeReader"/>). Read-only, and every design option and phase: the export
 /// picks each scenario's elements itself.
 /// </summary>
 internal static class SceneGeometryService
@@ -36,6 +37,7 @@ internal static class SceneGeometryService
                        ?? throw new InvalidOperationException("Open a Revit project before exporting the 3D view.");
 
         var trees = new List<SceneTreeItem>();
+        var treeElements = new List<Element>();
         var types = new List<TreeGrowthType>();
         var typesSeen = new HashSet<long>();
         foreach (var instance in new FilteredElementCollector(document)
@@ -49,21 +51,28 @@ internal static class SceneGeometryService
             }
 
             trees.Add(ToTree(instance, location.Point));
+            treeElements.Add(instance);
             if (typesSeen.Add(instance.Symbol.Id.Value) && ToGrowthType(instance.Symbol) is { } growth)
             {
                 types.Add(growth);
             }
         }
 
-        var floors = new FilteredElementCollector(document)
-            .OfCategory(BuiltInCategory.OST_Floors)
-            .OfClass(typeof(Floor))
-            .Cast<Floor>()
-            .Select(ToFloor)
-            .OfType<SceneFloorItem>()
-            .ToList();
+        var floors = new List<SceneFloorItem>();
+        var floorElements = new List<Element>();
+        foreach (var floor in new FilteredElementCollector(document)
+                     .OfCategory(BuiltInCategory.OST_Floors)
+                     .OfClass(typeof(Floor))
+                     .Cast<Floor>())
+        {
+            if (ToFloor(floor) is { } item)
+            {
+                floors.Add(item);
+                floorElements.Add(floor);
+            }
+        }
 
-        return new SceneGeometryResult(document.Title, trees, types, floors);
+        return new SceneGeometryResult(document.Title, trees, types, floors, SceneColourSchemeReader.Read(document, treeElements, floorElements));
     }
 
     private static SceneTreeItem ToTree(FamilyInstance instance, XYZ point)

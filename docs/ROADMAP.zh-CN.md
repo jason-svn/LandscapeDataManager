@@ -14,7 +14,9 @@ LIM（Landscape Information Manager）的计划、已完成的工作，以及修
 - **KPI Schedules 在有生长年份时按 workset 给种植明细表分组**，每年一个小计，这样一棵树不会每个生长年份都被计一次。（从 Phase 3 起，再次运行 KPI Schedules 会把新增的列加到已有明细表里；只有要改分组时才需要删掉明细表。）
 - Dashboard 卡片计入种植区（Airtable）的碳、径流、污染物和节省费用。BNG 标签不再重复显示两次 "primary"。
 
-**v1.7.0**（2026-10-24 推送到 `roadmap-phases-2-5`，尚未发布）：网页 Dashboard 的 3D 视图——connector 导出场景几何、用 C# 实现 family 的尺寸公式、JSON 导出 schema 9（自动生成生长年份），以及没有尺寸的旧 i-Tree 预测会重新请求。详见下面的"网页 Dashboard 的 3D 视图"。还没在 Revit 里实测。
+**v1.8.0**（2026-10-25 推送到 `roadmap-phases-2-5`，尚未发布）：网页 Dashboard 的 3D 可以按模型里 Revit 视图的过滤器给树和 floor 上色（JSON 导出 schema 10，"Colour by"）。BNG 页的 floor 列表又能滚动了：窗口边缘加了一条滚动条（列表自己的滚动条在很宽的表格最右边，看不到），鼠标滚轮也能滚。所有能多选的列表都支持 Shift+点击选一段——现在 Parameters 的勾选框和网页 Dashboard 的结果面板也支持——并在列表上方写明。
+
+**v1.7.0**（2026-10-24 推送到 `roadmap-phases-2-5`，尚未发布）：网页 Dashboard 的 3D 视图——connector 导出场景几何、用 C# 实现 family 的尺寸公式、JSON 导出 schema 9（自动生成生长年份），以及没有尺寸的旧 i-Tree 预测会重新请求。详见下面的"网页 Dashboard 的 3D 视图"。2026-10-25 已在 sandbox 上实测。
 
 **v1.6.2**（2026-10-23 发布）：BNG 页按 Dashboard 的方案逐个设置（也能新建方案），现状 floor 的基线由同类型的所有现状 floor 共享。
 
@@ -67,8 +69,9 @@ LIM（Landscape Information Manager）的计划、已完成的工作，以及修
 - [x] **Connector `get-scene-geometry`**（`SceneGeometryService`）：每棵树的树干底部位置、画出来的尺寸和生长依据（种植时年龄、projected year、存下的 i-Tree 尺寸）；每个种植类型的生长率、最大尺寸和 `Mature Age`；每块 floor 的顶面三角化并扣掉洞。包含所有 design option 和 phase。Connector 改动：需要下次安装。
 - [x] **`TreeSizeForecast`：** 用 C# 实现 family 的尺寸公式（树干 H/3、树冠 2H/3、半径 W/2；有 i-Tree 尺寸就用 i-Tree 的，和 family 一样不截到最大值；没有就按类型的生长率和生长年数算，并截到最大值）。
 - [x] **JSON 导出 schema 9：** 加入 `scene`（树、floor、生长曲线），每个条目带 `sceneTrees` / `sceneFloors`，正好是它的数字所用的元素。没有 Growth Projections 副本时，能长的模型会有 0/5/10/15/20/25 年（以及设计年）的生长年份，每棵树按 family 公式长到那一年，树冠数字也用同一套尺寸。用紧凑格式写出。用导出代码在 sandbox 数据上验证：930 棵树、56 块 floor、1.3 MB；Scheme A 的树冠面积从第 0 年的 12 m² 到第 25 年的 7,223 m²。
-- [x] **网页 Dashboard（LandscapeCoBenefitsDashboard，尚未推送）：** 跟随方案和生长年份的 "3D site" 面板（three.js 从 jsDelivr 加载，只有带 scene 的文件才会下载），以及用表格规范（泳道）的结果面板：按树种列树，按景观类型列种植区，选中的行会筛选 3D；点击树或种植区会显示信息卡片并让对应的行闪一下。每个树种在所有方案和年份里颜色固定（每个文件排名一次），图表、结果面板和 3D 一致。旧的导出文件照常打开。在无头 Edge 里用上面的导出文件验证：没有脚本错误。
-- [ ] **实测：** 安装（关闭 Revit）、跑 Tree Calculator（重算旧的预测）、Export JSON、在网页 Dashboard 里打开。
+- [x] **网页 Dashboard（LandscapeCoBenefitsDashboard，2026-10-25 起在 GitHub Pages 上）：** 跟随方案和生长年份的 "3D site" 面板（three.js 从 jsDelivr 加载，只有带 scene 的文件才会下载），以及用表格规范（泳道）的结果面板：按树种列树，按景观类型列种植区，选中的行会筛选 3D；点击树或种植区会显示信息卡片并让对应的行闪一下。每个树种在所有方案和年份里颜色固定（每个文件排名一次），图表、结果面板和 3D 一致。旧的导出文件照常打开。在无头 Edge 里用上面的导出文件验证：没有脚本错误。
+- [x] **已实测（2026-10-25）：** 安装后的 connector 给出 930 棵树、51 块 floor（23 块带洞）；Tree Calculator 重算了旧的预测；网页 Dashboard 的示例就是 sandbox 的实时导出。
+- [x] **按 Revit 视图过滤器上色（v1.8.0，schema 10，你的决定：用 Revit 当前值、扫描所有视图、floor 的 "Use" 颜色也做）：** connector 读取所有用启用且可见的过滤器给树或 floor 上色的视图（`SceneColourSchemeReader`），由 Revit 自己判断每个元素命中哪个过滤器（`PassesFilter`，按视图里的过滤器顺序取第一个），所以无论规则怎么写，3D 的颜色都和视图完全一致。图例标签来自规则：单个数值的分段（"4–8"、"≥ 24"，用项目的显示单位，年度数值加 "/yr"；普通数字参数用过滤器名称结尾的单位），过滤器等于的文字，否则用过滤器名称。上色方式相同的视图只算一次，用图纸上最短的名字（"O2"，不是 "Habitat O2"）。网页上有 **Colour by** 下拉、带数量的图例（点击可筛选 3D，Shift+点击选一段），信息卡片显示元素的数值。sandbox 上：0.2 秒读出 12 套配色，包括 O2、CO2、Avoided water、Pollution、四个种植区速率和 connectivity 热力图。3D Aerial View 的 floor "Use" 过滤器目前不给任何元素上色——所有 floor 的 `*Use` 都是空的——等 floor 填了 Use 就会出现。Connector 改动：需要下次安装（关闭 Revit）；示例数据是通过 pyRevit 运行新读取器生成的。
 - [ ] Dashboard 没有明显的新建方案入口（只能在未保存的方案上点 Edit…）：加一个 "+ New scenario…"。
 
 ## 族里的树木生长（进行中）
