@@ -14,6 +14,8 @@ LIM（Landscape Information Manager）的计划、已完成的工作，以及修
 - **KPI Schedules 在有生长年份时按 workset 给种植明细表分组**，每年一个小计，这样一棵树不会每个生长年份都被计一次。（从 Phase 3 起，再次运行 KPI Schedules 会把新增的列加到已有明细表里；只有要改分组时才需要删掉明细表。）
 - Dashboard 卡片计入种植区（Airtable）的碳、径流、污染物和节省费用。BNG 标签不再重复显示两次 "primary"。
 
+**v1.10.0**（2026-10-26 推送到 `roadmap-phases-2-5` 和 `main`，尚未发布）：Dashboard 的 Filters & Scope 栏改成两排，**Refresh model** 始终看得见（以前藏在滚动条后面）。物候表更清爽：每个月的季相底色淡了很多，标记只用黑白两色：开花月份是白色花朵，结果月份是实心形状，形状代表果实类型；鼠标悬停在月份上会显示颜色名称。网页 Dashboard 同步更新。
+
 **v1.9.2**（2026-10-26 推送到 `roadmap-phases-2-5`，尚未发布）：没有保存过景观数据表来源的项目，现在改读团队一直在更新的 **LIM-DATASET**。以前读的是旧的 "LIM" base，它已经过时。已经保存过来源的项目（sandbox、LIM Project 模板）不受影响。
 
 **v1.9.1**（2026-10-26 推送到 `roadmap-phases-2-5`，尚未发布）：没有代码改动。供在另一台电脑上接手工作的 agent 说明（`AGENTS.md`、`HANDOFF.md`）现在写明：提交、推送和发布网页 Dashboard 都要等用户同意。

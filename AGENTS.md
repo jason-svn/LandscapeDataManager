@@ -26,7 +26,7 @@ the work up; like every commit, it happens only when the user says so.
   `WWP.LandscapeDataManager.{RevitPID}`); 11 WinUI 3 tool exes `src/WWP.LandscapeDataManager.App.*`;
   shared code `src/WWP.LandscapeDataManager.Shared`; pipe contracts
   `src/WWP.LandscapeDataManager.Contracts/PipeProtocol.cs`.
-- Tests: `dotnet test tests/WWP.LandscapeDataManager.Tests` (566 pass at v1.9.2).
+- Tests: `dotnet test tests/WWP.LandscapeDataManager.Tests` (566 pass at v1.10.0).
 - One tool: `dotnet build src/WWP.LandscapeDataManager.App.<Name>`.
 - Deploy everything: `./Install-Addin.ps1`. It needs Revit 2025 installed, and Revit must be closed
   (Revit locks the connector DLL). Check with `tasklist /FI "IMAGENAME eq Revit.exe"` (exact match:
@@ -37,7 +37,7 @@ the work up; like every commit, it happens only when the user says so.
 
 ## Versions and releases
 
-- Every push: bump `<Version>` in `Directory.Build.props` first. Minor by default (1.9.2 → 1.10.0),
+- Every push: bump `<Version>` in `Directory.Build.props` first. Minor by default (1.10.0 → 1.11.0),
   patch for a fix-only push. Add a version line to both ROADMAP files.
 - Releases go out from `main` (fast-forwarded from `roadmap-phases-2-5`): tag, GitHub release with
   the `Package-Addin.ps1` zip and `Shared_Parameters_WWP.txt`. Only when the user asks.

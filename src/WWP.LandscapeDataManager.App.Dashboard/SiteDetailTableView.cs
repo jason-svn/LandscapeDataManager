@@ -120,13 +120,13 @@ internal static class SiteDetailTableView
         return row;
     }
 
-    /// <summary>A cell with a look: its tint behind (a translucent fill, so it reads in either theme), its marks, then its text.</summary>
+    /// <summary>A cell with a look: its tint behind (a light translucent fill, so it reads in either theme and stays quiet), its marks, then its text.</summary>
     private static FrameworkElement Cell(SiteDetailCellLook look, TextBlock text, SiteDetailAlign align)
     {
         var cell = new Grid { Background = new SolidColorBrush(Colors.Transparent) };
         if (Colour(look.Background) is { } background)
         {
-            cell.Children.Add(new Border { Background = new SolidColorBrush(background) { Opacity = 0.5 }, CornerRadius = new CornerRadius(4), Margin = new Thickness(1, -4, 1, -4) });
+            cell.Children.Add(new Border { Background = new SolidColorBrush(background) { Opacity = 0.18 }, CornerRadius = new CornerRadius(4), Margin = new Thickness(1, -4, 1, -4) });
         }
 
         var content = new StackPanel
@@ -159,12 +159,13 @@ internal static class SiteDetailTableView
     /// <summary>
     /// A flower (five petals) or a kind of fruit, its shape telling which: a round berry, drupe, pome
     /// or fig, an upright nut or acorn, a samara's diamond, a cone's triangle, a pod or capsule's
-    /// bar, a catkin's stem, a seed head's star. Outlined so a white or pale colour still shows.
+    /// bar, a catkin's stem, a seed head's star. Black and white only, so the marks stay calm over
+    /// the season tints: a white flower outlined in the text colour, the fruit solid in it. The
+    /// plant's colours are named in the cell's tooltip.
     /// </summary>
     private static FrameworkElement Mark(SiteDetailMark mark)
     {
-        var fill = new SolidColorBrush(Colour(mark.Colour) ?? Colors.Gray);
-        var outline = Brush("LimLaneGreyTextBrush");
+        var ink = Brush("TextFillColorPrimaryBrush");
         Shape shape = mark.Kind switch
         {
             SiteDetailMark.FlowerKind => new Microsoft.UI.Xaml.Shapes.Path { Data = Flower(), Width = 13, Height = 13 },
@@ -176,9 +177,17 @@ internal static class SiteDetailTableView
             "Seed head" => new Polygon { Points = Star(), Width = 12, Height = 12 },
             _ => new Ellipse { Width = 10, Height = 10 }
         };
-        shape.Fill = fill;
-        shape.Stroke = outline;
-        shape.StrokeThickness = 0.9;
+        if (mark.Kind == SiteDetailMark.FlowerKind)
+        {
+            shape.Fill = new SolidColorBrush(Colors.White);
+            shape.Stroke = ink;
+            shape.StrokeThickness = 0.9;
+        }
+        else
+        {
+            shape.Fill = ink;
+        }
+
         shape.VerticalAlignment = VerticalAlignment.Center;
         return shape;
     }

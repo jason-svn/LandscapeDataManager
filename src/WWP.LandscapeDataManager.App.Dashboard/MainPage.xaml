@@ -161,17 +161,20 @@
         <Border Grid.Row="1" Margin="0,14,0,4" Style="{StaticResource LimCardStyle}" Padding="16,12">
             <StackPanel Spacing="8">
                 <TextBlock Text="FILTERS &amp; SCOPE" Style="{StaticResource KpiEyebrowStyle}" />
+                <!-- Two rows so nothing hides behind a scrollbar: what to count on top, how to show it
+                (units, growth year) and Refresh model below. Scrolls only in a very narrow window. -->
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
-                    <Grid ColumnSpacing="10" MinWidth="1500" Margin="0,0,0,20">
+                    <Grid ColumnSpacing="10" RowSpacing="12" MinWidth="1000" Margin="0,0,0,12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="135" />
+                            <ColumnDefinition Width="150" />
                             <ColumnDefinition Width="320" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="145" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="150" />
-                            <ColumnDefinition Width="280" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <ComboBox x:Name="ScopeBox" Header="Model scope" SelectedIndex="0" HorizontalAlignment="Stretch">
                             <ComboBoxItem Content="Whole model" />
@@ -192,21 +195,22 @@
                             <ComboBoxItem Content="All levels" />
                         </ComboBox>
                         <TextBox Grid.Column="4" x:Name="SpeciesSearchBox" Header="Species filter" PlaceholderText="Code or common name" TextChanged="SpeciesSearchBox_TextChanged" />
-                        <ComboBox Grid.Column="5" x:Name="UnitSystemBox" Header="Display units" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="UnitSystemBox_SelectionChanged">
+                        <ComboBox Grid.Row="1" Grid.Column="0" x:Name="UnitSystemBox" Header="Display units" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="UnitSystemBox_SelectionChanged">
                             <ComboBoxItem Content="Project default" />
                             <ComboBoxItem Content="Metric" />
                             <ComboBoxItem Content="Imperial" />
                         </ComboBox>
                         <!-- One stop per growth year, like the web dashboard's slicer. Stops come from the
                         model's growth-year worksets (see GrowthYears), else the standard 5-25 outlook. -->
-                        <StackPanel Grid.Column="6" Spacing="0" ToolTipService.ToolTip="Growth year: trees on that year's workset (plus trees on no growth-year workset), with outlook totals over that many years.">
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="0" ToolTipService.ToolTip="Growth year: trees on that year's workset (plus trees on no growth-year workset), with outlook totals over that many years.">
                             <TextBlock x:Name="GrowthYearHeaderText" Text="Growth year" Margin="0,0,0,4" />
                             <Slider x:Name="GrowthYearSlider" Minimum="0" Maximum="4" StepFrequency="1" TickFrequency="1" TickPlacement="None"
                                 SnapsTo="StepValues" IsThumbToolTipEnabled="False" Margin="8,0,8,0"
                                 AutomationProperties.Name="Growth year" ValueChanged="GrowthYearSlider_ValueChanged" />
                             <Grid x:Name="GrowthYearTicks" Margin="0,-6,0,0" />
                         </StackPanel>
-                        <Button Grid.Column="7" Click="Refresh_Click" Style="{StaticResource LimPrimaryButtonStyle}" VerticalAlignment="Bottom">
+                        <Button Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="3" Click="Refresh_Click" Style="{StaticResource LimPrimaryButtonStyle}"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <TextBlock Text="&#8635;" FontSize="14" />
                                 <TextBlock Text="Refresh model" />

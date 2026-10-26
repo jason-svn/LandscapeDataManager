@@ -12,6 +12,8 @@ Not released yet (branch `dashboard-include-floors`):
 - **KPI Schedules group the planting schedule by workset** when growth years exist, with a subtotal per year, so a tree isn't counted once per growth year. (Since Phase 3, running KPI Schedules again adds newer columns to existing schedules; delete one only to change its grouping.)
 - Dashboard cards include planting-area (Airtable) carbon, runoff, pollution and cost. BNG labels no longer say "primary" twice.
 
+**v1.10.0** (pushed 2026-10-26 on `roadmap-phases-2-5` and `main`, not released yet): the Dashboard's Filters & Scope bar sits in two rows, so **Refresh model** is always in sight (it used to hide past a scrollbar). The year-at-a-glance table is calmer: each month's season tint is much lighter, and the marks are black and white only, a white flower for the months in flower and a solid shape for the fruit, its kind told by the shape; the colours are named when you hover a month. The web dashboard matches.
+
 **v1.9.2** (pushed 2026-10-26 on `roadmap-phases-2-5`, not released yet): a project that hasn't saved its own landscape data sheet source now reads **LIM-DATASET**, the sheet the team keeps up to date. It used to read the older "LIM" base, which is out of date. Projects that saved a source (the sandbox, the LIM Project template) are unchanged.
 
 **v1.9.1** (pushed 2026-10-26 on `roadmap-phases-2-5`, not released yet): no code change. The agent notes for picking up work on another PC (`AGENTS.md`, `HANDOFF.md`) now say plainly that commits, pushes and publishing the web dashboard wait for the user.

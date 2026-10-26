@@ -3,8 +3,8 @@
 ## Setting up on another PC
 
 1. Clone these repos side by side:
-   - `jason-svn/LandscapeDataManager`, branch `roadmap-phases-2-5` (v1.9.2).
-   - `jason-svn/LandscapeCoBenefitsDashboard`, branch `handoff-2026-10-26`.
+   - `jason-svn/LandscapeDataManager`, branch `roadmap-phases-2-5` (v1.10.0; `main` is the same).
+   - `jason-svn/LandscapeCoBenefitsDashboard`, branch `master` (the live site).
    - `jason-svn/LIM-agent-context` (private): Claude's working notes on the user's rules and past
      decisions, plus scratch tools (export harness for the web sample, headless web test, Revit
      template scripts). Read its `README.md` when you need more than this file.
@@ -24,12 +24,20 @@
 
 ## Where things stand
 
-- **LIM v1.9.2** is pushed on `roadmap-phases-2-5` but not released. It builds and all 566 tests
-  pass. It has **not been installed or tried in Revit**: Revit was open, so the connector couldn't
-  be deployed.
-- **Web dashboard**: branch `handoff-2026-10-26` holds commit `462a07e` (3D across the panel, result
-  board under it) and the phenology panel with the sample. **`master` (the live GitHub Pages site)
-  is unchanged.** Merge to `master` only when the user asks.
+- **LIM v1.10.0** is pushed on `roadmap-phases-2-5` and `main`, not released. It builds and all
+  566 tests pass.
+- **Installed on the user's main PC on 2026-10-26** (v1.9.2, plus the v1.10.0 Dashboard). The user
+  added the 8 plant-colour params and synced the sandbox from Airtable: 10 tree types have bloom
+  months and colours, 9 have fruit months. The desktop phenology table shows them.
+- **Web dashboard** (`master`, live on GitHub Pages): stacked 3D layout, the phenology panel with
+  black-and-white marks, and the sample fetched fresh each time. The sample is still schema 10, so
+  the phenology panel stays hidden until a schema 11 sample replaces it.
+
+## What v1.10.0 adds
+
+- The Dashboard's Filters & Scope bar is in two rows; Refresh model is always visible.
+- The phenology table (desktop and web) uses light season tints and black-and-white marks; the
+  colours are named in each month's tooltip.
 
 ## What v1.9.0 adds (v1.9.1 and v1.9.2 changed only these notes and the default sheet source)
 
@@ -60,18 +68,19 @@
 
 ## Next steps, in order
 
-1. On the PC with Revit: close Revit and run `./Install-Addin.ps1` (connector plus every tool; the
-   window titles should say 1.9.2).
-2. In Revit: in the LIM Parameters tool, add the 8 plant-colour params; in the Importer, sync from
-   Airtable; check the desktop Dashboard phenology table.
-3. Check the currency conversion in a USD project. The Importer should turn a maintenance cost of
+1. On the PC with Revit, when Revit is closed: run `./Install-Addin.ps1` so every tool says 1.10.0
+   (only the Dashboard has the v1.10.0 changes so far).
+2. Check the currency conversion in a USD project. The Importer should turn a maintenance cost of
    "£20.00" into about 26.7 USD and show the rate in the row message. Floor Calculator's cost saved
    should convert too.
-4. Re-export the web sample (schema 11) from the Dashboard into
+3. Re-export the web sample (schema 11) from the Dashboard into
    `LandscapeCoBenefitsDashboard/sample-data/example-export.json` (it is schema 10 now), then check
    the web phenology panel with the new colours.
-5. Only when the user asks: merge the web branch into `master` (this publishes the site), and
-   release LIM.
+4. Offered, not decided: count the bloom months of planting areas (floors such as Meadow and
+   Raingarden) too. Today "Bloom months covered" reads trees only, so the existing site (floors
+   only) shows 0 / 12. It needs the bloom param bound to Floors, the Importer to fill it and the
+   Dashboard to merge it.
+5. Only when the user asks: release LIM.
 
 ## Airtable
 

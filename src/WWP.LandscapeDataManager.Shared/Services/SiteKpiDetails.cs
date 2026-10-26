@@ -220,9 +220,10 @@ public static class SiteKpiDetails
     private const string DefaultFruitColour = "#8C6B4A";
 
     /// <summary>
-    /// Each species' year at a glance: every month tinted with its colour that season, a flower in
-    /// the flowers' colour in the months it's in flower, and its kind of fruit in the fruit's colour
-    /// in the months it carries ripe fruit or seed (<see cref="PlantAppearance"/>).
+    /// Each species' year at a glance: every month lightly tinted with its colour that season, a
+    /// flower in the months it's in flower, and its kind of fruit in the months it carries ripe fruit
+    /// or seed (<see cref="PlantAppearance"/>). The marks keep the plant's colours for the tooltip;
+    /// the table draws them in black and white.
     /// </summary>
     private static SiteDetailTable Phenology(string title, SiteKpiDetailInputs inputs)
     {
@@ -260,8 +261,8 @@ public static class SiteKpiDetails
         bool Active(int month) => species.Any(entry => entry.Flowers.Contains(month) || entry.Fruit.Contains(month));
         var covered = Enumerable.Range(1, 12).Count(Active);
         return new SiteDetailTable("Phenology", title,
-            $"Months in which at least one species is in flower or carries ripe fruit or seed: {covered} of 12. Each month is tinted with the species' colour that season; " +
-            "the flower mark is in the flowers' colour, the fruit mark (its shape the kind of fruit) in the fruit's. Hover a month for its colours. " +
+            $"Months in which at least one species is in flower or carries ripe fruit or seed: {covered} of 12. Each month is lightly tinted with the species' colour that season; " +
+            "a white flower marks the months in flower, a black shape the months in fruit (the shape tells the kind of fruit). Hover a month for its colours. " +
             "From the WWP sheet: Bloom_Months, Fruit_Months, Flower_Colour, Fruit_Colour, Fruit_Type and Spring/Summer/Autumn/Winter_Colour.",
             [
                 new(null, null, [SpeciesColumn, CountColumn("Trees")]),
